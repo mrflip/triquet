@@ -17,24 +17,27 @@ import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../mode
  * questions played; then `Bbjank.toBbjank`, which writes only what it knows, is the last step.
  *
  * The default template reads only what every template reads -- `{{#qns}}`, each question's own
- * fields and its columns by label -- and plain mustache, so an author can see where each line comes
- * from and change any of it. What an author wrote, set into a place where markdown's structure is
- * fragile, can change that structure: a clueing's second line can leave the quote its first line
- * opened, a blank line in an answer breaks its spoiler. A column can reshape a field for its place,
- * and the recap bag still carries `played`, the questions the recap covers with each of their own
+ * fields and its columns by label -- plain mustache and the template helpers, so an author can see
+ * where each line comes from and change any of it. What an author wrote, set into a place where
+ * markdown's structure is fragile, can change that structure: a clueing's second line can leave
+ * the quote its first line opened, a blank line in an answer breaks its spoiler. The helpers
+ * (`{{#quote}}`, `{{#oneline}}`, `{{#apart}}`) reshape a field for its place, and the recap bag still carries `played`, the questions the recap covers with each of their own
  * fields pre-shaped for those places (`quoted.clueing`, `oneline.full_answer`, `below.recap`), for
  * a template of the quiz's own to read.
  */
 
 /**
  * The recap template every quiz follows until it is given one of its own, written with nothing
- * but what every template reads and plain mustache: the recap head, a rule, then each question
- * (`{{#qns}}`, in the quiz's own order) that has a rank -- a Q#, and not archived -- its rank and
- * clueing quoted under its Q-number, with its own hint after `...OR ELSE...` when it has one; its
- * answer behind a spoiler; the `correct_pct` column; its recap -- then the recap tail. The rule
- * under the head is `***`: a `---` straight under it would make the head's last line a heading.
- * Inside a section on a field (`{{#rank}}`, `{{#hint}}`) that field is the context, and the
- * question's other fields are found on the question below it.
+ * but what every template reads, plain mustache and the template helpers
+ * (`Templating.Helpers`): the recap head, a rule, then each question (`{{#qns}}`, in the quiz's
+ * own order) that has a rank -- a Q#, and not archived -- its rank and clueing quoted under its
+ * Q-number, with its own hint after `...OR ELSE...` when it has one; its answer behind a spoiler;
+ * the `correct_pct` column; its recap -- then the recap tail. The rule under the head is `***`: a
+ * `---` straight under it would make the head's last line a heading. Inside a section on a field
+ * (`{{#rank}}`, `{{#hint}}`) that field is the context, and the question's other fields are found
+ * on the question below it. `{{#quote}}` keeps every line of the clueing and hint in its quote,
+ * `{{#oneline}}` keeps the answer in its spoiler, `{{#apart}}` keeps a recap opening `---` from
+ * making the lines above it a heading.
  */
 export const DefaultTemplate = `
 {{#recap_head}}
@@ -46,17 +49,17 @@ export const DefaultTemplate = `
 {{#qns}}
 {{! Only the questions with a rank: those with a Q#, and not archived. }}
 {{#rank}}
-> {AS: Q{{rank}}}{{rank}}. {{clueing}}
+> {AS: Q{{rank}}}{{rank}}. {{#quote}}{{clueing}}{{/quote}}
 {{#hint}}
 >
 > ...OR ELSE...
 >
-> {{hint}}
+> {{#quote}}{{hint}}{{/quote}}
 {{/hint}}
 
-Answer: {{#full_answer}}~~**{{full_answer}}**~~{{/full_answer}}
+Answer: {{#full_answer}}~~**{{#oneline}}{{full_answer}}{{/oneline}}**~~{{/full_answer}}
 Correct Answer %: {{correct_pct}}
-{{recap}}
+{{#apart}}{{recap}}{{/apart}}
 
 {{/rank}}
 {{/qns}}

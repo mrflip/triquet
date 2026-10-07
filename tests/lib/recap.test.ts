@@ -19,17 +19,11 @@ function questionWith(patch: Partial<QuestionT>): QuestionT {
 }
 
 /**
- * The JSONata formulas that close the default template's gaps, each a column a quiz adds and its
- * own template names in place of the bare field: what `human/20261007-recap_template.md` hands an
+ * The JSONata formulas that close the default template's gaps the template helpers do not, each a
+ * column a quiz adds and its own template names: what `human/20261007-recap_template.md` hands an
  * author, held here to what it says it does.
  */
 const Recipes = {
-  /** A field to follow a `> `: every line after the first opens `> `, and a four-space indent reads as a quote within it */
-  quoted:     (field: string) => String.raw`$join($map($split(qn.${field}, '\n'), function($line) { $replace($line, /^ {4}/, '> ') }), '\n> ')`,
-  /** The answer on one line: each line trimmed, the blank ones dropped, the rest joined by a space */
-  answerLine: String.raw`$join($split(qn.full_answer, '\n').$trim($)[$ != ''], ' ')`,
-  /** The recap, set a blank line apart when it opens with a line that would make the line above a heading */
-  recapBelow: String.raw`$contains(qn.recap, /^ {0,3}(-+|=+)[ \t]*(\n|$)/) ? '\n' & qn.recap : qn.recap`,
   /** For the whole quiz: the questions with a rank, in rank order, each numbered from 1; a list, even of one or none */
   inOrder:    "[$map(qns[$type(rank) = 'number']^(rank), function($qn, $idx) { $merge([$qn, { 'number': $idx + 1 }]) })]",
   /** An author's own line in place of the Correct Answer line, reading the correct_pct column */
@@ -40,10 +34,6 @@ const Recipes = {
 const Library = [
   Widget.fill({ label: 'authors', formulary: 'entry', config: { entry_kind: 'text' } }),
   Widget.fill({ label: 'tallies', formulary: 'entry', config: { entry_kind: 'number' } }),
-  Widget.fill({ label: 'quoted_clueing', formulary: 'jsonata', formula: Recipes.quoted('clueing') }),
-  Widget.fill({ label: 'quoted_hint', formulary: 'jsonata', formula: Recipes.quoted('hint') }),
-  Widget.fill({ label: 'answer_line', formulary: 'jsonata', formula: Recipes.answerLine }),
-  Widget.fill({ label: 'recap_below', formulary: 'jsonata', formula: Recipes.recapBelow }),
   Widget.fill({ label: 'in_order', formulary: 'jsonata', formula: Recipes.inOrder }),
   Widget.fill({ label: 'solved_by', formulary: 'jsonata', formula: Recipes.solvedBy }),
 ]
@@ -51,9 +41,8 @@ const Library = [
 /** The widgeting a quiz's correct-answer shares are typed into */
 const CorrectPct = Widgeting.fill({ label: 'correct_pct', widget_label: 'tallies' })
 
-/** A widgeting of each recipe's widget, labelled as it is: the quiz-wide `in_order` last, below the questions */
+/** The quiz-wide `in_order` widgeting, below the questions */
 const RecipeWidgetings = [
-  ...['quoted_clueing', 'quoted_hint', 'answer_line', 'recap_below'].map((label) => Widgeting.fill({ label, widget_label: label })),
   Widgeting.fill({ label: 'in_order', widget_label: 'in_order', tier: 'quiz' }),
 ]
 
@@ -72,10 +61,6 @@ const ClosingTemplate = swapped(Recap.DefaultTemplate.replaceAll('{{rank}}', '{{
   ['***\n', '{{#quiz.in_order.value.0}}\n***\n{{/quiz.in_order.value.0}}\n'],
   ['{{#qns}}\n', '{{#quiz.in_order.value}}\n'],
   ['{{/qns}}', '{{/quiz.in_order.value}}'],
-  ['{{clueing}}', '{{quoted_clueing}}'],
-  ['> {{hint}}', '> {{quoted_hint}}'],
-  ['**{{full_answer}}**', '**{{answer_line}}**'],
-  ['{{recap}}', '{{recap_below}}'],
 ])
 
 /** A quiz of `questions` and nothing else, its recap head and tail as given */
@@ -96,11 +81,6 @@ function recapOf(quiz: QuizT): string {
 /** The recap of a quiz holding one question, `Who?` unless patched */
 function recapOfOne(patch: Partial<QuestionT>, quizPatch: Partial<QuizT> = {}): string {
   return recapOf(quizOf([questionWith({ qnum: '1', clueing: 'Who?', ...patch })], quizPatch))
-}
-
-/** The recap of a quiz holding one question, `Who?` unless patched, by the template reading every recipe's column */
-function closedOfOne(patch: Partial<QuestionT>): string {
-  return recapOfOne(patch, { widgetings: RecipeWidgetings, recap_template: ClosingTemplate })
 }
 
 const hamilton = questionWith({ title: 'Ham', qnum: '1', clueing: 'Who?', full_answer: 'HAMILTON' })
@@ -125,13 +105,14 @@ function everythingQuiz(patch: Partial<QuizT> = {}): QuizT {
 
 /**
  * The everything quiz's note by the default template, which reads only what every template reads.
- * Its gaps show: the questions in the quiz's own order; Q2's templated clueing as typed; Q1's
- * indented verse closing its quote, so its OR ELSE hint falls outside it.
+ * Its gaps show: the questions in the quiz's own order; Q2's templated clueing as typed. The
+ * template helpers keep Q1's indented verse and its OR ELSE hint within its quote, and Q3's
+ * two-line answer on one line within its spoiler.
  */
-const EverythingNote = "The recap of [i]Recapped[/i].\n\nThanks to all.\n----------------------------------------\n\n[quote=\"Q3\"]3. [b]What name[/b] will be borne by CVN-80?\nIt is storied.\n\n...OR ELSE...\n\nTubbs' Ferrari-driving partner[/quote]\n\nAnswer: [spoiler][b]ENTERPRISE\n(USS ENTERPRISE)[/b][/spoiler]\nCorrect Answer %: 76\n\n[quote=\"Q2\"]2. By {{qn.author}}, a ~50 year [spoiler]old[/spoiler] thing.[/quote]\n\nAnswer: [spoiler][b]ADA[/b][/spoiler]\nCorrect Answer %:\n\n[quote=\"Q1\"]1. Who wrote\n[i]verse[/i][/quote]\n[list]...OR ELSE...\n\nNot [i]the[/i] one\nof the stage[/list]\n\nAnswer: [spoiler][b](WILLIAM ROWAN) HAMILTON[/b][/spoiler]\nCorrect Answer %:\nEveryone got it.\n\nSee [url=https://ex.com/a.png]the image[/url].\n\nSee you next season."
+const EverythingNote = "The recap of [i]Recapped[/i].\n\nThanks to all.\n----------------------------------------\n\n[quote=\"Q3\"]3. [b]What name[/b] will be borne by CVN-80?\nIt is storied.\n\n...OR ELSE...\n\nTubbs' Ferrari-driving partner[/quote]\n\nAnswer: [spoiler][b]ENTERPRISE (USS ENTERPRISE)[/b][/spoiler]\nCorrect Answer %: 76\n\n[quote=\"Q2\"]2. By {{qn.author}}, a ~50 year [spoiler]old[/spoiler] thing.[/quote]\n\nAnswer: [spoiler][b]ADA[/b][/spoiler]\nCorrect Answer %:\n\n[quote=\"Q1\"]1. Who wrote\n[list][i]verse[/i][/list]\n\n...OR ELSE...\n\nNot [i]the[/i] one\nof the stage[/quote]\n\nAnswer: [spoiler][b](WILLIAM ROWAN) HAMILTON[/b][/spoiler]\nCorrect Answer %:\nEveryone got it.\n\nSee [url=https://ex.com/a.png]the image[/url].\n\nSee you next season."
 
 describe('Recap.noteOf, by the default template', () => {
-  it('writes the everything quiz with nothing but its fields, its columns and plain mustache', () => {
+  it('writes the everything quiz with nothing but its fields, its columns, plain mustache and the template helpers', () => {
     expect(noteOf(everythingQuiz())).to.deep.eq({ bbjank: EverythingNote, issue: null })
   })
 
@@ -285,7 +266,7 @@ describe('Recap.noteOf, by the default template', () => {
 })
 
 describe("The default template's gaps, and the columns that close them", () => {
-  it('writes the everything quiz as the shaped values did, but for the templated clueing, by a column for each gap', () => {
+  it('writes the everything quiz as the shaped values did, but for the templated clueing, by the helpers and a quiz-wide list', () => {
     const note = recapOf(everythingQuiz({ widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' }), CorrectPct, ...RecipeWidgetings], recap_template: ClosingTemplate }))
     expect(note).to.eq("The recap of [i]Recapped[/i].\n\nThanks to all.\n----------------------------------------\n\n[quote=\"Q1\"]1. Who wrote\n[list][i]verse[/i][/list]\n\n...OR ELSE...\n\nNot [i]the[/i] one\nof the stage[/quote]\n\nAnswer: [spoiler][b](WILLIAM ROWAN) HAMILTON[/b][/spoiler]\nCorrect Answer %:\nEveryone got it.\n\nSee [url=https://ex.com/a.png]the image[/url].\n\n[quote=\"Q2\"]2. By {{qn.author}}, a ~50 year [spoiler]old[/spoiler] thing.[/quote]\n\nAnswer: [spoiler][b]ADA[/b][/spoiler]\nCorrect Answer %:\n\n[quote=\"Q3\"]3. [b]What name[/b] will be borne by CVN-80?\nIt is storied.\n\n...OR ELSE...\n\nTubbs' Ferrari-driving partner[/quote]\n\nAnswer: [spoiler][b]ENTERPRISE (USS ENTERPRISE)[/b][/spoiler]\nCorrect Answer %: 76\n\nSee you next season.")
   })
@@ -308,41 +289,34 @@ describe("The default template's gaps, and the columns that close them", () => {
     expect(closed).to.match(/^\[quote="Q1"\]1\. First\[\/quote\][^]*\[quote="Q2"\]2\. Third\[\/quote\]/)
     expect(closed).not.to.contain('Put away')
   })
+})
 
-  it("lets a clueing's indented verse run into its first line, and a later paragraph leave its quote, and keeps both within by a column", () => {
+describe("The default template's gaps the template helpers close", () => {
+  it("keeps a clueing's indented verse and a later paragraph within its quote, by quote", () => {
     const clueing = 'Who wrote\n    *verse*\n\n[Click here](https://ex.com/a.png)'
-    expect(recapOfOne({ clueing })).to.match(/^\[quote="Q1"\]1\. Who wrote\n\[i\]verse\[\/i\]\[\/quote\]\n\n\[url=https:\/\/ex\.com\/a\.png\]Click here\[\/url\]\n/)
-    expect(closedOfOne({ clueing })).to.match(/^\[quote="Q1"\]1\. Who wrote\n\[list\]\[i\]verse\[\/i\]\[\/list\]\n\n\[url=https:\/\/ex\.com\/a\.png\]Click here\[\/url\]\[\/quote\]/)
+    expect(recapOfOne({ clueing })).to.match(/^\[quote="Q1"\]1\. Who wrote\n\[list\]\[i\]verse\[\/i\]\[\/list\]\n\n\[url=https:\/\/ex\.com\/a\.png\]Click here\[\/url\]\[\/quote\]/)
   })
 
-  it('lets a line under a clueing that would make it a heading close its quote, and keeps it within by a column', () => {
+  it('keeps a line under a clueing that would make it a heading within its quote, by quote', () => {
     const clueing = 'Who?\n---\n# Not a heading'
-    expect(recapOfOne({ clueing })).to.match(/^\[quote="Q1"\]1\. Who\?\[\/quote\]\n-{40}\n\[b\]Not a heading\[\/b\]\n/)
-    expect(closedOfOne({ clueing })).to.match(/^\[quote="Q1"\]\[b\]1\. Who\?\[\/b\]\n\[b\]Not a heading\[\/b\]\[\/quote\]\n\nAnswer:/)
+    expect(recapOfOne({ clueing })).to.match(/^\[quote="Q1"\]\[b\]1\. Who\?\[\/b\]\n\[b\]Not a heading\[\/b\]\[\/quote\]\n\nAnswer:/)
   })
 
-  it("lets a hint's later lines leave its quote, and keeps them within by a column", () => {
+  it("keeps a hint's later lines within its quote, by quote", () => {
     const hint = 'Not him\n---\n# Nor her'
-    expect(recapOfOne({ hint })).to.match(/^\[quote="Q1"\]1\. Who\?\n\n\.\.\.OR ELSE\.\.\.\n\nNot him\[\/quote\]\n-{40}\n\[b\]Nor her\[\/b\]\n/)
-    expect(closedOfOne({ hint })).to.match(/^\[quote="Q1"\]1\. Who\?\n\n\.\.\.OR ELSE\.\.\.\n\n\[b\]Not him\[\/b\]\n\[b\]Nor her\[\/b\]\[\/quote\]\n\nAnswer:/)
+    expect(recapOfOne({ hint })).to.match(/^\[quote="Q1"\]1\. Who\?\n\n\.\.\.OR ELSE\.\.\.\n\n\[b\]Not him\[\/b\]\n\[b\]Nor her\[\/b\]\[\/quote\]\n\nAnswer:/)
   })
 
-  it('lets a blank line in an answer break its spoiler open, and folds it onto one line by a column', () => {
-    const full_answer = 'HAMILTON\n\n(accept ROWAN)\n'
-    expect(recapOfOne({ full_answer })).to.contain('Answer: ~~**HAMILTON\n\n(accept ROWAN)\n**~~')
-    expect(closedOfOne({ full_answer })).to.contain('Answer: [spoiler][b]HAMILTON (accept ROWAN)[/b][/spoiler]')
+  it('keeps an answer with a blank line inside its spoiler, by oneline', () => {
+    expect(recapOfOne({ full_answer: 'HAMILTON\n\n(accept ROWAN)\n' })).to.contain('Answer: [spoiler][b]HAMILTON (accept ROWAN)[/b][/spoiler]')
   })
 
-  it("lets an answer's second line open a list, and folds it onto one line by a column", () => {
-    const full_answer = '- HAMILTON\n- ALEX'
-    expect(recapOfOne({ full_answer })).to.contain('[list]\n[*] ALEX**~~')
-    expect(closedOfOne({ full_answer })).to.contain('Answer: [spoiler][b]- HAMILTON - ALEX[/b][/spoiler]')
+  it("keeps an answer's second line from opening a list, by oneline", () => {
+    expect(recapOfOne({ full_answer: '- HAMILTON\n- ALEX' })).to.contain('Answer: [spoiler][b]- HAMILTON - ALEX[/b][/spoiler]')
   })
 
-  it('lets a recap opening with a rule make the Correct Answer line a heading, and sets it apart by a column', () => {
-    const recap = '---\nAfter.'
-    expect(recapOfOne({ recap })).to.match(/\[b\]Answer:\nCorrect Answer %:\[\/b\]\nAfter\.$/)
-    expect(closedOfOne({ recap })).to.match(/\nCorrect Answer %:\n\n-{40}\nAfter\.$/)
+  it('keeps a recap opening with a rule from making the Correct Answer line a heading, by apart', () => {
+    expect(recapOfOne({ recap: '---\nAfter.' })).to.match(/\nCorrect Answer %:\n\n-{40}\nAfter\.$/)
   })
 })
 

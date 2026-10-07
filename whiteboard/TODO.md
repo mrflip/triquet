@@ -188,9 +188,11 @@ should still do. The gap list, with a JSONata column for each gap one can close,
   `archived` beside an alternate flag closes both.
 * **A templated field reads as typed in `qns`**: mustache never fills a value in again, and JSONata
   cannot fill a template. The recap bag's `qns` could carry them filled, as `played` does.
-* If the recipes stay recipes, they could ship as library widgets (`quoted`, `answer_line`,
-  `recap_below`, `in_order`), or a mustache lambda be allowed for shaping; or `played` and its
-  shaped values could be named in the panel and kept. The Coach's call.
+* ~~If the recipes stay recipes, they could ship as library widgets (`quoted`, `answer_line`,
+  `recap_below`, `in_order`), or a mustache lambda be allowed for shaping~~ *Thread 17: the
+  template helpers `{{#quote}}`, `{{#oneline}}`, `{{#apart}}` close the shaping gaps in the
+  default.* Left: `in_order` as a library widget, or not; and whether `played` and its shaped
+  values (now the helpers' twins) stay in the recap bag. The Coach's call.
 
 ## From recap sprint, thread 6: quiz-level widgetings and entries
 

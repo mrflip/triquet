@@ -237,8 +237,8 @@ words above.
     `below.<field>` (safe on the line after another: a first line of `---` is set apart, so it
     never makes a heading). **The default recap template reads none of these**: only the template
     bag (`{{#qns}}`, each question's own fields and columns by label, `{{rank}}` for its number,
-    a section on `rank` to skip the archived and unnumbered), `recap_head` and `recap_tail`, and
-    plain mustache, so every line it writes is one an author can see and change; `played` and the
+    a section on `rank` to skip the archived and unnumbered), `recap_head` and `recap_tail`, plain
+    mustache and the template helpers (which shape as these do), so every line it writes is one an author can see and change; `played` and the
     pre-shaped values stay in the bag for an author's own template. It quotes a question's own hint
     after `...OR ELSE...`, where the LL Export shows the chained-to question's after `...BUT NOT...`.
 * **templated** -- the sources a quiz nominates for templating, named as a column names what it

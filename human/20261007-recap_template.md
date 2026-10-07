@@ -1,6 +1,6 @@
 # 2026-10-07: The recap template is editable -- how to write one, and what the default leaves to columns
 
-Recap threads 14, 15 and 16. The Recap panel's *Recap template* (folded, below the tail) holds the
+Recap threads 14, 15, 16 and 17. The Recap panel's *Recap template* (folded, below the tail) holds the
 template the whole note is made by: mustache over markdown, filled in once, then written in bbjank
 once. Empty the box (and click away) to go back to the default; there is no reset button, at your
 word.
@@ -9,7 +9,7 @@ word.
 
 The default now reads only what every template reads -- the questions loop `{{#qns}}`, each
 question's own fields and its columns by label -- plus `{{recap_head}}` and `{{recap_tail}}` (the
-head and tail, filled in), and plain mustache:
+head and tail, filled in), plain mustache, and the three template helpers (thread 17, below):
 
 ```
 {{#recap_head}}
@@ -21,17 +21,17 @@ head and tail, filled in), and plain mustache:
 {{#qns}}
 {{! Only the questions with a rank: those with a Q#, and not archived. }}
 {{#rank}}
-> {AS: Q{{rank}}}{{rank}}. {{clueing}}
+> {AS: Q{{rank}}}{{rank}}. {{#quote}}{{clueing}}{{/quote}}
 {{#hint}}
 >
 > ...OR ELSE...
 >
-> {{hint}}
+> {{#quote}}{{hint}}{{/quote}}
 {{/hint}}
 
-Answer: {{#full_answer}}~~**{{full_answer}}**~~{{/full_answer}}
+Answer: {{#full_answer}}~~**{{#oneline}}{{full_answer}}{{/oneline}}**~~{{/full_answer}}
 Correct Answer %: {{correct_pct}}
-{{recap}}
+{{#apart}}{{recap}}{{/apart}}
 
 {{/rank}}
 {{/qns}}
@@ -57,12 +57,34 @@ the answer's spoiler; `below.<field>` set a recap opening `---` a line apart; `p
 `correct_pct`. **They are still in the bag**, unused by the default, so a template of your own may
 still read them while you decide what the app should keep.
 
+## The template helpers (thread 17)
+
+Three helpers, usable in every template (this one, the head and tail, any templated field), and
+only as a section: the section is filled in first, then shaped.
+
+* `{{#quote}}...{{/quote}}` -- to follow a `> ` you wrote: every line after the first gets `> `
+  put back, a four-space indent (verse) becomes a quote inside the quote, and blank lines at the
+  ends are dropped. `> {{#quote}}{{clueing}}{{/quote}}`.
+* `{{#oneline}}...{{/oneline}}` -- folds what is inside onto one line, blank lines dropped:
+  `~~**{{#oneline}}{{full_answer}}{{/oneline}}**~~`.
+* `{{#apart}}...{{/apart}}` -- for the line straight after another: a first line of `---` or `===`
+  is set a blank line apart, so it does not turn the line above into a heading. `{{#apart}}{{recap}}{{/apart}}`.
+
+They work on anything: a field, a column (`{{#oneline}}{{my_column}}{{/oneline}}`), text and tags
+together, and each other (`{{#oneline}}{{#quote}}...{{/quote}}{{/oneline}}`). Written with the
+closing tag on a line of its own, a section keeps its last line break; closed on the same line, it
+keeps none. The bare names are reserved: `{{quote}}`, `{{oneline}}`, `{{apart}}` fill in nothing,
+and a column labelled `quote` is read as `{{quote.value}}`. `played`'s `{{oneline.full_answer}}`
+and the like still work (a dotted name is not a helper). The helpers are code in the app, never
+anything in the quiz's data.
+
 ## The gap list
 
 What the basic default gets wrong that the old shaped values got right, and what closes each. Each
 recipe is the formula of a `jsonata` widget (input formula `$`, the whole bag). Every one is held by
-a test (`tests/lib/recap.test.ts`, *The default template's gaps*), and with all of them in place
-the template writes the old note again, but for templated fields (gap 9).
+a test (`tests/lib/recap.test.ts`, *The default template's gaps*), and with them in place the
+template writes the old note again, but for templated fields (gap 9). Gaps 6 to 8 are closed in the
+default itself by the helpers (thread 17).
 
 1. **Order.** `{{#qns}}` is the quiz's own order (the grid's), not Q# order. *Closes with a
    quiz-level column*, placed below the question columns (it reads them as they stand at its
@@ -82,32 +104,22 @@ the template writes the old note again, but for templated fields (gap 9).
    flag: their rank is as blank as an archived question's, so nothing can tell them apart.
 5. **The rule under the head** shows even when no question follows. *The quiz-level column* closes
    it: `{{#quiz.in_order.value.0}}`, `***`, `{{/quiz.in_order.value.0}}`.
-6. **A multi-line clueing or hint leaves its quote** where a line reads as markdown structure: a
+6. **Closed by `{{#quote}}`** (thread 17). *Was:* **a multi-line clueing or hint leaves its quote** where a line reads as markdown structure: a
    `---` or `===` under a line (the quote closes, and a rule or heading follows), an indented verse
    line (it runs into the line above, unquoted), a blank line and another paragraph (outside the
-   quote). A plain second line stays in. *Closes with a column* per field, `quoted_clueing`:
-   `$join($map($split(qn.clueing, '\n'), function($line) { $replace($line, /^ {4}/, '> ') }), '\n> ')`
-   (and `quoted_hint`, the same over `qn.hint`), written `{{quoted_clueing}}` and
-   `> {{quoted_hint}}`. Its limits: one level of verse indent; a line straight after verse joins
-   the verse (leave a blank line after it); a clueing that opens with verse is not moved to the
-   line below its number.
-7. **A blank line in an answer breaks its spoiler open**, writing `~~**` and the answer in plain
-   sight; a second line opening `- ` turns into a list. The worst of them: it spoils. A one-line
-   answer opening `1984.`, `- `, `>` or `---` is safe (it is mid-line). *Closes with a column*,
-   `answer_line`: `$join($split(qn.full_answer, '\n').$trim($)[$ != ''], ' ')`, written
-   `~~**{{answer_line}}**~~`.
-8. **A recap opening `---` or `===`** turns the `Answer:` and `Correct Answer %:` lines above it
-   into a heading. *Closes with a column*, `recap_below`:
-   `$contains(qn.recap, /^ {0,3}(-+|=+)[ \t]*(\n|$)/) ? '\n' & qn.recap : qn.recap`, written
-   `{{recap_below}}`. (Or, with no column, a blank line before `{{recap}}`, which sets every recap
-   a paragraph below.)
+   quote). The helper does what `quoted.<field>` did, the JSONata column is no longer needed.
+7. **Closed by `{{#oneline}}`** (thread 17). *Was:* **a blank line in an answer breaks its spoiler open**, writing `~~**` and the answer in plain
+   sight; a second line opening `- ` turns into a list. The worst of them: it spoiled.
+8. **Closed by `{{#apart}}`** (thread 17). *Was:* **a recap opening `---` or `===`** turned the
+   `Answer:` and `Correct Answer %:` lines above it into a heading.
 9. **A templated field shows its mustache as typed** (`By {{qn.author}}`): `qns` holds every field
    as written, and mustache never fills a filled-in value again. *Needs the app*: JSONata cannot
    fill a template. The recap bag's `qns` could carry templated fields filled, as `played` does; or
    write such a text as a `jsonata` column (`'By ' & qn.author.value`) instead of templating it.
 
 Gained: inside `{{#qns}}` nothing hides a column (`played`'s `quoted`, `oneline`, `below`,
-`number` and `pct` hid columns of those labels).
+`number` and `pct` hid columns of those labels), but for the helpers' bare names (`{{quote}}`,
+`{{oneline}}`, `{{apart}}`), read as `{{quote.value}}`.
 
 To close the gaps in the app rather than by columns, the choices as I see them: ship the recipes as
 library widgets; expose an alternate flag, and fill templated fields in the recap's `qns`; or keep

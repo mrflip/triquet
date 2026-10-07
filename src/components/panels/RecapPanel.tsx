@@ -137,8 +137,10 @@ function RecapTemplate({ draft, owned, issue, revisable }: Readonly<RecapTemplat
           Markdown with mustache, filled in, then written in the boards&apos; BBCode. It reads what a templated field
           reads -- {'{{#qns}}'}…{'{{/qns}}'}, each question with its fields and columns by label ({'{{rank}}'},
           {' {{clueing}}'}, {'{{correct_pct}}'}), so a column of your own can stand in for any line -- and
-          {' {{recap_head}}'} and {'{{recap_tail}}'} (filled in). It may also read {'{{#played}}'}…{'{{/played}}'}: the
-          questions played, with their {'{{number}}'} and each field shaped for where markdown is fragile
+          {' {{recap_head}}'} and {'{{recap_tail}}'} (filled in). Three helpers shape a section for where markdown is
+          fragile: {'{{#quote}}'}…{'{{/quote}}'} keeps every line in the quote, {'{{#oneline}}'}…{'{{/oneline}}'} joins
+          the lines into one, {'{{#apart}}'}…{'{{/apart}}'} keeps a leading --- from making a heading. It may also read
+          {' {{#played}}'}…{'{{/played}}'}: the questions played, with their {'{{number}}'} and each field shaped
           ({'{{quoted.clueing}}'}, {'{{oneline.full_answer}}'}, {'{{below.recap}}'}).
           Empty the box to go back to the default.
         </p>
