@@ -26,9 +26,10 @@ this section, lists the words they replace while code still holds them.
   default, growing `_2`, `_3` while taken), at a place in the quiz's **run order**. The noun is
   deliberate, as *expressing* was: the widget is the recipe, the widgeting is it being worked here.
   Removing a widgeting takes its columns.
-* **widgeted** -- what one widgeting came to for one question. Stored for the formularies that
-  store (`aibot` appends, `entry` upserts) and worked out on render for `jsonata`. Everyone reads
-  one as `{ status, value, err }`. Never called a "result".
+* **widgeted** -- what one widgeting came to for one question, or, for a widgeting of the `quiz`
+  tier, for the quiz itself (a row of `quiz_widgeteds`, not `widgeteds`). Stored for the
+  formularies that store (`aibot` appends, `entry` upserts) and worked out on render for
+  `jsonata`. Everyone reads one as `{ status, value, err }`. Never called a "result".
 * **input formula** -- a widget's second JSONata expression, which culls the bag to what the widget
   reads. `$`, the whole bag, by default for `jsonata`; for `aibot`, the small object the prompt
   template is rendered over (`{ 'clueing': qn.clueing }`). An input that comes to nothing means "do
@@ -41,8 +42,23 @@ this section, lists the words they replace while code still holds them.
   `titleish` (one line) or `estimates` (a question's category estimates, *Categories*). Fixed once the widget is made, as its formulary is; together they are its
   **flavor** (`Widget.flavorOf`: "a number entry", "an aibot widget"). An emptied entry cell holds
   no row and reads `missing`.
-* **run order** -- a quiz's widgetings in `position` order. Each widgeting's bag holds the
-  widgeteds of the widgetings before it, so the order is the dependency order.
+* **tier** -- which level a widgeting runs at: `question` (once for each question, as every
+  widgeting has) or `quiz` (once for the quiz as a whole, over a bag whose `qn` is empty). Only a
+  `jsonata` widget and an `entry` of one value run at `quiz` (`Widgeting.runsAt`). Fixed once made,
+  as its widget is. Not a bot's **model tier**, which is a widget's config. A `quiz` widgeting's
+  widgeted sits in every later bag as `quiz.<label>`, so it may not take a name the quiz itself
+  answers to there (`Quiz.exposed`); it has no column, and is shown and typed into in the **Quiz
+  entries** panel. The gear lists the two tiers apart: **Widgetings** and **Quiz widgetings**.
+* **run order** -- a quiz's widgetings in the order they run (`src/lib/run-order.ts`): the `quiz`
+  widgetings above the **questions pivot**, then the `question` widgetings, then the `quiz`
+  widgetings below the pivot. Each widgeting's bag holds the widgeteds of the widgetings before
+  it, so the order is the dependency order. The positions are the run order, written whole at
+  every change.
+* **questions pivot** -- where the `question` widgetings run, among the `quiz` ones: a fixed row
+  of the gear's Quiz widgetings list, dragged past rather than dragged. Not stored: it sits just
+  before the first `question` widgeting; in a quiz with none, just before the first `quiz` formula
+  (after the entries), or last, and the first `question` widgeting added goes there. So a formula
+  over the questions stays below them; one meant to run above them is dragged back once they come.
 * **ok**, **errored**, **missing** -- the three states of a widgeted, and the only ones. `ok` has a
   value; `errored` has only a failure; `missing` has neither, and is never stored: it is a cell with
   no row, or an input or formula that came to nothing (shown as a muted dash; never zero). An
@@ -199,9 +215,24 @@ words above.
   meta, what is left to do. Beside the quiz's name, and a formula reads it as `quiz.smiths_note`.
 * **Q1 preamble** (`q1_preamble`) -- what the LL Export puts ahead of the first question when
   the quiz goes live, in the league's BBCode: a pointer to the smith's note. Not seen by formulas.
+* **recap** -- the note posted to the league's message board once a quiz has been played: what is
+  said ahead of the questions, each question with its answer, and what is said after. Its **head**
+  (`recap_head`) and **tail** (`recap_tail`) are the quiz's, always templated, and not seen by
+  formulas; a question's own `recap` is what the recap says of it, below its answer (the grid's
+  Recap column), and a formula reads it as `qn.recap`. The Recap panel writes the whole note in
+  bbjank (`lib/recap.ts`).
+* **templated** -- the sources a quiz nominates for templating, named as a column names what it
+  shows: `question.<field>` for one of its questions' own fields that hold markdown (`clueing`,
+  `hint`, `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per
+  source, never per column. A templated text is **filled in** (`Templating.fill`, mustache) over
+  the **template bag** -- the formula's bag less `params` and `widgeting_label`, every question
+  carrying every widgeting's widgeted, so `{{qn.photo}}` is that column's value -- before the
+  markdown parser reads it, and the sanitizer reads what that makes, last. Shown filled in on the
+  grid and in the LL Export, and edited as typed. Only a templated text may show an image
+  (`https` only).
 * **question** -- one row. Its base fields are the constant of the whole tool: `title`, `clueing`,
-  `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`. Everything else a quiz shows
-  is a widgeted.
+  `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`, `recap`. Everything else a
+  quiz shows is a widgeted.
 * **clueing** -- the question as it will be asked. Never "question text" and never "question":
   that word is the row. (The prompts still say "question" to the model, because a player would.)
   Never rewritten by the tool, not even trimmed.
@@ -231,6 +262,11 @@ words above.
   balls and tables write a hunt's, quiz's, question's, review's and verdict's for people, as
   ISO-8601 in UTC (`2026-10-05T09:30:00.000Z`). A question **untouched** since it was made has
   equal stamps.
+* **bbjank** -- the league's *message-board* BBCode, as the Coach calls it: what its forum posts
+  take, apart from the BBCode its quiz import and the smith's note take (`ll-bbcode.ts`). A line
+  break is a line break (never `[br]`), strikeout is `[spoiler]`, a quote naming its speaker
+  (`> {AS: Q1}`) is `[quote="Q1"]` and any other quote an indenting `[list]`. `lib/bbjank.ts`
+  writes it from markdown.
 
 ## Categories
 
@@ -436,4 +472,8 @@ lines between them, and these are here so they are findable beside the rest.
   are a ball rooted at their quiz rather than the hunt, never merged, for pasting into any quiz.
   `src/lib/jsonball.ts` owns the shapes; `Exporting` builds the balls, `Importing` reads them back.
 * **meta** -- the second-layer puzzle a quiz can hide. The reason widgets exist.
+* **doodad** -- the Coach's loose word for a component, a widget, or something contextual: "add
+  another export doodad". Say what it is in code and copy.
+* **gearbox** -- a modal or page for configuring a thing. The quiz's gearbox is its gear dialog,
+  `QuizManageModal`.
 * **Coach**, **agent** -- the humans and the AI on this project. See `CLAUDE.md`.

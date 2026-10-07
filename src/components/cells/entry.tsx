@@ -2,12 +2,12 @@
 
 import * as Labelmaker from '../../lib/labelmaker'
 import * as PA from '../../lib/vv/patterns'
-import { NumberField, PlainField, StretchField } from './fields'
+import { NumberField, PlainField, StretchField, type TemplatedFieldProps } from './fields'
 import { EstimatesCell } from './estimates'
 import { Widgeted, type WidgetedT } from '../../models/widgeted'
 import type { EntryKind, EntryValueT } from '../../models/widget'
 
-export type EntryCellProps = {
+export type EntryCellProps = TemplatedFieldProps & {
   /** What the cell takes: prose, a number, a label, a title, or a question's category estimates */
   entry_kind: EntryKind
   /** What the cell holds now: `ok` with the value typed, or `missing` */
@@ -26,14 +26,15 @@ export type EntryCellProps = {
  * is a notes box (markdown, stretched to the row); a number is the Q# box, signed and fractional;
  * a label and a title are the Title box, a label tidied into one (and cut to a label's length) as
  * the box is left. An emptied box is sent as null, which leaves the cell `missing`. Category
- * estimates are pills, each change sent as it is made. It never asks anything of anyone.
+ * estimates are pills, each change sent as it is made. It never asks anything of anyone. Text the
+ * quiz templates shows filled in over `bag`.
  */
-export function EntryCell({ entry_kind, widgeted, label, locked, heightPx, onEnter }: Readonly<EntryCellProps>) {
+export function EntryCell({ entry_kind, widgeted, label, locked, heightPx, onEnter, bag = null }: Readonly<EntryCellProps>) {
   const text = Widgeted.textOf(widgeted)
   const enterText = (typed: string) => { onEnter(typed.trim() === '' ? null : typed) }
   switch (entry_kind) {
   case 'text': {
-    return <StretchField label={label} committed={text} locked={locked} onCommit={enterText} heightPx={heightPx} />
+    return <StretchField label={label} committed={text} locked={locked} onCommit={enterText} heightPx={heightPx} bag={bag} />
   }
   case 'number': {
     const committed = widgeted.status === 'ok' && typeof widgeted.value === 'number' ? widgeted.value : null

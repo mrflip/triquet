@@ -87,7 +87,13 @@ async function widgetedCounts({ tt }: Seeded): Promise<Record<string, number>> {
 describe("add_widgeting", () => {
   it("adds a widgeting to the end of the open quiz's run order, its description and params defaulted", async () => {
     const { read } = await withWidgeting()
-    expect(quizOf(await read()).widgetings.at(-1)).to.deep.eq({ ...Backward, description: '', params: {} })
+    expect(quizOf(await read()).widgetings.at(-1)).to.deep.eq({ ...Backward, description: '', params: {}, tier: 'question' })
+  })
+
+  it("adds one that runs once per quiz at that tier", async () => {
+    const { act, read } = await seed()
+    await act({ kind: 'add_widgeting', widgeting: { ...Backward, tier: 'quiz' } })
+    expect(quizOf(await read()).widgetings.at(-1)?.tier).to.eq('quiz')
   })
 
   it("adds no column: a widgeting is what has a value, and where it is shown is another matter", async () => {
@@ -131,7 +137,7 @@ describe("edit_widgeting", () => {
   it("revises the fields named and no others", async () => {
     const { act, read } = await withWidgeting()
     await act({ kind: 'edit_widgeting', label: 'backward', patch: { description: 'Because.', params: { strict: true } } })
-    expect(quizOf(await read()).widgetings.at(-1)).to.deep.eq({ ...Backward, description: 'Because.', params: { strict: true } })
+    expect(quizOf(await read()).widgetings.at(-1)).to.deep.eq({ ...Backward, description: 'Because.', params: { strict: true }, tier: 'question' })
   })
 
   it("renames a widgeting, carrying the columns that show it along, and leaving the rest", async () => {
@@ -370,6 +376,37 @@ describe("move_column", () => {
   })
 })
 
+describe("set_templated", () => {
+  it("nominates the sources the open quiz templates, replacing those it did", async () => {
+    const { act, read } = await withWidgeting()
+    await act({ kind: 'set_templated', templated: ['question.clueing', 'backward'] })
+    await act({ kind: 'set_templated', templated: ['question.recap', 'backward'] })
+    expect(quizOf(await read()).templated).to.deep.eq(['question.recap', 'backward'])
+  })
+
+  it("templates nothing once emptied", async () => {
+    const { act, read } = await withWidgeting()
+    await act({ kind: 'set_templated', templated: ['backward'] })
+    await act({ kind: 'set_templated', templated: [] })
+    expect(quizOf(await read()).templated).to.deep.eq([])
+  })
+
+  it("refuses a widgeting the quiz does not have, and refuses while the quiz is locked, leaving the hunt as it was", async () => {
+    await expectRefused(await withWidgeting(), [{ kind: 'set_templated', templated: ['question.clueing', 'nowhere'] }, 'untemplatable'])
+    await expectRefused(await seed(standard(true)), [{ kind: 'set_templated', templated: ['question.recap'] }, 'quizLocked'])
+  })
+
+  it("carries a templated widgeting along when it is renamed, and drops it when it is deleted", async () => {
+    const { tt, act, read } = await withWidgeting()
+    await act({ kind: 'set_templated', templated: ['backward', 'question.recap'] })
+    await act({ kind: 'edit_widgeting', label: 'backward', patch: { label: 'mirror' } })
+    expect(quizOf(await read()).templated).to.deep.eq(['mirror', 'question.recap'])
+    await act({ kind: 'delete_widgeting', label: 'mirror' })
+    expect(quizOf(await read()).templated).to.deep.eq(['question.recap'])
+    await expectSound(tt)
+  })
+})
+
 describe("sort_questions by a column that shows a jsonata widgeting", () => {
   it("orders the questions by what the widgeting came to, and remembers the column", async () => {
     const { act, read } = await seed(standardWith(['ccc', 'a', 'bb'].map((full_answer) => ({ ...Question.blank(), full_answer }))))
@@ -487,5 +524,109 @@ describe("the editors' plans, carried out", () => {
     const after = await read()
     expect(after.library.find((each) => each.label === 'clueing_full')).to.deep.include({ formula: '1', description: 'Revised.' })
     expect(quizOf(after)).to.deep.eq(quizOf(ante))
+  })
+})
+
+/** The quiz's widgetings in run order, each with its tier */
+const tiersOf = (seen: Seen) => quizOf(seen).widgetings.map((widgeting) => `${widgeting.label}:${widgeting.tier}`)
+
+/** A standard hunt (or the one given) whose library holds a text entry, `names` */
+async function withNames(hunt: HuntT = standard()): Promise<Seeded> {
+  const seeded = await seed(hunt)
+  await seeded.actOnLibrary({ kind: 'add_widget', widget: { label: 'names', formulary: 'entry', config: { entry_kind: 'text' } } })
+  return seeded
+}
+
+/** A standard hunt working `playtesters` (an entry) and `total` (a formula) for the whole quiz */
+async function withQuizWide(): Promise<Seeded> {
+  const seeded = await withNames()
+  await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'names', label: 'playtesters', tier: 'quiz' } })
+  await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'total', tier: 'quiz' } })
+  return seeded
+}
+
+describe("widgetings run once for the whole quiz", () => {
+  it("puts an entry above the questions, where every formula reads it, and a formula below them, where it reads them all", async () => {
+    const { tt, read } = await withQuizWide()
+    expect(tiersOf(await read())).to.deep.eq(['playtesters:quiz', ...StandardWidgetings.map((label) => `${label}:question`), 'total:quiz'])
+    await expectSound(tt)
+  })
+
+  it("brings no column", async () => {
+    const { read } = await withQuizWide()
+    expect(columnsOf(await read())).to.deep.eq(StandardColumns)
+  })
+
+  it("puts a new widgeting for each question at the end of the question widgetings, above those of the quiz below them", async () => {
+    const { act, read } = await withQuizWide()
+    await act({ kind: 'add_widgeting', widgeting: Backward })
+    expect(widgetingsOf(await read()).slice(-2)).to.deep.eq(['backward', 'total'])
+  })
+
+  it("refuses a model asked from a cell, a question's category estimates, and a name the quiz itself answers to", async () => {
+    const refusals: [HuntActionDNA, string][] = [
+      [{ kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'quiz_guess', tier: 'quiz' } }, 'tierUnoffered'],
+      [{ kind: 'add_widgeting', widgeting: { widget_label: 'categories', label: 'quiz_cats', tier: 'quiz' } }, 'tierUnoffered'],
+      [{ kind: 'add_widgeting', widgeting: { widget_label: 'names', label: 'smiths_note', tier: 'quiz' } }, 'labelTaken'],
+    ]
+    await expectRefused(await withNames(), ...refusals)
+  })
+
+  it("refuses a rename onto a name the quiz itself answers to, but not for a widgeting for each question", async () => {
+    const seeded = await withQuizWide()
+    await expectRefused(seeded, [{ kind: 'edit_widgeting', label: 'playtesters', patch: { label: 'smiths_note' } }, 'labelTaken'])
+    await seeded.act({ kind: 'edit_widgeting', label: 'dumdum', patch: { label: 'smiths_note' } })
+    expect(widgetingsOf(await seeded.read())).to.include('smiths_note')
+  })
+
+  it("refuses a column showing one, or a template of one: it has no cell for any question", async () => {
+    const refusals: [HuntActionDNA, string][] = [
+      [{ kind: 'add_column', column: { label: 'thanks', title: 'Thanks', source: 'playtesters', width_px: 90 } }, 'wrongTier'],
+      [{ kind: 'edit_column', label: 'clueing', patch: { source: 'total' } }, 'wrongTier'],
+      [{ kind: 'set_templated', templated: ['playtesters'] }, 'wrongTier'],
+    ]
+    await expectRefused(await withQuizWide(), ...refusals)
+  })
+
+  it("moves across the questions pivot, counted in the quiz's own list: [playtesters, questions, total]", async () => {
+    const { act, read } = await withQuizWide()
+    await act({ kind: 'move_widgeting', label: 'playtesters', onto_idx: 2 })
+    expect(widgetingsOf(await read()).slice(-2)).to.deep.eq(['total', 'playtesters'])
+    await act({ kind: 'move_widgeting', label: 'total', onto_idx: 0 })
+    expect(widgetingsOf(await read())[0]).to.eq('total')
+    expect(widgetingsOf(await read()).at(-1)).to.eq('playtesters')
+  })
+
+  it("moves a widgeting for each question among the question widgetings alone", async () => {
+    const { act, read } = await withQuizWide()
+    await act({ kind: 'move_widgeting', label: 'hint_full', onto_idx: 0 })
+    expect(widgetingsOf(await read()).slice(0, 2)).to.deep.eq(['playtesters', 'hint_full'])
+    await act({ kind: 'move_widgeting', label: 'hint_full', onto_idx: 99 })
+    expect(widgetingsOf(await read()).slice(-2)).to.deep.eq(['hint_full', 'total'])
+  })
+
+  it("keeps a formula over the questions below them when the last question widgeting is removed and another added", async () => {
+    const { act, read } = await withNames(Hunt.blank())
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'names', label: 'playtesters', tier: 'quiz' } })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'sum', tier: 'question' } })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'total', tier: 'quiz' } })
+    await act({ kind: 'delete_widgeting', label: 'sum' })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'sum2', tier: 'question' } })
+    expect(tiersOf(await read())).to.deep.eq(['playtesters:quiz', 'sum2:question', 'total:quiz'])
+  })
+
+  it("keeps a formula added before any question widgeting below those added after it", async () => {
+    const { act, read } = await withNames(Hunt.blank())
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'total', tier: 'quiz' } })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'names', label: 'playtesters', tier: 'quiz' } })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'sum', tier: 'question' } })
+    expect(tiersOf(await read())).to.deep.eq(['playtesters:quiz', 'sum:question', 'total:quiz'])
+  })
+
+  it("keeps the run order whole when one is removed", async () => {
+    const { tt, act, read } = await withQuizWide()
+    await act({ kind: 'delete_widgeting', label: 'playtesters' })
+    expect(tiersOf(await read())).to.deep.eq([...StandardWidgetings.map((label) => `${label}:question`), 'total:quiz'])
+    await expectSound(tt)
   })
 })

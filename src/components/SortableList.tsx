@@ -10,7 +10,9 @@ export type SortableListProps<TT> = {
   /** Called with the moved item's key and the index it was dropped at, counted in the list as it stands after the lift */
   onMove:   (key: string, onto_idx: number) => void
   disabled?: boolean
-  /** One row; the handle to drag it by is given to be put wherever the row wants it */
+  /** Whether a row stays where it is: the others are dragged past it, and its handle is null */
+  isFixed?: (item: TT) => boolean
+  /** One row; the handle to drag it by is given to be put wherever the row wants it (null for a fixed row) */
   renderRow: (item: TT, handle: React.ReactNode) => React.ReactNode
   /** Names the list for a screen reader, and keeps its rows from being dropped into another one */
   label:    string
@@ -18,7 +20,8 @@ export type SortableListProps<TT> = {
 
 /**
  * A list whose rows are dragged into a new order by their handles, or stepped into one with the
- * up and down arrows once a handle has focus.
+ * up and down arrows once a handle has focus. A fixed row (`isFixed`) has no handle: it moves only
+ * as the others are moved past it.
  *
  * Nothing moves until the drop, and the list itself is never reordered here: the caller is told
  * what moved where and hands back the new order, so what is on screen is always what is held.
@@ -27,7 +30,7 @@ export type SortableListProps<TT> = {
  * @param onMove - Told what was dropped where.
  * @param renderRow - Draws one row, given its handle.
  */
-export function SortableList<TT>({ items, keyOf, onMove, disabled = false, renderRow, label }: Readonly<SortableListProps<TT>>) {
+export function SortableList<TT>({ items, keyOf, onMove, disabled = false, isFixed = () => false, renderRow, label }: Readonly<SortableListProps<TT>>) {
   return (
     <div role="list" aria-label={label}>
       {items.map((item, idx) => (
@@ -38,6 +41,7 @@ export function SortableList<TT>({ items, keyOf, onMove, disabled = false, rende
           idx={idx}
           count={items.length}
           disabled={disabled}
+          fixed={isFixed(item)}
           onMove={onMove}
         >
           {(handle) => renderRow(item, handle)}
@@ -53,16 +57,17 @@ type SortableRowProps = {
   idx:      number
   count:    number
   disabled: boolean
+  fixed:    boolean
   onMove:   (key: string, onto_idx: number) => void
-  /** Draws the row, given the handle to place within it */
+  /** Draws the row, given the handle to place within it; null for a fixed row */
   children: (handle: React.ReactNode) => React.ReactNode
 }
 
 /** One row of the list, with its own grip and its own sense of where a drop would land */
-function SortableRow({ listkey, itemkey, idx, count, disabled, onMove, children }: Readonly<SortableRowProps>) {
-  const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey, itemkey, idx, count, disabled, onMove })
+function SortableRow({ listkey, itemkey, idx, count, disabled, fixed, onMove, children }: Readonly<SortableRowProps>) {
+  const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey, itemkey, idx, count, disabled, fixed, onMove })
 
-  const handle = (
+  const handle = fixed ? null : (
     <span
       ref={handleRef}
       className={clsx(styles.grip, disabled && styles.gripLocked)}

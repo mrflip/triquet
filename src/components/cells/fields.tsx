@@ -5,7 +5,8 @@ import { TextField } from '@mui/material'
 import clsx from 'clsx'
 import { NumericFormat, type NumberFormatValues, type SourceInfo } from 'react-number-format'
 import { useDraft } from '../use-draft'
-import { MarkdownFace, veiledIf } from './markdown'
+import { MarkdownFace, faceOf, veiledIf } from './markdown'
+import type * as Templating from '../../lib/templating'
 import styles from '../workbench.module.css'
 
 export type FieldProps = {
@@ -16,7 +17,12 @@ export type FieldProps = {
   label:       string
 }
 
-export type GrowingFieldProps = FieldProps & {
+export type TemplatedFieldProps = {
+  /** What the field's text is filled in over, when the quiz templates it; null or absent when it does not */
+  bag?: Templating.TemplateBag | null
+}
+
+export type GrowingFieldProps = FieldProps & TemplatedFieldProps & {
   /** The height the row settled on, applied to this box whatever its own content wants */
   heightPx:  number
   /** Reports the height this box's own content would like, before the row decides */
@@ -29,12 +35,13 @@ export type GrowingFieldProps = FieldProps & {
  * Clueing or Hint: a borderless box that grows with its content and reports how tall it wants
  * to be, so the row can give both boxes the taller of the two. Until it is typed into it shows
  * its markdown rendered, and asks for room enough for whichever of the two is taller, so the row
- * keeps its height as the box is entered and left.
+ * keeps its height as the box is entered and left. A templated field's face is its text filled in.
  */
-export function GrowingField({ committed, onCommit, locked, placeholder, label, heightPx, onNatural, resizeToken }: Readonly<GrowingFieldProps>) {
+export function GrowingField({ committed, onCommit, locked, placeholder, label, heightPx, onNatural, resizeToken, bag = null }: Readonly<GrowingFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const faceRef = useRef<HTMLDivElement>(null)
+  const face = faceOf(draft, bag)
 
   useLayoutEffect(() => {
     const area = areaRef.current
@@ -43,26 +50,27 @@ export function GrowingField({ committed, onCommit, locked, placeholder, label, 
     const naturalPx = Math.max(area.scrollHeight, faceRef.current?.scrollHeight ?? 0)
     area.style.height = `${String(heightPx)}px`
     onNatural(naturalPx)
-  }, [draft, heightPx, onNatural, resizeToken])
+  }, [draft, face.text, heightPx, onNatural, resizeToken])
 
   return (
     <div className={styles.veil}>
       <textarea
         ref={areaRef}
-        className={clsx(styles.field, veiledIf(draft))}
+        className={clsx(styles.field, veiledIf(face.text))}
         aria-label={label}
+        aria-invalid={face.issue !== null || undefined}
         placeholder={placeholder}
         readOnly={locked}
         value={draft}
         onChange={(event) => { onChange(event.target.value) }}
         onBlur={onBlur}
       />
-      <MarkdownFace text={draft} faceRef={faceRef} />
+      <MarkdownFace {...face} faceRef={faceRef} />
     </div>
   )
 }
 
-export type StretchFieldProps = FieldProps & {
+export type StretchFieldProps = FieldProps & TemplatedFieldProps & {
   heightPx: number
   /** Always shown as typed, never rendered: Alt Text is read aloud as written */
   plain?:   boolean
@@ -71,24 +79,25 @@ export type StretchFieldProps = FieldProps & {
 /**
  * A notes column: stretched to the height the row already settled on, for comfortable typing,
  * but never allowed to decide that height. Long notes must not stretch the row. Until it is
- * typed into it shows its markdown rendered, unless it is `plain`.
+ * typed into it shows its markdown rendered (filled in first, when templated), unless it is `plain`.
  */
-export function StretchField({ committed, onCommit, locked, placeholder, label, heightPx, plain = false }: Readonly<StretchFieldProps>) {
+export function StretchField({ committed, onCommit, locked, placeholder, label, heightPx, plain = false, bag = null }: Readonly<StretchFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
-  const faceText = plain ? '' : draft
+  const face = faceOf(plain ? '' : draft, bag)
   return (
     <div className={styles.veil}>
       <textarea
-        className={clsx(styles.field, veiledIf(faceText))}
+        className={clsx(styles.field, veiledIf(face.text))}
         style={{ height: `${String(heightPx)}px` }}
         aria-label={label}
+        aria-invalid={face.issue !== null || undefined}
         placeholder={placeholder}
         readOnly={locked}
         value={draft}
         onChange={(event) => { onChange(event.target.value) }}
         onBlur={onBlur}
       />
-      <MarkdownFace text={faceText} />
+      <MarkdownFace {...face} />
     </div>
   )
 }

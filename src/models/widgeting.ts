@@ -18,7 +18,17 @@ export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, 
 
 const Reserved = PA.reservedOf(ReservedWidgetingLabels)
 
-export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, uint, stamps, zid }) => {
+/**
+ * Which level a widgeting runs at (its **tier**): `question`, once for each question, as every
+ * widgeting has; or `quiz`, once for the quiz as a whole.
+ */
+export const WidgetingTierVals = ['question', 'quiz'] as const
+export type WidgetingTier = typeof WidgetingTierVals[number]
+
+/** The tier every widgeting runs at unless made to run once per quiz */
+export const DefaultTier: WidgetingTier = 'question'
+
+export const WidgetingValidators = Validator(({ obj, rec, oneof, label, noteish, zod, uint, stamps, zid }) => {
   // Each field is named once, bare, then defaulted in the widgeting and made optional in its patch.
   const widgetingLabel = label.regex(Reserved.re, Reserved.msg)
     .describe('What the widgeting is called within its quiz, unique there and none of the names a question already answers to. Columns, the bag and exports name it by this.')
@@ -29,12 +39,15 @@ export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, u
   const params = rec(label, zod.json())
     .refine((val) => UU.jsonify(val).length <= PA.ParamsJson.max, PA.ParamsJson.msg)
     .describe('What it hands its widget beyond the bag, by name; reaches the bag as `params`. Unused by every widget so far.')
+  const tier = oneof(WidgetingTierVals)
+    .describe('Which level it runs at: `question`, once for each question; or `quiz`, once for the quiz as a whole. Fixed once it is made, as the widget it works is.')
 
   const widgeting = obj({
     widget_label,
     label:       widgetingLabel,
     description: description.default(''),
     params:      params.default({}),
+    tier:        tier.default(DefaultTier),
   })
     .describe('One widget put to work in one quiz, under a label of its own. A quiz keeps them in a list, which is their run order: each one\'s bag holds the widgeteds of those before it.')
 
@@ -43,7 +56,7 @@ export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, u
     description: description.optional(),
     params:      params.optional(),
   })
-    .describe('The fields of one widgeting being revised. A key absent means "leave whatever is already there". The widget it works is not among them: a widgeting of another widget is another widgeting.')
+    .describe('The fields of one widgeting being revised. A key absent means "leave whatever is already there". The widget it works and its tier are not among them: a widgeting of another widget, or at another level, is another widgeting.')
 
   const row = obj({
     hunt_id:  zid('hunts')
@@ -54,13 +67,14 @@ export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, u
     label:    widgetingLabel,
     description,
     params,
+    tier,
     position: uint.max(PA.WidgetingsPerQuiz.max)
       .describe('Its place in its quiz\'s run order, counting from zero.'),
     ...stamps,
   })
     .describe('One widgeting as the database holds it.')
 
-  return { widgetingLabel, widgeting, widgetingPatch, row }
+  return { widgetingLabel, tier, widgeting, widgetingPatch, row }
 })
 
 export type WidgetingDNA   = Z.input<typeof WidgetingValidators.widgeting>
@@ -78,12 +92,26 @@ export class Widgeting implements WidgetingT {
   declare label:        string
   declare description:  string
   declare params:       Record<string, Z.core.util.JSONType>
+  declare tier:         WidgetingTier
 
   /** The fields a widgeting shows the outside world, whatever its formulary: what it came to, and whether it came to anything */
   static readonly exposed = ['status', 'value'] as const
 
   /**
-   * Validated widgeting, with its description and params defaulted.
+   * Whether a widgeting of `widget` may run at `tier`. Every widget runs for each question; once for
+   * the whole quiz, only a formula (`jsonata`) and an entry of one value (not a question's category
+   * estimates). A model asked from a cell has no cell to be asked from at the quiz's level.
+   *
+   * @example Widgeting.runsAt({ formulary: 'aibot', config: aibotConfig }, 'quiz')          // => false
+   * @example Widgeting.runsAt({ formulary: 'entry', config: { entry_kind: 'text' } }, 'quiz')  // => true
+   */
+  static runsAt(widget: Pick<WidgetT, 'formulary' | 'config'>, tier: WidgetingTier): boolean {
+    if (tier === 'question' || widget.formulary === 'jsonata') { return true }
+    return widget.formulary === 'entry' && 'entry_kind' in widget.config && widget.config.entry_kind !== 'estimates'
+  }
+
+  /**
+   * Validated widgeting, with its description, params and tier defaulted.
    *
    * @param dna - The widget it works, and its label.
    * @returns A complete widgeting.

@@ -1,3 +1,4 @@
+import * as EST from 'es-toolkit'
 import type * as Z from 'zod'
 import { mintId } from './ids'
 import * as Jsonball from './jsonball'
@@ -102,7 +103,7 @@ export type ImportOutcome = {
   fieldLog:      FieldLogEntry[]
   /** What to send for the quiz's own fields: one per field that changes */
   fieldActions:  HuntActionDNA[]
-  /** Everything to send, in order: the quiz's fields, its widgetings, its columns, then its questions (`import_questions`); empty when nothing could be read */
+  /** Everything to send, in order: the quiz's fields, its widgetings, its columns, what it templates (which may name a widgeting just added), then its questions (`import_questions`); empty when nothing could be read */
   actions:       HuntActionDNA[]
 }
 
@@ -129,9 +130,9 @@ export type ImportOutcome = {
  *
  * Widgetings merge by label too: one the quiz lacks is added when the library holds its widget,
  * and skipped and logged when it does not; one it holds has its description and params revised,
- * unless it works another widget, when it is skipped. None is removed, since its cells hold what
- * was asked and typed, and the quiz's run order stands, those added coming last in the order
- * pasted. What a widgeting came to is not carried -- a worked-out value is worked out again, and
+ * unless it works another widget or runs at another tier, when it is skipped. None is removed,
+ * since its cells hold what was asked and typed, and the quiz's run order stands, those added
+ * coming last in the order pasted. What a widgeting came to is not carried -- a worked-out value is worked out again, and
  * an asked one is recorded by asking -- except an entry's, which a person typed: under an entry
  * widgeting's label, a value (bare, or as the export writes it, `{ status: 'ok', value }`) is
  * typed into the question's cell, and nothing (null, or `{ status: 'missing' }`) empties it, as a
@@ -144,8 +145,9 @@ export type ImportOutcome = {
  * holding no columns (the questions alone, a bare list, an export from before columns were
  * exported) leaves them as they are.
  *
- * The quiz's own fields merge as a question's do: its title, smith's note and Q1 preamble each
- * replace the quiz's when the paste holds one (a null note clears it), and stay when it does not.
+ * The quiz's own fields merge as a question's do: its title, smith's note, Q1 preamble, recap head
+ * and recap tail each replace the quiz's when the paste holds one (a null note clears it), and stay
+ * when it does not; so does what it templates, but for a widgeting the quiz will not have.
  * Its sort memory is kept only by a quiz that held no questions, whose order is then the paste's.
  * Its lock is not read: an import never locks or unlocks a quiz.
  *
@@ -175,8 +177,9 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
   const entries = entryWidgetingsOf(quiz, payload.quiz.widgetings, widgetings.actions, library)
   for (const [ii, raw] of incoming.entries()) { readOneQuestion(merge, held, entries, raw, ii + 1) }
 
-  const columns = columnsMerged(quiz, payload.quiz.columns, showableAfter(quiz, widgetings.actions))
-  const fields = fieldsCarried(quiz, payload.quiz)
+  const showable = showableAfter(quiz, widgetings.actions)
+  const columns = columnsMerged(quiz, payload.quiz.columns, showable)
+  const fields = fieldsCarried(quiz, payload.quiz, showable)
   const questions = chainsResolved(merge, held)
   const remembered = fields.last_sortkey === undefined ? {} : { last_sortkey: fields.last_sortkey }
 
@@ -195,8 +198,8 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
     columnLog:        columns.log,
     columnActions:    columns.actions,
     fieldLog:         fields.log,
-    fieldActions:     fields.actions,
-    actions:          [...fields.actions, ...widgetings.actions, ...columns.actions, { kind: 'import_questions', questions, ...remembered }],
+    fieldActions:     [...fields.actions, ...fields.afterLayout],
+    actions:          [...fields.actions, ...widgetings.actions, ...columns.actions, ...fields.afterLayout, { kind: 'import_questions', questions, ...remembered }],
   }
 }
 
@@ -219,15 +222,20 @@ const FieldTitles: Readonly<Record<CarriedFieldname, string>> = {
   title:        'title',
   smiths_note:  'smith\'s note',
   q1_preamble:  'Q1 preamble',
+  recap_head:   'recap head',
+  recap_tail:   'recap tail',
+  templated:    'templated sources',
   last_sortkey: 'sort memory',
 }
 
 /**
  * The quiz's own fields as the paste holds them, against the quiz's: an action for each that
- * changes, and a line for each the paste held. The sort memory is handed back to go with the
- * questions (`import_questions`), which keep it only in a quiz that held none.
+ * changes, and a line for each the paste held. What it templates is sent once its widgetings are
+ * there (`afterLayout`), without any widgeting the quiz will not have (`showable`), which the line
+ * names. The sort memory is handed back to go with the questions (`import_questions`), which keep it
+ * only in a quiz that held none.
  */
-function fieldsCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT): { actions: HuntActionDNA[], log: FieldLogEntry[], last_sortkey?: Sortkey | null } {
+function fieldsCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, showable: ReadonlySet<string>): { actions: HuntActionDNA[], afterLayout: HuntActionDNA[], log: FieldLogEntry[], last_sortkey?: Sortkey | null } {
   const actions: HuntActionDNA[] = []
   const log: FieldLogEntry[] = []
   const carry = (fieldname: CarriedFieldname, read: { success: true, data: string } | { success: false } | null, held: string, action: (val: string) => HuntActionDNA) => {
@@ -237,7 +245,7 @@ function fieldsCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT): { actions: Hu
     actions.push(action(read.data))
     log.push({ fieldname, outcome: 'carried', reason: null })
   }
-  const noteOf = (fieldname: 'smiths_note' | 'q1_preamble') => {
+  const noteOf = (fieldname: 'smiths_note' | 'q1_preamble' | 'recap_head' | 'recap_tail') => {
     if (! Object.hasOwn(pasted.fields, fieldname)) { return null }
     const raw = pasted.fields[fieldname]
     return QuizValidators[fieldname].safeParse(raw === null ? '' : raw)
@@ -245,18 +253,49 @@ function fieldsCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT): { actions: Hu
   carry('title', pasted.title === null ? null : { success: true, data: pasted.title }, quiz.title, (title) => ({ kind: 'retitle_quiz', title }))
   carry('smiths_note', noteOf('smiths_note'), quiz.smiths_note, (smiths_note) => ({ kind: 'set_smiths_note', smiths_note }))
   carry('q1_preamble', noteOf('q1_preamble'), quiz.q1_preamble, (q1_preamble) => ({ kind: 'set_q1_preamble', q1_preamble }))
-  if (! Object.hasOwn(pasted.fields, 'last_sortkey')) { return { actions, log } }
+  carry('recap_head', noteOf('recap_head'), quiz.recap_head, (recap_head) => ({ kind: 'set_recap_head', recap_head }))
+  carry('recap_tail', noteOf('recap_tail'), quiz.recap_tail, (recap_tail) => ({ kind: 'set_recap_tail', recap_tail }))
+  const afterLayout = templatedCarried(quiz, pasted, showable, log)
+  if (! Object.hasOwn(pasted.fields, 'last_sortkey')) { return { actions, afterLayout, log } }
   const sortkey = QuizValidators.sortkey.nullable().safeParse(pasted.fields.last_sortkey)
   if (! sortkey.success) {
     log.push({ fieldname: 'last_sortkey', outcome: 'skipped', reason: 'not a sort memory this tool can read' })
-    return { actions, log }
+    return { actions, afterLayout, log }
   }
   if (quiz.questions.length > 0) {
     log.push({ fieldname: 'last_sortkey', outcome: 'kept', reason: 'a quiz that holds questions keeps its own order, and so its own sort memory' })
-    return { actions, log }
+    return { actions, afterLayout, log }
   }
   log.push({ fieldname: 'last_sortkey', outcome: sortkey.data === quiz.last_sortkey ? 'kept' : 'carried', reason: null })
-  return { actions, log, last_sortkey: sortkey.data }
+  return { actions, afterLayout, log, last_sortkey: sortkey.data }
+}
+
+/**
+ * What the paste templates, as the action that makes it the quiz's (none when the paste says
+ * nothing of it, or it is what the quiz has), with its line pushed onto `log`. A null clears it. A
+ * widgeting the quiz will not have (`showable`) is left out, and the line names it.
+ */
+function templatedCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, showable: ReadonlySet<string>, log: FieldLogEntry[]): HuntActionDNA[] {
+  if (! Object.hasOwn(pasted.fields, 'templated')) { return [] }
+  const raw = pasted.fields.templated
+  const read = QuizValidators.templated.safeParse(raw === null ? [] : raw)
+  if (! read.success) {
+    log.push({ fieldname: 'templated', outcome: 'skipped', reason: `not ${FieldTitles.templated} this tool can read` })
+    return []
+  }
+  const isUnshowable = (source: string) => {
+    const widgetingLabel = widgetingLabelOf(source)
+    return widgetingLabel !== null && ! showable.has(widgetingLabel)
+  }
+  const unshowable = read.data.filter((source) => isUnshowable(source))
+  const templated = read.data.filter((source) => ! unshowable.includes(source))
+  const reason = unshowable.length === 0 ? null : `without ${unshowable.join(', ')}, which this quiz will not have`
+  if (EST.isEqual(templated, quiz.templated)) {
+    log.push({ fieldname: 'templated', outcome: 'kept', reason })
+    return []
+  }
+  log.push({ fieldname: 'templated', outcome: 'carried', reason })
+  return [{ kind: 'set_templated', templated }]
 }
 
 /** The labels of the widgetings the quiz will hold once `actions` are sent: those it holds, and those added */
@@ -377,10 +416,11 @@ function widgetingsMerged(quiz: QuizT, pasted: readonly unknown[], library: read
   return { actions: merged.flatMap(({ action }) => (action ? [action] : [])), log: merged.map(({ entry }) => entry) }
 }
 
-/** A pasted widgeting the quiz already holds, as the revision of its description and params it comes to */
+/** A pasted widgeting the quiz already holds, as the revision of its description and params it comes to; skipped when it works another widget, or runs at another tier */
 function revisedFrom(held: WidgetingT, pasted: WidgetingT): { action: HuntActionDNA | null, entry: WidgetingLogEntry } {
   const { label } = held
   if (held.widget_label !== pasted.widget_label) { return skippedAs(label, `it works "${pasted.widget_label}" here, and "${held.widget_label}" in this quiz`) }
+  if (held.tier !== pasted.tier) { return skippedAs(label, `it runs for each ${pasted.tier} here, and for each ${held.tier} in this quiz`) }
   if (held.description === pasted.description && UU.jsonify(held.params) === UU.jsonify(pasted.params)) {
     return { action: null, entry: { label, outcome: 'kept', reason: null } }
   }
@@ -402,8 +442,9 @@ type MergeState = {
 }
 
 /**
- * The entry widgetings the quiz will hold once the import's widgeting actions are sent, by label,
- * each with the library's widget it works: those it holds, and those the import adds. One the paste
+ * The entry widgetings for each question the quiz will hold once the import's widgeting actions
+ * are sent, by label, each with the library's widget it works: those it holds, and those the
+ * import adds. One the paste
  * says works another widget is left out: what its cells hold came from that widget, not this entry.
  */
 function entryWidgetingsOf(quiz: QuizT, pasted: readonly unknown[], actions: readonly HuntActionDNA[], library: readonly WidgetT[]): ReadonlyMap<string, EntryWidgetT> {
@@ -413,7 +454,7 @@ function entryWidgetingsOf(quiz: QuizT, pasted: readonly unknown[], actions: rea
     return parsed.success ? [[parsed.data.label, parsed.data.widget_label] as const] : []
   }))
   const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
-  return new Map([...quiz.widgetings, ...added].flatMap(({ label, widget_label }) => {
+  return new Map([...quiz.widgetings, ...added].filter((widgeting) => widgeting.tier === 'question').flatMap(({ label, widget_label }) => {
     const widget = widgetFor.get(widget_label)
     const elsewhere = pastedWorking.get(label)
     if (elsewhere !== undefined && elsewhere !== widget_label) { return [] }

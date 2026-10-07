@@ -56,23 +56,28 @@ export type WidgetedBodyT = Pick<WidgetedT, 'status' | 'value'>
  * its chain by the label of the question it points at, its stamps as a person reads them, and beside them what each widgeting of
  * the quiz came to, under the widgeting's label.
  */
-export type QuestionBodyT = Pick<QuestionT, 'qnum' | 'clueing' | 'hint' | 'title' | 'alt_text' | 'notes' | 'full_answer' | 'viz'> & IsoStampsT & {
+export type QuestionBodyT = Pick<QuestionT, 'qnum' | 'clueing' | 'hint' | 'title' | 'alt_text' | 'notes' | 'full_answer' | 'recap' | 'viz'> & IsoStampsT & {
   position:  number
   chains_to: string | null
   [widgeting_label: string]: unknown
 }
 
-/** One widgeting, by its label: its place in the quiz's run order, and its fields */
+/** One widgeting, by its label: its place in the quiz's run order, and its fields, its tier among them */
 export type WidgetingBodyT = Omit<WidgetingT, 'label'> & { position: number }
 
 /** One column, by its label: its place in the grid, and its fields */
 export type ColumnBodyT = Omit<ColumnT, 'label'> & { position: number }
 
-/** One quiz, by its label: its own fields (its sort memory among them), its stamps, and its questions, widgetings and columns, each keyed by label */
-export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'locked' | 'last_sortkey'> & IsoStampsT & {
+/**
+ * One quiz, by its label: its own fields (its recap's head and tail, what it templates and its sort
+ * memory among them), its stamps, and its questions, widgetings and columns, each keyed by label;
+ * and, when it has any widgetings run once for the whole quiz, what each came to, by its label.
+ */
+export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'recap_head' | 'recap_tail' | 'templated' | 'locked' | 'last_sortkey'> & IsoStampsT & {
   questions:  Record<string, QuestionBodyT>
   widgetings: Record<string, WidgetingBodyT>
   columns:    Record<string, ColumnBodyT>
+  widgeteds?: Record<string, WidgetedBodyT>
 }
 
 /** What a reviewing writes of its verdict: everything the reviewer said of the question, and not whether they peeked */
@@ -166,12 +171,15 @@ export const PastedValidators = Validator(({ obj, arr, rec, union, str, unk, lab
     title:        titleish.nullable().optional(),
     smiths_note:  unk.optional(),
     q1_preamble:  unk.optional(),
+    recap_head:   unk.optional(),
+    recap_tail:   unk.optional(),
+    templated:    unk.optional(),
     last_sortkey: unk.optional(),
     questions:    collection.default([]),
     widgetings:   collection.default([]),
     columns:      collection.optional(),
   })
-    .describe('One quiz as a paste holds it: its label and title, which pick it out of several; its smith\'s note, Q1 preamble and sort memory, each read by Import against its own rule; and its questions, widgetings and columns, in a list or keyed by label. Its lock is not read: it says how far someone else\'s draft had come, not what it holds. An export made while a label could be overridden carries the override as `forced_label`, the label it answered to then.')
+    .describe('One quiz as a paste holds it: its label and title, which pick it out of several; its smith\'s note, Q1 preamble, recap head and tail, what it templates and its sort memory, each read by Import against its own rule; and its questions, widgetings and columns, in a list or keyed by label. Its lock is not read: it says how far someone else\'s draft had come, not what it holds. An export made while a label could be overridden carries the override as `forced_label`, the label it answered to then.')
 
   const ball = obj({ quizzes: rec(str, rec(str, quiz)) })
     .describe('Quizzes by realm and label, as a quiz\'s ball holds one, and a merged hunt every one: what Raw Export emits.')
@@ -202,7 +210,7 @@ export type PastedQuizT = {
   label:      string | null
   /** Its title, or null when the paste gives none */
   title:      string | null
-  /** Its own fields beside its title, as pasted, each only when the paste holds it: its smith's note, its Q1 preamble, its sort memory */
+  /** Its own fields beside its title, as pasted, each only when the paste holds it: its smith's note, its Q1 preamble, its recap's head and tail, what it templates, its sort memory */
   fields:     Partial<Record<PastedFieldname, unknown>>
   /** Its questions in order, each as pasted, read one by one; each from a keyed collection carries its key as its `label` */
   questions:  unknown[]
@@ -213,7 +221,7 @@ export type PastedQuizT = {
 }
 
 /** A quiz's own fields, beside its title, that a paste may carry */
-export const PastedFieldnames = ['smiths_note', 'q1_preamble', 'last_sortkey'] as const
+export const PastedFieldnames = ['smiths_note', 'q1_preamble', 'recap_head', 'recap_tail', 'templated', 'last_sortkey'] as const
 export type PastedFieldname = typeof PastedFieldnames[number]
 
 /** What a paste holds, as far as a quiz's Import reads it: the quizzes it holds, and the shape it was read as */

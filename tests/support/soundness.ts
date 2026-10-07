@@ -102,10 +102,10 @@ function unshowableSources(held: Held): string[] {
   ))
 }
 
-/** Whether `source` names a question's field or view, or one of `widgetings` */
+/** Whether `source` names a question's field or view, or one of `widgetings` that runs for each question */
 function isShowable(source: string, widgetings: readonly Doc<'widgetings'>[]): boolean {
   const named = sourceOf(source)
-  if (named.kind === 'widgeting') { return widgetings.some((widgeting) => widgeting.label === named.label) }
+  if (named.kind === 'widgeting') { return widgetings.some((widgeting) => widgeting.label === named.label && (widgeting.tier ?? 'question') === 'question') }
   if (named.kind === 'view') { return source === `${QuestionWidgetLabel}.${named.view}` }
   return source === `${QuestionWidgetLabel}.${named.field}`
 }
@@ -138,6 +138,7 @@ export const Copies: readonly Copy[] = [
   { tablename: 'columns',    fieldname: 'hunt_id',     via: 'quiz_id',      parent: 'quizzes',    from: 'hunt_id' },
   { tablename: 'widgeteds',  fieldname: 'hunt_id',     via: 'question_id',  parent: 'questions',  from: 'hunt_id' },
   { tablename: 'widgeteds',  fieldname: 'quiz_id',     via: 'question_id',  parent: 'questions',  from: 'quiz_id' },
+  { tablename: 'quiz_widgeteds', fieldname: 'hunt_id', via: 'quiz_id',      parent: 'quizzes',    from: 'hunt_id' },
   { tablename: 'reviews',    fieldname: 'hunt_id',     via: 'quiz_id',      parent: 'quizzes',    from: 'hunt_id' },
   { tablename: 'reviewings', fieldname: 'hunt_id',     via: 'review_id',    parent: 'reviews',    from: 'hunt_id' },
   { tablename: 'reviewings', fieldname: 'quiz_id',     via: 'review_id',    parent: 'reviews',    from: 'quiz_id' },
@@ -145,6 +146,7 @@ export const Copies: readonly Copy[] = [
   { tablename: 'huntings',   fieldname: 'ident_label', via: 'ident_id',     parent: 'idents',     from: 'label' },
   { tablename: 'huntings',   fieldname: 'ident_title', via: 'ident_id',     parent: 'idents',     from: 'title' },
   { tablename: 'widgeteds',  fieldname: 'quiz_id',     via: 'widgeting_id', parent: 'widgetings', from: 'quiz_id' },
+  { tablename: 'quiz_widgeteds', fieldname: 'quiz_id', via: 'widgeting_id', parent: 'widgetings', from: 'quiz_id' },
   { tablename: 'reviewings', fieldname: 'quiz_id',     via: 'question_id',  parent: 'questions',  from: 'quiz_id' },
 ]
 

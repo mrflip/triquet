@@ -2,8 +2,12 @@ import { Migrations, type MigrationFunctionReference } from '@convex-dev/migrati
 import { components, internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
 import { zInternalQuery } from './functions'
+import { QuestionFallbacks, QuizFallbacks, WidgetingFallbacks } from '../src/lib/rows'
 import * as Stamps from '../src/lib/stamps'
 import { ValidatorKit } from '../src/lib/validator'
+import { QuestionValidators } from '../src/models/question'
+import { QuizValidators } from '../src/models/quiz'
+import { WidgetingValidators } from '../src/models/widgeting'
 import schema from './schema'
 import type { StampedTablename } from './stamping'
 
@@ -64,10 +68,49 @@ export const backfillReviewStamps    = stampBackfill('reviews')
 export const backfillReviewingStamps = stampBackfill('reviewings')
 export const backfillHuntingStamps   = stampBackfill('huntings')
 
+// The recap's fields and the widgetings' tiers (`Serial Deploy: recap`): each writes what a row written before the
+// field existed reads as meanwhile (`QuizFallbacks`, `QuestionFallbacks`, `WidgetingFallbacks` in
+// `src/lib/rows.ts`), only into a row lacking it. As with the stamps, only what is written is held
+// to its validator: the rest of the row is not read again, so no older row can hold the series up
+// (a widgeting labelled `recap`, say, which the questions' new field now reserves).
+
+/** Give each quiz written before quizzes had a recap or templating an empty recap head and tail, templating nothing */
+export const backfillQuizRecaps = migrations.define({
+  table:      'quizzes',
+  migrateOne: async (ctx, quiz) => {
+    if (quiz.recap_head !== undefined && quiz.recap_tail !== undefined && quiz.templated !== undefined) { return }
+    const { recap_head, recap_tail, templated } = QuizFallbacks
+    await ctx.db.patch('quizzes', quiz._id, {
+      ...(quiz.recap_head === undefined && { recap_head: QuizValidators.recap_head.parse(recap_head) }),
+      ...(quiz.recap_tail === undefined && { recap_tail: QuizValidators.recap_tail.parse(recap_tail) }),
+      ...(quiz.templated === undefined && { templated: QuizValidators.templated.parse(templated) }),
+    })
+  },
+})
+
+/** Give each question written before questions had a recap an empty one */
+export const backfillQuestionRecaps = migrations.define({
+  table:      'questions',
+  migrateOne: async (ctx, question) => {
+    if (question.recap !== undefined) { return }
+    await ctx.db.patch('questions', question._id, { recap: QuestionValidators.recap.parse(QuestionFallbacks.recap) })
+  },
+})
+
+/** Give each widgeting written before widgetings had tiers the tier of one that runs for each question */
+export const backfillWidgetingTiers = migrations.define({
+  table:      'widgetings',
+  migrateOne: async (ctx, widgeting) => {
+    if (widgeting.tier !== undefined) { return }
+    await ctx.db.patch('widgetings', widgeting._id, { tier: WidgetingValidators.tier.parse(WidgetingFallbacks.tier) })
+  },
+})
+
 /**
- * Every backfill still defined, in the order they run: the stamps'. What `runAll` runs and
- * `outstanding` reports on. A new backfill joins the end, and leaves with the tightening after it.
- * It is never empty: `runAll`, a runner of the series, refuses to run none.
+ * Every backfill still defined, in the order they run: the stamps', then the recap's and the
+ * tiers'. What `runAll` runs and `outstanding` reports on. A new backfill joins the end, and leaves
+ * with the tightening after it. It is never empty: `runAll`, a runner of the series, refuses to run
+ * none.
  */
 export const Backfills: readonly MigrationFunctionReference[] = [
   internal.migrations.backfillIdentStamps,
@@ -82,6 +125,9 @@ export const Backfills: readonly MigrationFunctionReference[] = [
   internal.migrations.backfillReviewStamps,
   internal.migrations.backfillReviewingStamps,
   internal.migrations.backfillHuntingStamps,
+  internal.migrations.backfillQuizRecaps,
+  internal.migrations.backfillQuestionRecaps,
+  internal.migrations.backfillWidgetingTiers,
 ]
 
 /**

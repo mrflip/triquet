@@ -84,7 +84,7 @@ describe('isMovedAt', () => {
 
 describe('SignalledTables', () => {
   it("are every table a quiz's files are made from", () => {
-    expect(SignalledTables).to.have.members(['quizzes', 'questions', 'widgetings', 'columns', 'widgeteds', 'reviews', 'reviewings'])
+    expect(SignalledTables).to.have.members(['quizzes', 'questions', 'widgetings', 'columns', 'widgeteds', 'quiz_widgeteds', 'reviews', 'reviewings'])
   })
 })
 

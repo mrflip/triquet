@@ -13,6 +13,7 @@ import { Quiz, type QuizT } from '../../src/models/quiz'
 import { SeedWidgets } from '../../src/models/seeds'
 import { Widget } from '../../src/models/widget'
 import { Widgeted } from '../../src/models/widgeted'
+import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
 import { runHolding, runOf } from '../support/runs'
 import { EntryLibrary, ReviewedAtIso, SpottedItems, Verdict, chainedQuiz, snapshot, storedOk, twoQuizHunt } from '../support/snapshots'
@@ -97,6 +98,24 @@ describe('quizBodyOf', () => {
     expect([body.questions.leon, body.widgetings.remark, body.columns.title].map((each) => Object.hasOwn(present(each), 'label'))).to.deep.eq([false, false, false])
   })
 
+  it("holds what each widgeting run once for the whole quiz came to under widgeteds, and never on a question", () => {
+    const quiz = chainedQuiz()
+    const quizWide = {
+      ...quiz,
+      stored:     { playtesters: { newest: storedOk('Ada and Grace'), ok: storedOk('Ada and Grace') } } as QuizT['stored'],
+      widgetings: [Widgeting.fill({ widget_label: 'remark', label: 'playtesters', tier: 'quiz' }), ...quiz.widgetings],
+    }
+    const body = bodyOf(quizWide)
+    expect(body.widgeteds).to.deep.eq({ playtesters: { status: 'ok', value: 'Ada and Grace' } })
+    expect(body.widgetings.playtesters).to.deep.include({ tier: 'quiz' })
+    expect(body.questions.leon).to.not.have.property('playtesters')
+    expect(body.questions.leon).to.have.property('remark')
+  })
+
+  it("says nothing of widgeteds for a quiz with no widgeting run once for the whole quiz", () => {
+    expect(bodyOf(chainedQuiz())).to.not.have.property('widgeteds')
+  })
+
   it("names a chain by the label of the question it points at", () => {
     const { questions } = bodyOf(chainedQuiz())
     expect([questions.leon?.chains_to, questions.nantes?.chains_to]).to.deep.eq(['nantes', null])
@@ -115,10 +134,11 @@ describe('quizBodyOf', () => {
   it("keeps every field the quiz stores and each widgeting's and column's, its sort memory and a column's alignment among them", () => {
     const chained = chainedQuiz()
     const columns = chained.columns.map((column, ii) => (ii === 0 ? { ...column, align: 'right' as const } : column))
-    const quiz = { ...chained, columns, locked: true, smiths_note: 'Kings and lions.', last_sortkey: 'column:title' as const }
+    const recap = { recap_head: 'Thanks to our playtesters.', recap_tail: 'Until next season.', templated: ['question.recap', 'remark'] }
+    const quiz = { ...chained, columns, locked: true, smiths_note: 'Kings and lions.', ...recap, last_sortkey: 'column:title' as const }
     const body = bodyOf(quiz)
-    expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, locked: true, last_sortkey: 'column:title', created_at: null, updated_at: null })
-    expect(body.widgetings.remark).to.deep.eq({ position: quiz.widgetings.length - 1, widget_label: 'remark', description: '', params: {} })
+    expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, ...recap, locked: true, last_sortkey: 'column:title', created_at: null, updated_at: null })
+    expect(body.widgetings.remark).to.deep.eq({ position: quiz.widgetings.length - 1, widget_label: 'remark', description: '', params: {}, tier: 'question' })
     expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'question.title', width_px: 100, align: 'right' })
   })
 
@@ -153,7 +173,7 @@ describe('quizBodyOf', () => {
 
   it("adds nothing beside a question's fields and its position for a quiz with no widgetings", () => {
     const nantes = present(bodyOf({ ...chainedQuiz(), widgetings: [], columns: [] }).questions.nantes)
-    expect(_.sortBy(Object.keys(nantes))).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'notes', 'position', 'qnum', 'title', 'updated_at', 'viz'])
+    expect(_.sortBy(Object.keys(nantes))).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'notes', 'position', 'qnum', 'recap', 'title', 'updated_at', 'viz'])
   })
 
   it("writes the stamps of the quiz and each question as a person reads them: ISO-8601, in UTC", () => {
@@ -489,7 +509,7 @@ describe("a quiz's export, imported", () => {
     expect(outcome.summary).to.include('matched this quiz by label')
     expect(outcome.widgetingActions).to.deep.eq(quiz.widgetings.map((widgeting) => ({ kind: 'add_widgeting', widgeting })))
     const [leon, nantes] = present(outcome.questions)
-    const fields = _.pick(present(quiz.questions[0]), ['qnum', 'clueing', 'hint', 'title', 'alt_text', 'notes', 'full_answer', 'viz'])
+    const fields = _.pick(present(quiz.questions[0]), ['qnum', 'clueing', 'hint', 'title', 'alt_text', 'notes', 'full_answer', 'recap', 'viz'])
     expect(leon).to.deep.eq({ label: 'leon', patch: { ...fields, chains_to: 'nantes' }, entered: { remark: 'Ask Flip.' } })
     expect(nantes).to.deep.include({ label: 'nantes', entered: { remark: null } })
   })

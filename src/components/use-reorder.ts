@@ -21,6 +21,8 @@ export type ReorderableProps = {
   /** How many rows the list has, so an arrow key at either end does nothing */
   count:    number
   disabled: boolean
+  /** Stays where it is: other rows are dropped against it, but it has no grip of its own */
+  fixed?:   boolean
   /** Told which row moved, and the index it lands on counted in the list as it stands after the lift */
   onMove:   (itemkey: string, onto_idx: number) => void
 }
@@ -58,7 +60,7 @@ export type Reorderable = {
  *
  * @example const { rowRef, handleRef, dragging, landing } = useReorderable({ listkey: 'columns', itemkey: column.label, idx, count, disabled, onMove })
  */
-export function useReorderable({ listkey, itemkey, idx, count, disabled, onMove }: Readonly<ReorderableProps>): Reorderable {
+export function useReorderable({ listkey, itemkey, idx, count, disabled, fixed = false, onMove }: Readonly<ReorderableProps>): Reorderable {
   const [rowElem, setRowElem]       = useState<HTMLElement | null>(null)
   const [handleElem, setHandleElem] = useState<HTMLElement | null>(null)
   const [dragging, setDragging]     = useState(false)
@@ -68,8 +70,18 @@ export function useReorderable({ listkey, itemkey, idx, count, disabled, onMove 
   useEffect(() => { move.current = onMove }, [onMove])
 
   useEffect(() => {
-    if (disabled || rowElem === null || handleElem === null) { return }
+    if (disabled || rowElem === null || (handleElem === null && ! fixed)) { return }
     const mine = { listkey, itemkey, idx }
+    const target = dropTargetForElements({
+      element:     rowElem,
+      canDrop:     ({ source }) => carriedIdx(source.data, listkey) !== -1,
+      getData:     ({ input, element }) => attachClosestEdge(mine, { input, element, allowedEdges: ['top', 'bottom'] }),
+      // A row dragged over itself would land where it already is, so it is left unmarked.
+      onDrag:      ({ self, source }) => { setLanding(source.element === handleElem ? null : extractClosestEdge(self.data)) },
+      onDragLeave: () => { setLanding(null) },
+      onDrop:      () => { setLanding(null) },
+    })
+    if (fixed || handleElem === null) { return target }
     return combine(
       draggable({
         element:        handleElem,
@@ -89,17 +101,9 @@ export function useReorderable({ listkey, itemkey, idx, count, disabled, onMove 
           }))
         },
       }),
-      dropTargetForElements({
-        element:     rowElem,
-        canDrop:     ({ source }) => carriedIdx(source.data, listkey) !== -1,
-        getData:     ({ input, element }) => attachClosestEdge(mine, { input, element, allowedEdges: ['top', 'bottom'] }),
-        // A row dragged over itself would land where it already is, so it is left unmarked.
-        onDrag:      ({ self, source }) => { setLanding(source.element === handleElem ? null : extractClosestEdge(self.data)) },
-        onDragLeave: () => { setLanding(null) },
-        onDrop:      () => { setLanding(null) },
-      }),
+      target,
     )
-  }, [rowElem, handleElem, listkey, itemkey, idx, disabled])
+  }, [rowElem, handleElem, listkey, itemkey, idx, disabled, fixed])
 
   // Where the last arrow press sent this row, until the list shows it there. A move lands a
   // moment after it is asked for, so a second press in that moment steps on from where the first
@@ -111,7 +115,7 @@ export function useReorderable({ listkey, itemkey, idx, count, disabled, onMove 
 
   const onHandleKeyDown = (event: React.KeyboardEvent) => {
     const step = ArrowSteps[event.key]
-    if (disabled || step === undefined) { return }
+    if (disabled || fixed || step === undefined) { return }
     const onto_idx = (sentTo.current ?? idx) + step
     if (onto_idx < 0 || onto_idx >= count) { return }
     event.preventDefault()

@@ -61,9 +61,9 @@ when its files last changed, so a smith's browser can watch every quiz's signal 
 and fetch a quiz it does not have on screen only once it moves, rather than watch the quiz whole
 (`notes/hunt_git.md`, *Watching and committing, by file*). It is moved by a trigger beside the
 stamps (`convex/signalling.ts`, both registered in `convex/triggers.ts`), at each write to the
-quiz, its questions, widgetings, columns or widgeteds, or to a shared review or its verdicts (a
-draft's writes move nothing: its smiths are not told a reviewer is at work), and taken away with
-its quiz. Like the stamps, a dashboard edit and a migration's raw write pass it by.
+quiz, its questions, widgetings, columns or widgeteds (a question's or the quiz's own), or to a
+shared review or its verdicts (a draft's writes move nothing: its smiths are not told a reviewer
+is at work), and taken away with its quiz. Like the stamps, a dashboard edit and a migration's raw write pass it by.
 
 * **Its own row, never the quiz's.** Every reader of the quiz row (the screen's frame among them)
   would rerun at every write to the quiz's questions; only `quizzes.signals` reads `signals`.

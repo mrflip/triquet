@@ -4,7 +4,8 @@ import { mintId } from '../lib/ids'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 import { Question, QuestionValidators, type QuestionT } from './question'
-import { ColumnValidators, sourceOf, type ColumnSortkey, type ColumnT } from './column'
+import { ColumnValidators, QuestionWidgetLabel, sourceOf, widgetingLabelOf, type ColumnSortkey, type ColumnT } from './column'
+import { WidgetedValidators, type WidgetedHistoryT } from './widgeted'
 import { WidgetingValidators, type WidgetingT } from './widgeting'
 
 /** The one ordering a quiz can have been committed into that is not a column's */
@@ -19,7 +20,14 @@ export const BlankQuestionQty = 5
 /** What every quiz's LL export puts ahead of its first question when going live, until a smith rewrites it */
 export const DefaultQ1Preamble = 'Important: Read the smith\'s note before you play![br][br]'
 
-export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, noteish, label, bool, stamps, timestamp, zid, treeid }) => {
+/** The fields of a question a quiz may nominate for templating: those an author writes markdown into */
+export const TemplatableFieldVals = ['clueing', 'hint', 'full_answer', 'notes', 'recap'] as const
+export type TemplatableField = typeof TemplatableFieldVals[number]
+
+/** The most sources a quiz may nominate for templating: every templatable field, and every widgeting */
+const TemplatedMax = TemplatableFieldVals.length + PA.WidgetingsPerQuiz.max
+
+export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod, titleish, noteish, label, bool, stamps, timestamp, zid, treeid }) => {
   const columnSortkey = zod.templateLiteral(['column:', label])
   const sortkey = union([lit(ChainOrderSortkey), columnSortkey])
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
@@ -33,6 +41,18 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
   const q1_preamble = noteish
     .describe('What the LL export puts ahead of the first question when the quiz goes live, in the league\'s BBCode: a pointer to the smith\'s note, which the league\'s site shows apart from the questions. Kept trimmed.')
 
+  const recap_head = noteish
+    .describe('What the recap note says ahead of the questions, once the quiz has been played: thanks to the playtesters, congratulations to the winners. Always templated. Kept trimmed.')
+
+  const recap_tail = noteish
+    .describe('What the recap note says after the questions. Always templated. Kept trimmed.')
+
+  const templatedSource = union([zod.templateLiteral([`${QuestionWidgetLabel}.`, oneof(TemplatableFieldVals)]), WidgetingValidators.widgetingLabel])
+    .describe('One source a quiz templates, named as a column names what it shows: `question.<field>` for a question\'s own field, or a widgeting\'s label.')
+  const templated = arr(templatedSource).max(TemplatedMax)
+    .refine((sources) => new Set(sources).size === sources.length, 'should name each source once')
+    .describe('The sources the quiz nominates for templating, its own fields and its widgetings, each named once: their text is filled in as a template over the quiz\'s bag before it is shown or exported. Nominated per quiz and per source, not per column: every column and export of a source treats it alike.')
+
   const quiz = obj({
     _id:             treeid,
     title:           titleish.default('')
@@ -40,12 +60,17 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     label:           quizLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
     smiths_note:     smiths_note.default(''),
     q1_preamble:     q1_preamble.default(DefaultQ1Preamble),
+    recap_head:      recap_head.default(''),
+    recap_tail:      recap_tail.default(''),
+    templated:       templated.default([]),
     questions:       arr(QuestionValidators.question).max(PA.QuestionsPerQuiz.max).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left. At most 999.'),
     widgetings:      arr(WidgetingValidators.widgeting).max(PA.WidgetingsPerQuiz.max).default([])
       .describe('The widgets this quiz puts to work, each under a label of its own, in run order: each one reads what those before it came to. At most 99.'),
     columns:         arr(ColumnValidators.column).max(PA.ColumnsPerQuiz.max).default([])
       .describe('The columns of this quiz\'s grid, in the order they appear. Kept apart from the widgetings: a column says what to show and how wide, and a widgeting is what has a value. At most 99.'),
+    stored:          rec(label, WidgetedValidators.history).default({})
+      .describe('What each of its widgetings that runs once for the whole quiz and stores (an entry) has recorded for the quiz itself, by the widgeting\'s label: its newest row, and its newest `ok` one. A widgeting with nothing recorded is absent.'),
     locked:          bool.default(false)
       .describe('When true this quiz accepts no edits at all -- a finished draft sent out for playtesting, kept readable and copyable but frozen against accidental change.'),
     last_sortkey:    sortkey.nullable().default(null),
@@ -68,6 +93,9 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     label:           quizLabel,
     smiths_note,
     q1_preamble,
+    recap_head,
+    recap_tail,
+    templated,
     locked:          bool,
     last_sortkey:    sortkey.nullable(),
     row_ordering:    arr(zid('questions')).max(PA.QuestionsPerQuiz.max)
@@ -76,7 +104,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
   })
     .describe('One quiz as the database holds it: its own fields, with its questions, widgetings and columns in rows of their own.')
 
-  return { sortkey, smiths_note, q1_preamble, quiz, row }
+  return { sortkey, smiths_note, q1_preamble, recap_head, recap_tail, templatedSource, templated, quiz, row }
 })
 
 /** One thing wrong with a quiz, and where */
@@ -96,11 +124,18 @@ function repeatIssues<TT>(items: readonly TT[], listkey: string, keyOf: (item: T
 /**
  * Everything that is only wrong relative to a quiz's own siblings: two questions with one id, a
  * chain that dangles, two widgetings or two columns with one label, a column showing a widgeting
- * that is not there.
+ * that is not there or runs once for the whole quiz, a widgeting templated that is not there or
+ * runs for the whole quiz, a widgeting for the whole quiz under a name the quiz itself already
+ * answers to in the bag.
  */
-function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgetings' | 'columns'>): Issue[] {
+function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgetings' | 'columns' | 'templated'>): Issue[] {
   const questionIds = new Set(quiz.questions.map((question) => question._id))
-  const widgetingLabels = new Set(quiz.widgetings.map((widgeting) => widgeting.label))
+  const widgetingLabels = new Set(quiz.widgetings.filter((widgeting) => widgeting.tier === 'question').map((widgeting) => widgeting.label))
+  const quizTierIssues = quiz.widgetings.flatMap((widgeting, idx): Issue[] => (
+    widgeting.tier === 'quiz' && isQuizReserved(widgeting.label)
+      ? [{ input: widgeting.label, path: ['widgetings', idx, 'label'], message: 'A widgeting for the whole quiz cannot take a name the quiz already answers to' }]
+      : []
+  ))
   const chainIssues = quiz.questions.flatMap((question, idx): Issue[] => {
     if (! question.chains_to) { return [] }
     const path = ['questions', idx, 'chains_to']
@@ -110,7 +145,13 @@ function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgetings' | 'columns
   const sourceIssues = quiz.columns.flatMap((column, idx): Issue[] => {
     const source = sourceOf(column.source)
     return source.kind === 'widgeting' && ! widgetingLabels.has(source.label)
-      ? [{ input: column.source, path: ['columns', idx, 'source'], message: 'A column shows a widgeting this quiz does not have' }]
+      ? [{ input: column.source, path: ['columns', idx, 'source'], message: 'A column shows a widgeting this quiz does not have for each question' }]
+      : []
+  })
+  const templatedIssues = quiz.templated.flatMap((source, idx): Issue[] => {
+    const widgetingLabel = widgetingLabelOf(source)
+    return widgetingLabel !== null && ! widgetingLabels.has(widgetingLabel)
+      ? [{ input: source, path: ['templated', idx], message: 'The quiz templates a widgeting it does not have for each question' }]
       : []
   })
   return [
@@ -118,8 +159,15 @@ function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgetings' | 'columns
     ...repeatIssues(quiz.widgetings, 'widgetings', (widgeting) => widgeting.label, 'label', 'Two widgetings in one quiz share a label'),
     ...repeatIssues(quiz.columns, 'columns', (column) => column.label, 'label', 'Two columns in one quiz share a label'),
     ...sourceIssues,
+    ...templatedIssues,
+    ...quizTierIssues,
     ...chainIssues,
   ]
+}
+
+/** Whether `label` is one the quiz itself answers to in the bag (`Quiz.exposed`), which a widgeting for the whole quiz, put beside them, cannot take */
+function isQuizReserved(label: string): boolean {
+  return (Quiz.exposed as readonly string[]).includes(label)
 }
 
 export type QuizDNA       = Z.input<typeof QuizValidators.quiz>
@@ -133,9 +181,13 @@ export class Quiz implements QuizT {
   declare label:           string
   declare smiths_note:     string
   declare q1_preamble:     string
+  declare recap_head:      string
+  declare recap_tail:      string
+  declare templated:       string[]
   declare questions:       QuestionT[]
   declare widgetings:      WidgetingT[]
   declare columns:         ColumnT[]
+  declare stored:          Record<string, WidgetedHistoryT>
   declare locked:          boolean
   declare last_sortkey:    Sortkey | null
   declare created_at:      number | null
@@ -144,8 +196,9 @@ export class Quiz implements QuizT {
   /**
    * The fields a quiz shows the outside world, alphabetically: its label, the
    * smith's note, and its title. Not the id; not the questions, widgetings and columns, which
-   * are exposed on their own; not the LL export's preamble; and not the housekeeping -- lock,
-   * remembered sort.
+   * are exposed on their own; not the LL export's preamble, nor the recap's head and tail, which
+   * are templated over the bag rather than read from it; and not the housekeeping -- lock,
+   * remembered sort, which sources are templated.
    */
   static readonly exposed = ['label', 'smiths_note', 'title'] as const
 
@@ -156,6 +209,17 @@ export class Quiz implements QuizT {
    */
   static isLocked(quiz: Pick<QuizRowT, 'locked'>): boolean {
     return quiz.locked
+  }
+
+  /**
+   * Whether a widgeting for the whole quiz may be labelled `label`: not a name the quiz itself
+   * answers to in the bag (`exposed`), beside which its widgeted sits as `quiz.<label>`.
+   *
+   * @example Quiz.mayLabelQuizTier('playtesters')  // => true
+   * @example Quiz.mayLabelQuizTier('smiths_note')  // => false
+   */
+  static mayLabelQuizTier(label: string): boolean {
+    return ! isQuizReserved(label)
   }
 
   /**
@@ -207,7 +271,7 @@ export class Quiz implements QuizT {
   static blankRow({ hunt_id, realm_id }: Pick<QuizRowT, 'hunt_id' | 'realm_id'>, title = '', label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuizRowT {
     return QuizValidators.row({
       hunt_id, realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, smiths_note: '', q1_preamble: DefaultQ1Preamble,
-      locked: false, last_sortkey: null, row_ordering: [],
+      recap_head: '', recap_tail: '', templated: [], locked: false, last_sortkey: null, row_ordering: [],
     })
   }
 }

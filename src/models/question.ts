@@ -44,6 +44,8 @@ export const QuestionValidators = Validator(({ obj, rec, oneof, textish, noteish
     .describe('Freeform notes column, carried through to the spreadsheet export. The tool ascribes no meaning to it.')
   const notes = noteish
     .describe('Second freeform notes column, carried through to the spreadsheet export.')
+  const recap = noteish
+    .describe('What the recap says of the question once the quiz has been played: its story, a link, a congratulation. The recap note sets it below the question and its answer. Kept trimmed.')
   const full_answer = noteish
     .describe('The answer, as it will actually be read out.')
   const viz = oneof(QuestionVizVals)
@@ -60,6 +62,7 @@ export const QuestionValidators = Validator(({ obj, rec, oneof, textish, noteish
     alt_text:      alt_text.default(''),
     notes:         notes.default(''),
     full_answer:   full_answer.default(''),
+    recap:         recap.default(''),
     viz:           viz.default(DefaultViz),
     stored:        rec(label, WidgetedValidators.history).default({})
       .describe('What each widgeting that stores (an `aibot` one) has recorded for this question, by the widgeting\'s label: its newest row, and its newest `ok` one. A widgeting with nothing recorded here is absent.'),
@@ -81,6 +84,7 @@ export const QuestionValidators = Validator(({ obj, rec, oneof, textish, noteish
     alt_text:      alt_text.optional(),
     notes:         notes.optional(),
     full_answer:   full_answer.optional(),
+    recap:         recap.optional(),
   })
     .describe('The fields of one question being revised: what the author writes. A key absent from a patch means "leave whatever is already there", so no field here carries a default. The id is not among them: a question keeps the id it was minted with for its whole life. Neither is what its widgetings stored, which is recorded rather than revised.')
 
@@ -99,12 +103,13 @@ export const QuestionValidators = Validator(({ obj, rec, oneof, textish, noteish
     full_answer,
     alt_text,
     notes,
+    recap,
     viz:          viz.default(DefaultViz),
     ...stamps,
   })
     .describe('One question as the database holds it: only what the author writes. What its widgetings stored is in rows of their own.')
 
-  return { qnum, clueing, hint, title, chains_to, alt_text, notes, full_answer, viz, question, questionPatch, row }
+  return { qnum, clueing, hint, title, chains_to, alt_text, notes, full_answer, recap, viz, question, questionPatch, row }
 })
 
 export type QuestionDNA   = Z.input<typeof QuestionValidators.question>
@@ -130,6 +135,7 @@ export class Question implements QuestionT {
   declare alt_text:      string
   declare notes:         string
   declare full_answer:   string
+  declare recap:         string
   declare viz:           QuestionViz
   declare stored:        Record<string, WidgetedHistoryT>
   declare created_at:    number | null
@@ -140,18 +146,18 @@ export class Question implements QuestionT {
    * what a quiz's git table carries. Everything but the id, and what its widgetings stored, which
    * each widgeting exposes for itself.
    */
-  static readonly exposed = ['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'title'] as const
+  static readonly exposed = ['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'recap', 'title'] as const
 
   /**
    * The fields of a question each standing on its hunt is sent, beside its id, alphabetically: the
    * one place a change to who is sent what lands (`seenQuestionFor`). A smith works the question,
    * and is sent all of it: its exposed fields, what its widgetings stored, and its stamps. A reviewer is sent
    * what a review needs: the question as it will be asked, the BUT NOT it chains to, how it is
-   * shown (its viz), and its answer, which the review screen keeps behind its lock; not the smiths' notes, nor what the
-   * widgetings stored, nor when it was made and edited. A stranger to the hunt is sent nothing.
+   * shown (its viz), and its answer, which the review screen keeps behind its lock; not the smiths' notes, nor its
+   * recap, nor what the widgetings stored, nor when it was made and edited. A stranger to the hunt is sent nothing.
    */
   static readonly sentTo = {
-    smith:    ['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'stored', 'title', 'updated_at', 'viz'],
+    smith:    ['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'recap', 'stored', 'title', 'updated_at', 'viz'],
     reviewer: ['chains_to', 'clueing', 'full_answer', 'hint', 'label', 'qnum', 'title', 'viz'],
     stranger: [],
   } as const satisfies Record<HuntStanding, readonly QuestionFieldname[]>
@@ -202,10 +208,10 @@ export class Question implements QuestionT {
    * @example Question.isBlank(Question.blank())  // => true
    * @example Question.isBlank({ ...Question.blank(), hint: 'BUT NOT a king' })  // => false
    */
-  static isBlank(question: Pick<QuestionT, 'label' | 'title' | 'qnum' | 'clueing' | 'hint' | 'chains_to' | 'full_answer' | 'alt_text' | 'notes'>): boolean {
-    const { label, title, qnum, clueing, hint, chains_to, full_answer, alt_text, notes } = question
+  static isBlank(question: Pick<QuestionT, 'label' | 'title' | 'qnum' | 'clueing' | 'hint' | 'chains_to' | 'full_answer' | 'alt_text' | 'notes' | 'recap'>): boolean {
+    const { label, title, qnum, clueing, hint, chains_to, full_answer, alt_text, notes, recap } = question
     const untitled = title === '' || title === Labelmaker.titleize(label)
-    return untitled && chains_to === null && [qnum, clueing, hint, full_answer, alt_text, notes].every((field) => field === '')
+    return untitled && chains_to === null && [qnum, clueing, hint, full_answer, alt_text, notes, recap].every((field) => field === '')
   }
 
   /** What follows an alternate's title wherever it is shown, the title in italics */
@@ -269,7 +275,7 @@ export class Question implements QuestionT {
    */
   static blankRow({ hunt_id, quiz_id }: Pick<QuestionRowT, 'hunt_id' | 'quiz_id'>, label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuestionRowT {
     return QuestionValidators.row({
-      hunt_id, quiz_id, label, title: Labelmaker.titleize(label), qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', viz: DefaultViz,
+      hunt_id, quiz_id, label, title: Labelmaker.titleize(label), qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', recap: '', viz: DefaultViz,
     })
   }
 }

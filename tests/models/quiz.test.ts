@@ -16,6 +16,9 @@ describe('Quiz.fill', () => {
       locked:          false,
       last_sortkey:    null,
       q1_preamble:     DefaultQ1Preamble,
+      recap_head:      '',
+      recap_tail:      '',
+      templated:       [],
       widgetings:      [],
       columns:         [],
     })
@@ -114,6 +117,10 @@ describe('Quiz.fill', () => {
     [{ widgetings: [{ ...Widgeting, label: 'rank' }] },                                         'a widgeting labelled as the rank the bag adds'],
     [{ columns: [Col, { ...Col, title: 'Again' }] },                                            'two columns sharing a label'],
     [{ columns: [{ ...Col, source: 'nowhere' }] },                                              'a column showing a widgeting the quiz does not have'],
+    [{ templated: ['nowhere'] },                                                                'templating a widgeting the quiz does not have'],
+    [{ templated: ['question.recap', 'question.recap'] },                                       'templating one source twice'],
+    [{ templated: ['question.title'] },                                                         'templating a question field that holds no markdown'],
+    [{ recap_tail: 'x'.repeat(3601) },                                                          'a recap tail past 3600 characters'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {
@@ -123,6 +130,16 @@ describe('Quiz.fill', () => {
 
   it('accepts a widgeting and a column that share a label, since one is what a thing is and the other where it is shown', () => {
     expect(() => Quiz.fill({ _id: quiz_id, widgetings: [Widgeting], columns: [{ ...Col, source: 'zed' }] })).to.not.throw()
+  })
+
+  it('templates its questions\' markdown fields and its own widgetings, trimming its recap head and tail', () => {
+    const quiz = Quiz.fill({ _id: quiz_id, widgetings: [Widgeting], templated: ['question.clueing', 'zed', 'question.recap'], recap_head: '  Thanks!\n', recap_tail: 'Bye. ' })
+    expect([quiz.templated, quiz.recap_head, quiz.recap_tail]).to.deep.eq([['question.clueing', 'zed', 'question.recap'], 'Thanks!', 'Bye.'])
+  })
+
+  it('names the offending source when it templates a widgeting it does not have', () => {
+    const outcome = QuizValidators.quiz.safeParse({ _id: quiz_id, widgetings: [Widgeting], templated: ['zed', 'gone'] })
+    expect(outcome.error?.issues[0]?.path).to.deep.eq(['templated', 1])
   })
 
   it('accepts two widgetings of one widget under labels of their own', () => {
@@ -175,9 +192,33 @@ describe('Quiz.isLocked', () => {
   })
 })
 
+describe('Quiz.mayLabelQuizTier', () => {
+  it('refuses only a name the quiz itself answers to in the bag', () => {
+    expect([Quiz.mayLabelQuizTier('playtesters'), Quiz.mayLabelQuizTier('smiths_note'), Quiz.mayLabelQuizTier('title')]).to.deep.eq([true, false, false])
+  })
+})
+
+describe('Quiz.fill, with widgetings run once for the whole quiz', () => {
+  const playtesters = { widget_label: 'names', label: 'playtesters', tier: 'quiz' as const }
+
+  it('takes one, and what the quiz stored for it', () => {
+    const stored = { playtesters: { newest: { status: 'ok' as const, value: 'Ada', message: null, result_meta: {}, _creationTime: 1 }, ok: null } }
+    expect(Quiz.fill({ _id: quiz_id, widgetings: [playtesters], stored }).stored.playtesters?.newest.value).to.eq('Ada')
+  })
+
+  it('refuses one under a name the quiz already answers to', () => {
+    expect(() => Quiz.fill({ _id: quiz_id, widgetings: [{ ...playtesters, label: 'smiths_note' }] })).to.throw(/the quiz already answers to/)
+  })
+
+  it('refuses a column showing one, or a template of one: it has no cell for any question', () => {
+    expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], columns: [{ label: 'thanks', title: 'Thanks', source: 'playtesters', width_px: 90 }] })).to.throw(/does not have for each question/)
+    expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], templated: ['playtesters'] })).to.throw(/does not have for each question/)
+  })
+})
+
 describe('QuizValidators.row', () => {
   const Row = {
-    hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', smiths_note: '', q1_preamble: 'Read the note![br]', locked: false, last_sortkey: null,
+    hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', smiths_note: '', q1_preamble: 'Read the note![br]', recap_head: '', recap_tail: '', templated: ['question.recap'], locked: false, last_sortkey: null,
     row_ordering: ['j97d0qbj35dar1v8edndzckvsx8f828f'], created_at: 1_759_700_000_000, updated_at: 1_759_700_000_000,
   }
 
@@ -195,6 +236,9 @@ describe('QuizValidators.row', () => {
     [{ last_sortkey: 'clueing' },            'a sort memory that is neither a column nor the chain order'],
     [{ locked: 'no' },                       'a lock that is not a yes or no'],
     [{ row_ordering: ['princes'] },          'an order naming something that is not a row id'],
+    [{ recap_head: undefined },              'a missing recap head, which a row never defaults'],
+    [{ templated: undefined },               'missing templating, which a row never defaults'],
+    [{ templated: ['question.qnum'] },       'templating a field that holds no markdown'],
     [{ row_ordering: Array.from({ length: 1000 }, () => 'j97d0qbj35dar1v8edndzckvsx8f828f') }, 'an order of more questions than a quiz may hold'],
   ]
   for (const [overrides, describes] of Refused) {

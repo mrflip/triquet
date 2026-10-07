@@ -17,9 +17,13 @@ describe('ReservedWidgetingLabels', () => {
 })
 
 describe('Widgeting.fill', () => {
-  it("defaults the description to nothing and the params to none, per the doc example", () => {
-    expect(Widgeting.fill({ widget_label: 'dumdum', label: 'dumdum' })).to.deep.eq({ widget_label: 'dumdum', label: 'dumdum', description: '', params: {} })
+  it("defaults the description to nothing, the params to none and the tier to a question's, per the doc example", () => {
+    expect(Widgeting.fill({ widget_label: 'dumdum', label: 'dumdum' })).to.deep.eq({ widget_label: 'dumdum', label: 'dumdum', description: '', params: {}, tier: 'question' })
     expect(Widgeting.fill({ widget_label: 'dumdum', label: 'dumdum' }).params).to.deep.eq({})
+  })
+
+  it("keeps a widgeting that runs once for the quiz as a whole", () => {
+    expect(Widgeting.fill({ widget_label: 'dumdum', label: 'winners', tier: 'quiz' }).tier).to.eq('quiz')
   })
 
   it("trims the description, and keeps params as given", () => {
@@ -63,6 +67,7 @@ describe('Widgeting.fill', () => {
     [{ description: 'x'.repeat(3601) },                   'a description past 3600 characters'],
     [{ params: { Tries: 2 } },                            'a param named other than by a label'],
     [{ params: { blob: 'x'.repeat(4000) } },              'params whose JSON runs past 4000 characters'],
+    [{ tier: 'realm' },                                   'a tier that is neither a question nor a quiz'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {
@@ -75,6 +80,27 @@ describe('Widgeting.exposed', () => {
   it("is what it came to and whether it came to anything, whatever its formulary", () => {
     expect(Widgeting.exposed).to.deep.eq(['status', 'value'])
   })
+})
+
+describe('Widgeting.runsAt', () => {
+  const RunsAtCases = [
+    // regular usage:
+    [{ formulary: 'jsonata', config: {} },                                                     'quiz',     true,  'a formula runs once for the whole quiz'],
+    [{ formulary: 'entry', config: { entry_kind: 'text' } },                                   'quiz',     true,  'a text entry runs once for the whole quiz'],
+    [{ formulary: 'entry', config: { entry_kind: 'number' } },                                 'quiz',     true,  'a number entry runs once for the whole quiz'],
+    // refused at the quiz's level:
+    [{ formulary: 'aibot', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 9 } }, 'quiz', false, 'a model asked from a cell has no cell at the quiz\'s level'],
+    [{ formulary: 'entry', config: { entry_kind: 'estimates' } },                              'quiz',     false, 'a question\'s category estimates are no value of the quiz'],
+    // every widget runs for each question:
+    [{ formulary: 'aibot', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 9 } }, 'question', true, 'a model runs for each question'],
+    [{ formulary: 'entry', config: { entry_kind: 'estimates' } },                              'question', true,  'category estimates run for each question'],
+  ] as const
+
+  for (const [widget, tier, expected, title] of RunsAtCases) {
+    it(title, () => {
+      expect(Widgeting.runsAt(widget, tier)).to.eq(expected)
+    })
+  }
 })
 
 describe('Widgeting.forWidget', () => {
@@ -96,7 +122,7 @@ describe('Widgeting.forWidget', () => {
   }
 
   it("works the widget it is for, whatever label it takes", () => {
-    expect(Widgeting.forWidget({ label: 'notes' }, new Set())).to.deep.eq({ widget_label: 'notes', label: 'notes_2', description: '', params: {} })
+    expect(Widgeting.forWidget({ label: 'notes' }, new Set())).to.deep.eq({ widget_label: 'notes', label: 'notes_2', description: '', params: {}, tier: 'question' })
   })
 
   it("trims a 40-character widget label so the grown label still fits", () => {
@@ -120,10 +146,14 @@ describe('WidgetingValidators.widgetingPatch', () => {
   it("drops the widget it works, which a patch never changes", () => {
     expect(WidgetingValidators.widgetingPatch({ widget_label: 'numnum_hint', label: 'guesses' } as never)).to.deep.eq({ label: 'guesses' })
   })
+
+  it("drops its tier, which a patch never changes", () => {
+    expect(WidgetingValidators.widgetingPatch({ tier: 'quiz', description: 'Why.' } as never)).to.deep.eq({ description: 'Why.' })
+  })
 })
 
 describe('WidgetingValidators.row', () => {
-  const Row = { hunt_id: HuntId, quiz_id: QuizId, widget_label: 'dumdum', label: 'dumdum', description: '', params: {}, position: 0 }
+  const Row = { hunt_id: HuntId, quiz_id: QuizId, widget_label: 'dumdum', label: 'dumdum', description: '', params: {}, tier: 'question' as const, position: 0 }
 
   it("takes a widgeting as the database holds it", () => {
     expect(WidgetingValidators.row(Row)).to.deep.eq(Row)
@@ -133,6 +163,8 @@ describe('WidgetingValidators.row', () => {
     [{ ...Row, label: 'hint' },       'a reserved label'],
     [{ ...Row, position: -1 },        'a place before the first'],
     [{ ...Row, params: undefined },   'missing params, which a row never defaults'],
+    [{ ...Row, tier: undefined },     'a missing tier, which a row never defaults'],
+    [{ ...Row, label: 'recap' },      'the label of the recap a question now has'],
     [{ ...Row, quiz_id: 'princes' },  'a quiz named by label rather than id'],
     [{ ...Row, hunt_id: undefined },  'no hunt'],
   ]

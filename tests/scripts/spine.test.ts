@@ -109,7 +109,7 @@ describe('Spine.reachOf', () => {
     // a corner:
     ['src/components/QuestionRow.tsx',      'the grid',                     GridFiles,                                     'a row of the grid reaches the specs that drive the rows'],
     ['src/components/cells/chain.tsx',      'the chain cell',               [...GridFiles, 'e2e/reviews.spec.ts'],         'a cell a review shows too reaches the review spec besides'],
-    ['src/components/SortableList.tsx',     'the gear',                     specfiles('widgets', 'prompts', 'entries', 'quizzes'), 'a list only the gear drags, though it sounds like the grid'],
+    ['src/components/SortableList.tsx',     'the gear',                     specfiles('widgets', 'prompts', 'entries', 'quizzes', 'quiz-entries'), 'a list only the gear drags, though it sounds like the grid'],
     ['src/components/QuizSwitcher.tsx',     'the quiz switcher',            specfiles('quizzes', 'routing'),               'the doc block example'],
     ['src/app/(synced)/error.tsx',          'the error boundary',           specfiles('failing-pages'),                    'the error boundary, though it sits among the synced pages'],
     ['src/app/(synced)/stats/page.tsx',     'the stats page',               specfiles('stats'),                            'the stats page, though it sits among the synced pages'],

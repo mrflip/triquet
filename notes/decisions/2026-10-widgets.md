@@ -165,6 +165,41 @@ entry's column no inputs (only a `click` widgeting has any).
   in the bag beside `status` and `value`, so a later formula reads `qn.<label>.masie`. A part of
   any other widgeting is refused (`partUnoffered`).
 
+### The quiz tier (the recap sprint's thread 6, as built)
+
+A widgeting's `tier` (`question` or `quiz`, widened in by the recap sprint's thread 1) says
+whether it runs for each question or once for the whole quiz. The Coach's design: the gear lists
+the quiz's own widgetings apart, with one fixed item among them, **the questions**: the quiz
+widgetings above it run first, then the question widgetings, then the quiz widgetings below it,
+each reading what every one before it came to.
+
+* **Run order without a new field.** A quiz's widgetings stay one list (`position`), and the
+  questions pivot sits just before the first question widgeting (`src/lib/run-order.ts`). The
+  runner walks `runOrderOf` the steps; every layout change writes the positions whole, so the tiers
+  never interleave. In a quiz with no question widgetings the pivot sits just before the first
+  quiz formula (after the entries), or last, and the first question widgeting added goes there
+  (sprint decision 12, from the thread's review): otherwise a formula over the questions, added
+  before any or left when the last was removed, would end up above every question widgeting added
+  later and silently read none of them. The cost: a formula meant to run above the questions in
+  such a quiz is dragged back above them once they come. `move_widgeting`'s index counts the
+  widgeting's own tier's list as the gear shows it: the question widgetings, or the quiz's own and
+  the pivot. A new entry for the quiz goes just above the pivot (it reads nothing, so every formula
+  can read it); a new formula for the quiz at the very end (it reads everything).
+* **One bag, for no question.** A quiz widgeting is worked out once over a bag whose `qn` is `{}`
+  and `qn_label` blank; its widgeted joins every later bag's `quiz` as `quiz.<label>` (and so may
+  not be labelled as `Quiz.exposed` is), and a template's bag (`Templating.bagOf`) reads it there.
+* **Only `jsonata` and an `entry` of one value** run at the quiz's level (`Widgeting.runsAt`,
+  refusal `tierUnoffered`): an `aibot` widget has no cell to be asked from, and category
+  estimates are a question's.
+* **Its own table, `quiz_widgeteds`** (`WidgetedValidators.quizRow`): a widgeted of the quiz, no
+  question, upserted by `enter_quiz_widgeted` as `enter_widgeted` upserts a question's. A new
+  table needed no migration. The quiz's frame (`quizzes.open`) and its whole read carry what it
+  stored as `QuizT.stored`, to a smith only, as a question's `stored` is.
+* **No column, no template.** A column or a templated source naming a quiz widgeting is refused
+  (`wrongTier`), and so is an entry or a recording of the wrong tier. The *Quiz entries* panel
+  shows each quiz widgeting and types into an entry; the export writes their widgeteds under the
+  quiz's `widgeteds`.
+
 ### The row shapes
 
 Four shapes: three tables, and the one form every reader takes a widgeted in. Each table's fields

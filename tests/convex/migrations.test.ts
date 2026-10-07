@@ -5,7 +5,10 @@ import { internal } from '../../convex/_generated/api'
 import * as Migrations from '../../convex/migrations'
 import { StampedTables, type StampedTablename } from '../../convex/stamping'
 import { Hunt } from '../../src/models/hunt'
-import { openOf, openTester, seedHunt, type Tester } from '../support/convex'
+import { Question } from '../../src/models/question'
+import { Quiz } from '../../src/models/quiz'
+import { Widgeting } from '../../src/models/widgeting'
+import { huntHolding, openOf, openTester, seedHunt, type Tester } from '../support/convex'
 import { present } from '../support/present'
 
 // The backfills run as the migrations component runs them, in batches handed to the scheduler, so
@@ -55,8 +58,8 @@ async function reviewedHunt(tt: Tester) {
   return held
 }
 
-/** Each stamped table's backfill */
-const StampBackfillFor: Record<StampedTablename, string> = {
+/** Each stamped table's backfill: every one but those made after stamps began, whose rows the trigger has always stamped */
+const StampBackfillFor: Record<Exclude<StampedTablename, 'quiz_widgeteds'>, string> = {
   idents: 'backfillIdentStamps', hunts: 'backfillHuntStamps', realms: 'backfillRealmStamps', widgets: 'backfillWidgetStamps', quizzes: 'backfillQuizStamps',
   widgetings: 'backfillWidgetingStamps', columns: 'backfillColumnStamps', questions: 'backfillQuestionStamps', widgeteds: 'backfillWidgetedStamps',
   reviews: 'backfillReviewStamps', reviewings: 'backfillReviewingStamps', huntings: 'backfillHuntingStamps',
@@ -102,7 +105,103 @@ describe("the stamp backfills", () => {
   })
 })
 
+/** Each row's recap sprint fields, by table, as its rows hold them (null for one without), in the order they were made */
+async function recapFieldsIn(tt: Tester) {
+  return await tt.run(async (ctx) => {
+    const [quizzes, questions, widgetings] = await Promise.all([ctx.db.query('quizzes').collect(), ctx.db.query('questions').collect(), ctx.db.query('widgetings').collect()])
+    return {
+      quizzes:    quizzes.map((row) => [row.recap_head ?? null, row.recap_tail ?? null, row.templated ?? null]),
+      questions:  questions.map((row) => row.recap ?? null),
+      widgetings: widgetings.map((row) => row.tier ?? null),
+    }
+  })
+}
+
+/** Take the recap sprint's fields off every row but those of the quiz labelled `kept`, as rows written before them hold none */
+async function unwiden(tt: Tester, kept: string): Promise<void> {
+  await tt.run(async (ctx) => {
+    const quizzes = await ctx.db.query('quizzes').collect()
+    const strip = quizzes.filter((quiz) => quiz.label !== kept)
+    for (const quiz of strip) {
+      await ctx.db.patch('quizzes', quiz._id, { recap_head: undefined, recap_tail: undefined, templated: undefined })
+      const [questions, widgetings] = await Promise.all([
+        ctx.db.query('questions').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz._id)).collect(),
+        ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz._id)).collect(),
+      ])
+      for (const question of questions) { await ctx.db.patch('questions', question._id, { recap: undefined }) }
+      for (const widgeting of widgetings) { await ctx.db.patch('widgetings', widgeting._id, { tier: undefined }) }
+    }
+  })
+}
+
+/** A hunt of two quizzes, `plain` and `written`, each of one question working `dumdum`; `written` has a recap of its own, templates it, and runs `dumdum` per quiz */
+async function recappedHunt(tt: Tester) {
+  const dumdum = Widgeting.fill({ widget_label: 'dumdum', label: 'dumdum' })
+  const plain = { ...Quiz.blank('Plain', 'plain'), questions: [Question.blank()], widgetings: [dumdum] }
+  const written = {
+    ...Quiz.blank('Written', 'written'), recap_head: 'Thanks!', recap_tail: 'Bye.', templated: ['question.recap'],
+    questions: [{ ...Question.blank(), recap: 'Leon.' }], widgetings: [{ ...dumdum, tier: 'quiz' as const }],
+  }
+  return await seedHunt(tt, huntHolding([plain, written]))
+}
+
+/** The recap sprint's backfills */
+const RecapBackfills = ['backfillQuizRecaps', 'backfillQuestionRecaps', 'backfillWidgetingTiers']
+
+describe("the recap backfills", () => {
+  it("give each row written before the recap and the tiers an empty recap, templating nothing, run for each question, and leave a row that has them alone", async () => {
+    const { tt } = deployment()
+    await recappedHunt(tt)
+    await unwiden(tt, 'written')
+    expect(await recapFieldsIn(tt)).to.deep.eq({ quizzes: [[null, null, null], ['Thanks!', 'Bye.', ['question.recap']]], questions: [null, 'Leon.'], widgetings: [null, 'quiz'] })
+    for (const fn of RecapBackfills) { await migrate(tt, `migrations:${fn}`) }
+    expect(await recapFieldsIn(tt)).to.deep.eq({ quizzes: [['', '', []], ['Thanks!', 'Bye.', ['question.recap']]], questions: ['', 'Leon.'], widgetings: ['question', 'quiz'] })
+  })
+
+  it("fill in only what a quiz lacks", async () => {
+    const { tt } = deployment()
+    const { open } = await recappedHunt(tt)
+    await tt.run(async (ctx) => { await ctx.db.patch('quizzes', open.quiz_id, { recap_head: 'Kept.', recap_tail: undefined, templated: undefined }) })
+    await migrate(tt, 'migrations:backfillQuizRecaps')
+    const { quizzes } = await recapFieldsIn(tt)
+    expect(quizzes[0]).to.deep.eq(['Kept.', '', []])
+  })
+
+  it("change nothing when run again", async () => {
+    const { tt } = deployment()
+    await recappedHunt(tt)
+    await unwiden(tt, 'written')
+    for (const fn of RecapBackfills) { await migrate(tt, `migrations:${fn}`) }
+    const before = await recapFieldsIn(tt)
+    for (const fn of RecapBackfills) { await migrate(tt, `migrations:${fn}`) }
+    expect(await recapFieldsIn(tt)).to.deep.eq(before)
+  })
+
+  it("are not held up by a row the row validators would now refuse: a widgeting labelled as the recap a question now has", async () => {
+    const { tt } = deployment()
+    const { open } = await recappedHunt(tt)
+    await unwiden(tt, 'written')
+    await tt.run(async (ctx) => {
+      const widgeting = await ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', open.quiz_id)).first()
+      await ctx.db.patch('widgetings', present(widgeting)._id, { label: 'recap' })
+    })
+    await migrate(tt, 'migrations:backfillWidgetingTiers')
+    const { widgetings } = await recapFieldsIn(tt)
+    expect(widgetings).to.deep.eq(['question', 'quiz'])
+  })
+})
+
 describe("migrations.runAll", () => {
+  it("backfills the recap sprint's fields", async () => {
+    const { tt } = deployment()
+    await recappedHunt(tt)
+    await unwiden(tt, 'written')
+    await tt.mutation(internal.migrations.runAll, {})
+    await tt.finishAllScheduledFunctions(vi.runAllTimers)
+    const held = await recapFieldsIn(tt)
+    expect([held.quizzes[0], held.questions[0], held.widgetings[0]]).to.deep.eq([['', '', []], '', 'question'])
+  })
+
   it("backfills every stamp", async () => {
     const { tt } = deployment()
     await reviewedHunt(tt)

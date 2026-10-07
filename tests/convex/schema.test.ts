@@ -50,6 +50,7 @@ const RowValidators: Record<TableNames, RowValidator> = {
   widgets:     WidgetValidators.row,
   widgetings:  WidgetingValidators.row,
   widgeteds:   WidgetedValidators.row,
+  quiz_widgeteds: WidgetedValidators.quizRow,
 }
 
 /** A row's stamps, which the trigger writes once the row has landed (`convex/stamping.ts`), so that a row goes in without them */
@@ -68,7 +69,11 @@ const Absentable: Partial<Record<TableNames, string[]>> = {
 }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
-const Backfilling: Partial<Record<TableNames, string[]>> = {}
+const Backfilling: Partial<Record<TableNames, string[]>> = {
+  quizzes:    ['recap_head', 'recap_tail', 'templated'],
+  questions:  ['recap'],
+  widgetings: ['tier'],
+}
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
 const Retiring: Partial<Record<TableNames, string[]>> = {}
@@ -103,16 +108,16 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const hunt_id = await insert('hunts', hunt)
     const realm = RealmValidators.row({ hunt_id, label: 'home', title: '', position: 0 })
     const realm_id = await insert('realms', realm)
-    const quiz = QuizValidators.row({ hunt_id, realm_id, title: '', label: 'princes', smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', locked: false, last_sortkey: 'column:clueing', row_ordering: [] })
+    const quiz = QuizValidators.row({ hunt_id, realm_id, title: '', label: 'princes', smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', recap_head: 'Thanks to {{quiz.playtesters}}.', recap_tail: 'See you next season.', templated: ['question.recap', 'dumdum'], locked: false, last_sortkey: 'column:clueing', row_ordering: [] })
     const quiz_id = await insert('quizzes', quiz)
-    const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
+    const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', recap: 'Leon was the pseudonym.' })
     const question_id = await insert('questions', question)
     const user_id = await ctx.db.insert('users', { isAnonymous: true })
     const ident = IdentValidators.row({ label: 'flip_kromer', title: 'Flip', user_id })
     const ident_id = await insert('idents', ident)
     const review = ReviewValidators.row({ hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
     const review_id = await insert('reviews', review)
-    const widgeting = WidgetingValidators.row({ hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: '', params: { strictness: { level: 3, words: ['but', 'not'] } }, position: 0 })
+    const widgeting = WidgetingValidators.row({ hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: '', params: { strictness: { level: 3, words: ['but', 'not'] } }, tier: 'question', position: 0 })
     const widgeting_id = await insert('widgetings', widgeting)
     return {
       hunts:       hunt,
@@ -137,6 +142,9 @@ async function samplesIn(tt: Tester): Promise<Samples> {
         result_meta: { model_tier_applied: 'quick', approx_tokens: 120, truncated: false, response: { error: { kind: 'overloaded', retry: [1, 2] } } },
       }),
       signals:     SignalValidators.row({ hunt_id, quiz_id, changed_at: 1_759_700_000_000 }),
+      quiz_widgeteds: WidgetedValidators.quizRow({
+        hunt_id, quiz_id, widgeting_id, status: 'ok', value: { names: ['Ada', 'Grace'] }, message: null, result_meta: { imported: true, nested: { deep: [1, 2] } },
+      }),
     }
   })
 }
@@ -157,6 +165,7 @@ const WrongTyped: Record<TableNames, Record<string, unknown>> = {
   widgets:     { formulary: 'gadget' },
   widgetings:  { position: 'first' },
   widgeteds:   { status: 'pending' },
+  quiz_widgeteds: { quiz_id: 7 },
 }
 
 describe("every table and its row validator", () => {
@@ -203,6 +212,8 @@ describe("every table and its row validator", () => {
     ['widgetings', 'params',      "a widgeting's params",     (val: unknown) => ({ held: val })],
     ['widgeteds',  'value',       "a widgeted's value",       (val: unknown) => val],
     ['widgeteds',  'result_meta', "a widgeted's result_meta", (val: unknown) => ({ held: val })],
+    ['quiz_widgeteds', 'value',       "a quiz's widgeted's value",       (val: unknown) => val],
+    ['quiz_widgeteds', 'result_meta', "a quiz's widgeted's result_meta", (val: unknown) => ({ held: val })],
   ] as const
 
   for (const [tablename, fieldname, title, holding] of AnyJsonFields) {

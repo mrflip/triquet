@@ -199,6 +199,12 @@ describe('importInto', () => {
       expect(patchFor(imported(quiz, [{ label: 'leon', clueing: null }]), 'leon')).to.deep.eq({ clueing: '' })
     })
 
+    it('carries a question\'s recap, trimmed, and clears one set to null', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      expect(patchFor(imported(quiz, [{ label: 'leon', recap: ' Leon was a pen name.\n' }]), 'leon')).to.deep.eq({ recap: 'Leon was a pen name.' })
+      expect(patchFor(imported(quiz, [{ label: 'leon', recap: null }]), 'leon')).to.deep.eq({ recap: '' })
+    })
+
     it("carries how a question is shown, null making it normal", () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'], ['2', 'nantes', 'Another'])
       const questions = imported(quiz, [{ label: 'leon', viz: 'archived' }, { label: 'nantes', viz: null }])
@@ -345,7 +351,7 @@ describe('importInto', () => {
     it("adds one the quiz lacks when the library holds its widget", () => {
       const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'answer_reversed', label: 'backwards', description: 'Read it in a mirror' }])
       expect(outcome.widgetingActions).to.deep.eq([
-        { kind: 'add_widgeting', widgeting: { widget_label: 'answer_reversed', label: 'backwards', description: 'Read it in a mirror', params: {} } },
+        { kind: 'add_widgeting', widgeting: { widget_label: 'answer_reversed', label: 'backwards', description: 'Read it in a mirror', params: {}, tier: 'question' } },
       ])
       expect(outcome.widgetingLog).to.deep.eq([{ label: 'backwards', outcome: 'added', reason: null }])
       expect(outcome.ok).to.be.true
@@ -388,6 +394,19 @@ describe('importInto', () => {
       const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'answer_reversed', label: 'dumdum' }])
       expect(outcome.widgetingActions).to.deep.eq([])
       expect(outcome.widgetingLog).to.deep.eq([{ label: 'dumdum', outcome: 'skipped', reason: 'it works "answer_reversed" here, and "dumdum" in this quiz' }])
+    })
+
+    it("skips one the quiz holds at another tier, rather than moving it", () => {
+      const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'dumdum', label: 'dumdum', tier: 'quiz' }])
+      expect(outcome.widgetingActions).to.deep.eq([])
+      expect(outcome.widgetingLog).to.deep.eq([{ label: 'dumdum', outcome: 'skipped', reason: 'it runs for each quiz here, and for each question in this quiz' }])
+    })
+
+    it("adds one that runs once per quiz at that tier", () => {
+      const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'answer_reversed', label: 'winners', tier: 'quiz' }])
+      expect(outcome.widgetingActions).to.deep.eq([
+        { kind: 'add_widgeting', widgeting: { widget_label: 'answer_reversed', label: 'winners', description: '', params: {}, tier: 'quiz' } },
+      ])
     })
 
     it("skips one that does not validate, naming it by whatever label it carried", () => {
@@ -454,6 +473,14 @@ describe('importInto', () => {
       const outcome = read(enteredQuiz(), pasted)
       expect(outcome.log.map((entry) => entry.outcome)).to.deep.eq(['merged'])
       expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Ask Flip.', points: null })
+    })
+
+    it("reads no question's value under an entry run once for the whole quiz, held or added: it has no question's cell", () => {
+      const held = { ...enteredQuiz(), widgetings: [Widgeting.fill({ widget_label: 'remark', label: 'playtesters', tier: 'quiz' }), ...enteredQuiz().widgetings] }
+      expect(enteredFor(read(held, [{ label: 'leon', playtesters: 'Ada', points: 2 }]), 'leon')).to.deep.eq({ points: 2 })
+      const added = read(quizOf(['1', 'leon', 'Which region?']), { questions: [{ label: 'leon', prize: 'Glory' }], widgetings: [{ widget_label: 'remark', label: 'prize', tier: 'quiz' }] })
+      expect(added.widgetingActions).to.deep.eq([{ kind: 'add_widgeting', widgeting: { widget_label: 'remark', label: 'prize', description: '', params: {}, tier: 'quiz' } }])
+      expect(enteredFor(added, 'leon')).to.deep.eq({})
     })
 
     it("types into the entries of a widgeting the same import adds", () => {
@@ -580,6 +607,36 @@ describe("importInto: the quiz's own fields", () => {
     const outcome = read(quiz, { title: 'Legends', smiths_note: null, questions: { leon: {} } })
     expect(outcome.fieldActions).to.deep.eq([{ kind: 'set_smiths_note', smiths_note: '' }])
     expect(outcome.fieldLog.map((entry) => [entry.fieldname, entry.outcome])).to.deep.eq([['title', 'kept'], ['smiths_note', 'carried']])
+  })
+
+  it("carries the recap's head and tail and what the quiz templates, after its widgetings and columns, and says so", () => {
+    const outcome = read(laidOut(), { recap_head: 'Thanks!', recap_tail: 'Bye.', templated: ['question.recap', 'remark'], questions: { leon: {} } })
+    expect(outcome.fieldActions).to.deep.eq([
+      { kind: 'set_recap_head', recap_head: 'Thanks!' },
+      { kind: 'set_recap_tail', recap_tail: 'Bye.' },
+      { kind: 'set_templated', templated: ['question.recap', 'remark'] },
+    ])
+    expect(outcome.actions.map((action) => action.kind)).to.deep.eq(['set_recap_head', 'set_recap_tail', 'set_templated', 'import_questions'])
+    expect(outcome.summary).to.include('carried its recap head, recap tail, templated sources')
+  })
+
+  it("templates a widgeting the same import adds, once it is added", () => {
+    const outcome = read(laidOut(), { templated: ['points'], widgetings: { points: { position: 0, widget_label: 'points' } }, questions: { leon: {} } })
+    expect(outcome.actions.map((action) => action.kind)).to.deep.eq(['add_widgeting', 'set_templated', 'import_questions'])
+  })
+
+  it("leaves out a widgeting the quiz will not have from what it templates, and names it", () => {
+    const outcome = read(laidOut(), { templated: ['question.clueing', 'nowhere'], questions: { leon: {} } })
+    expect(outcome.fieldActions).to.deep.eq([{ kind: 'set_templated', templated: ['question.clueing'] }])
+    expect(outcome.fieldLog).to.deep.eq([{ fieldname: 'templated', outcome: 'carried', reason: 'without nowhere, which this quiz will not have' }])
+  })
+
+  it("keeps what the quiz templates when the paste templates the same, clears it for a null, and skips one that will not read", () => {
+    const quiz = { ...laidOut(), templated: ['remark'] }
+    expect(read(quiz, { templated: ['remark'], questions: { leon: {} } }).fieldLog.map((entry) => entry.outcome)).to.deep.eq(['kept'])
+    expect(read(quiz, { templated: null, questions: { leon: {} } }).fieldActions).to.deep.eq([{ kind: 'set_templated', templated: [] }])
+    const unread = read(quiz, { templated: ['question.qnum'], questions: { leon: {} } })
+    expect([unread.ok, unread.fieldLog.map((entry) => entry.outcome), unread.fieldActions]).to.deep.eq([false, ['skipped'], []])
   })
 
   it("skips a note that will not read", () => {

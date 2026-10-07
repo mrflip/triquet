@@ -1,10 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Accordion, AccordionDetails, AccordionSummary, Box, ButtonBase, Table, TableBody, TableCell, TableFooter, TableHead, TableRow, TableSortLabel } from '@mui/material'
-import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
+import { Accordion, AccordionDetails, AccordionSummary, Box, Table, TableBody, TableCell, TableFooter, TableHead, TableRow, TableSortLabel } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import { Legend, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, Text, Tooltip, usePlotArea, type DotItemDotProps } from 'recharts'
 import { Panel } from './Panel'
 import * as SpreadChart from './spread-chart'
@@ -43,9 +41,8 @@ const CountFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
  * category no question draws on sits a tenth of the way out rather than in the hub. The panel
  * takes two columns of the row of panels where there is room for two.
  *
- * Clicking the chart, or pressing Enter on it, widens the panel to the whole row and the chart
- * with it; again narrows it back. Every number the chart draws is also in a table, folded
- * beneath it.
+ * Widened to the whole row by the panel's arrow, the chart grows with it. Every number the chart
+ * draws is also in a table, folded beneath it.
  */
 export function SpreadPanel({ run }: Readonly<SpreadPanelProps>) {
   const [wide, setWide] = useState(false)
@@ -65,34 +62,20 @@ export function SpreadPanel({ run }: Readonly<SpreadPanelProps>) {
   const scale = SpreadChart.radiusScaleOf(spread)
 
   return (
-    <Panel title="Category spread" blurb={Blurb} wide={wide} double>
+    <Panel title="Category spread" blurb={Blurb} double widened={wide} onWidenedChange={setWide}>
       <p className={styles.microcopy}>
         {questionsWords(spread.placedCount)} placed, from the estimates under <strong>{quizEstimates.widgeting.label}</strong>.
-        Click the chart, or press Enter on it, to {wide ? 'narrow it again' : 'widen it to the whole row'}.
       </p>
-      <ButtonBase
-        component="div"
-        disableRipple
-        aria-pressed={wide}
-        aria-label="Category spread chart, full width"
-        onClick={() => { setWide((was) => ! was) }}
+      <Box
         sx={{
-          display:      'block',
-          position:     'relative',
-          width:        '100%',
+          width: '100%',
           ...(wide ? ChartSizeSx.wide : ChartSizeSx.resting),
-          cursor:       wide ? 'zoom-out' : 'zoom-in',
-          borderRadius: 1,
-          '&.Mui-focusVisible': { outline: '2px solid var(--highlight)', outlineOffset: 2 },
-          // The whole chart is the one control: a click must not leave a ring round the part of the drawing it landed on
+          // A click must not leave a ring round the part of the drawing it landed on
           '& svg *:focus': { outline: 'none' },
         }}
       >
         <SpreadRadar spread={spread} scale={scale} />
-        <Box aria-hidden sx={{ position: 'absolute', top: 4, right: 4, color: 'text.secondary', display: 'flex' }}>
-          {wide ? <CloseFullscreenIcon fontSize="small" /> : <OpenInFullIcon fontSize="small" />}
-        </Box>
-      </ButtonBase>
+      </Box>
       <p className={styles.microcopy}>
         The plot&apos;s edge, just inside the tiles, stands for {questionsWords(scale.top)}: three
         categories in four have no more than that once smoothed. A hollow dot is a count past the

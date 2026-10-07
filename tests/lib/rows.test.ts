@@ -1,3 +1,4 @@
+import _ from 'es-toolkit/compat'
 import type { MigrationStatus } from '@convex-dev/migrations'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
@@ -35,10 +36,11 @@ const FailedSince: CellRows = { newest: widgetedRow('errored', 7.25, 'failed'), 
 
 const QuizRow: Doc<'quizzes'> = {
   _id: quiz_id, _creationTime: 1, hunt_id, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes',
-  smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', locked: false, last_sortkey: null, row_ordering: [question_id],
+  smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', recap_head: 'Thanks, playtesters!', recap_tail: 'Next season.', templated: ['question.recap', 'dumdum'],
+  locked: false, last_sortkey: null, row_ordering: [question_id],
 }
 const WidgetingRow: Doc<'widgetings'> = {
-  _id: widgeting_id, _creationTime: 1, hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, position: 0,
+  _id: widgeting_id, _creationTime: 1, hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, tier: 'question', position: 0,
 }
 /** The standings a question's reader can hold on its hunt, as the claims carry them */
 const Smith = { standing: 'smith' } as const
@@ -47,7 +49,7 @@ const Stranger = { standing: 'stranger' } as const
 
 const QuestionRow: Doc<'questions'> = {
   _id: question_id, _creationTime: 2, hunt_id, quiz_id, label: 'leon', title: 'Leon', qnum: '1',
-  clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', viz: 'normal',
+  clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', recap: '', viz: 'normal',
 }
 const HuntRow: Doc<'hunts'> = { _id: hunt_id, _creationTime: 0, label: 'quiet_otter', orglabel: 'alice_smiths', title: '', branch: 'main' }
 const RealmRow: Doc<'realms'> = { _id: idOf('realms', 'r1'), _creationTime: 0, hunt_id: HuntRow._id, label: 'home', title: '', position: 0 }
@@ -77,7 +79,7 @@ describe('historyOf', () => {
 })
 
 describe('quizFrom', () => {
-  const rows: QuizRows = { quiz: QuizRow, questions: [QuestionRow], widgetings: [WidgetingRow], columns: [], stored: new Map() }
+  const rows: QuizRows = { quiz: QuizRow, questions: [QuestionRow], widgetings: [WidgetingRow], columns: [], stored: new Map(), quizStored: new Map() }
 
   it('is the quiz its rows make up, named by the quiz row\'s id', () => {
     const quiz = quizFrom(rows)
@@ -96,8 +98,19 @@ describe('quizFrom', () => {
     expect(quizFrom(rows).q1_preamble).to.eq('Read the note![br]')
   })
 
+  it('carries the recap\'s head and tail, and what the quiz templates', () => {
+    expect(_.pick(quizFrom(rows), ['recap_head', 'recap_tail', 'templated'])).to.deep.eq({ recap_head: 'Thanks, playtesters!', recap_tail: 'Next season.', templated: ['question.recap', 'dumdum'] })
+  })
+
+  it('reads a quiz, question and widgeting written before the recap and the tiers as having an empty recap, templating nothing, each widgeting run for each question', () => {
+    const older = { ...rows, quiz: _.omit(QuizRow, ['recap_head', 'recap_tail', 'templated']), questions: [_.omit(QuestionRow, ['recap'])], widgetings: [_.omit(WidgetingRow, ['tier'])] }
+    const quiz = quizFrom(older)
+    expect([quiz.recap_head, quiz.recap_tail, quiz.templated, quiz.questions[0]?.recap, quiz.widgetings[0]?.tier]).to.deep.eq(['', '', [], '', 'question'])
+    expect(Quiz.fill(quiz).questions).to.have.lengthOf(1)
+  })
+
   it('carries the quiz\'s widgetings, each without its ids or place', () => {
-    expect(quizFrom(rows).widgetings).to.deep.eq([{ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' } }])
+    expect(quizFrom(rows).widgetings).to.deep.eq([{ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, tier: 'question' }])
   })
 
   it('holds what each question stored, under the widgeting\'s label, by the question\'s id', () => {
@@ -113,15 +126,20 @@ describe('quizFrom', () => {
 })
 
 describe('seenQuestionFor', () => {
-  const Written = { ...QuestionRow, chains_to: 'lear', full_answer: 'Leontes', notes: 'Check the folio.', alt_text: 'A lion.' }
+  const Written = { ...QuestionRow, chains_to: 'lear', full_answer: 'Leontes', notes: 'Check the folio.', alt_text: 'A lion.', recap: 'Leontes is jealous.' }
 
   it('is, for a smith, the question\'s id and every field, with each stored cell\'s history under its widgeting\'s label, its chain still the label it holds', () => {
     const seen = seenQuestionFor(Written, new Map([['dumdum', FailedSince]]), Smith)
     expect(seen).to.deep.eq({
       _id: question_id, label: 'leon', title: 'Leon', qnum: '1', clueing: 'Who?', hint: '', chains_to: 'lear',
-      full_answer: 'Leontes', alt_text: 'A lion.', notes: 'Check the folio.', stored: { dumdum: historyOf(FailedSince) },
+      full_answer: 'Leontes', alt_text: 'A lion.', notes: 'Check the folio.', recap: 'Leontes is jealous.', stored: { dumdum: historyOf(FailedSince) },
       viz: 'normal', created_at: 2, updated_at: 2,
     })
+  })
+
+  it("sends a smith the recap of a question written before questions had one as empty, and a reviewer no recap", () => {
+    expect(seenQuestionFor(_.omit(QuestionRow, ['recap']), new Map(), Smith)).to.deep.include({ recap: '' })
+    expect(seenQuestionFor({ ...QuestionRow, recap: 'Leon.' }, new Map(), Reviewer)).to.not.have.property('recap')
   })
 
   it("sends the viz its row holds, to a smith or a reviewer", () => {
@@ -162,16 +180,22 @@ describe('seenQuestionFor', () => {
 
 describe('frameOf', () => {
   it('is the quiz without its questions: its fields and their order, its widgetings and columns', () => {
-    const frame = frameOf(QuizRow, [WidgetingRow], [])
+    const frame = frameOf(QuizRow, [WidgetingRow], [], new Map())
     expect(frame.row_ordering).to.deep.eq([question_id])
     expect(frame.widgetings.map((widgeting) => widgeting.label)).to.deep.eq(['dumdum'])
     expect(frame).to.not.have.any.keys('questions', 'realm_id', '_creationTime')
   })
 
+  it('carries what its widgetings for the whole quiz stored, as a question carries its own', () => {
+    const answered = widgetedRow('ok', 2, 'Ada and Grace')
+    expect(frameOf(QuizRow, [], [], new Map([['playtesters', { newest: answered, ok: answered }]])).stored.playtesters?.ok?.value).to.deep.eq({ guess: 'Ada and Grace', explanation: '' })
+    expect(frameOf(QuizRow, [], [], new Map()).stored).to.deep.eq({})
+  })
+
   it('sends each column as the grid needs it, its alignment only where one was set', () => {
     const ColumnRow: Doc<'columns'> = { _id: idOf('columns', 'col1'), _creationTime: 2, hunt_id, quiz_id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330, position: 0 }
     const columns = [ColumnRow, { ...ColumnRow, _id: idOf('columns', 'col2'), label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60, position: 1, align: 'right' as const }]
-    expect(frameOf(QuizRow, [], columns).columns).to.deep.eq([
+    expect(frameOf(QuizRow, [], columns, new Map()).columns).to.deep.eq([
       { label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330 },
       { label: 'qnum',    title: 'Q#',      source: 'question.qnum',    width_px: 60,  align: 'right' },
     ])
@@ -183,13 +207,13 @@ describe('quizFromSeen', () => {
   const first = { ...seenQuestionFor(QuestionRow, new Map(), Smith), chains_to: 'lear' }
 
   it('is the quiz its frame and questions make up, in the order given', () => {
-    const quiz = quizFromSeen(frameOf(QuizRow, [], []), [second, first])
+    const quiz = quizFromSeen(frameOf(QuizRow, [], [], new Map()), [second, first])
     expect(quiz.questions.map((question) => question._id)).to.deep.eq([second._id, question_id])
     expect(quiz).to.not.have.any.keys('row_ordering')
   })
 
   it('reads each chain as the id of the sibling answering to its label; a chain to itself, or to no sibling, as none', () => {
-    const quiz = quizFromSeen(frameOf(QuizRow, [], []), [first, second, { ...second, _id: idOf('questions', 'qn3'), label: 'lone', chains_to: 'lone' }])
+    const quiz = quizFromSeen(frameOf(QuizRow, [], [], new Map()), [first, second, { ...second, _id: idOf('questions', 'qn3'), label: 'lone', chains_to: 'lone' }])
     expect(quiz.questions.map((question) => question.chains_to)).to.deep.eq([second._id, question_id, null])
   })
 
@@ -199,13 +223,13 @@ describe('quizFromSeen', () => {
       { ...seenQuestionFor(written, new Map([['dumdum', FailedSince]]), Reviewer), chains_to: 'lear' },
       { ...seenQuestionFor(written, new Map(), Reviewer), _id: idOf('questions', 'qn2'), label: 'lear' },
     ]
-    const [question] = quizFromSeen(frameOf(QuizRow, [], []), reviewed).questions
+    const [question] = quizFromSeen(frameOf(QuizRow, [], [], new Map()), reviewed).questions
     expect(question).to.deep.include({ full_answer: 'Leontes', notes: '', alt_text: '', stored: {}, chains_to: idOf('questions', 'qn2') })
   })
 })
 
 describe('assembledQuiz', () => {
-  const frame = { ...frameOf(QuizRow, [], []), row_ordering: [question_id, idOf('questions', 'qn2')] }
+  const frame = { ...frameOf(QuizRow, [], [], new Map()), row_ordering: [question_id, idOf('questions', 'qn2')] }
   const seen = seenQuestionFor(QuestionRow, new Map(), Smith)
 
   it('is undefined while a question the frame orders is still on its way', () => {
@@ -235,7 +259,11 @@ describe('widgetFrom', () => {
 
 describe('widgetingFrom', () => {
   it('is the widgeting, without its id, its quiz or its place', () => {
-    expect(widgetingFrom(WidgetingRow)).to.deep.eq({ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' } })
+    expect(widgetingFrom(WidgetingRow)).to.deep.eq({ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, tier: 'question' })
+  })
+
+  it('keeps a widgeting that runs once per quiz, and reads one written before widgetings had tiers as run for each question', () => {
+    expect([widgetingFrom({ ...WidgetingRow, tier: 'quiz' }).tier, widgetingFrom(_.omit(WidgetingRow, ['tier'])).tier]).to.deep.eq(['quiz', 'question'])
   })
 })
 
@@ -311,7 +339,7 @@ describe("smithsOf", () => {
 
 describe('huntFrom', () => {
   it('is the whole hunt, each realm holding the quizzes it is handed whole', () => {
-    const quiz = quizFrom({ quiz: QuizRow, questions: [QuestionRow], widgetings: [WidgetingRow], columns: [], stored: new Map() })
+    const quiz = quizFrom({ quiz: QuizRow, questions: [QuestionRow], widgetings: [WidgetingRow], columns: [], stored: new Map(), quizStored: new Map() })
     const hunt = huntFrom(Rows, new Map([[quiz_id, quiz]]))
     expect([hunt.title, hunt.realms[0]?.quizzes[0]?.title, hunt.realms[0]?.quizzes[0]?.widgetings.length]).to.deep.eq(['Quiet Otter', 'Princes', 1])
     expect(hunt).to.not.have.any.keys('expressions')

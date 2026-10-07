@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cellOf, closeManage, expect, exportedQuizzes, freshWidgetLabel, newWidgetingDialog, openManage, preparedExport, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
+import { cellOf, closeManage, expect, exportedQuizzes, faceOf, freshWidgetLabel, manageDialog, newWidgetingDialog, openManage, preparedExport, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
 
 /** The widget editor writing a new widget, open over the widgeting editor that opened it */
 function newWidgetDialog(page: Page) {
@@ -93,4 +93,34 @@ test('an entry rides the export, and an import puts it back', { tag: '@smoke' },
   await expect(entryBox(page, 0, 'Points')).toHaveValue('-2.5')
   await reloadOnceSaved(page)
   await expect(entryBox(page, 0, 'Points')).toHaveValue('-2.5')
+})
+
+test('a templated clueing shows what an entry holds, filled in before its markdown is read', async ({ page }) => {
+  await addNewEntry(page, freshWidgetLabel('author'), /^Text/, 'author')
+  await openManage(page)
+  const nominated = manageDialog(page).getByRole('group', { name: 'Templated sources' }).getByRole('checkbox', { name: 'Clueing' })
+  // Ticked once the server has it: the box shows the quiz's nominations, not a draft of them.
+  await nominated.click()
+  await expect(nominated).toBeChecked()
+  await closeManage(page)
+
+  await entryBox(page, 0, 'Author').fill('**Ada** <b>x</b>')
+  await leaveBox(page)
+  const clueing = cellOf(page, 0, 'Clueing').getByRole('textbox', { name: 'Clueing', exact: true })
+  await clueing.fill('By {{qn.author}}')
+  await leaveBox(page)
+  // Filled in first, so the entry's markdown is bold, and the HTML it holds is shown as typed.
+  const face = faceOf(cellOf(page, 0, 'Clueing'))
+  await expect(face).toHaveText('By Ada <b>x</b>')
+  await expect(face.getByText('Ada', { exact: true })).toBeVisible()
+  await expect(clueing).toHaveValue('By {{qn.author}}')
+
+  await clueing.fill('By {{qn.author')
+  await leaveBox(page)
+  await expect(face).toContainText('Unclosed tag')
+  await expect(clueing).toHaveAttribute('aria-invalid', 'true')
+
+  await reloadOnceSaved(page)
+  await openManage(page)
+  await expect(nominated).toBeChecked()
 })

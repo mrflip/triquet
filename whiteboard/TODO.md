@@ -1,6 +1,12 @@
 
 ## Known Bugs
 
+* **Better 404 pages.** An address that leads nowhere (an old or mistyped one, `/~undefined/...`)
+  gets Next's bare not-found. It should say what was asked for, why it found nothing (no such org,
+  hunt or quiz, or not one you are on), and offer the way back: your hunts, or the hunt the address
+  half-named. Asked by the Coach, 2026-10-07, after an old address threw `hunts:open`'s validation
+  error (fixed: addresses now refuse what the server would).
+
 * Tune layout at small scales (eg "The site header overlaps itself at 360 px.")
 * A failed history download tells the person nothing (`FullHistoryDownload`, and the gear's
   *Download as git* in `QuizManageModal`): `HuntRepoList`'s alarm is the pattern to copy.
@@ -69,6 +75,84 @@ by label* (the bullet that follows "open PR #66"), and *Deferred*, *Staleness*.
    dumdum's value is now `{ guess, explanation }`, so the old plain-text guess needs a reading.
 3. **Stale, by digest.** The `digest` column, and `stale` on `WidgetedT`, as *Deferred* sets out.
    A carried row has no digest, so it reads as stale until asked again, as #66 promised.
+
+## From recap sprint, thread 2: markdown to bbjank
+
+`src/lib/bbjank.ts` (`toBbjank`). Left, as not worth a hero's effort yet:
+
+* **Untried on the boards**: a heading written as `[b]..[/b]`, a thematic break as a line of 40
+  dashes, `[img]` inside `[url]`, and an image's `[list](alt)[/list]` caption landing inside the
+  `[url]` of a (non-YouTube) link around it. Paste one of each and see.
+* A code block inside a list item has its lines set in two spaces, like the item's other further
+  lines: harmless if the board trims leading spaces in `[code]`, wrong if it keeps them.
+* A YouTube embed in the middle of a paragraph leaves the space before it at the end of its line.
+* A quote's `{AS: name}` holding emphasis (`{AS: **Q1**}`) is no name: the quote is a `[list]` with
+  the marker kept as text. Only a plain-text name is read.
+* No underline from markdown: the plan refused `<u>`, and nothing in the parser falls out for it.
+  BBCode typed in the text passes through as typed, so `[u]..[/u]` underlines.
+* Not handled, written as their text: footnotes, tables, task lists (none of those extensions is
+  loaded).
+
+## From recap sprint, thread 4: field templates
+
+`src/lib/templating.ts` (`fill`, `bagOf`), the face in `components/cells/markdown.tsx`, the
+gear's *Templates*. Left, as not worth a hero's effort yet:
+
+* **The review screen shows a templated field as typed**: a playtester reads `{{qn.photo}}`, not the
+  photo. Filling it there needs the quiz's run on the review screen (and a reviewer is not sent
+  what the widgetings stored).
+* **A templated image reaches the LL Export as markdown** (`![alt](https://..)`): `ll-bbcode.ts`
+  has no image rule. The league's own image syntax would go there.
+* A templated widgeting that is not a text entry (a JSONata readout, say) can be nominated only
+  while already nominated, and nothing fills it on screen: its readout is no markdown face.
+* Categories are not in the template bag: `run.frame.order` holds the hunt's category labels, but
+  not their titles. Add them in `bagOf` once a template wants them.
+* An image that loads after a row has measured itself does not grow the row: `GrowingField`
+  measures on layout, not on an image's load.
+* `lib/ask/prompts.ts` and `lib/templating.ts` each check a template's parse and raw tags; one could
+  lend the other its check.
+
+## From recap sprint, thread 5: the recap panel
+
+`src/lib/recap.ts` (`bbjankOf`), `components/panels/RecapPanel.tsx`. Left, as not worth a hero's
+effort yet:
+
+* **A stored, editable recap template** (the plan's Decision 6): the recap's frame (the quote per
+  question, `Answer:`, `Correct Answer %:`) is fixed in code. A template would be mustache over
+  bbjank, with each question's fields already converted in its bag.
+* **A decision for the Coach: author BBCode can break the recap's frame.** BBCode typed in the
+  text passes through as typed (thread 2's design), so a `[/quote]` in a clueing or hint closes the
+  question's quote early, and a `[/spoiler]` or `[/b]` in an answer reveals it. Fixing it means
+  choosing which BBCode an author may still write, and trying an escape on the board. Thread 7
+  (security review) will look at it.
+* A clueing opening `1984. ...` is read as a numbered list, and the board numbers it from 1: the
+  bbjank writer drops an ordered list's start (thread 2's code).
+* `Correct Answer %:` reads only a column labelled `correct_pct`, `pct_correct` and the like
+  (`Recap.CorrectPctRE`); nothing in the app records the share yet.
+* The league's own form writes `{Add Optional Text For Qn Here or Delete}` where a question has no
+  recap; ours writes nothing there.
+* The note's box is `ReadonlyBox`'s dense face, which wraps mid-word (`word-break: break-all`).
+
+## From recap sprint, thread 6: quiz-level widgetings and entries
+
+Widgetings of the `quiz` tier (`src/lib/run-order.ts`, the runner's quiz steps, `quiz_widgeteds`,
+the gear's *Quiz widgetings*, the *Quiz entries* panel). Built small; left:
+
+* **An import does not carry the quiz's own entries back.** The export writes them under the
+  quiz's `widgeteds`, and an import adds the widgetings; reading `widgeteds` into
+  `enter_quiz_widgeted` actions (as `enteredFrom` does a question's) is the rest.
+* **An import does not keep a quiz widgeting's side of the pivot**: `add_widgeting` places it by
+  its formulary (an entry above the questions, a formula below). The export's positions say where
+  it was; a `move_widgeting` after the add would restore it.
+* **No `aibot` at the quiz's level**: no cell to ask from. It would need an ask button in the panel,
+  `record_widgeted` taking no question, and a prompt over the quiz's bag.
+* **A quiz text entry cannot be templated**, nor shown as a markdown face in the panel: the panel's
+  box is plain text. The recap's head and tail, always templated, read it as `quiz.<label>`.
+* **The pivot itself is not dragged**: it is fixed, and the quiz widgetings move past it. With no
+  question widgetings it sits before the first quiz formula, so a formula dropped above it snaps
+  back below, and one meant to run above the questions is dragged back up once they come; a stored
+  pivot (a quiz field) would fix both, at the cost of a migration.
+* **A reviewer is sent none of the quiz's entries**, as none of a question's stored widgeteds.
 
 ## Git refs
 

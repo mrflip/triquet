@@ -1,27 +1,34 @@
-import { frameOf, type QuizFrameT } from '../src/lib/rows'
+import { frameOf, type QuizFrameT, type StoredRows } from '../src/lib/rows'
 import * as PA from '../src/lib/vv/patterns'
 import { ActionValidators } from '../src/models/actions'
+import { Question } from '../src/models/question'
 import type { QuizT } from '../src/models/quiz'
 import type { SignalT } from '../src/models/signal'
 import { zHuntQuery } from './functions'
 import { affirmExportHunt, affirmReadHunt } from './authorize'
-import { layoutOf, wholeQuizOf } from './reading'
+import { layoutOf, quizStoredOf, wholeQuizOf } from './reading'
+
+/** What the quiz stored, for a reader not sent it: nothing, and nothing read to find it */
+const NothingStored: StoredRows = new Map()
 
 /**
  * The affirmed quiz without its questions, as the grid's frame, for someone on its hunt: its own
- * fields, its questions' order by row id, and its widgetings and columns in order. Each question
- * is its own query (`questions.open`), so an edit to one reruns that one alone. Null when there is
- * no such quiz, they are not on its hunt, or what they affirm of themselves there is not so.
+ * fields, its questions' order by row id, its widgetings and columns in order, and, for a smith,
+ * what its widgetings run once for the whole quiz stored for it, which is sent as a question's
+ * stored widgeteds are (`Question.sentTo`). Each question is its own query (`questions.open`), so
+ * an edit to one reruns that one alone. Null when there is no such quiz, they are not on its hunt,
+ * or what they affirm of themselves there is not so.
  */
 export const open = zHuntQuery({
   args:    { affirms: ActionValidators.quizAffirms },
   empty:   null,
   affirm:  async (ctx, { affirms }) => await affirmReadHunt(ctx.db, affirms, ctx.actor),
   handler: async (ctx): Promise<QuizFrameT | null> => {
-    const { quiz } = ctx.claims
+    const { quiz, standing } = ctx.claims
     if (! quiz) { return null }
     const { widgetings, columns } = await layoutOf(ctx.db, quiz)
-    return frameOf(quiz, widgetings, columns)
+    const stored = Question.isSent('stored', standing) ? await quizStoredOf(ctx.db, quiz._id, widgetings) : NothingStored
+    return frameOf(quiz, widgetings, columns, stored)
   },
 })
 

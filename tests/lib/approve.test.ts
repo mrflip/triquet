@@ -317,6 +317,7 @@ const Matrix = {
   edit_column:         [{ kind: 'edit_column', label: 'qnum', patch: { width_px: 80 } },                                             Revisers],
   delete_column:       [{ kind: 'delete_column', label: 'qnum' },                                                                    Revisers],
   move_column:         [{ kind: 'move_column', label: 'qnum', onto_idx: 1 },                                                         Revisers],
+  set_templated:       [{ kind: 'set_templated', templated: ['question.recap'] },                                                    Revisers],
   // library, an admin's, of the actor alone (every ident, while `Actor.isAdmin` approves everyone):
   add_widget:          [{ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } },  Idents],
   edit_widget:         [{ kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },                         Idents],
@@ -328,6 +329,8 @@ const Matrix = {
   relabel_quiz:        [{ kind: 'relabel_quiz', label: 'princes' },                                                                  Revisers],
   set_smiths_note:     [{ kind: 'set_smiths_note', smiths_note: 'Theme: princes.' },                                                 Revisers],
   set_q1_preamble:     [{ kind: 'set_q1_preamble', q1_preamble: 'Read the note![br]' },                                              Revisers],
+  set_recap_head:      [{ kind: 'set_recap_head', recap_head: 'Thanks, playtesters!' },                                              Revisers],
+  set_recap_tail:      [{ kind: 'set_recap_tail', recap_tail: 'See you next season.' },                                              Revisers],
   edit_question:       [{ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } },                                          Revisers],
   add_question:        [{ kind: 'add_question' },                                                                                    Revisers],
   delete_questions:    [{ kind: 'delete_questions', question_ids: [question_id] },                                                   Revisers],
@@ -339,6 +342,7 @@ const Matrix = {
   sort_by_chain_order: [{ kind: 'sort_by_chain_order', descending: true },                                                           Revisers],
   record_widgeted:     [{ kind: 'record_widgeted', widgeted: { question_id, widgeting_label: 'dumdum', status: 'ok', value: 'Leon', result_meta: { model_tier_applied: 'quick' } } }, Revisers],
   enter_widgeted:      [{ kind: 'enter_widgeted', entered: { question_id, widgeting_label: 'notes', value: 'Leon' } },               Revisers],
+  enter_quiz_widgeted: [{ kind: 'enter_quiz_widgeted', entered: { widgeting_label: 'playtesters', value: 'Ada' } },                Revisers],
   import_questions:    [{ kind: 'import_questions', questions: [{ label: 'leon', patch: {} }] },                                     Revisers],
   // the realm's quizzes:
   new_quiz:            [{ kind: 'new_quiz' },                                                                                        Smiths],

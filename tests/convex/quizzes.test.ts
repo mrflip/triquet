@@ -8,6 +8,8 @@ import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { Widgeting } from '../../src/models/widgeting'
+import { WidgetValidators } from '../../src/models/widget'
+import { WidgetedValidators } from '../../src/models/widgeted'
 import { present } from '../support/present'
 import { affirmsOf, huntHolding, identified, openTester, putOn, seedHunt, type AffirmsBag, type Identified, type Tester } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
@@ -60,6 +62,20 @@ describe("a quiz as the browser assembles it from quizzes.open and questions.ope
     expect(_.omit(asReviewer, ['questions'])).to.deep.eq(_.omit(asSmith, ['questions']))
     expect(asSmith.questions[0]).to.deep.include({ full_answer: 'Hamlet', notes: 'Check the folio.', alt_text: 'A prince.' })
     expect(asReviewer.questions[0]).to.deep.include({ full_answer: 'Hamlet', clueing: 'Who?', notes: '', alt_text: '', stored: {} })
+  })
+
+  it("sends a smith what the quiz's own entries hold, and a reviewer none of it, as a question's stored widgeteds are sent", async () => {
+    const playtesters = Widgeting.fill({ widget_label: 'names', label: 'playtesters', tier: 'quiz' })
+    const { quiz_id, ...reading } = await holding(huntHolding([{ ...Quiz.blank(), widgetings: [playtesters] }]))
+    await reading.tt.run(async (ctx) => {
+      await ctx.db.insert('widgets', WidgetValidators.row({ scope: 'pub', label: 'names', title: '', description: '', formulary: 'entry', formula: '', input_formula: '', config: { entry_kind: 'text' }, position: 99 }))
+      const [widgeting] = await widgetingsOf(ctx.db, quiz_id)
+      const quiz = present(await ctx.db.get('quizzes', quiz_id))
+      await ctx.db.insert('quiz_widgeteds', WidgetedValidators.quizRow({ hunt_id: quiz.hunt_id, quiz_id, widgeting_id: present(widgeting)._id, status: 'ok', value: 'Ada and Grace', message: null, result_meta: {} }))
+    })
+    const [asSmith, asReviewer] = [await opened(reading, quiz_id), await opened(reading, quiz_id, reading.alice, reading.affirms)]
+    expect(asSmith.stored.playtesters?.newest.value).to.eq('Ada and Grace')
+    expect(asReviewer.stored).to.deep.eq({})
   })
 
   it("reads back a quiz exactly as it was written, apart from its ids and the stamps its rows were given", async () => {

@@ -33,7 +33,8 @@ export type WidgetsPanelProps = {
 }
 
 /**
- * The quiz's widgetings in run order, each folded to a line of fields that line up down the list:
+ * The quiz's widgetings in run order (its own above the questions pivot, the question widgetings,
+ * its own below the pivot), each folded to a line of fields that line up down the list:
  * its label, the widget it works, how its cells stand (`statusLine`) and a snippet of its
  * description. Open, the descriptions in full, the widget's formula or prompt exactly as it
  * stands, placeholders and all, and the button that copies a prompt asking a chatbot for help --
@@ -97,6 +98,8 @@ function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>)
   const summaryId = `widgeting-${widgeting.label}-summary`
   const noun = widget ? FormularyWords[widget.formulary].noun : 'widget'
   const description = widgeting.description || (widget?.description ?? '')
+  const once = widgeting.tier === 'quiz' ? ', once for the quiz' : ''
+  const works = widget ? `${noun} ${widget.label}${once}` : `works ${widgeting.widget_label}, which the library no longer holds`
   return (
     <Accordion disableGutters slotProps={{ transition: { unmountOnExit: true } }}>
       <AccordionSummary
@@ -106,7 +109,7 @@ function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>)
         <Stack direction="row" spacing={2} sx={{ alignItems: 'baseline', flex: 1, minWidth: 0 }}>
           <Box component="strong" sx={{ width: WidthFor.label, flexShrink: 0, overflowWrap: 'anywhere' }}>{widgeting.label}</Box>
           <Box className={styles.microcopy} sx={{ ...hiddenUntil(RoomFor.widget), width: WidthFor.widget, flexShrink: 0, overflowWrap: 'anywhere' }}>
-            {widget ? `${noun} ${widget.label}` : `works ${widgeting.widget_label}, which the library no longer holds`}
+            {works}
           </Box>
           <Box role="group" aria-label={`Cells of ${widgeting.label}`} sx={{ ...hiddenUntil(RoomFor.status), width: WidthFor.status, flexShrink: 0, fontSize: 13 }}>
             <StatusSentence counts={counts} />
@@ -124,7 +127,7 @@ function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>)
         {widget?.formulary === 'entry' && (
           <>
             {widget.description === '' ? null : <p className={styles.microcopy}>The widget: {widget.description}</p>}
-            <p className={styles.microcopy}>Typed into its cells, one value per question. {EntryKindWords[widget.config.entry_kind]}.</p>
+            <p className={styles.microcopy}>{widgeting.tier === 'quiz' ? 'Typed into the Quiz entries panel, one value for the whole quiz.' : 'Typed into its cells, one value per question.'} {EntryKindWords[widget.config.entry_kind]}.</p>
           </>
         )}
         {widget && widget.formulary !== 'entry' && (

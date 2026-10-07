@@ -116,9 +116,10 @@ export function membersBall(place: Addresses.InHuntT, members: readonly MemberSo
 /**
  * `quiz` with its ids gone: its questions keyed by label in quiz order, the archived among them,
  * each with its viz, its chain named by the label of the question it points at (a chain to a
- * question the quiz does not hold named as none) and what each of the quiz's widgetings came to
- * beside its own fields; its widgetings and columns keyed by label in their order. What a quiz's
- * ball holds at its key path.
+ * question the quiz does not hold named as none) and what each of the quiz's question widgetings
+ * came to beside its own fields; its widgetings and columns keyed by label in their order; and,
+ * when it has any, what each widgeting run once for the whole quiz came to, under `widgeteds`. What
+ * a quiz's ball holds at its key path.
  *
  * @param quiz - The quiz.
  * @param run - The quiz, run: what its widgetings came to.
@@ -131,12 +132,28 @@ export function quizBodyOf(quiz: QuizT, run: Runner.QuizRun): Jsonball.QuizBodyT
     title:        quiz.title,
     smiths_note:  quiz.smiths_note,
     q1_preamble:  quiz.q1_preamble,
+    recap_head:   quiz.recap_head,
+    recap_tail:   quiz.recap_tail,
+    templated:    quiz.templated,
     locked:       quiz.locked,
     last_sortkey: quiz.last_sortkey,
     ...Stamps.isoStampsOf(quiz),
     questions:    questionsBodyOf(quiz, run),
-    widgetings:   Jsonball.keyedOf(quiz.widgetings, (widgeting) => widgeting.label, ({ widget_label, description, params }) => ({ widget_label, description, params })),
+    widgetings:   Jsonball.keyedOf(quiz.widgetings, (widgeting) => widgeting.label, ({ widget_label, description, params, tier }) => ({ widget_label, description, params, tier })),
     columns:      Jsonball.keyedOf(quiz.columns, (column) => column.label, ({ label: _label, ...fields }) => fields),
+    ...quizWidgetedsBodyOf(quiz, run),
+  }
+}
+
+/** What each widgeting of `quiz` run once for the whole quiz came to, its exposed fields only, under `widgeteds`; nothing for a quiz with none */
+function quizWidgetedsBodyOf(quiz: QuizT, run: Runner.QuizRun): Pick<Jsonball.QuizBodyT, 'widgeteds'> {
+  const quizWide = quiz.widgetings.filter((widgeting) => widgeting.tier === 'quiz')
+  if (quizWide.length === 0) { return {} }
+  return {
+    widgeteds: Object.fromEntries(quizWide.map(({ label }) => {
+      const { status, value } = Runner.quizWidgetedOf(run, label)
+      return [label, { status, value }]
+    })),
   }
 }
 
@@ -155,10 +172,11 @@ function questionsBodyOf(quiz: QuizT, run: Runner.QuizRun, questions: readonly Q
     alt_text:    question.alt_text,
     notes:       question.notes,
     full_answer: question.full_answer,
+    recap:       question.recap,
     viz:         question.viz,
     chains_to:   question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
     ...Stamps.isoStampsOf(question),
-    ...Object.fromEntries(quiz.widgetings.map(({ label }) => [label, widgetedBodyOf(run, label, question._id)])),
+    ...Object.fromEntries(quiz.widgetings.filter((widgeting) => widgeting.tier === 'question').map(({ label }) => [label, widgetedBodyOf(run, label, question._id)])),
   }))
 }
 

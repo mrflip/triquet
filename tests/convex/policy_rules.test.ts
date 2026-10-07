@@ -13,13 +13,13 @@ import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
 
 /** The tables a hunt owns, each row of which carries the hunt it belongs to */
-const HuntOwnedTablenames = ['realms', 'quizzes', 'questions', 'widgetings', 'columns', 'widgeteds', 'huntings', 'reviews', 'reviewings'] as const
+const HuntOwnedTablenames = ['realms', 'quizzes', 'questions', 'widgetings', 'columns', 'widgeteds', 'quiz_widgeteds', 'huntings', 'reviews', 'reviewings'] as const
 type HuntOwnedTablename = typeof HuntOwnedTablenames[number]
 
 /** One row of each table a hunt owns, and the hunt's own, by table */
 type RowIdsT = { [TN in HuntOwnedTablename | 'hunts']: Id<TN> }
 
-/** A hunt labelled `label` whose quiz holds a row of every table a hunt owns: a question, a widgeting that stored for it, a column, and its smith's review with a verdict */
+/** A hunt labelled `label` whose quiz holds a row of every table a hunt owns: a question, a widgeting that stored for it, another that stored for the quiz, a column, and its smith's review with a verdict */
 async function stocked(tt: Tester, label: string, smith: string): Promise<{ seeded: Seeded, rows: RowIdsT }> {
   const widgetings = [Widgeting.fill({ widget_label: 'dumdum', label: 'dumdum' })]
   const hunt = { ...huntHolding([{ ...Quiz.blank(), widgetings, questions: [{ ...Question.blank(), label: 'aa' }] }]), label }
@@ -32,6 +32,7 @@ async function stocked(tt: Tester, label: string, smith: string): Promise<{ seed
   const rows = await tt.run(async (ctx) => {
     const widgeting = present(await ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).first())
     const widgeted_id = await ctx.db.insert('widgeteds', { hunt_id, quiz_id, question_id, widgeting_id: widgeting._id, status: 'ok', value: { guess: 'Leon', explanation: '' }, message: null, result_meta: {} })
+    const quiz_widgeted_id = await ctx.db.insert('quiz_widgeteds', { hunt_id, quiz_id, widgeting_id: widgeting._id, status: 'ok', value: 'Ada', message: null, result_meta: {} })
     const review = present(await ctx.db.query('reviews').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id)).first())
     return {
       hunts:      hunt_id,
@@ -41,6 +42,7 @@ async function stocked(tt: Tester, label: string, smith: string): Promise<{ seed
       widgetings: widgeting._id,
       columns:    present(await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).first())._id,
       widgeteds:  widgeted_id,
+      quiz_widgeteds: quiz_widgeted_id,
       huntings:   present(await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', hunt_id)).first())._id,
       reviews:    review._id,
       reviewings: present(await ctx.db.query('reviewings').withIndex('by_review_id_and_question_id', (cvx) => cvx.eq('review_id', review._id)).first())._id,

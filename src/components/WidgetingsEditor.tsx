@@ -10,8 +10,9 @@ import { WidgetEditor } from './WidgetEditor'
 import { FormularyWords } from './widget-words'
 import { planWidgetingEdit } from '../lib/widgeting-edit'
 import { formularyFor } from '../lib/formulary/formularies'
+import * as RunOrder from '../lib/run-order'
 import { FormularykindVals, Widget, type WidgetT } from '../models/widget'
-import type { WidgetingT } from '../models/widgeting'
+import { Widgeting, type WidgetingT, type WidgetingTier } from '../models/widgeting'
 import type { QuizT } from '../models/quiz'
 import type { ShallowHuntT } from '../lib/rows'
 import type { HuntActionDNA, LibraryActionDNA } from '../models/actions'
@@ -20,6 +21,8 @@ import styles from './workbench.module.css'
 export type WidgetingsEditorProps = {
   hunt:          ShallowHuntT
   quiz:          QuizT
+  /** Which of the quiz's widgetings it lists: those for each question, or those run once for the whole quiz, with the questions pivot among them */
+  tier:          WidgetingTier
   /** The library's widgets, which the quiz's widgetings work */
   library:       readonly WidgetT[]
   /** Whether the quiz's widgetings may be changed here: listed as they are when not */
@@ -35,26 +38,39 @@ export type WidgetingsEditorProps = {
 /** Which widgeting's editor is open: one of the quiz's, by its label, or a new one */
 type Editing = { kind: 'widgeting', label: string } | { kind: 'new' } | null
 
+/** What the list of each tier says when it holds nothing of its own */
+const EmptyLines: Readonly<Record<WidgetingTier, string>> = {
+  question: 'This quiz puts no widgets to work for each question.',
+  quiz:     'Nothing runs once for the whole quiz yet.',
+}
+
 /**
- * A quiz's widgetings -- the widgets of the library it puts to work -- listed in run order,
- * dragged into a new one by their handles, each with a gear that opens it in the widgeting
- * editor, and a door to put another to work.
+ * A quiz's widgetings of one tier -- the widgets of the library it puts to work -- listed in run
+ * order, dragged into a new one by their handles, each with a gear that opens it in the widgeting
+ * editor, and a door to put another to work. The quiz tier's list holds the questions pivot among
+ * them (`RunOrder.quizListOf`): fixed, with no handle, it is where the question widgetings run,
+ * and a widgeting dragged above it runs before them.
  */
-export function WidgetingsEditor({ hunt, quiz, library, revisable, changeable, dispatch, changeLibrary, onEditLibrary }: Readonly<WidgetingsEditorProps>) {
+export function WidgetingsEditor({ hunt, quiz, tier, library, revisable, changeable, dispatch, changeLibrary, onEditLibrary }: Readonly<WidgetingsEditorProps>) {
   const [editing, setEditing] = useState<Editing>(null)
   const edited: WidgetingT | null = editing?.kind === 'widgeting' ? quiz.widgetings.find((each) => each.label === editing.label) ?? null : null
   const close = () => { setEditing(null) }
+  const own = quiz.widgetings.filter((widgeting) => widgeting.tier === tier)
+  const entries = new Set(library.filter((widget) => widget.formulary === 'entry').map((widget) => widget.label))
+  const items: RunOrder.QuizListItemT<WidgetingT>[] = tier === 'question' ? own : RunOrder.quizListOf(quiz.widgetings, RunOrder.ownTier, (widgeting) => ! entries.has(widgeting.widget_label))
+  const questionQty = quiz.widgetings.length - own.length
 
   return (
     <Stack spacing={1}>
-      {quiz.widgetings.length === 0 && <p className={styles.microcopy}>This quiz puts no widgets to work.</p>}
+      {own.length === 0 && <p className={styles.microcopy}>{EmptyLines[tier]}</p>}
       <SortableList
-        label="Widgetings"
-        items={quiz.widgetings}
-        keyOf={(widgeting) => widgeting.label}
+        label={tier === 'question' ? 'Widgetings' : 'Run once for the whole quiz'}
+        items={items}
+        keyOf={(item) => item.label}
         disabled={! revisable}
+        isFixed={(item) => RunOrder.isPivot(item)}
         onMove={(label, onto_idx) => { dispatch({ kind: 'move_widgeting', label, onto_idx }) }}
-        renderRow={(widgeting, handle) => (
+        renderRow={(widgeting, handle) => (RunOrder.isPivot(widgeting) ? <PivotRow questionQty={questionQty} /> : (
           <Stack direction="row" spacing={1} role="group" aria-label={`Widgeting ${widgeting.label}`} sx={{ alignItems: 'center' }}>
             {handle}
             <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -63,16 +79,33 @@ export function WidgetingsEditor({ hunt, quiz, library, revisable, changeable, d
             </Box>
             <IconButton size="small" aria-label={`Edit widgeting ${widgeting.label}`} onClick={() => { setEditing({ kind: 'widgeting', label: widgeting.label }) }}>⚙</IconButton>
           </Stack>
-        )}
+        ))}
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-        <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setEditing({ kind: 'new' }) }}>+ New widgeting…</Button>
-        <Button size="small" variant="outlined" onClick={onEditLibrary}>Widget library…</Button>
+        <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setEditing({ kind: 'new' }) }}>{tier === 'question' ? '+ New widgeting…' : '+ New quiz widgeting…'}</Button>
+        {/* One door to the library is enough: the quiz tier's list sits just below the question tier's. */}
+        {tier === 'question' && <Button size="small" variant="outlined" onClick={onEditLibrary}>Widget library…</Button>}
       </Stack>
       {(edited !== null || editing?.kind === 'new') && (
-        <WidgetingDialog key={edited?.label ?? 'new'} hunt={hunt} quiz={quiz} library={library} widgeting={edited} revisable={revisable} changeable={changeable} dispatch={dispatch} changeLibrary={changeLibrary} onClose={close} />
+        <WidgetingDialog key={edited?.label ?? 'new'} hunt={hunt} quiz={quiz} tier={tier} library={library} widgeting={edited} revisable={revisable} changeable={changeable} dispatch={dispatch} changeLibrary={changeLibrary} onClose={close} />
       )}
     </Stack>
+  )
+}
+
+/**
+ * The questions pivot, as the quiz tier's list shows it: where the question widgetings run, each
+ * for every question. It has no handle of its own; the quiz's widgetings are dragged past it.
+ */
+function PivotRow({ questionQty }: Readonly<{ questionQty: number }>) {
+  const counted = questionQty === 1 ? '1 question widgeting runs' : `${String(questionQty)} question widgetings run`
+  const said = questionQty === 0
+    ? 'where the first question widgeting will go: with none yet, everything here runs first.'
+    : `${counted} here, each for every question: those above read none of them, those below read them all.`
+  return (
+    <Box role="group" aria-label="The questions" sx={{ borderTop: 1, borderBottom: 1, borderColor: 'divider', py: 0.5, pl: 3 }}>
+      <strong>The questions</strong> <span className={styles.microcopy}>{said}</span>
+    </Box>
   )
 }
 
@@ -86,6 +119,8 @@ function widgetingNote(widgeting: WidgetingT, library: readonly WidgetT[]): stri
 type WidgetingDialogProps = {
   hunt:      ShallowHuntT
   quiz:      QuizT
+  /** Which level a new widgeting runs at */
+  tier:      WidgetingTier
   library:   readonly WidgetT[]
   /** The widgeting being edited, or null to make a new one */
   widgeting: WidgetingT | null
@@ -96,6 +131,18 @@ type WidgetingDialogProps = {
   dispatch:  (action: HuntActionDNA) => void
   changeLibrary: (action: LibraryActionDNA) => void
   onClose:   () => void
+}
+
+/** What the widgeting editor is titled for a new widgeting of each tier */
+const NewTitles: Readonly<Record<WidgetingTier, string>> = {
+  question: 'New widgeting',
+  quiz:     'New quiz widgeting',
+}
+
+/** What the widgeting editor says under its label, for a widgeting of each tier */
+const LabelHelp: Readonly<Record<WidgetingTier, string>> = {
+  question: "Names it within this quiz: its column, and what later widgets read it as. Blank takes the widget's.",
+  quiz:     "Names it within this quiz: its line in the Quiz panel, and what later widgets and templates read it as, quiz.<label>. Blank takes the widget's.",
 }
 
 /** Which widget editor the widgeting editor has open over it: for a new widget, or for the one it works */
@@ -111,7 +158,7 @@ type WidgetEditing = 'new' | 'held' | null
  * every quiz that works it. Nothing is applied until Apply. Removing a widgeting asks first; its
  * widget stays in the library.
  */
-function WidgetingDialog({ hunt, quiz, library, widgeting, revisable, changeable, dispatch, changeLibrary, onClose }: Readonly<WidgetingDialogProps>) {
+function WidgetingDialog({ hunt, quiz, tier, library, widgeting, revisable, changeable, dispatch, changeLibrary, onClose }: Readonly<WidgetingDialogProps>) {
   const [label, setLabel] = useState(widgeting?.label ?? '')
   const [description, setDescription] = useState(widgeting?.description ?? '')
   const [widgetLabel, setWidgetLabel] = useState(widgeting?.widget_label ?? '')
@@ -124,9 +171,12 @@ function WidgetingDialog({ hunt, quiz, library, widgeting, revisable, changeable
   const known = made && library.every((each) => each.label !== made.label) ? [...library, made] : library
   const widget = known.find((each) => each.label === widgetLabel) ?? null
   const fixed = ! revisable || widgeting !== null
+  const runsAt = widgeting?.tier ?? tier
+  // A new widgeting is offered only widgets that run at its tier; an existing one shows the one it works.
+  const offered = widgeting === null ? known.filter((each) => Widgeting.runsAt(each, runsAt)) : known
 
   const onApply = () => {
-    const plan = planWidgetingEdit({ widgeting, label, description, widgetLabel }, known, quiz)
+    const plan = planWidgetingEdit({ widgeting, label, description, widgetLabel, tier: runsAt }, known, quiz)
     if (! plan.ok) { setIssue(plan.issue); setLabelIssue(plan.labelIssue); return }
     for (const action of plan.actions) { dispatch(action) }
     onClose()
@@ -135,11 +185,11 @@ function WidgetingDialog({ hunt, quiz, library, widgeting, revisable, changeable
   return (
     <>
       <Dialog open onClose={ignoringBackdrop(onClose)} fullWidth maxWidth="sm" aria-labelledby="widgeting-dialog-title">
-        <ClosableTitle id="widgeting-dialog-title" onClose={onClose}>{widgeting ? `Widgeting: ${widgeting.label}` : 'New widgeting'}</ClosableTitle>
+        <ClosableTitle id="widgeting-dialog-title" onClose={onClose}>{widgeting ? `Widgeting: ${widgeting.label}` : NewTitles[runsAt]}</ClosableTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 1 }}>
             <WidgetPicker
-              library={known} widget={widget} disabled={fixed}
+              library={offered} widget={widget} disabled={fixed}
               gone={widgeting !== null && widget === null ? widgeting.widget_label : null}
               onPick={(picked) => { setWidgetLabel(picked); setIssue(null) }}
             />
@@ -150,7 +200,7 @@ function WidgetingDialog({ hunt, quiz, library, widgeting, revisable, changeable
             <Divider />
             <TextField
               size="small" label="Widgeting label" value={label} disabled={! revisable} placeholder={widgetLabel}
-              error={labelIssue !== null} helperText={labelIssue ?? "Names it within this quiz: its column, and what later widgets read it as. Blank takes the widget's."}
+              error={labelIssue !== null} helperText={labelIssue ?? LabelHelp[runsAt]}
               onChange={(event) => { setLabel(event.target.value); setIssue(null); setLabelIssue(null) }}
             />
             <TextField

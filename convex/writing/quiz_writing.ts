@@ -13,6 +13,7 @@ import { HomeRealmLabel, RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
 import { ReviewingValidators } from '../../src/models/reviewing'
 import { refuse } from '../../src/lib/refusals'
+import { QuestionFallbacks, QuizFallbacks, WidgetingFallbacks } from '../../src/lib/rows'
 import { Widget, WidgetValidators, type EntryValueT, type WidgetPatch, type WidgetT } from '../../src/models/widget'
 import { WidgetedValidators, type WidgetedRecordT } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
@@ -70,15 +71,15 @@ export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<
   if (! _.isEmpty(changed)) { await db.patch('hunts', held._id, changed) }
 }
 
-/** Revise a quiz's own row */
+/** Revise a quiz's own row, giving one written before it had a recap or templating an empty one (`QuizFallbacks`) */
 export async function updateQuiz(db: Writer, held: Doc<'quizzes'>, patch: Partial<Z.output<typeof QuizValidators.row>>): Promise<void> {
-  const changed = changedFields(held, QuizValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const changed = changedFields(held, QuizValidators.row({ ...QuizFallbacks, ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('quizzes', held._id, changed) }
 }
 
-/** Revise a question's row */
+/** Revise a question's row, giving one written before it had a recap an empty one (`QuestionFallbacks`) */
 export async function updateQuestion(db: Writer, held: Doc<'questions'>, patch: Partial<Z.output<typeof QuestionValidators.row>>): Promise<void> {
-  const changed = changedFields(held, QuestionValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const changed = changedFields(held, QuestionValidators.row({ ...QuestionFallbacks, ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('questions', held._id, changed) }
 }
 
@@ -96,9 +97,9 @@ export async function updateWidget(db: Writer, held: Doc<'widgets'>, patch: Widg
   if (! _.isEmpty(changed)) { await db.patch('widgets', held._id, changed) }
 }
 
-/** Revise a widgeting's row */
+/** Revise a widgeting's row, giving one written before widgetings had tiers the tier of one that runs for each question (`WidgetingFallbacks`) */
 export async function updateWidgeting(db: Writer, held: Doc<'widgetings'>, patch: Partial<Z.output<typeof WidgetingValidators.row>>): Promise<void> {
-  const changed = changedFields(held, WidgetingValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const changed = changedFields(held, WidgetingValidators.row({ ...WidgetingFallbacks, ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('widgetings', held._id, changed) }
 }
 
@@ -156,6 +157,33 @@ export async function upsertWidgeted(db: Writer, question: CellQuestion, widgeti
   }
 }
 
+/**
+ * Put `value` in the quiz's own cell of an entry run once for the whole quiz, as its one row: as
+ * `upsertWidgeted` puts a question's.
+ *
+ * @param db - The mutation's database.
+ * @param place - The quiz the cell is of, and its hunt.
+ * @param widgeting_id - The entry widgeting whose cell it is: one run once for the whole quiz.
+ * @param value - What was typed, already held to the widget's entry kind; null for nothing.
+ * @throws A Zod error when the row it comes to is not valid; nothing is written.
+ */
+export async function upsertQuizWidgeted(db: Writer, { hunt_id, quiz_id }: LayoutPlace, widgeting_id: Id<'widgetings'>, value: EntryValueT | null): Promise<void> {
+  const held = await db.query('quiz_widgeteds')
+    .withIndex('by_quiz_id_and_widgeting_id', (cvx) => cvx.eq('quiz_id', quiz_id).eq('widgeting_id', widgeting_id))
+    .order('desc')
+    .first()
+  if (value === null) {
+    if (held) { await db.delete('quiz_widgeteds', held._id) }
+    return
+  }
+  const row = WidgetedValidators.quizRow({ hunt_id, quiz_id, widgeting_id, status: 'ok', value, message: null, result_meta: {} })
+  if (held) {
+    await db.replace('quiz_widgeteds', held._id, row)
+  } else {
+    await db.insert('quiz_widgeteds', row)
+  }
+}
+
 /** Delete a question, everything its widgetings stored for it, and every reviewer's verdict on it */
 export async function deleteQuestion(db: Writer, question_id: Id<'questions'>): Promise<void> {
   const widgeteds = db.query('widgeteds').withIndex('by_question_id_and_widgeting_id', (cvx) => cvx.eq('question_id', question_id))
@@ -165,10 +193,12 @@ export async function deleteQuestion(db: Writer, question_id: Id<'questions'>): 
   await db.delete('questions', question_id)
 }
 
-/** Delete a widgeting, and everything it stored */
+/** Delete a widgeting, and everything it stored, for its questions or for its quiz */
 export async function deleteWidgeting(db: Writer, widgeting_id: Id<'widgetings'>): Promise<void> {
   const widgeteds = db.query('widgeteds').withIndex('by_widgeting_id', (cvx) => cvx.eq('widgeting_id', widgeting_id))
   for await (const widgeted of widgeteds) { await db.delete('widgeteds', widgeted._id) }
+  const quizWidgeteds = db.query('quiz_widgeteds').withIndex('by_widgeting_id', (cvx) => cvx.eq('widgeting_id', widgeting_id))
+  for await (const widgeted of quizWidgeteds) { await db.delete('quiz_widgeteds', widgeted._id) }
   await db.delete('widgetings', widgeting_id)
 }
 

@@ -217,6 +217,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         questions={quiz.questions}
         specs={specs}
         run={run}
+        templated={quiz.templated}
         locked={! offers.reviseQuestions}
         gripShown={quiz.last_sortkey === null || quiz.last_sortkey === qnumSortkeyOf(quiz)}
         batching={batching}
@@ -292,6 +293,9 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           void make()
         }}
         onQ1Preamble={(q1_preamble) => { dispatch({ kind: 'set_q1_preamble', q1_preamble }) }}
+        onRecapHead={(recap_head) => { dispatch({ kind: 'set_recap_head', recap_head }) }}
+        onRecapTail={(recap_tail) => { dispatch({ kind: 'set_recap_tail', recap_tail }) }}
+        onEnterQuiz={(widgeting_label, value) => { dispatch({ kind: 'enter_quiz_widgeted', entered: { widgeting_label, value } }) }}
       />
     </main>
   )

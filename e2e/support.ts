@@ -540,11 +540,12 @@ type SyncChangeT = { type: string, queryId: number, udfPath?: string, journal?: 
  *
  * @param fnpath - The query function, as Convex names it: `hunts:list`.
  * @param reason - What the failure says, after its request id.
+ * @param data - What a `ConvexError` the query threw carries, as the server sends it (a refusal's `{ ZodError: [...] }`); none for a plain throw.
  * @returns The request id the failures name, and `heal`.
  */
-export async function failQuery(page: Page, fnpath: string, reason = 'Server Error'): Promise<FailedQueryT> {
+export async function failQuery(page: Page, fnpath: string, reason = 'Server Error', data?: unknown): Promise<FailedQueryT> {
   const request_id = crypto.randomUUID().replaceAll('-', '').slice(0, 16)
-  const failure = { errorMessage: `[Request ID: ${request_id}] ${reason}`, logLines: [] }
+  const failure = { errorMessage: `[Request ID: ${request_id}] ${reason}`, logLines: [], ...(data !== undefined && { errorData: data }) }
   let healed = false
   await page.routeWebSocket(ConvexSyncUrl, (socket) => {
     const server = socket.connectToServer()

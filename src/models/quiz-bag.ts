@@ -31,7 +31,9 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, la
       title: titleish
         .describe('What the author calls the quiz.'),
     })
-    .describe(`The quiz itself: only ${listOf(Quiz.exposed)}.`)
+    .catchall(WidgetedValidators.widgeted
+      .describe('What a widgeting run once for the whole quiz, before the one being worked out, came to, under that widgeting\'s label: `quiz.playtesters.value`, say.'))
+    .describe(`The quiz itself: only ${listOf(Quiz.exposed)}; and the widgeted of every widgeting run once for the whole quiz before the one being worked out, each under its label.`)
 
   const bagHunt = HuntValidators.row.pick(maskOf(Hunt.exposed))
     .extend({
@@ -57,10 +59,10 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, la
     quiz:       bagQuiz,
     qns:        arr(bagQuestion)
       .describe('Every question in the quiz, in the quiz\'s order.'),
-    qn:         bagQuestion
-      .describe('The question the formula is being worked out for: the same object as one of `qns`.'),
-    qn_label:   label
-      .describe('The label of `qn`.'),
+    qn:         union([bagQuestion, obj({}).strict()])
+      .describe('The question the formula is being worked out for: the same object as one of `qns`. Empty for a widgeting run once for the whole quiz, which is worked out for no question.'),
+    qn_label:   label.or(zod.literal(''))
+      .describe('The label of `qn`; blank for a widgeting run once for the whole quiz.'),
     quiz_label: label
       .describe('The label of the quiz.'),
     params:          rec(label, zod.json())
