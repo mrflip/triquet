@@ -135,11 +135,11 @@ function RecapTemplate({ draft, owned, issue, revisable }: Readonly<RecapTemplat
       <AccordionDetails id="recap-template-details">
         <p className={styles.microcopy}>
           Markdown with mustache, filled in, then written in the boards&apos; BBCode. It reads what a templated field
-          reads, and {'{{recap_head}}'} and {'{{recap_tail}}'} (filled in), and {'{{#played}}'}…{'{{/played}}'}: each
-          question played, with its {'{{number}}'}, its fields and columns ({'{{title}}'}, {'{{hint}}'}), {'{{pct}}'} from a
-          column labelled correct_pct, and each of its fields shaped for where markdown is fragile: {'{{quoted.clueing}}'}
-          after a quote&apos;s {'>'}, {'{{oneline.full_answer}}'} within a line, {'{{below.recap}}'} on the line after
-          another.
+          reads -- {'{{#qns}}'}…{'{{/qns}}'}, each question with its fields and columns by label ({'{{rank}}'},
+          {' {{clueing}}'}, {'{{correct_pct}}'}), so a column of your own can stand in for any line -- and
+          {' {{recap_head}}'} and {'{{recap_tail}}'} (filled in). It may also read {'{{#played}}'}…{'{{/played}}'}: the
+          questions played, with their {'{{number}}'} and each field shaped for where markdown is fragile
+          ({'{{quoted.clueing}}'}, {'{{oneline.full_answer}}'}, {'{{below.recap}}'}).
           Empty the box to go back to the default.
         </p>
         <TextField

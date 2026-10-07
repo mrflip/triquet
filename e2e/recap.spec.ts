@@ -25,8 +25,8 @@ test('the Recap panel writes its head, each question with its answer and recap, 
   await page.getByLabel('Quiz name').fill('Quiz one')
   await addColumns(page, ['recap'])
   await fillRows(page, [
-    { 'Q#': '2', 'Clueing': 'Which ship?', 'Full Answer': 'ENTERPRISE' },
     { 'Q#': '1', 'Clueing': 'Who wrote **this**?', 'Full Answer': 'HAMILTON', 'Recap': 'Everyone got it.' },
+    { 'Q#': '2', 'Clueing': 'Which ship?', 'Full Answer': 'ENTERPRISE' },
   ])
   const panel = await openPanel(page, 'Recap')
   const head = panel.getByRole('textbox', { name: 'Recap head', exact: true })
@@ -55,7 +55,7 @@ test("a recap head that will not fill in says why, and the note carries it as ty
   await page.getByLabel('Quiz name').click()
   await expect(head).toHaveAttribute('aria-invalid', 'true')
   await expect(holderOf(head).locator('[data-template-issue]')).toContainText('Unclosed section')
-  await expect(panel.getByRole('textbox', { name: 'Recap note', exact: true })).toHaveValue('Thanks {{#qns}}')
+  await expect(panel.getByRole('textbox', { name: 'Recap note', exact: true })).toHaveValue('Thanks {{#qns}}\n----------------------------------------')
 })
 
 test("the recap template lays the note out, keeps it across a reload, says why when it will not fill in, and goes back to the default when emptied", async ({ page }) => {
