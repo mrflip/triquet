@@ -19,6 +19,7 @@ const IndentCases: [string, string, string][] = [
   ["```\n    code\n```",      "```\n    code\n```",    "a fenced code block's indents are its own"],
   ["<div>\n    in\n</div>",   "<div>\n    in\n</div>",  "an HTML block's indents are its own"],
   ["- a\n\n        *b*",       "- a\n\n> > *b*",       "an indent markdown would make code inside a list is the author's, and quoted"],
+  ["a\r\r    b\r\n    c",     "a\r\r> b\r\n> c",      'a carriage return parts lines, and every line break stays as typed'],
   ["          ten",          "> >   ten",            'spaces past two levels are kept after both'],
   ["    one\n    two",       "> one\n> two",          'every indented line is quoted'],
   // what is left alone:

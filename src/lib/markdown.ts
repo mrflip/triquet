@@ -106,6 +106,9 @@ const FenceOpenerRE = /^ {0,3}(?:```|~~~)/
 /** What a carriage return comes to: one line break, however the text was typed */
 const CarriageReturnRE = /\r\n?/g
 
+/** A line break, however the text was typed, kept by `split` between the lines it parts */
+const LineBreakKeptRE = /(\r\n?|\n)/
+
 /** `line` with each four spaces it opens with as a quote marker, `> `; spaces short of another four kept */
 function lineQuotedOf(line: string): string {
   return line.replace(IndentsRE, (run) => '> '.repeat(run.length / 4))
@@ -171,7 +174,9 @@ function isFenced(code: MT.Code, text: string): boolean {
  */
 export function indentsAsQuotes(text: string): string {
   const isOwned = markdownsOwnLinesOf(text)
-  return text.split('\n').map((line, lineIdx) => (isOwned(lineIdx) ? line : lineQuotedOf(line))).join('\n')
+  // Lines at the even places, each line break as typed after it, so line numbers count as the parser counts them.
+  const pieces = text.split(LineBreakKeptRE)
+  return pieces.map((piece, ii) => ((ii % 2 === 1 || isOwned(ii / 2)) ? piece : lineQuotedOf(piece))).join('')
 }
 
 /**
