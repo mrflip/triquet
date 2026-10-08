@@ -185,6 +185,8 @@ export const ColumnValidators = Validator(({ obj, str, oneof, titleish, formulai
     .describe('What the column is called within its quiz, unique there. It names the column in an export and in the quiz\'s sort memory.')
   const source = str.refine((val) => plainRefOf(plainOf({ source: val }).source) !== null, `should name a question's field (such as clueing), its view (${QuestionViewVals.join(', ')}) or a key it has (${QuestionKeyVals.join(', ')}); a widgeting by a label that ${PA.Label.msg}, at most ${String(PA.Label.max)} characters, and none of the words the tool keeps for its own use; ${BagWordVals.join(', ')}; or ${QuizRefPrefix}<label> for a widgeting run once for the whole quiz`)
     .describe(`What the column shows, its ref: one plain key in the bag's own words, found on the question first (a field such as \`clueing\`, the view \`butnot\`, a key such as \`rank\`, or a widgeting's label) and then at the bag's top level (${BagWordVals.join(', ')}); or \`${QuizRefPrefix}<label>\` for a widgeting run once for the whole quiz. The grammar before October 2026 (\`${QuestionWidgetLabel}.<field>\`, \`<widgeting>.<part>\`) is still read.`)
+  const ref = str.refine((val) => plainRefOf(val) !== null, `should name a question's field (such as clueing), its view (${QuestionViewVals.join(', ')}) or a key it has (${QuestionKeyVals.join(', ')}); a widgeting by a label that ${PA.Label.msg}, at most ${String(PA.Label.max)} characters, and none of the words the tool keeps for its own use; ${BagWordVals.join(', ')}; or ${QuizRefPrefix}<label> for a widgeting run once for the whole quiz`)
+    .describe(`A ref in the plain grammar alone, as anything new names a thing of the bag: one plain key, found on the question first and then at the bag's top level (${BagWordVals.join(', ')}); or \`${QuizRefPrefix}<label>\` for a widgeting run once for the whole quiz.`)
   const formula = formulaish
     .describe('JSONata worked out over what the ref picks, as the bag holds it: a field itself, or a widgeting\'s whole widgeted (`$.value.guess`, `$.masie`), and that only when the widgeted is `ok`. Absent, the column shows the field, or the widgeted\'s value: identity.')
   const template = textish.min(1)
@@ -243,7 +245,7 @@ export const ColumnValidators = Validator(({ obj, str, oneof, titleish, formulai
   })
     .describe('One column as the database holds it.')
 
-  return { source, formula, template, readout, column, columnPatch, row }
+  return { source, ref, formula, template, readout, column, columnPatch, row }
 })
 
 export type ColumnDNA   = Z.input<typeof ColumnValidators.column>

@@ -1,6 +1,6 @@
 import * as Labelmaker from '../lib/labelmaker'
 import * as UU from '../lib/useful'
-import { AibotDefaultInput, Widget, WidgetValidators, type AibotWidgetT, type EntryWidgetT, type Formularykind, type JsonataWidgetT, type WidgetPatch, type WidgetT } from '../models/widget'
+import { AibotDefaultInput, LiquidizeDefaultInput, Widget, WidgetValidators, type AibotWidgetT, type EntryWidgetT, type Formularykind, type JsonataWidgetT, type LiquidizeWidgetT, type WidgetPatch, type WidgetT } from '../models/widget'
 import type { LibraryActionDNA } from '../models/actions'
 
 /** The parts of a `jsonata` widget being written or revised: its formula */
@@ -12,8 +12,11 @@ export type AibotDraft = Pick<AibotWidgetT, 'label' | 'description' | 'formula' 
 /** The parts of an `entry` widget being written or revised: what kind of value its cells take, fixed once it is made, and the params its widgetings start from */
 export type EntryDraft = Pick<EntryWidgetT, 'label' | 'description' | 'config'> & { formulary: 'entry' }
 
+/** The parts of a `liquidize` widget being written or revised: its template, the default its widgetings may replace, and its input formula */
+export type LiquidizeDraft = Pick<LiquidizeWidgetT, 'label' | 'description' | 'formula' | 'input_formula'> & { formulary: 'liquidize' }
+
 /** The parts of a widget of the library being written or revised */
-export type WidgetDraft = JsonataDraft | AibotDraft | EntryDraft
+export type WidgetDraft = JsonataDraft | AibotDraft | EntryDraft | LiquidizeDraft
 
 /** What a new `jsonata` widget starts as: nothing yet */
 export const BlankJsonataDraft: JsonataDraft = { formulary: 'jsonata', label: '', description: '', formula: '' }
@@ -31,11 +34,15 @@ export const BlankAibotDraft: AibotDraft = {
 /** What a new `entry` widget starts as: text, as a note is */
 export const BlankEntryDraft: EntryDraft = { formulary: 'entry', label: '', description: '', config: { entry_kind: 'text' } }
 
+/** What a new `liquidize` widget starts as: no template yet, filled in over the whole bag */
+export const BlankLiquidizeDraft: LiquidizeDraft = { formulary: 'liquidize', label: '', description: '', formula: '', input_formula: LiquidizeDefaultInput }
+
 /** What a new widget of each formulary starts as */
 const BlankDrafts: Readonly<Record<Formularykind, WidgetDraft>> = {
-  jsonata: BlankJsonataDraft,
-  aibot:   BlankAibotDraft,
-  entry:   BlankEntryDraft,
+  jsonata:   BlankJsonataDraft,
+  aibot:     BlankAibotDraft,
+  entry:     BlankEntryDraft,
+  liquidize: BlankLiquidizeDraft,
 }
 
 /** What applying an edit comes to: the actions to dispatch, or what to tell the author is wrong, and whether it is the label */
@@ -69,6 +76,7 @@ export function draftOf(widget: WidgetT): WidgetDraft {
   case 'jsonata': { return { formulary: 'jsonata', label, description, formula } }
   case 'aibot':   { return { formulary: 'aibot', label, description, formula, input_formula: widget.input_formula, config: widget.config } }
   case 'entry':   { return { formulary: 'entry', label, description, config: widget.config } }
+  case 'liquidize': { return { formulary: 'liquidize', label, description, formula, input_formula: widget.input_formula } }
   }
 }
 
@@ -117,12 +125,13 @@ function refused(issue: string, labelIssue = false): Extract<WidgetPlan, { ok: f
   return { ok: false, issue, labelIssue: labelIssue ? issue : null }
 }
 
-/** What revising a widget to `widget` sets: its description and formula, and an `aibot` widget's input formula and config; an entry's description and config, the defaults its widgetings start from */
+/** What revising a widget to `widget` sets: its description and formula, and an `aibot` or `liquidize` widget's input formula, and an `aibot`'s config; an entry's description and config, the defaults its widgetings start from */
 function patchFor(widget: WidgetT): WidgetPatch {
   const shared = { formula: widget.formula, description: widget.description }
   switch (widget.formulary) {
   case 'jsonata': { return shared }
   case 'aibot':   { return { ...shared, input_formula: widget.input_formula, config: widget.config } }
   case 'entry':   { return { description: widget.description, config: widget.config } }
+  case 'liquidize': { return { ...shared, input_formula: widget.input_formula } }
   }
 }

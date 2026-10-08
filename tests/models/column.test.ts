@@ -123,6 +123,26 @@ describe('ColumnValidators.columnPatch', () => {
   })
 })
 
+describe('ColumnValidators.ref', () => {
+  const Cases: [string, boolean, string][] = [
+    ["clueing",           true,  'a question\'s field'],
+    ["butnot",            true,  'the view butnot'],
+    ["rank",              true,  'a key a question has'],
+    ["dumdum",            true,  'a widgeting\'s label'],
+    ["qns",               true,  'a word of the bag'],
+    ["quiz.playtesters",  true,  'a widgeting for the whole quiz'],
+    ["question.clueing",  false, 'a field in the grammar before October 2026'],
+    ["category_data.masie", false, 'a part in the grammar before October 2026'],
+    ["Not a ref",         false, 'something that names nothing'],
+    ["",                  false, 'nothing at all'],
+  ]
+  for (const [ref, passes, describes] of Cases) {
+    it(`${passes ? 'takes' : 'refuses'} ${describes}`, () => {
+      expect(ColumnValidators.ref.safeParse(ref).success).to.eq(passes)
+    })
+  }
+})
+
 describe('refOf', () => {
   it('reads a question field, a view, a key, a word of the bag, and a widgeting at either tier', () => {
     expect(refOf('clueing')).to.deep.eq({ kind: 'field', field: 'clueing' })

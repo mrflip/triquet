@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { AibotDefaultInput, AibotTokensMax, EntryFamilyOf, EntryFamilyVals, EntryKindVals, EntryParamsOf, EnumOptionsMax, FormularykindVals, JsonataDefaultInput, OfferedEntryKindVals, Widget, WidgetValidators, entryParamsIssues, type EntryKind, type WidgetRowT } from '../../src/models/widget'
+import { AibotDefaultInput, AibotTokensMax, EntryFamilyOf, EntryFamilyVals, EntryKindVals, EntryParamsOf, EnumOptionsMax, FormularykindVals, JsonataDefaultInput, LiquidizeDefaultInput, OfferedEntryKindVals, Widget, WidgetValidators, entryParamsIssues, type EntryKind, type WidgetRowT } from '../../src/models/widget'
 
 const Shout = { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } as const
 const Guesser = {
@@ -10,10 +10,11 @@ const Guesser = {
   config:    { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 },
 } as const
 const Remark = { label: 'remark', formulary: 'entry', config: { entry_kind: 'text' } } as const
+const Blurb = { label: 'blurb', formulary: 'liquidize', formula: '**{{ qn.title }}**' } as const
 
 describe('FormularykindVals', () => {
-  it("names the three formularies a library widget can be worked by", () => {
-    expect(FormularykindVals).to.deep.eq(['jsonata', 'aibot', 'entry'])
+  it("names the four formularies a library widget can be worked by", () => {
+    expect(FormularykindVals).to.deep.eq(['jsonata', 'aibot', 'entry', 'liquidize'])
   })
 })
 
@@ -61,6 +62,15 @@ describe('Widget.fill', () => {
     expect(Widget.fill({ ...Remark, config: { entry_kind: 'enum', options: ['easy', 'hard'] } }).config).to.deep.eq({ entry_kind: 'enum', options: ['easy', 'hard'] })
   })
 
+  it("defaults a liquidize widget's input to the whole bag and its config to none", () => {
+    expect(Widget.fill(Blurb)).to.deep.eq({ ...Blurb, scope: 'pub', title: '', description: '', input_formula: LiquidizeDefaultInput, config: {} })
+    expect(LiquidizeDefaultInput).to.eq('$')
+  })
+
+  it("lets a liquidize template run as long as a prompt, up to 3600", () => {
+    expect(Widget.fill({ ...Blurb, formula: 'x'.repeat(3600) }).formula).to.have.lengthOf(3600)
+  })
+
   it("takes the most room a model may be given, and no less than one token", () => {
     expect(Widget.fill({ ...Guesser, config: { ...Guesser.config, max_tokens: AibotTokensMax } }).config).to.have.property('max_tokens', 8000)
     expect(Widget.fill({ ...Guesser, config: { ...Guesser.config, max_tokens: 1 } }).config).to.have.property('max_tokens', 1)
@@ -99,6 +109,10 @@ describe('Widget.fill', () => {
     [{ ...Remark, config: { entry_kind: 'text', pattern: 'label', lines: 'many' } }, 'a text entry held to a pattern on many lines'],
     [{ ...Remark, config: { entry_kind: 'labelish', pattern: 'url' } },             'a preset of text given params of its own'],
     [{ ...Remark, config: { entry_kind: 'boolean', options: ['yes'] } },            'a yes-or-no entry with options'],
+    // liquidize:
+    [{ ...Blurb, formula: '' },                                                     'an empty template'],
+    [{ ...Blurb, formula: 'x'.repeat(3601) },                                       'a template past 3600 characters'],
+    [{ ...Blurb, config: { template: 'x' } },                                       'a liquidize widget with settings'],
   ]
   for (const [dna, describes] of Refused) {
     it(`refuses ${describes}`, () => {
@@ -117,6 +131,10 @@ describe('WidgetValidators.widgetPatch', () => {
     expect(WidgetValidators.widgetPatch({ config: {} }).config).to.deep.eq({})
     expect(WidgetValidators.widgetPatch({ config: Guesser.config }).config).to.deep.eq(Guesser.config)
     expect(WidgetValidators.widgetPatch({ config: Remark.config }).config).to.deep.eq(Remark.config)
+  })
+
+  it("takes a liquidize widget's template and input formula", () => {
+    expect(WidgetValidators.widgetPatch({ formula: '{{ qn.title }}', input_formula: '$' })).to.deep.eq({ formula: '{{ qn.title }}', input_formula: '$' })
   })
 
   it("drops the scope, the label and the formulary, which are fixed once made", () => {
@@ -140,11 +158,13 @@ describe('WidgetValidators.row', () => {
   const JsonataRow = { ...Base, label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)', config: {} } as const satisfies WidgetRowT
   const AibotRow = { ...Base, ...Guesser, input_formula: AibotDefaultInput, position: 1 } as const satisfies WidgetRowT
   const EntryRow = { ...Base, ...Remark, formula: '', input_formula: '', position: 2 } as const satisfies WidgetRowT
+  const LiquidizeRow = { ...Base, ...Blurb, config: {}, position: 3 } as const satisfies WidgetRowT
 
   it("takes every formulary as the database holds it", () => {
     expect(WidgetValidators.row(JsonataRow)).to.deep.eq(JsonataRow)
     expect(WidgetValidators.row(AibotRow)).to.deep.eq(AibotRow)
     expect(WidgetValidators.row(EntryRow)).to.deep.eq(EntryRow)
+    expect(WidgetValidators.row(LiquidizeRow)).to.deep.eq(LiquidizeRow)
   })
 
   const Refused: [object, string][] = [
@@ -156,6 +176,7 @@ describe('WidgetValidators.row', () => {
     [{ ...AibotRow, formulary: 'jsonata' },         'an aibot widget\'s settings under the jsonata formulary'],
     [{ ...EntryRow, formula: '1' },                 'an entry with a formula'],
     [{ ...JsonataRow, formulary: 'entry' },         'a jsonata widget\'s formula under the entry formulary'],
+    [{ ...LiquidizeRow, formula: '' },              'a liquidize widget with no template'],
   ]
   for (const [row, describes] of Refused) {
     it(`refuses ${describes}`, () => {
@@ -199,6 +220,13 @@ describe('Widget.exported', () => {
   })
 })
 
+describe('Widget.exported, for a liquidize widget', () => {
+  it("is its fields, its template among them", () => {
+    const row: WidgetRowT = { ...Widget.fill(Blurb), position: 5 }
+    expect(Widget.exported(row)).to.deep.eq(Widget.fill(Blurb))
+  })
+})
+
 describe('Widget.exported, for an entry', () => {
   it("is its fields, its formula and input formula empty", () => {
     const row: WidgetRowT = { ...Widget.fill(Remark), position: 3 }
@@ -211,6 +239,7 @@ describe('Widget.flavorOf', () => {
     expect(Widget.flavorOf(Widget.fill(Shout))).to.eq('a jsonata widget')
     expect(Widget.flavorOf(Widget.fill(Guesser))).to.eq('an aibot widget')
     expect(Widget.flavorOf(Widget.fill(Remark))).to.eq('a text entry')
+    expect(Widget.flavorOf(Widget.fill(Blurb))).to.eq('a liquidize widget')
     expect(Widget.flavorOf(Widget.fill({ ...Remark, config: { entry_kind: 'number' } }))).to.eq('a number entry')
     expect(Widget.flavorOf(Widget.fill({ ...Remark, config: { entry_kind: 'estimates' } }))).to.eq('a category estimate entry')
   })
@@ -314,5 +343,28 @@ describe('EntryFamilyOf', () => {
   it("offers a new widget one kind per family, and neither preset", () => {
     expect(OfferedEntryKindVals).to.deep.eq([...EntryFamilyVals])
     expect(OfferedEntryKindVals).not.to.include.members(['labelish', 'titleish'])
+  })
+})
+
+describe('WidgetValidators.liquidizeParams', () => {
+  const Cases: [unknown, boolean, string][] = [
+    [{},                                                              true,  'nothing, so the widget\'s template'],
+    [{ template: '{{ qn.hint }}' },                                   true,  'a template of its own'],
+    [{ template_from: { ref: 'dumdum' } },                            true,  'a template read from a widgeting'],
+    [{ template_from: { ref: 'quiz.playtesters', formula: '$' } },    true,  'a template read from a widgeting for the whole quiz, by a formula'],
+    [{ template: 'x', template_from: { ref: 'dumdum' } },              false, 'both'],
+    [{ template_from: {} },                                           false, 'a template from nowhere'],
+    [{ template_from: { ref: 'categories.masie' } },                  false, 'a ref in the grammar before October 2026'],
+    [{ loud: true },                                                  false, 'a param it does not take'],
+  ]
+  for (const [params, passes, describes] of Cases) {
+    it(`${passes ? 'takes' : 'refuses'} ${describes}`, () => {
+      expect(WidgetValidators.liquidizeParams.safeParse(params).success).to.eq(passes)
+    })
+  }
+
+  it("says of template_from that it may not stand beside a template", () => {
+    const checked = WidgetValidators.liquidizeParams.safeParse({ template: 'x', template_from: { ref: 'dumdum' } })
+    expect(checked.error?.issues.map((issue) => [issue.path, issue.message])).to.deep.eq([[['template_from'], 'should be left out beside a template of its own: say one or the other']])
   })
 })

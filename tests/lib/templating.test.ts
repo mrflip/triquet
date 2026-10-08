@@ -120,6 +120,10 @@ describe("fill", () => {
     expect(Templating.fill('{{qn.bold}} {{qn.script}} {{qn.link}}', held).markdown).to.eq('**bold** <script>alert(1)</script> [x](javascript:alert(1))')
   })
 
+  it("fills in over any plain object, as a liquidize template's input is", () => {
+    expect(Templating.fill('{{ title }} by {{ author.label }}', { title: 'Leon', author: { label: 'ada' } })).to.deep.eq({ markdown: 'Leon by ada', issue: null })
+  })
+
   it("hands back a template that does not parse as typed, with why", () => {
     expect(Templating.fill('{% if qn.hint %}', bag)).to.deep.eq({ markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1' })
   })
@@ -328,6 +332,14 @@ describe("bagOf", () => {
     expect(Templating.fill('{{qn.map.value}} {{#quiz.maps.value}}{{.}}{{/quiz.maps.value}} {{quiz.maps}}', imagedBag).markdown).not.to.include('![')
     expect(Templating.fill('{{qn.clueing}} {{qn.author}}', imagedBag).markdown).to.eq('![typed](https://host/t.png) ![entered](https://host/e.png)')
     expect(imagedRun.widgeteds.get('map')?.get(pictured._id)?.value).to.eq('![map](https://host/m.png?q=Pic)')
+  })
+
+  it("draws an image in a liquidize template's column as a link to it, though its template typed one", () => {
+    const Imaged = [...Library, Widget.fill({ label: 'pictured', formulary: 'liquidize', formula: '![logo](https://host/l.png) {{ qn.title }}' })]
+    const imaged = { ...TwoQuiz, widgetings: [...TwoQuiz.widgetings, Widgeting.fill({ label: 'picture', widget_label: 'pictured' })] }
+    const imagedRun = runOf(imaged, Imaged)
+    expect(Templating.fill('{{qn.picture}}', Templating.bagOf(imagedRun, first._id)).markdown).to.match(/^&#33;\[logo\]/)
+    expect(imagedRun.widgeteds.get('picture')?.get(first._id)?.value).to.match(/^!\[logo\]/)
   })
 
   it("leaves an image made a link no image to the screen's parser or the board's writer, whatever stands before it", () => {

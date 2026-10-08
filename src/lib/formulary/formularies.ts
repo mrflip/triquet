@@ -2,6 +2,7 @@ import type * as Z from 'zod'
 import { AibotFormulary } from './aibot'
 import { EntryFormulary } from './entry'
 import { JsonataFormulary } from './jsonata'
+import { LiquidizeFormulary } from './liquidize'
 import type { QuizBag } from './runner'
 import type { AibotWidgetT, EntryValueT, EntryWidgetT, Formularykind, WidgetT } from '../../models/widget'
 import type { WidgetedRecordT, WidgetedT } from '../../models/widgeted'
@@ -75,7 +76,7 @@ type FormulaFacts = {
   advice: (widget: WidgetT, widgeting: AdviceSubject | null, sample: QuizBag | null) => string
 }
 
-/** A formulary whose widgeteds are worked out on every render, and stored nowhere */
+/** A formulary whose widgeteds are worked out on every render, and stored nowhere: a formula's, or a template's */
 export type LiveFormulary = FormularyFacts & FormulaFacts & {
   readonly refresh: 'live'
   readonly store:   null
@@ -110,17 +111,20 @@ export const Formularies = {
   jsonata: JsonataFormulary,
   aibot:   AibotFormulary,
   entry:   EntryFormulary,
+  liquidize: LiquidizeFormulary,
 } as const satisfies Record<Formularykind, Formulary>
 
 /**
  * The validator for the params of a widgeting of `widget`: an entry's family's, held together
- * with the widget's defaults; the open record of a formulary whose widgets read params from the bag.
+ * with the widget's defaults; a `liquidize` widgeting's template; the open record of a formulary
+ * whose widgets read params from the bag.
  *
  * @param widget - Any widget of the library.
  * @returns The validator.
  *
  * @example paramsOf(numberEntry).safeParse({ min: 'one' }).success  // => false
  * @example paramsOf(shoutWidget).safeParse({ loud: true }).success  // => true
+ * @example paramsOf(blurbWidget).safeParse({ loud: true }).success  // => false
  */
 export function paramsOf(widget: WidgetT): Z.ZodType<WidgetingT['params']> {
   // Every family's params are a few JSON settings by name, as a widgeting's row holds them.

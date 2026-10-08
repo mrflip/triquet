@@ -276,6 +276,11 @@ describe('widgetFrom', () => {
     expect(widgetFrom({ ...shared, formulary: 'aibot', formula: 'Say {{clueing}}', input_formula: "{ 'clueing': qn.clueing }", config }))
       .to.deep.eq({ ...sharedFields, formulary: 'aibot', formula: 'Say {{clueing}}', input_formula: "{ 'clueing': qn.clueing }", config })
   })
+
+  it('is a liquidize widget, its template whole, without its id or place', () => {
+    expect(widgetFrom({ ...shared, formulary: 'liquidize', formula: '**{{ qn.title }}**', input_formula: '$', config: {} }))
+      .to.deep.eq({ ...sharedFields, formulary: 'liquidize', formula: '**{{ qn.title }}**', input_formula: '$', config: {} })
+  })
 })
 
 describe('widgetingFrom', () => {

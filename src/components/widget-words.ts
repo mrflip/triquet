@@ -11,6 +11,7 @@ export const FormularyWords: Readonly<Record<Formularykind, { noun: string, grou
   jsonata: { noun: 'formula', group: 'Formulas', gist: 'A formula: a JSONata expression, worked out for every question as it changes' },
   aibot:   { noun: 'prompt',  group: 'Prompts',  gist: 'A prompt: put to a model for one question when you ask from its cell' },
   entry:   { noun: 'entry',   group: 'Entries',  gist: 'An entry: typed into its cells by hand, one value per question' },
+  liquidize: { noun: 'template', group: 'Templates', gist: 'A template: Liquid filled in for every question as it changes, coming to markdown' },
 }
 
 /** How each kind of entry is spoken of on screen: what its cells take */

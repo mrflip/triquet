@@ -631,6 +631,26 @@ describe("a widgeting's params", () => {
     expect(paramsOf(await seeded.read(), 'airport')).to.deep.eq({ regex: { source: '^[A-Z]{3}$', flags: '' }, max_length: 3 })
   })
 
+  it("are a liquidize widgeting's template, of its own or from the bag, and refused when the Liquid will not read", async () => {
+    const seeded = await seed()
+    await seeded.actOnLibrary({ kind: 'add_widget', widget: { label: 'blurbish', formulary: 'liquidize', formula: '{{ qn.title }}' } })
+    await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'blurbish', label: 'blurbing', params: { template: '*{{ qn.hint }}*' } } })
+    expect(paramsOf(await seeded.read(), 'blurbing')).to.deep.eq({ template: '*{{ qn.hint }}*' })
+    await seeded.act({ kind: 'edit_widgeting', label: 'blurbing', patch: { params: { template_from: { ref: 'notes' } } } })
+    expect(paramsOf(await seeded.read(), 'blurbing')).to.deep.eq({ template_from: { ref: 'notes' } })
+    const held = await seeded.read()
+    await expect(seeded.act({ kind: 'edit_widgeting', label: 'blurbing', patch: { params: { template: '{% if qn.hint %}' } } })).rejects.toThrow(/does not read as Liquid/)
+    await expect(seeded.act({ kind: 'edit_widgeting', label: 'blurbing', patch: { params: { size: 3 } } })).rejects.toThrow()
+    expect(await seeded.read()).to.deep.eq(held)
+  })
+
+  it("let a liquidize widgeting run once for the whole quiz", async () => {
+    const seeded = await seed()
+    await seeded.actOnLibrary({ kind: 'add_widget', widget: { label: 'blurbish', formulary: 'liquidize', formula: '{{ qns | size }} questions' } })
+    await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'blurbish', label: 'roster', tier: 'quiz' } })
+    expect(tiersOf(await seeded.read()).at(-1)).to.eq('roster:quiz')
+  })
+
   it("are any few settings for a formula's widgeting, as ever", async () => {
     const { act, read } = await seed()
     await act({ kind: 'add_widgeting', widgeting: { ...Backward, params: { size: 3 } } })

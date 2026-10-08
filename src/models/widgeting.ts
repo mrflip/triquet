@@ -9,7 +9,7 @@ import * as PA from '../lib/vv/patterns'
 import { ColumnStageFieldnames, ColumnValidators, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals } from './column'
 import { ArchivedField, PlaceField, Question, RankField, SecondaryField, VizField } from './question'
 import { StalenessFieldnames, WidgetedValidators } from './widgeted'
-import { EntryKindOncePerQuiz, EntryParamsOf, type WidgetT } from './widget'
+import { EntryKindOncePerQuiz, EntryParamsOf, WidgetValidators, type WidgetT } from './widget'
 
 /**
  * The keys at the top of every bag a formula reads (`QuizBagValidators.quizBag`, which is held to
@@ -47,8 +47,15 @@ export const ReservedWidgetingLabels: readonly string[] = _.uniq([
   ...WidgetingPartVals,
 ])
 
-/** The names the entry families give their params, which a widgeting's params may take though they are reserved words */
-export const EntryParamnames: ReadonlySet<string> = new Set(Object.values(EntryParamsOf).flatMap((validator) => Object.keys(validator.shape)))
+/**
+ * The names the formularies give their params, which a widgeting's params may take though they
+ * are reserved words: each entry family's (`min`, `max`, `integer`), and a `liquidize`
+ * widgeting's (`template`, `template_from`).
+ */
+export const FormularyParamnames: ReadonlySet<string> = new Set([
+  ...Object.values(EntryParamsOf).flatMap((validator) => Object.keys(validator.shape)),
+  ...Object.keys(WidgetValidators.liquidizeParams.shape),
+])
 
 const Reserved = PA.reservedOf(ReservedWidgetingLabels, 'is a name a question, its cells or the bag already answer to: add to it, as my_label or label_2')
 
@@ -70,8 +77,8 @@ export const WidgetingValidators = Validator(({ obj, rec, oneof, label, labelAll
     .describe('Which widget of the library it works, by label: labels are fixed once made, so exports round-trip with no id to translate.')
   const description = noteish
     .describe('What this widgeting is for in this quiz, in the author\'s words.')
-  // A param named by an entry family (`min`, `max`, `integer`) is let through though it is reserved; any other is held to every label's words.
-  const params = rec(labelAllowing(EntryParamnames), zod.json())
+  // A param a formulary names (`min`, `max`, `template`) is let through though it is reserved; any other is held to every label's words.
+  const params = rec(labelAllowing(FormularyParamnames), zod.json())
     .refine((val) => UU.jsonify(val).length <= PA.ParamsJson.max, PA.ParamsJson.msg)
     .describe('What it hands its widget beyond the bag, by name, held to its widget\'s formulary where a widgeting is written (`paramsOf`): an entry\'s constraints, say. Reaches the bag as `params`.')
   const tier = oneof(WidgetingTierVals)
@@ -134,16 +141,18 @@ export class Widgeting implements WidgetingT {
 
   /**
    * Whether a widgeting of `widget` may run at `tier`. Every widget runs for each question; once for
-   * the whole quiz, only a formula (`jsonata`) and an entry of a family that holds one value the
-   * quiz can have (`EntryKindOncePerQuiz`: any but a question's category estimates). A model asked
-   * from a cell has no cell to be asked from at the quiz's level.
+   * the whole quiz, only what is worked out on render (a `jsonata` formula, a `liquidize`
+   * template) and an entry of a family that holds one value the quiz can have
+   * (`EntryKindOncePerQuiz`: any but a question's category estimates). A model asked from a cell
+   * has no cell to be asked from at the quiz's level.
    *
    * @example Widgeting.runsAt({ formulary: 'aibot', config: aibotConfig }, 'quiz')             // => false
+   * @example Widgeting.runsAt({ formulary: 'liquidize', config: {} }, 'quiz')                 // => true
    * @example Widgeting.runsAt({ formulary: 'entry', config: { entry_kind: 'text' } }, 'quiz')     // => true
    * @example Widgeting.runsAt({ formulary: 'entry', config: { entry_kind: 'boolean' } }, 'quiz')  // => true
    */
   static runsAt(widget: Pick<WidgetT, 'formulary' | 'config'>, tier: WidgetingTier): boolean {
-    if (tier === 'question' || widget.formulary === 'jsonata') { return true }
+    if (tier === 'question' || widget.formulary === 'jsonata' || widget.formulary === 'liquidize') { return true }
     return widget.formulary === 'entry' && 'entry_kind' in widget.config && EntryKindOncePerQuiz[widget.config.entry_kind]
   }
 

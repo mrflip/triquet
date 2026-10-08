@@ -38,8 +38,17 @@ function seed(label: string): WidgetT {
 }
 
 describe('SeedWidgets', () => {
-  it("is twenty-two widgets, per the doc", () => {
-    expect(SeedWidgets).to.have.lengthOf(22)
+  it("is twenty-three widgets, per the doc", () => {
+    expect(SeedWidgets).to.have.lengthOf(23)
+  })
+
+  it("holds a template, last, that reads well over a question", () => {
+    const blurb = seed('blurb')
+    expect(blurb.formulary).to.eq('liquidize')
+    expect(SeedWidgets.at(-1)).to.eq(blurb)
+    const question = { ...Question.blank(), qnum: '1', title: 'Leon', full_answer: 'Leon\nTrotsky' }
+    const quiz = { ...Quiz.blank('Princes'), questions: [question], widgetings: [Widgeting.fill({ label: 'blurb', widget_label: 'blurb' })] }
+    expect(Runner.widgetedOf(runOf(quiz), 'blurb', question._id)).to.deep.eq(Widgeted.ok('**Leon**: Leon Trotsky'))
   })
 
   it("holds an entry of each family, the category estimates among them, and no preset of text", () => {

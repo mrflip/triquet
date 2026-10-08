@@ -274,13 +274,25 @@ const FamilySeedDNAs: readonly WidgetDNA[] = [
 ]
 
 /**
+ * A template: a line of markdown made for every question, which a widgeting may make its own (its
+ * `template`), or read from what a bot or a formula before it wrote (its `template_from`).
+ */
+const BlurbDNA: WidgetDNA = {
+  label:       'blurb',
+  title:       'Template',
+  description: 'Markdown filled in from a Liquid template for every question, over what a formula reads: `{{ qn.title }}`, `{{ qn.dumdum.value.guess }}`. Its widgeting may give a template of its own, or read one from the bag, as a bot wrote it.',
+  formulary:   'liquidize',
+  formula:     '**{{ qn.title }}**{% if qn.full_answer %}: {{ qn.full_answer | oneline }}{% endif %}',
+}
+
+/**
  * The library's seeds: the three prompts, the eight sums, five small text calculations, the
- * BUT NOT ishes, the category-estimate entry, and an entry of each other family. Twenty-two, in
- * the order the library lists them.
+ * BUT NOT ishes, the category-estimate entry, an entry of each other family, and a template.
+ * Twenty-three, in the order the library lists them.
  *
  * @example SeedWidgets.find((widget) => widget.label === 'numnum_hint')?.formulary  // => 'aibot'
  */
-export const SeedWidgets: readonly WidgetT[] = [...AibotSeedDNAs, ButnotIshesDNA, ...SumSeedDNAs, ...TextSeedDNAs, CategoryDataDNA, ...FamilySeedDNAs].map((dna) => Widget.fill(dna))
+export const SeedWidgets: readonly WidgetT[] = [...AibotSeedDNAs, ButnotIshesDNA, ...SumSeedDNAs, ...TextSeedDNAs, CategoryDataDNA, ...FamilySeedDNAs, BlurbDNA].map((dna) => Widget.fill(dna))
 
 /**
  * The widgetings a quiz is given when its columns name any of them, in run order, each labelled
