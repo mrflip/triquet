@@ -1,17 +1,17 @@
-import Mustache, { type PartialsOrLookupFn, type RenderOptions, type TemplateSpans } from 'mustache'
+import { Context, Liquid, LiquidError, Tag, toValueSync, type Emitter, type Liquid as LiquidT, type TagToken, type TopLevelToken } from 'liquidjs'
+import * as EST from 'es-toolkit'
 import * as UU from './useful'
 import * as Labelmaker from './labelmaker'
 import * as Shaping from './shaping'
-import { OwnKeysContext } from './mustachery'
 import type { QuizBag, QuizRun } from './formulary/runner'
 import { QuestionWidgetLabel } from '../models/column'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
 import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../models/quiz'
-import { ArchivedField, type QuestionT } from '../models/question'
+import { ArchivedField, RankField, SecondaryField, type QuestionT } from '../models/question'
 import type { Formularykind, WidgetT } from '../models/widget'
 
 /**
- * Field templates: a field's markdown filled in, by mustache, over the quiz's bag, before
+ * Field templates: a field's markdown filled in, by Liquid (LiquidJS), over the quiz's bag, before
  * anything reads it as markdown.
  *
  * Filling cleans nothing. What a template comes to is markdown, and goes on, whole, to the
@@ -22,8 +22,13 @@ import type { Formularykind, WidgetT } from '../models/widget'
  * changed on the way in: an image in a formula's or a bot's column is made a link to it, so only
  * text a person typed draws an image.
  *
- * Every template may also call the app's few **helpers** (`Helpers`), each only as a section:
- * `{{#quote}}{{clueing}}{{/quote}}` fills the section in, then shapes what it came to.
+ * Liquid is interpreted, never compiled to code, and reads only what the bag itself holds at a
+ * key (`ownPropertyOnly`), never anything a JavaScript object inherits. A template may use
+ * Liquid's own tags and filters (`{% for %}`, `{% if %}`, `| sort`, `| where`) and the app's
+ * (`Helpers`, `in_order`): `{{ qn.clueing | quote }}`, `{% assign played = qns | in_order %}`. A
+ * filter goes in an `assign`, never in a `for` tag, which would pass it over. It may not include
+ * another template. An empty value is false, as in JavaScript (`jsTruthy`): `{% if hint %}` shows
+ * only for a hint that holds something.
  */
 
 /**
@@ -46,44 +51,54 @@ export type FilledT = {
 }
 
 /**
- * The most lookups and passes through a section one fill may make: past this, a template nesting
- * a list in a list in a list is stopped rather than left to hang the page.
+ * The most pieces one fill may write out: each value a tag fills in, and each run of the
+ * template's own text, every time a loop writes it again. Past this, a template nesting a list in
+ * a list in a list is stopped rather than left to hang the page. Counted, so a template stops at
+ * the same place on any machine.
  */
-export const FillBudget = 10_000
+export const FillBudget = 100_000
 
 /**
  * The longest a filled template may come to; anything longer is refused rather than drawn. What
- * its tags fill in, and its own text each time a section writes it out again, are counted as they
+ * its tags fill in, and its own text each time a loop writes it out again, are counted as they
  * go, so a tag filling in a whole list's JSON again and again, or a long line of text repeated by
- * a list inside a list, is stopped before it is built, and before any helper is handed it.
+ * a list inside a list, is stopped before it is built.
  */
 export const FilledMax = 100_000
 
 /**
- * The most characters one fill's helpers may shape, all told. Each helper is handed what its
- * section came to, so a helper inside a helper inside a helper shapes the same text again and
- * again; past this, the fill is stopped rather than left to hang the page.
+ * The most characters one fill's filters may shape (`Helpers`), all told: a long text captured
+ * and shaped again and again is stopped rather than left to hang the page.
  */
 export const ShapedMax = 1_000_000
 
-/** Said when a fill is stopped for spending more than `FillBudget` */
+/**
+ * Liquid's own limits, behind the counts above: the longest a template may be, the longest one
+ * fill may take (milliseconds), and the most it may allocate. Each stops what the counts cannot
+ * see: a loop that writes nothing, a range of a hundred million numbers.
+ */
+const LiquidLimits = { parseLimit: 100_000, renderLimit: 1000, memoryLimit: 10_000_000 } as const
+
+/** Said when a fill is stopped for writing more than `FillBudget` pieces */
 const OverBudget = 'This template reads too much: a list inside a list inside a list, perhaps.'
 
 /** Said when a fill comes to more than `FilledMax` characters */
 const OverLong = 'This template comes to far too much text to show.'
 
-/** Said when a fill's helpers shape more than `ShapedMax` characters */
-const OverShaped = 'This template shapes too much text: a helper inside a helper inside a helper, perhaps.'
+/** Said when a fill's filters shape more than `ShapedMax` characters */
+const OverShaped = 'This template shapes too much text: the same long text shaped again and again, perhaps.'
 
-/** What one fill has left, shared by every context it pushes: lookups and section passes, characters it may write out, and characters its helpers may shape */
+/** A fill stopped by a budget of ours, which says why in its message alone */
+class FillStopped extends Error {}
+
+/** What one fill has left: pieces it may write out, characters it may write out, and characters its filters may shape */
 type Budget = { left: number, charsLeft: number, shapingLeft: number }
 
-/** A helper: what a section it is called as came to, filled in, and that shaped */
+/** A filter of the app's: a value, as it would fill in, shaped */
 export type HelperT = (filled: string) => string
 
 /**
- * The template helpers, by name: the only code a template can reach, and only as a section,
- * `{{#name}}..{{/name}}`, whose filling the helper shapes (`Shaping`).
+ * The app's text filters, by name, each shaping a value as it would fill in (`Shaping`):
  *
  * - `quote` -- to follow a `> ` the template opened: every line after the first opens `> `, so a
  *   many-lined text stays in its quote (`Shaping.quotedOf`).
@@ -91,14 +106,10 @@ export type HelperT = (filled: string) => string
  * - `apart` -- safe on the line straight after another: a first line of `---` or `===` is set a
  *   blank line apart, so it never makes the line above a heading (`Shaping.belowOf`).
  *
- * A section named for a helper always calls the helper, whatever the bag holds under that name; a
- * section whose closing tag stands on a line of its own keeps its last line break. The bare names
- * are the helpers' alone: `{{quote}}` fills in nothing, and `{{^quote}}` always shows, whatever
- * the bag holds. A key that only starts with one (`{{oneline.full_answer}}`) reads the bag as ever.
- * Frozen, and only ever looked up by its own keys: nothing in the bag is ever called.
+ * A text built of several, `{% capture %}`d first, is shaped as one. Frozen.
  *
- * @example fill('> {{#quote}}{{qn.clueing}}{{/quote}}', bag).markdown  // => '> Who?\n> When?'
- * @example fill('{{#oneline}}{{qn.full_answer}}{{/oneline}}', bag).markdown  // => 'HAMILTON (accept ROWAN)'
+ * @example fill('> {{ qn.clueing | quote }}', bag).markdown  // => '> Who?\n> When?'
+ * @example fill('{{ qn.full_answer | oneline }}', bag).markdown  // => 'HAMILTON (accept ROWAN)'
  */
 export const Helpers: Readonly<Record<string, HelperT>> = Object.freeze({
   quote:   Shaping.quotedOf,
@@ -106,103 +117,83 @@ export const Helpers: Readonly<Record<string, HelperT>> = Object.freeze({
   apart:   Shaping.belowOf,
 })
 
-/** The helper `name` names, if any: only the registry's own keys */
-function helperFor(name: string): HelperT | undefined {
-  return Object.hasOwn(Helpers, name) ? Helpers[name] : undefined
+/**
+ * `qns` in the order a recap reads them, each numbered (`number`, from 1) by its place there: the
+ * questions with a rank (a Q#) in rank order, then those without one that hold a clueing, in their
+ * own order. Alternates (`secondary`) and the archived are left out. Anything in the list that is
+ * not a question is passed over. The `in_order` filter: `{% assign played = qns | in_order %}`.
+ *
+ * @example inOrder(bag.qns).map((qn) => [qn.number, qn.rank])  // => [[1, 1], [2, 2], [3, null]]
+ */
+export function inOrder(qns: unknown): Record<string, unknown>[] {
+  if (! Array.isArray(qns)) { return [] }
+  const played = qns.filter((qn): qn is Record<string, unknown> => EST.isPlainObject(qn) && qn[SecondaryField] !== true && qn[ArchivedField] !== true)
+  const ranked = EST.sortBy(played.filter((qn) => typeof qn[RankField] === 'number'), [(qn) => qn[RankField] as number])
+  const unranked = played.filter((qn) => typeof qn[RankField] !== 'number' && typeof qn.clueing === 'string' && qn.clueing.trim() !== '')
+  return [...ranked, ...unranked].map((qn, idx) => ({ ...qn, number: idx + 1 }))
 }
 
-/** A section as mustache parses it: its kind, its name, where its opening tag begins and ends, its tokens, and where its closing tag begins */
-type SectionTokenT = [string, string, number, number, string[][], number]
+/** Where a fill's budget rides on its Liquid context: a key no template can name */
+const BudgetKey = Symbol('budget')
+
+/** The budget of the fill `context` belongs to */
+function budgetIn(context: Context): Budget {
+  return (context.globals as Record<symbol, Budget | undefined>)[BudgetKey]!
+}
+
+/** What a filter of `helper` makes of `val`, as it would fill in, spending what it is handed from the characters filters may shape */
+function shapedBy(helper: HelperT, context: Context, val: unknown): string {
+  const budget = budgetIn(context)
+  const filled = fillingOf(val)
+  budget.shapingLeft -= filled.length
+  if (budget.shapingLeft < 0) { throw new FillStopped(OverShaped) }
+  return helper(filled)
+}
 
 /**
- * Mustache's writer, with a section named for a helper (`Helpers`) filled in, then handed to the
- * helper, in place of reading the bag; and the template's own text counted against the fill's
- * budget each time it is written out.
+ * A tag that would include another template (`{% include %}`, `{% render %}`, `{% layout %}`),
+ * refused as the template is read: there are none to include.
  */
-class FillWriter extends Mustache.Writer {
-  override renderTokens(tokens: string[][], context: Mustache.Context, partials?: PartialsOrLookupFn, typed?: string, config?: RenderOptions): string {
-    (context as BagContext).spendText(tokens)
-    return super.renderTokens(tokens, context, partials, typed, config)
+class RefusedTag extends Tag {
+  constructor(token: TagToken, remainTokens: TopLevelToken[], liquid: LiquidT) {
+    super(token, remainTokens, liquid)
+    throw new Error(`{% ${token.name} %} includes another template, and there are none to include`)
   }
 
-  override renderSection(token: string[], context: Mustache.Context, partials?: PartialsOrLookupFn, typed?: string, config?: RenderOptions): string {
-    const helper = helperFor(token[1] ?? '')
-    if (helper === undefined) { return super.renderSection(token, context, partials, typed, config) }
-    const section = token as unknown as SectionTokenT
-    const filled = this.renderTokens(section[4], context, partials, typed, config)
-    const linebreak = typed?.slice(section[3], section[5]).endsWith('\n') ? '\n' : ''
-    return (context as BagContext).shape(helper, filled) + linebreak
+  * render(): Generator<unknown, void> {} // eslint-disable-line @typescript-eslint/no-empty-function -- never reached: the tag refuses itself as it is read
+}
+
+/** The engine every template is read and filled with: Liquid as `fill` describes it, with the app's filters, and no way to include another template */
+const Engine = ((): Liquid => {
+  const engine = new Liquid({ ownPropertyOnly: true, jsTruthy: true, strictFilters: true, ...LiquidLimits })
+  for (const [name, helper] of Object.entries(Helpers)) {
+    engine.registerFilter(name, function shaping(this: { context: Context }, val: unknown) { return shapedBy(helper, this.context, val) })
   }
-}
+  engine.registerFilter('in_order', inOrder)
+  for (const name of ['include', 'render', 'layout']) { engine.registerTag(name, RefusedTag) }
+  return engine
+})()
 
 /**
- * The writer every template is parsed and filled with: templating's own, its cache emptied after
- * each use. A face fills its text in on every keystroke, and mustache's shared cache would keep
- * every draft for as long as the page is open.
+ * Where a fill writes what it comes to: each piece, a value a tag fills in (already as it fills
+ * in, `fillingOf`) or a run of the template's own text, counted against the fill's budget as it is
+ * written, so a runaway template is stopped before its text is built.
  */
-const Filler = new FillWriter()
-
-/** Spends one of `budget`, or stops the fill when none is left */
-function spend(budget: Budget): void {
-  budget.left -= 1
-  if (budget.left < 0) { throw new Error(OverBudget) }
-}
-
-/** `filling`, once counted against the characters `budget` has left to fill in; stops the fill when it comes to too much */
-function spendChars(budget: Budget, filling: string): string {
-  budget.charsLeft -= filling.length
-  if (budget.charsLeft < 0) { throw new Error(OverLong) }
-  return filling
-}
-
-/**
- * The context a template is rendered in: as `OwnKeysContext`, a key reads only what the bag itself
- * holds at that key, never anything a JavaScript object inherits, and a value that is a function
- * is never called; and a helper's bare name reads as nothing. Every lookup, every pass through a
- * section, and every helper called counts against one shared budget; the template's own text each
- * time it is written out, and what a helper adds, count against the characters left; what a helper
- * is handed counts against the characters helpers may shape.
- */
-class BagContext extends OwnKeysContext {
+class CountingEmitter implements Emitter {
+  buffer = ''
   private readonly budget: Budget
 
-  constructor(view: unknown, parent: BagContext | undefined, budget: Budget) {
-    super(view, parent)
+  constructor(budget: Budget) {
     this.budget = budget
   }
 
-  /** The context at the top of a fill over `bag`, spending `budget` */
-  static over(bag: TemplateBag, budget: Budget): BagContext {
-    return new BagContext(bag, undefined, budget)
-  }
-
-  override push(view: unknown): BagContext {
-    spend(this.budget)
-    return new BagContext(view, this, this.budget)
-  }
-
-  override lookup(dotkey: string): unknown {
-    spend(this.budget)
-    if (helperFor(dotkey) !== undefined) { return undefined }
-    return super.lookup(dotkey)
-  }
-
-  /** Spends the characters of the template's own text among `tokens`, about to be written out once more */
-  spendText(tokens: readonly string[][]): void {
-    for (const [tokenkind, text] of tokens) {
-      if (tokenkind === 'text') { spendChars(this.budget, text ?? '') }
-    }
-  }
-
-  /** What `helper` makes of `filled`, spending one of the budget, `filled` from the characters helpers may shape, and whatever it adds from the characters left */
-  shape(helper: HelperT, filled: string): string {
-    spend(this.budget)
-    this.budget.shapingLeft -= filled.length
-    if (this.budget.shapingLeft < 0) { throw new Error(OverShaped) }
-    const shaped = helper(filled)
-    this.budget.charsLeft -= Math.max(0, shaped.length - filled.length)
-    if (this.budget.charsLeft < 0) { throw new Error(OverLong) }
-    return shaped
+  write(piece: unknown): void {
+    const text = typeof piece === 'string' ? piece : fillingOf(piece)
+    this.budget.left -= 1
+    if (this.budget.left < 0) { throw new FillStopped(OverBudget) }
+    this.budget.charsLeft -= text.length
+    if (this.budget.charsLeft < 0) { throw new FillStopped(OverLong) }
+    this.buffer += text
   }
 }
 
@@ -210,58 +201,54 @@ class BagContext extends OwnKeysContext {
  * `template` filled in over `bag`, or the template as typed with what is wrong with it.
  *
  * Nothing is escaped or cleaned: a string fills in as it is, a number or a yes-or-no as its text,
- * a widgeted (`{{qn.my_column}}`) as its value's text (nothing, when it has none), and anything
- * else as its JSON. A key the bag lacks fills in as nothing. Sections (`{{#qns}}..{{/qns}}`) and
- * inverted sections work as mustache has them. Never throws.
+ * a widgeted (`{{ qn.my_column }}`) as its value's text (nothing, when it has none), and anything
+ * else as its JSON. A key the bag lacks fills in as nothing. Never throws.
  *
  * @param template - A field's text, as typed.
  * @param bag - What it reads (`bagOf`).
  * @returns Markdown, for the parser and then the sanitizer.
  *
- * @example fill('By {{qn.author}}', bag)            // => { markdown: 'By Ada', issue: null }
- * @example fill('{{qn.size}} words', bag)           // => { markdown: '30 words', issue: null }   (a widgeted's value)
- * @example fill('{{#qns}}{{title}} {{/qns}}', bag)  // => { markdown: 'One Two ', issue: null }
- * @example fill('{{#qns}}', bag)                    // => { markdown: '{{#qns}}', issue: 'Unclosed section "qns" at 8' }
+ * @example fill('By {{ qn.author }}', bag)                         // => { markdown: 'By Ada', issue: null }
+ * @example fill('{{ qn.size }} words', bag)                        // => { markdown: '30 words', issue: null }   (a widgeted's value)
+ * @example fill('{% for qn in qns %}{{ qn.title }} {% endfor %}', bag)  // => { markdown: 'One Two ', issue: null }
+ * @example fill('{% if qn.hint %}', bag)                            // => { markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1' }
  */
 export function fill(template: string, bag: TemplateBag): FilledT {
-  const issue = issueOf(template)
-  if (issue !== null) { return { markdown: template, issue } }
   const budget: Budget = { left: FillBudget, charsLeft: FilledMax, shapingLeft: ShapedMax }
   try {
-    const markdown = Filler.render(template, BagContext.over(bag, budget), undefined, { escape: (val: unknown) => spendChars(budget, fillingOf(val)) })
-    return markdown.length > FilledMax ? { markdown: template, issue: OverLong } : { markdown, issue: null }
+    const parsed = Engine.parse(template)
+    const context = new Context(bag, Engine.options, { sync: true, globals: { [BudgetKey]: budget } }, { liquid: Engine })
+    const emitter = new CountingEmitter(budget)
+    toValueSync(Engine.renderer.renderTemplates(parsed, context, emitter))
+    return { markdown: emitter.buffer, issue: null }
   } catch (err) {
-    return { markdown: template, issue: err instanceof Error ? err.message : OverBudget }
-  } finally {
-    Filler.clearCache()
+    return { markdown: template, issue: issueMessageOf(err) }
   }
 }
 
 /**
  * What is wrong with `template` as a field template, or null when nothing is: one that does not
- * parse; one that fills a key in raw (`{{{name}}}`, `{{&name}}`), which would fill a widgeted in as
- * `[object Object]` and is never needed, since nothing is escaped; one that includes another
- * template (`{{> name}}`), which there is none of.
+ * read as Liquid, names a filter there is none of, or includes another template. What only
+ * filling in can find (a template that reads too much) is `fill`'s to say.
  *
- * @example issueOf('{{#qns}}{{title}}')       // => 'Unclosed section "qns" at 17'
- * @example issueOf('{{{qn.author}}}')         // => '{{{qn.author}}} is not needed: write {{qn.author}}, which fills in text as it is'
- * @example issueOf('{{> footer}}')            // => '{{> footer}} includes another template, and there are none to include'
- * @example issueOf('By {{qn.author}}')        // => null
+ * @example issueOf('{% if qn.hint %}')          // => 'tag {% if qn.hint %} not closed, line:1, col:1'
+ * @example issueOf('{{ qn.hint | shout }}')     // => 'undefined filter: shout, line:1, col:1'
+ * @example issueOf('{% include "footer" %}')    // => '{% include %} includes another template, and there are none to include, line:1, col:1'
+ * @example issueOf('By {{ qn.author }}')        // => null
  */
 export function issueOf(template: string): string | null {
   try {
-    const unparsed = parseIssue(template)
-    if (unparsed !== null) { return unparsed }
-    const refused = spansOf(parsed(template)).find(([spankind]) => spankind === '&' || spankind === '>')
-    if (refused === undefined) { return null }
-    const [spankind, key, beg, end] = refused
-    const typed = template.slice(beg, end)
-    return spankind === '&'
-      ? `${typed} is not needed: write {{${key}}}, which fills in text as it is`
-      : `${typed} includes another template, and there are none to include`
-  } finally {
-    Filler.clearCache()
+    Engine.parse(template)
+    return null
+  } catch (err) {
+    return issueMessageOf(err)
   }
+}
+
+/** What a template's failure says: Liquid's message, with where it stopped reading; or, for a budget of ours, ours alone; never a stack */
+function issueMessageOf(err: unknown): string {
+  if (err instanceof LiquidError && err.originalError instanceof FillStopped) { return err.originalError.message }
+  return err instanceof Error ? err.message : 'This does not read as a template'
 }
 
 /**
@@ -450,8 +437,9 @@ export function filledQuiz(quiz: QuizT, run: QuizRun): QuizT {
   return { ...quiz, questions }
 }
 
-/** What one value fills in as: a string as it is, a widgeted as its value's text, anything else as its text or JSON */
+/** What one value fills in as: nothing for none, a string as it is, a widgeted as its value's text, anything else as its text or JSON */
 function fillingOf(val: unknown): string {
+  if (val === null || val === undefined) { return '' }
   if (typeof val === 'string') { return val }
   if (typeof val === 'number' || typeof val === 'boolean') { return String(val) }
   if (isWidgeted(val)) { return Widgeted.textOf(val) }
@@ -461,27 +449,4 @@ function fillingOf(val: unknown): string {
 /** Whether `val` is a widgeted, as the bag holds one under a widgeting's label */
 function isWidgeted(val: unknown): val is WidgetedT {
   return typeof val === 'object' && val !== null && Object.hasOwn(val, 'status') && Object.hasOwn(val, 'value')
-}
-
-/** `template`, parsed by templating's own writer */
-function parsed(template: string): TemplateSpans {
-  return Filler.parse(template) as TemplateSpans
-}
-
-/** Why `template` does not parse as mustache, or null when it does */
-function parseIssue(template: string): string | null {
-  try {
-    parsed(template)
-    return null
-  } catch (err) {
-    return err instanceof Error ? err.message : 'This does not read as a template'
-  }
-}
-
-/** Every span of a parsed template, its sections' spans included */
-function spansOf(spans: TemplateSpans): TemplateSpans {
-  return spans.flatMap((span) => {
-    const inner = span[4]
-    return Array.isArray(inner) ? [span, ...spansOf(inner)] : [span]
-  })
 }

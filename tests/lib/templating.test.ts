@@ -47,12 +47,14 @@ const FillCases: [string, string, string][] = [
   // regular usage:
   ["By {{qn.author}}",                         "By Ada",               'a column fills in as the value typed into it'],
   ["{{qn.size}} words",                        "16 words",             'a worked-out column fills in as its value'],
-  ["{{#qns}}{{title}} {{/qns}}",               "One Two ",             'a section walks the questions'],
-  ["{{^qn.missing}}none{{/qn.missing}}",       "none",                 'an inverted section shows when the key is not there'],
+  ["{% for qn in qns %}{{ qn.title }} {% endfor %}", "One Two ",      'a loop walks the questions'],
+  ["{% unless qn.missing %}none{% endunless %}", "none",               'unless shows when the key is not there'],
+  ["{% if qn.notes %}x{% endif %}[{{ qn.notes }}]", "[]",              'an empty value is false, as in JavaScript'],
+  ["{{ qns.size }}: {{ qns | map: 'title' | join: ', ' }}", "2: One, Two", "Liquid's own filters work on the questions"],
   ["{{qn.title}} of {{quiz.title}}",           "One of Templated",     'the quiz is in the bag'],
   ["{{hunt.label}}/{{realm.label}}",           "deep_lake/home",       'the hunt and realm are in the bag'],
   ["{{qn.rank}}. {{qn_label}}",                `1. ${first.label}`,    'the question\'s rank and label are in the bag'],
-  ["{{#qns}}{{qn_label}}|{{/qns}}",            `${first.label}|${first.label}|`, 'a key a section\'s item lacks is read from the bag around it'],
+  ["{% for each in qns %}{{ qn_label }}|{% endfor %}", `${first.label}|${first.label}|`, 'the bag around a loop is read inside it'],
   ["{{qn.size.value}}",                        "16",                   'a widgeted\'s value can be read outright'],
   // what fills in as nothing:
   ["[{{qn.nothing}}]",                         "[]",                   'a key the bag lacks fills in as nothing'],
@@ -66,31 +68,32 @@ const FillCases: [string, string, string][] = [
 
 /** Keys reaching past the bag's own data, each of which must come to nothing */
 const InheritedCases: [string, string][] = [
-  ["[{{constructor}}]",                         'the bag\'s constructor'],
-  ["[{{qn.constructor}}]",                      'a question\'s constructor'],
-  ["[{{qn.toString}}]",                         'an inherited method'],
-  ["[{{__proto__}}]",                           'the bag\'s prototype'],
-  ["[{{qns.map}}]",                             'a list\'s method'],
-  ["[{{qn.clueing.length}}]",                   'a property of a string'],
-  ["[{{qn.clueing.constructor.name}}]",         'a property reached through a string'],
-  ["[{{qns.constructor.constructor}}]",         'the Function constructor, reached through a list'],
-  ["[{{#qn.constructor}}x{{/qn.constructor}}]", 'a section over an inherited function'],
-  ["[{{#qns.constructor.constructor.prototype.constructor}}x{{/qns.constructor.constructor.prototype.constructor}}]", 'a section over the Function constructor'],
+  ["[{{constructor}}]",                                       'the bag\'s constructor'],
+  ["[{{qn.constructor}}]",                                    'a question\'s constructor'],
+  ["[{{qn.toString}}]",                                       'an inherited method'],
+  ["[{{__proto__}}]",                                         'the bag\'s prototype'],
+  ["[{{qns.map}}]",                                           'a list\'s method'],
+  ["[{{qn.clueing.constructor.name}}]",                       'a property reached through a string'],
+  ["[{{qns.constructor.constructor}}]",                       'the Function constructor, reached through a list'],
+  ["[{% if qn.constructor %}x{% endif %}]",                   'a condition on an inherited function'],
+  ["[{% for each in qns.constructor.prototype %}x{% endfor %}]", 'a loop over an inherited object'],
 ]
 
 const IssueCases: [string, string | null, string][] = [
   // regular usage:
-  ["By {{qn.author}}",            null,                                                                                            'a template that parses is fine'],
-  ["{{#qns}}{{title}}{{/qns}}",   null,                                                                                            'a closed section is fine'],
-  ["{{=<% %>=}}<% qn.title %>",   null,                                                                                            'changed delimiters are fine'],
-  ["Plain text",                  null,                                                                                            'text alone is fine'],
+  ["By {{qn.author}}",                                null,                                                                                 'a template that parses is fine'],
+  ["{% for qn in qns %}{{ qn.title }}{% endfor %}",   null,                                                                                 'a closed loop is fine'],
+  ["{{ qn.clueing | quote }}",                        null,                                                                                 "the app's filters are known"],
+  ["Plain text",                                      null,                                                                                 'text alone is fine'],
   // what is refused:
-  ["{{#qns}}{{title}}",           "Unclosed section \"qns\" at 17",                                                                'an unclosed section'],
-  ["{{qn.title",                  "Unclosed tag at 10",                                                                            'an unclosed tag'],
-  ["{{{qn.author}}}",             "{{{qn.author}}} is not needed: write {{qn.author}}, which fills in text as it is",              'a raw tag'],
-  ["{{&qn.author}}",              "{{&qn.author}} is not needed: write {{qn.author}}, which fills in text as it is",               'a raw tag, spelled with an ampersand'],
-  ["{{#qns}}{{{title}}}{{/qns}}", "{{{title}}} is not needed: write {{title}}, which fills in text as it is",                       'a raw tag inside a section'],
-  ["{{> footer}}",                "{{> footer}} includes another template, and there are none to include",                         'an included template'],
+  ["{% for qn in qns %}{{ qn.title }}",               "tag {% for qn in qns %} not closed, line:1, col:1",                                  'an unclosed loop'],
+  ["{{ qn.title",                                     'output "{{ qn.title" not closed, line:1, col:1',                                     'an unclosed tag'],
+  ["{{ qn.title | shout }}",                          "undefined filter: shout, line:1, col:1",                                             'a filter there is none of'],
+  ["{{ qn.title | Quote }}",                          "undefined filter: Quote, line:1, col:1",                                             "a filter's name is matched exactly"],
+  ["{{ qn.title | constructor }}",                    "undefined filter: constructor, line:1, col:1",                                       'a filter inherited from nothing'],
+  ['{% include "footer" %}',                          "{% include %} includes another template, and there are none to include, line:1, col:1", 'an included template'],
+  ['{% render "footer" %}',                           "{% render %} includes another template, and there are none to include, line:1, col:1",  'a rendered template'],
+  ['{% layout "page" %}',                             "{% layout %} includes another template, and there are none to include, line:1, col:1",  'a layout'],
 ]
 
 describe("fill", () => {
@@ -112,24 +115,18 @@ describe("fill", () => {
     expect(Templating.fill('[{{qn.gone}}{{qn.failed}}]', held).markdown).to.eq('[]')
   })
 
-  it("never calls a function, should one be in the bag", () => {
-    const held = bagHolding({ qn: { shout: () => 'called' } })
-    expect(Templating.fill('[{{qn.shout}}{{#qn.shout}}x{{/qn.shout}}]', held).markdown).to.eq('[]')
-  })
-
   it("leaves a value holding markdown or HTML as it is, for the parser and the sanitizer to read", () => {
     const held = bagHolding({ qn: { bold: '**bold**', script: '<script>alert(1)</script>', link: '[x](javascript:alert(1))' } })
     expect(Templating.fill('{{qn.bold}} {{qn.script}} {{qn.link}}', held).markdown).to.eq('**bold** <script>alert(1)</script> [x](javascript:alert(1))')
   })
 
   it("hands back a template that does not parse as typed, with why", () => {
-    expect(Templating.fill('{{#qns}}', bag)).to.deep.eq({ markdown: '{{#qns}}', issue: 'Unclosed section "qns" at 8' })
-    expect(Templating.fill('{{{qn.author}}}', bag).markdown).to.eq('{{{qn.author}}}')
+    expect(Templating.fill('{% if qn.hint %}', bag)).to.deep.eq({ markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1' })
   })
 
   it("stops a template that walks a list inside a list too deeply, rather than hang", () => {
-    const qns = Array.from({ length: 30 }, (_unused, ii) => ({ title: `Q${String(ii)}` }))
-    const nested = '{{#qns}}{{#qns}}{{#qns}}{{title}}{{/qns}}{{/qns}}{{/qns}}'
+    const qns = Array.from({ length: 50 }, () => ({ title: '' }))
+    const nested = '{% for aa in qns %}{% for bb in qns %}{% for cc in qns %}{{ cc.title }}{% endfor %}{% endfor %}{% endfor %}'
     const filled = Templating.fill(nested, bagHolding({ qns }))
     expect(filled.markdown).to.eq(nested)
     expect(filled.issue).to.match(/reads too much/)
@@ -146,6 +143,16 @@ describe("fill", () => {
     expect(filled.issue).to.eq('This template comes to far too much text to show.')
   })
 
+  it("stops a loop that writes nothing, by the time it takes", () => {
+    const qns = Array.from({ length: 1000 }, () => ({}))
+    const filled = Templating.fill('{% for aa in qns %}{% for bb in qns %}{% for cc in qns %}{% endfor %}{% endfor %}{% endfor %}', bagHolding({ qns }))
+    expect(filled.issue).to.match(/^template render limit exceeded/)
+  })
+
+  it("stops a range of a hundred million numbers, by what it allocates", () => {
+    expect(Templating.fill('{% for nn in (1..100000000) %}{% endfor %}', bag).issue).to.match(/^memory alloc limit exceeded/)
+  })
+
   it("comes to the same text as often as it is asked", () => {
     expect(Templating.fill('{{qn.size}}', bag)).to.deep.eq(Templating.fill('{{qn.size}}', bag))
   })
@@ -158,39 +165,31 @@ function bagWithQn(qn: Record<string, unknown>): Templating.TemplateBag {
 
 const HelperCases: [string, Record<string, unknown>, string, string][] = [
   // regular usage:
-  ["> {{#quote}}{{qn.clueing}}{{/quote}}",           { clueing: 'Who?\nWhen?' },              "> Who?\n> When?",            'quote keeps every line of a field in the quote'],
-  ["> {{#quote}}{{qn.clueing}}{{/quote}}",           { clueing: 'Who?\n\n    *verse*\n' }, "> Who?\n>\n> > *verse*",      'quote reads an indent as a quote and drops trailing blank lines, as quotedOf does'],
-  ["**{{#oneline}}{{qn.answer}}{{/oneline}}**",      { answer: 'HAMILTON\n\n(ROWAN)' },     "**HAMILTON (ROWAN)**",        'oneline joins a field onto one line'],
-  ["Pct\n{{#apart}}{{qn.recap}}{{/apart}}",          { recap: '---\nAfter.' },               "Pct\n\n---\nAfter.",          'apart sets a leading rule apart from the line above'],
-  ["Pct\n{{#apart}}{{qn.recap}}{{/apart}}",          { recap: '\nAced.\n' },                 "Pct\nAced.",                  'apart leaves anything else in place, its blank ends dropped'],
-  ["> {{#quote}}By {{qn.who}}\nof {{qn.where}}{{/quote}}", { who: 'Ada', where: 'London' },  "> By Ada\n> of London",        'a helper shapes the whole section, text and tags alike'],
-  ["{{#qns}}> {{#quote}}{{hint}}{{/quote}}|{{/qns}}", { hint: 'Not\nhim' },                   "> Not\n> him|",               'a helper works on an item of a list'],
-  // the line break a closing tag on its own line leaves:
-  ["{{#apart}}\n{{qn.recap}}\n{{/apart}}\nNext",      { recap: 'Aced.' },                      "Aced.\nNext",                 'a section closed on its own line keeps its last line break'],
-  ["{{#oneline}}{{qn.answer}}{{/oneline}}!",          { answer: 'A\nB\n' },                    "A B!",                        'a section closed on the same line keeps none, whatever the field ends with'],
+  ["> {{ qn.clueing | quote }}",                    { clueing: 'Who?\nWhen?' },              "> Who?\n> When?",            'quote keeps every line of a field in the quote'],
+  ["> {{ qn.clueing | quote }}",                    { clueing: 'Who?\n\n    *verse*\n' }, "> Who?\n>\n> > *verse*",      'quote reads an indent as a quote and drops trailing blank lines, as quotedOf does'],
+  ["**{{ qn.answer | oneline }}**",                 { answer: 'HAMILTON\n\n(ROWAN)' },     "**HAMILTON (ROWAN)**",        'oneline joins a field onto one line'],
+  ["Pct\n{{ qn.recap | apart }}",                   { recap: '---\nAfter.' },               "Pct\n\n---\nAfter.",          'apart sets a leading rule apart from the line above'],
+  ["Pct\n{{ qn.recap | apart }}",                   { recap: '\nAced.\n' },                 "Pct\nAced.",                  'apart leaves anything else in place, its blank ends dropped'],
+  ["{% capture told %}By {{ qn.who }}\nof {{ qn.where }}{% endcapture %}> {{ told | quote }}", { who: 'Ada', where: 'London' }, "> By Ada\n> of London", 'a captured text is shaped whole, text and tags alike'],
+  ["{% for qn in qns %}> {{ qn.hint | quote }}|{% endfor %}", { hint: 'Not\nhim' },          "> Not\n> him|",               'a filter works on an item of a list'],
   // composition:
-  ["{{#oneline}}{{#quote}}{{qn.clueing}}{{/quote}}{{/oneline}}", { clueing: 'Who?\nWhen?' },  "Who? > When?",                'oneline around quote joins the quoted lines'],
-  ["> {{#quote}}{{#oneline}}{{qn.clueing}}{{/oneline}}{{/quote}}", { clueing: 'Who?\nWhen?' }, "> Who? When?",              'quote around oneline has one line to quote'],
+  ["{{ qn.clueing | quote | oneline }}",            { clueing: 'Who?\nWhen?' },              "Who? > When?",                'oneline after quote joins the quoted lines'],
+  ["> {{ qn.clueing | oneline | quote }}",          { clueing: 'Who?\nWhen?' },              "> Who? When?",                'quote after oneline has one line to quote'],
   // trivial cases:
-  ["[{{#quote}}{{/quote}}][{{#oneline}}{{qn.none}}{{/oneline}}][{{#apart}}{{/apart}}]", {},  "[][][]",                      'a helper over nothing comes to nothing'],
+  ["[{{ qn.none | quote }}][{{ qn.none | oneline }}][{{ '' | apart }}]", {},                 "[][][]",                      'a filter over nothing comes to nothing'],
 ]
 
-/** Templates that use a helper's name other than as a section, or reach for a helper that is not there, each of which must come to the bracketed text */
+/** Templates near the app's filters' names that must come to the bracketed text: names in the bag are data, filters are filters */
 const HelperSafetyCases: [string, Record<string, unknown>, string, string][] = [
-  ["[{{quote}}{{oneline}}{{apart}}]",                    {},                                     "[]",          'a helper named as a plain tag fills in nothing'],
-  ["{{#qns}}[{{quote}}|{{oneline}}]{{/qns}}",            { quote: 'data', oneline: { hint: 'x' } }, "[|]",      'a helper\'s bare name fills in nothing, even where the bag holds it'],
-  ["{{#qns}}[{{quote.value}}|{{oneline.hint}}]{{/qns}}", { quote: { status: 'ok', value: 'col', err: null }, oneline: { hint: 'x' } }, "[col|x]", 'a key that only starts with a helper\'s name reads the bag'],
-  ["[{{^quote}}shown{{/quote}}]",                        {},                                     "[shown]",     'an inverted section on a helper\'s name reads the bag, where the name is nothing'],
-  ["[{{qn.kind}}]",                                      { kind: 'quote' },                      "[quote]",     'a value naming a helper stays data'],
-  ["[{{qn.sneaky}}]",                                    { sneaky: '{{#quote}}a\nb{{/quote}}' }, "[{{#quote}}a\nb{{/quote}}]", 'a value holding a helper\'s section stays text, never filled in again'],
-  ["{{#qns}}[{{#quote}}x\ny{{/quote}}{{quote}}]{{/qns}}", { quote: () => 'called' },          "[x\n> y]",     'a function in the bag under a helper\'s name is never called; the section is still the helper'],
-  ["[{{#constructor}}x{{/constructor}}{{#toString}}x{{/toString}}{{#hasOwnProperty}}x{{/hasOwnProperty}}]", {}, "[]", 'only the registry\'s own keys are helpers'],
-  ["[{{#Quote}}x{{/Quote}}]",                            {},                                     "[]",          'a helper\'s name is matched exactly'],
+  ["[{{ quote }}{{ oneline }}{{ apart }}]",                  {},                                         "[]",              "a filter's name as a key the bag lacks fills in nothing"],
+  ["{% for qn in qns %}[{{ qn.quote }}|{{ qn.oneline.hint }}]{% endfor %}", { quote: 'data', oneline: { hint: 'x' } }, "[data|x]", "a key named like a filter reads the bag"],
+  ["[{{ qn.kind }}]",                                        { kind: 'quote' },                          "[quote]",         'a value naming a filter stays data'],
+  ["[{{ qn.sneaky }}]",                                      { sneaky: '{{ qn.kind | quote }}' },        "[{{ qn.kind | quote }}]", 'a value holding a template stays text, never filled in again'],
 ]
 
-/** A template calling `oneline` around `{{qn.text}}`, `depth` deep */
+/** A template running `{{qn.text}}` through `oneline`, `depth` times */
 function onelinesAround(depth: number): string {
-  return '{{#oneline}}'.repeat(depth) + '{{qn.text}}' + '{{/oneline}}'.repeat(depth)
+  return `{{ qn.text${' | oneline'.repeat(depth)} }}`
 }
 
 describe("Helpers", () => {
@@ -203,12 +202,7 @@ describe("Helpers", () => {
   })
 
   it("shapes a column as it does a field", () => {
-    expect(Templating.fill('> {{#quote}}{{qn.author}}{{/quote}}', bag).markdown).to.eq('> Ada')
-  })
-
-  it("wins, as a section, over a value of the same name; the value is still read inside it", () => {
-    const filled = Templating.fill('{{#qns}}{{#oneline}}{{oneline.answer}}{{/oneline}}{{/qns}}', bagWithQn({ oneline: { answer: 'A\nB' } }))
-    expect(filled.markdown).to.eq('A B')
+    expect(Templating.fill('> {{ qn.author | quote }}', bag).markdown).to.eq('> Ada')
   })
 
   it("is frozen, and holds the three helpers", () => {
@@ -216,30 +210,51 @@ describe("Helpers", () => {
     expect(Object.keys(Templating.Helpers)).to.have.members(['quote', 'oneline', 'apart'])
   })
 
-  it("spends the fill's budget on each helper called", () => {
-    const qns = Array.from({ length: 6000 }, () => ({}))
-    const filled = Templating.fill('{{#qns}}{{#oneline}}x{{/oneline}}{{/qns}}', bagHolding({ qns }))
-    expect(filled.issue).to.match(/reads too much/)
-    expect(Templating.fill('{{#qns}}x{{/qns}}', bagHolding({ qns })).issue).to.eq(null)
-  })
-
-  it("counts a section's own text as it is written out, so a long text a list repeats is stopped before a helper is handed it", () => {
+  it("counts each piece a loop writes, so a long text a list repeats is stopped before it is built", () => {
     const qns = Array.from({ length: 20 }, () => ({}))
-    const repeated = '{{#qns}}{{#qns}}{{#qns}}a' + '\n'.repeat(20) + '{{/qns}}{{/qns}}{{/qns}}'
-    expect(Templating.fill(`{{#oneline}}${repeated}{{/oneline}}`, bagHolding({ qns })).issue).to.eq('This template comes to far too much text to show.')
+    const repeated = '{% for aa in qns %}{% for bb in qns %}{% for cc in qns %}a' + '\n'.repeat(20) + '{% endfor %}{% endfor %}{% endfor %}'
+    expect(Templating.fill(repeated, bagHolding({ qns })).issue).to.eq('This template comes to far too much text to show.')
   })
 
-  it("stops helpers inside helpers once they have shaped too much, however little the fill comes to", () => {
+  it("stops filters after filters once they have shaped too much, however little the fill comes to", () => {
     const held = bagWithQn({ text: 'x'.repeat(90_000) })
     expect(Templating.fill(onelinesAround(11), held).issue).to.eq(null)
-    expect(Templating.fill(onelinesAround(12), held).issue).to.eq('This template shapes too much text: a helper inside a helper inside a helper, perhaps.')
+    expect(Templating.fill(onelinesAround(12), held).issue).to.eq('This template shapes too much text: the same long text shaped again and again, perhaps.')
   })
 
-  it("counts what a helper adds against the characters a fill may come to", () => {
+  it("counts what a filter adds against the characters a fill may come to", () => {
     const lines = Array.from({ length: 40_000 }, () => 'x').join('\n')
-    const filled = Templating.fill('{{#quote}}{{qn.lines}}{{/quote}}', bagWithQn({ lines }))
-    expect(filled).to.deep.eq({ markdown: '{{#quote}}{{qn.lines}}{{/quote}}', issue: 'This template comes to far too much text to show.' })
-    expect(Templating.fill('{{qn.lines}}', bagWithQn({ lines })).issue).to.eq(null)
+    const filled = Templating.fill('{{ qn.lines | quote }}', bagWithQn({ lines }))
+    expect(filled).to.deep.eq({ markdown: '{{ qn.lines | quote }}', issue: 'This template comes to far too much text to show.' })
+    expect(Templating.fill('{{ qn.lines }}', bagWithQn({ lines })).issue).to.eq(null)
+  })
+})
+
+describe("inOrder", () => {
+  it("lists the questions with a rank in rank order, then those holding a clueing without one, each numbered by its place", () => {
+    const qns = [
+      { title: 'Third', rank: 3, clueing: 'c' },
+      { title: 'Loose', rank: null, clueing: 'Unnumbered' },
+      { title: 'First', rank: 1, clueing: 'a' },
+      { title: 'Blank', rank: null, clueing: '  ' },
+    ]
+    expect(Templating.inOrder(qns).map((qn) => [qn.number, qn.title])).to.deep.eq([[1, 'First'], [2, 'Third'], [3, 'Loose']])
+  })
+
+  it("leaves out alternates and the archived, numbering past them", () => {
+    const qns = [{ title: 'Spare', rank: 1, secondary: true, clueing: 'x' }, { title: 'Gone', rank: 2, archived: true, clueing: 'x' }, { title: 'Kept', rank: 3, clueing: 'x' }]
+    expect(Templating.inOrder(qns).map((qn) => [qn.number, qn.title])).to.deep.eq([[1, 'Kept']])
+  })
+
+  it("passes over anything not a question, and comes to nothing for anything not a list", () => {
+    expect(Templating.inOrder([null, 'x', 3, { rank: 1, clueing: 'a' }])).to.have.lengthOf(1)
+    expect(Templating.inOrder('qns')).to.deep.eq([])
+  })
+
+  it("is the in_order filter, which goes in an assign", () => {
+    const qns = [{ title: 'Two', rank: 2, clueing: 'b' }, { title: 'One', rank: 1, clueing: 'a' }]
+    const filled = Templating.fill('{% assign played = qns | in_order %}{% for qn in played %}{{ qn.number }}. {{ qn.title }} {% endfor %}', bagHolding({ qns }))
+    expect(filled.markdown).to.eq('1. One 2. Two ')
   })
 })
 
@@ -291,8 +306,8 @@ describe("bagOf", () => {
   })
 
   it("holds the hunt's categories, each with its title, for a template to loop over", () => {
-    expect(Templating.fill('{{categories.15.title}}', bag).markdown).to.eq('TV')
-    expect(Templating.fill('{{#categories}}{{label}} {{/categories}}', bag).markdown.split(' ')).to.have.lengthOf(25)
+    expect(Templating.fill('{{categories[15].title}}', bag).markdown).to.eq('TV')
+    expect(Templating.fill('{% for category in categories %}{{ category.label }} {% endfor %}', bag).markdown.split(' ')).to.have.lengthOf(25)
   })
 
   it("draws an image in a formula's or a bot's column as a link to it, and keeps one typed into a field or an entry", () => {
@@ -321,6 +336,19 @@ describe("bagOf", () => {
       expect(nodekindsIn(Markdown.treeOf(filled)), filled).to.include('link').and.not.include('image')
       expect(Bbjank.toBbjank(filled), filled).to.include('[url=https://host/m.png]').and.not.include('[img]')
     }
+  })
+
+  it("holds no function anywhere, though a formula come to one, since LiquidJS calls a function it finds", () => {
+    const Lambda = [...Library, Widget.fill({ label: 'lambda', formulary: 'jsonata', formula: 'function($x) { $x }' })]
+    const lambdaQuiz = { ...TwoQuiz, widgetings: [...TwoQuiz.widgetings, Widgeting.fill({ label: 'fn', widget_label: 'lambda' })] }
+    const lambdaBag = Templating.bagOf(runOf(lambdaQuiz, Lambda), first._id)
+    const functionsIn = (val: unknown): number => {
+      if (typeof val === 'function') { return 1 }
+      if (typeof val !== 'object' || val === null) { return 0 }
+      return Object.values(val).reduce((sum: number, each) => sum + functionsIn(each), 0)
+    }
+    expect(functionsIn(lambdaBag)).to.eq(0)
+    expect(Templating.fill('[{{ qn.fn.value }}]', lambdaBag).markdown).to.eq('[]')
   })
 
   it("offers no widgeting for the whole quiz for templating: it has no question's cell to fill", () => {

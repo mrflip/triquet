@@ -25,7 +25,7 @@ describe("faceOf", () => {
   })
 
   it("is the text as typed, with why, when the template does not parse", () => {
-    expect(faceOf('By {{qn.author', bagHolding({ author: 'Ada' }))).to.deep.eq({ text: 'By {{qn.author', issue: 'Unclosed tag at 14' })
+    expect(faceOf('By {{qn.author', bagHolding({ author: 'Ada' }))).to.deep.eq({ text: 'By {{qn.author', issue: 'output "{{qn.author" not closed, line:1, col:4' })
   })
 })
 
@@ -141,8 +141,8 @@ describe("MarkdownText, with imagesAsLinks, as a reviewer's words are drawn", ()
 
 describe("MarkdownFace", () => {
   it("says why a template could not be filled in, above its text as typed", () => {
-    const face = faceOf('By {{qn.author', bagHolding({}))
-    expect(renderedText(<MarkdownFace {...face} />)).to.eq('Unclosed tag at 14By {{qn.author')
+    const face = faceOf('By {% if qn.author %}', bagHolding({}))
+    expect(renderedText(<MarkdownFace {...face} />)).to.eq('tag {% if qn.author %} not closed, line:1, col:4By {% if qn.author %}')
   })
 
   it("draws nothing for a template that comes to nothing", () => {

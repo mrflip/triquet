@@ -27,7 +27,7 @@ export type TemplatePlaceT = { field: string, quiz: string | null, question: str
 /**
  * Says in the console, as an error, what keeps a template from filling in, each time that changes,
  * with where the template is (`issueReportOf`). The screen says it too; the console is for whoever
- * is tracing why. The issue is reported without the place mustache stopped reading at
+ * is tracing why. The issue is reported without the place Liquid stopped reading at
  * (`issueGistOf`), which moves with every keystroke into a half-typed tag or section.
  *
  * @param issue - What is wrong with the template (`Templating.fill`); null when nothing is.
@@ -46,15 +46,15 @@ export function useTemplateIssueReport(issue: string | null, field: string, bag:
   }, [gist, field, quiz, question])
 }
 
-/** The place mustache says it stopped reading a template at, ending its message */
-const IssuePlaceRE = / at \d+$/
+/** The place Liquid says it stopped reading a template at, ending its message */
+const IssuePlaceRE = /, line:\d+, col:\d+$/
 
 /**
- * A template's issue without the place mustache stopped reading at: for an unclosed tag or
- * section, that is the template's length, so it changes with every keystroke while one is open.
+ * A template's issue without the place Liquid stopped reading at, which moves with every keystroke
+ * into a half-typed tag.
  *
- * @example issueGistOf('Unclosed section "played" at 21')  // => 'Unclosed section "played"'
- * @example issueGistOf('{{> footer}} includes another template, and there are none to include')  // => as it is
+ * @example issueGistOf('invalid value expression: "", line:2, col:6')  // => 'invalid value expression: ""'
+ * @example issueGistOf('This template comes to far too much text to show.')  // => as it is
  */
 export function issueGistOf(issue: string): string {
   return issue.replace(IssuePlaceRE, '')
@@ -63,10 +63,10 @@ export function issueGistOf(issue: string): string {
 /**
  * The console's line for a template that will not fill in: what was being tried, where, and why.
  *
- * @example issueReportOf('Unclosed section "played" at 21', { field: 'Recap template', quiz: 'princes', question: null })
- *   // => 'Triquet: could not fill in the template in Recap template of quiz princes — Unclosed section "played" at 21'
- * @example issueReportOf('Unclosed tag at 14', { field: 'Clueing', quiz: 'princes', question: 'leon' })
- *   // => 'Triquet: could not fill in the template in Clueing of question leon in quiz princes — Unclosed tag at 14'
+ * @example issueReportOf('tag {% for qn in qns %} not closed', { field: 'Recap template', quiz: 'princes', question: null })
+ *   // => 'Triquet: could not fill in the template in Recap template of quiz princes — tag {% for qn in qns %} not closed'
+ * @example issueReportOf('undefined filter: shout', { field: 'Clueing', quiz: 'princes', question: 'leon' })
+ *   // => 'Triquet: could not fill in the template in Clueing of question leon in quiz princes — undefined filter: shout'
  */
 export function issueReportOf(issue: string, { field, quiz, question }: Readonly<TemplatePlaceT>): string {
   const ofQuiz = `quiz ${quiz ?? '(none)'}`

@@ -1,109 +1,67 @@
-import * as EST from 'es-toolkit'
 import * as Bbjank from './bbjank'
-import * as LLSmithExport from './ll-smith-export'
-import * as Rank from './rank'
-import * as Runner from './formulary/runner'
-import * as Shaping from './shaping'
+import type * as Runner from './formulary/runner'
 import * as Templating from './templating'
-import { Widgeted } from '../models/widgeted'
-import { Question } from '../models/question'
-import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../models/quiz'
+import type { QuizT } from '../models/quiz'
 
 /**
  * The recap note: what a smith posts to the league's message boards once the quiz has been
- * played. One markdown document, made by filling in mustache templates, then written in bbjank
+ * played. One markdown document, made by filling in Liquid templates, then written in bbjank
  * once, whole: the recap head and tail are filled in over the quiz's template bag (its questions'
- * templated texts filled in first, as the grid shows them), then the recap
- * template (the quiz's own, or `DefaultTemplate`) over the **recap bag**, which holds them and the
- * questions played; then `Bbjank.toBbjank`, which writes only what it knows, is the last step.
+ * templated texts filled in first, as the grid shows them), then the recap template (the quiz's
+ * own, or `DefaultTemplate`) over the **recap bag**, which holds them; then `Bbjank.toBbjank`,
+ * which writes only what it knows, is the last step.
  *
- * The default template reads only what every template reads -- `{{#qns}}`, each question's own
- * fields and its columns by label -- plain mustache and the template helpers, so an author can see
- * where each line comes from and change any of it. What an author wrote, set into a place where
- * markdown's structure is fragile, can change that structure: a clueing's second line can leave
- * the quote its first line opened, a blank line in an answer breaks its spoiler. The helpers
- * (`{{#quote}}`, `{{#oneline}}`, `{{#apart}}`) reshape a field for its place, and the recap bag still carries `played`, the questions the recap covers with each of their own
- * fields pre-shaped for those places (`quoted.clueing`, `oneline.full_answer`, `below.recap`), for
- * a template of the quiz's own to read.
+ * The default template reads only what every template reads -- `qns`, each question's own fields
+ * and its columns by label -- and the app's filters (`Templating.Helpers`, `in_order`), so an
+ * author can see where each line comes from and change any of it. What an author wrote, set into
+ * a place where markdown's structure is fragile, can change that structure: a clueing's second
+ * line can leave the quote its first line opened, a blank line in an answer breaks its spoiler.
+ * The filters (`quote`, `oneline`, `apart`) reshape a field for its place.
  */
 
 /**
  * The recap template every quiz follows until it is given one of its own, written with nothing
- * but what every template reads, plain mustache and the template helpers
- * (`Templating.Helpers`): the recap head, a rule, then each question (`{{#qns}}`, in the quiz's
- * own order, never the archived) that has a rank -- a Q# -- and is not an alternate
- * (`{{^secondary}}`), its rank and clueing quoted under its Q-number, with its own hint after
- * `...OR ELSE...` when it has one; its answer behind a spoiler; the `correct_pct` column; its
- * recap -- then the recap tail. The rule under the head is `***`: a
- * `---` straight under it would make the head's last line a heading. Inside a section on a field
- * (`{{#rank}}`, `{{#hint}}`) that field is the context, and the question's other fields are found
- * on the question below it. `{{#quote}}` keeps every line of the clueing and hint in its quote,
- * `{{#oneline}}` keeps the answer in its spoiler, `{{#apart}}` keeps a recap opening `---` from
- * making the lines above it a heading.
+ * but what every template reads, Liquid, and the app's filters: the recap head, then, when a
+ * question follows, a rule; then each question played (`qns | in_order`: those with a Q# in Q#
+ * order, then any other holding a clueing; never an alternate or the archived), numbered by its
+ * place there, its clueing quoted under its number, with its own hint after `...OR ELSE...` when it
+ * has one; its answer behind a spoiler; the `correct_pct` column; its recap -- then the recap
+ * tail. The rule under the head is `***`: a `---` straight under it would make the head's last
+ * line a heading. `quote` keeps every line of the clueing and hint in its quote, `oneline` keeps
+ * the answer in its spoiler, `apart` keeps a recap opening `---` from making the lines above it a
+ * heading. Blank lines the tags leave are the markdown's to swallow.
  */
 export const DefaultTemplate = `
-{{#recap_head}}
-{{recap_head}}
-{{! A rule under the head. Not ---, which would make the line above a heading. }}
+{%- assign played = qns | in_order -%}
+{%- if recap_head %}
+{{ recap_head }}
+{%- if played.size > 0 %}
+{%- comment %} A rule under the head. Not ---, which would make the line above a heading. {% endcomment %}
 ***
+{%- endif %}
+{% endif %}
+{%- for qn in played %}
 
-{{/recap_head}}
-{{#qns}}
-{{! Only the questions with a rank (a Q#), and not the alternates. }}
-{{#rank}}
-{{^secondary}}
-> {AS: Q{{rank}}}{{rank}}. {{#quote}}{{clueing}}{{/quote}}
-{{#hint}}
+> {AS: Q{{ qn.number }}}{{ qn.number }}. {{ qn.clueing | quote }}
+{%- if qn.hint %}
 >
 > ...OR ELSE...
 >
-> {{#quote}}{{hint}}{{/quote}}
-{{/hint}}
+> {{ qn.hint | quote }}
+{%- endif %}
 
-Answer: {{#full_answer}}~~**{{#oneline}}{{full_answer}}{{/oneline}}**~~{{/full_answer}}
-Correct Answer %: {{correct_pct}}
-{{#apart}}{{recap}}{{/apart}}
+Answer: {% if qn.full_answer %}~~**{{ qn.full_answer | oneline }}**~~{% endif %}
+Correct Answer %: {{ qn.correct_pct }}
+{{ qn.recap | apart }}
+{%- endfor %}
 
-{{/secondary}}
-{{/rank}}
-{{/qns}}
-{{recap_tail}}
+{{ recap_tail }}
 `.trim()
 
-/**
- * The label of the widgeting that holds the share of players who answered a question correctly,
- * in percent: what a question played carries as `pct`, when the quiz has one.
- */
-export const CorrectPctLabel = 'correct_pct'
-
-/** Each of a question's own fields that hold markdown, shaped for one place in the template */
-export type ShapedT = Record<TemplatableField, string>
-
-/**
- * One question played, as the recap template reads it inside `{{#played}}`: the question as a
- * template's bag holds it (its fields, its templated ones filled in, and every widgeting's
- * widgeted under its label), and beside them, winning over a widgeting of the same label, these.
- * The shaped fields are keyed by field: `{{quoted.clueing}}`, `{{oneline.full_answer}}`,
- * `{{below.recap}}`.
- */
-export type PlayedT = Record<string, unknown> & {
-  /** Its place among the questions played, from 1 */
-  number:  number
-  /** Each field to follow a `> ` the template opened (`Shaping.quotedOf`): every line after the first opens `> `, indents read as quotes */
-  quoted:  ShapedT
-  /** Each field on one line (`Shaping.oneLineOf`), safe within a line of the template's */
-  oneline: ShapedT
-  /** Each field safe on the line straight after another of the template's (`Shaping.belowOf`); blank when it is */
-  below:   ShapedT
-  /** Its share of correct answers, from the quiz's `correct_pct` widgeting, on one line; blank without one */
-  pct:     string
-}
-
-/** What the recap template reads: the quiz's template bag, its recap head and tail filled in, and the questions played */
+/** What the recap template reads: the quiz's template bag, and its recap head and tail filled in */
 export type RecapBagT = Templating.TemplateBag & {
   recap_head: string
   recap_tail: string
-  played:     PlayedT[]
 }
 
 /** The recap note in bbjank, and what keeps the recap template from filling in, if anything does */
@@ -140,36 +98,16 @@ export function noteOf(quiz: QuizT, run: Runner.QuizRun): RecapNoteT {
 
 /**
  * What the recap template reads: the quiz's template bag, its questions' templated texts filled
- * in (`Templating.filledBagOf`), so `{{clueing}}` inside `{{#qns}}` is a templated clueing filled
- * in; its recap head and tail, each filled in over that bag (as typed, when it cannot be); and `played`,
- * the questions the recap covers -- in rank order, numbered from 1, and neither archived nor
- * alternates (as the LL export going live has them) nor blank, never written into -- each with
- * its own fields pre-shaped (`PlayedT`).
+ * in (`Templating.filledBagOf`), so `{{ qn.clueing }}` in a loop over `qns` is a templated clueing
+ * filled in; and its recap head and tail, each filled in over that bag (as typed, when it cannot be).
  *
- * @example bagOf(quiz, run).played.map((played) => played.number)  // => [1, 2, 3]
+ * @example bagOf(quiz, run).recap_head  // => 'Thanks to Ada!'   (typed as 'Thanks to {{ quiz.playtesters }}!')
  */
 export function bagOf(quiz: QuizT, run: Runner.QuizRun): RecapBagT {
   const quizBag = Templating.filledBagOf(quiz, run)
-  const every = quizBag.quiz.questions as Record<string, unknown>[]
-  const qnFor = new Map(run.frame.question_ids.map((question_id, idx) => [question_id, every[idx] ?? {}]))
-  const hasPct = quiz.widgetings.some((widgeting) => widgeting.label === CorrectPctLabel && widgeting.tier === 'question')
-  const played = Rank.inRankOrder(LLSmithExport.exportedIn(quiz.questions, 'go_live').filter((question) => ! Question.isBlank(question)))
   return {
     ...quizBag,
     recap_head: Templating.fill(quiz.recap_head, quizBag).markdown,
     recap_tail: Templating.fill(quiz.recap_tail, quizBag).markdown,
-    played:     played.map((question, ii): PlayedT => {
-      const qn = qnFor.get(question._id) ?? {}
-      const fields = EST.mapValues(EST.pick(question, TemplatableFieldVals), (typed, field) => (typeof qn[field] === 'string' ? qn[field] : typed))
-      return {
-        ...qn,
-        ...fields,
-        number:  ii + 1,
-        quoted:  EST.mapValues(fields, Shaping.quotedOf),
-        oneline: EST.mapValues(fields, Shaping.oneLineOf),
-        below:   EST.mapValues(fields, Shaping.belowOf),
-        pct:     hasPct ? Shaping.oneLineOf(Widgeted.textOf(Runner.widgetedOf(run, CorrectPctLabel, question._id))) : '',
-      }
-    }),
   }
 }
