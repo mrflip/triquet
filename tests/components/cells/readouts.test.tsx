@@ -1,7 +1,9 @@
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { WidgetedReadout } from '../../../src/components/cells/readouts'
+import { DrawnReadout, WidgetedReadout } from '../../../src/components/cells/readouts'
 import { CellNotices } from '../../../src/lib/notices'
 import { Widgeted } from '../../../src/models/widgeted'
+import type { ColumnReadout } from '../../../src/models/column'
 import { renderedText } from '../../support/rendering'
 
 describe('WidgetedReadout', () => {
@@ -16,4 +18,47 @@ describe('WidgetedReadout', () => {
       expect(renderedText(<WidgetedReadout widgeted={widgeted} label="Sum" wide={false} heightPx={40} />)).to.eq(expected)
     })
   }
+})
+
+/** What a column drew, `ok`, as `text` */
+function okDrawn(text: string, issue: string | null = null) {
+  return { widgeted: Widgeted.ok(text), text, issue }
+}
+
+/** The markup `drawn` makes, drawn by `readout` */
+function drawnAs(drawn: ReturnType<typeof okDrawn>, readout: ColumnReadout): string {
+  return renderToStaticMarkup(<DrawnReadout drawn={drawn} readout={readout} wide heightPx={100} />)
+}
+
+/** The markup a cell holding `text`, `ok`, draws by `readout` */
+function drawAs(text: string, readout: ColumnReadout): string {
+  return drawnAs(okDrawn(text), readout)
+}
+
+describe('DrawnReadout', () => {
+
+  it('draws markdown as markdown, and plain text as the characters typed', () => {
+    expect(drawAs('**bold**', 'markdown')).to.include('<strong>bold</strong>')
+    expect(drawAs('**bold**', 'plain')).to.include('**bold**')
+  })
+
+  it('draws code verbatim, in a code box, and a label as the Title cell draws one', () => {
+    expect(drawAs('$.masie', 'code')).to.match(/<code[^>]*data-readout="code"[^>]*>\$\.masie<\/code>/)
+    expect(drawAs('leon', 'label')).to.match(/data-readout="label"[^>]*>leon</)
+  })
+
+  it('makes no image of a link written as one, as a value worked out is drawn', () => {
+    expect(drawAs('&#33;[map](https://host/m.png)', 'markdown')).to.not.include('<img')
+  })
+
+  it('says why a template could not be filled in, above its text', () => {
+    expect(drawnAs(okDrawn('{% if value %}', 'tag not closed'), 'plain')).to.match(/data-template-issue[^>]*>tag not closed<\/p>/)
+  })
+
+  it('draws nothing, a failure, or empty text as a worked-out cell does', () => {
+    expect(renderedText(<DrawnReadout drawn={{ widgeted: Widgeted.missing, text: '', issue: null }} readout="markdown" wide heightPx={100} />)).to.eq(CellNotices.nothingExpressed)
+    expect(renderedText(<DrawnReadout drawn={okDrawn('')} readout="code" wide heightPx={100} />)).to.eq(CellNotices.nothingExpressed)
+    const failed = { widgeted: Widgeted.errored({ message: 'no', at: null, response: null }), text: '', issue: null }
+    expect(renderedText(<DrawnReadout drawn={failed} readout="plain" wide heightPx={100} />)).to.include('no')
+  })
 })

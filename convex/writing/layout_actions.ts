@@ -3,6 +3,7 @@ import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
 import { templateableOf, widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
 import { widgetingRemovalRefusal } from '../../src/lib/columns'
+import * as Formularies from '../../src/lib/formulary/formularies'
 import { Quiz, isTemplatableField } from '../../src/models/quiz'
 import { ColumnValidators, plainOf, refOf, sortkeyOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
 import { Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../../src/models/widgeting'
@@ -63,7 +64,10 @@ function refuseUnshowable(rows: LayoutRows, source: string): void {
  * Put a widgeting at the end of the open quiz's run order, whichever tier it runs at, so it reads
  * every widgeting before it. A label a sibling has (or, for one for the whole quiz, the quiz
  * itself answers to), a widget the library does not hold or that cannot run at its tier
- * (`Widgeting.runsAt`), or one widgeting more than a quiz may hold, is refused.
+ * (`Widgeting.runsAt`), or one widgeting more than a quiz may hold, is refused; and so are params
+ * its widget does not take (`Formularies.paramsOf`).
+ *
+ * @throws A refusal, or a Zod error when its params do not fit its widget; nothing is written.
  */
 export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: WidgetingT): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
@@ -72,15 +76,28 @@ export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: Widge
     if (rows.widgetings.length >= PA.WidgetingsPerQuiz.max) { refuse('widgetingsFull') }
     const row = await widgetForLabel(db, widgeting.widget_label)
     if (! row) { refuse('widgetGone') }
-    if (! Widgeting.runsAt(widgetFrom(row), widgeting.tier)) { refuse('tierUnoffered') }
-    await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: rows.widgetings.length }))
+    const widget = widgetFrom(row)
+    if (! Widgeting.runsAt(widget, widgeting.tier)) { refuse('tierUnoffered') }
+    const params = Formularies.paramsOf(widget).parse(widgeting.params)
+    await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, params, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: rows.widgetings.length }))
   })
+}
+
+/** `params` held to the widget `held` works, when the library holds it: a widgeting of a widget gone is held to no more than any widgeting's */
+async function paramsFor(db: Writer, held: Doc<'widgetings'>, params: WidgetingPatch['params']): Promise<WidgetingPatch['params']> {
+  if (params === undefined) { return undefined }
+  const row = await widgetForLabel(db, held.widget_label)
+  return row ? Formularies.paramsOf(widgetFrom(row)).parse(params) : params
 }
 
 /**
  * Revise a widgeting of the open quiz. A rename onto a label a sibling has is refused, and
  * carries the columns that show the widgeting with it, and its place among the sources the quiz
- * nominates as templateable; what it stored stays with it.
+ * nominates as templateable; what it stored stays with it. New params are held to the
+ * widget it works (`Formularies.paramsOf`): what its cells already hold is not, and a constraint
+ * bites on the next edit of each.
+ *
+ * @throws A refusal, or a Zod error when its params do not fit its widget; nothing is written.
  */
 export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, patch: WidgetingPatch): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
@@ -88,7 +105,8 @@ export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, 
     const renamedOnto = patch.label ?? label
     if (renamedOnto !== label && labelTaken(rows, renamedOnto)) { refuse('labelTaken') }
     refuseQuizReserved(tierOf(held), renamedOnto)
-    await updateWidgeting(db, held, { ...patch })
+    const params = await paramsFor(db, held, patch.params)
+    await updateWidgeting(db, held, { ...patch, ...(params !== undefined && { params }) })
     if (renamedOnto === label) { return }
     for (const column of rows.columns) {
       const ref = refOf(column.source)

@@ -114,8 +114,12 @@ describe('ColumnValidators.columnPatch', () => {
     expect(ColumnValidators.columnPatch({ align: 'center' })).to.deep.eq({ align: 'center' })
   })
 
-  it('takes a formula, a template and a readout of null, which take each off', () => {
-    expect(ColumnValidators.columnPatch({ formula: null, template: null, readout: null })).to.deep.eq({ formula: null, template: null, readout: null })
+  it('takes a formula, a template, a readout and a collapse of null, which take each off', () => {
+    expect(ColumnValidators.columnPatch({ formula: null, template: null, readout: null, collapsed: null })).to.deep.eq({ formula: null, template: null, readout: null, collapsed: null })
+  })
+
+  it('takes a collapse, the double-click on the head', () => {
+    expect(ColumnValidators.columnPatch({ collapsed: true })).to.deep.eq({ collapsed: true })
   })
 })
 

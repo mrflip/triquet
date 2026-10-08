@@ -47,6 +47,8 @@ export type QuestionTableProps = {
   /** Which column was sorted in this session, and which way; the only thing an arrow marks */
   sortMark:     SortMark | null
   onSort:       (sortkey: Sortkey) => void
+  /** Collapse one column to its turned header, or restore it, by a double-click on its head; absent where the columns may not be changed */
+  onCollapse?:  (colkey: string, collapsed: boolean) => void
   onChain:      (question_id: string, chains_to: string | null) => void
   /** Whether an ask for one question's cell of one widgeting is in flight */
   asking:       (question_id: string, widgeting_label: string) => boolean
@@ -72,7 +74,7 @@ const CardLayoutQuery = '(max-width:640px)'
  * later starts open. It holds this as its own state, so its owner keys it by the quiz. As cards,
  * below 640px, every question shows in full: the corner is not there to unfold them.
  */
-export function QuestionTable({ questions, specs, run, templateable, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onViz, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onEnter, onMove }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, run, templateable, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onViz, lastSortkey, sortMark, onSort, onCollapse, onChain, asking, unavailableNotice, onAsk, onEdit, onEnter, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   const shown = useMemo(() => Question.unarchived(questions), [questions])
   const checkedCount = shown.filter((question) => isChecked(question._id)).length
@@ -116,19 +118,24 @@ export function QuestionTable({ questions, specs, run, templateable, locked, gri
               </Stack>
             </th>
             {specs.map((column) => {
-              const sortkey = column.sortkey ?? null
+              // A collapsed column's cells are empty, so there is nothing on screen to order by.
+              const sortkey = column.collapsed ? null : column.sortkey ?? null
               return (
                 <th
                   key={column.colkey}
                   scope="col"
                   className={clsx(styles.head, headClassOf(column.headkind), alignClassOf(column.align), sortkey !== null && sortkey === lastSortkey && styles.headSorted)}
                   data-sorted={(sortkey !== null && sortkey === lastSortkey) || undefined}
+                  data-collapsed={column.collapsed || undefined}
                   style={{ width: `${String(column.widthPx)}px` }}
                   aria-sort={ariaSortFor(sortkey, sortMark)}
+                  title={onCollapse ? collapseHintOf(column) : undefined}
+                  onDoubleClick={onCollapse ? () => { onCollapse(column.colkey, ! column.collapsed) } : undefined}
                 >
                   <span className={clsx(column.headkind === 'vertical' && styles.headVerticalInner)}>
                     {sortkey === null ? column.title : (
-                      <button type="button" className={styles.headButton} disabled={locked} onClick={() => { onSort(sortkey) }}>
+                      // The second click of a double-click, which collapses the column, sorts nothing more.
+                      <button type="button" className={styles.headButton} disabled={locked} onClick={(event) => { if (event.detail <= 1) { onSort(sortkey) } }}>
                         {column.title}
                         {/* Decorative: the direction is already on the header as aria-sort, and
                             folding the arrow into the button's name would rename it on every click. */}
@@ -176,6 +183,12 @@ export function QuestionTable({ questions, specs, run, templateable, locked, gri
       </table>
     </div>
   )
+}
+
+/** What a column's head says of the double-click that collapses it, or restores it */
+function collapseHintOf(column: Pick<ColumnSpec, 'collapsed' | 'title'>): string {
+  const verb = column.collapsed ? 'restore' : 'collapse'
+  return `Double-click to ${verb} ${column.title}`
 }
 
 /** Extra class for a header that is rotated */

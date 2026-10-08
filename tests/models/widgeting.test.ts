@@ -1,14 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { Question } from '../../src/models/question'
-import { ReservedWidgetingLabels, Widgeting, WidgetingValidators } from '../../src/models/widgeting'
+import { EntryParamnames, ReservedWidgetingLabels, Widgeting, WidgetingValidators } from '../../src/models/widgeting'
 
 const QuizId = 'k57a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 const HuntId = 'k67a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 
 describe('ReservedWidgetingLabels', () => {
-  it("is every name a question already answers to: its exposed fields, its label's override, its rank and viz flags, its place, viz and stamps in a jsonball, its views, and the questions themselves", () => {
-    expect(ReservedWidgetingLabels).to.deep.eq([...Question.exposed, 'rank', 'archived', 'secondary', 'position', 'viz', 'created_at', 'updated_at', 'butnot', 'question'])
+  it("is every name a question already answers to: its exposed fields, its rank and viz flags, its place, viz and stamps in a jsonball, its views, the questions themselves, its place in a recap and its label's override", () => {
+    expect(ReservedWidgetingLabels.slice(0, Question.exposed.length + 11)).to.deep.eq([...Question.exposed, 'rank', 'archived', 'secondary', 'position', 'viz', 'created_at', 'updated_at', 'butnot', 'question', 'number', 'forced_label'])
+  })
+
+  const Groups: [readonly string[], string][] = [
+    [['hunt', 'realm', 'quiz', 'qns', 'qn', 'qn_label', 'quiz_label', 'params', 'widgeting_label'],  "the bag's top-level keys"],
+    [['status', 'value', 'err', 'message', 'result_meta', 'digest', 'stale'],                           "a widgeted's keys, and the two of its staleness"],
+    [['source', 'formula', 'template', 'readout', 'collapsed', 'width_px', 'align'],                    "a column's fields, the stages it may say among them"],
+    [['masie', 'artie', 'poppy', 'estimates', 'average'],                                               "a category-estimate widgeted's keys"],
+  ]
+  for (const [words, describes] of Groups) {
+    it(`holds ${describes}`, () => {
+      expect(ReservedWidgetingLabels).to.include.members([...words])
+    })
+  }
+
+  it("leaves categories free, which the library's category-estimate widget and its widgetings are labelled", () => {
+    expect(ReservedWidgetingLabels).not.to.include('categories')
+  })
+
+  it("names each word once", () => {
+    expect(new Set(ReservedWidgetingLabels).size).to.eq(ReservedWidgetingLabels.length)
   })
 
   it("leaves butnot_ishes free, now that it is a widgeting rather than a view", () => {
@@ -51,21 +71,27 @@ describe('Widgeting.fill', () => {
     })
   }
 
-  it("says which labels are reserved when it refuses one", () => {
+  it("says why it refuses a reserved label, of the label refused", () => {
     const result = WidgetingValidators.widgeting.safeParse({ widget_label: 'dumdum', label: 'notes' })
     expect(result.success).to.be.false
-    expect(result.error?.issues[0]?.message).to.match(/should not be any of .*notes.*which the questions already use/)
+    expect(result.error?.issues[0]?.message).to.eq('is a name a question, its cells or the bag already answer to: add to it, as my_label or label_2')
+    expect(result.error?.issues[0]?.input).to.eq('notes')
   })
 
   it("lets a widgeting work a widget whose own label is reserved for widgetings", () => {
     expect(Widgeting.fill({ widget_label: 'notes', label: 'notes_2' }).widget_label).to.eq('notes')
   })
 
+  it("takes a param an entry family names, though the word is reserved", () => {
+    expect(Widgeting.fill({ widget_label: 'figure', label: 'grade', params: { min: 1, max: 10, integer: true } }).params).to.deep.eq({ min: 1, max: 10, integer: true })
+  })
+
   const Refused: [object, string][] = [
+    [{ params: { total: 3 } },                            'a param under a reserved word no entry family names'],
     [{ label: 'Dum Dum' },                                'a label that is not one'],
     [{ widget_label: 'A B' },                             'a widget label that is not one'],
     [{ description: 'x'.repeat(3601) },                   'a description past 3600 characters'],
-    [{ params: { Tries: 2 } },                            'a param named other than by a label'],
+    [{ params: { Tries: 2 } },                            'a param named other than in the shape of a label'],
     [{ params: { blob: 'x'.repeat(4000) } },              'params whose JSON runs past 4000 characters'],
     [{ tier: 'realm' },                                   'a tier that is neither a question nor a quiz'],
   ]
@@ -88,6 +114,9 @@ describe('Widgeting.runsAt', () => {
     [{ formulary: 'jsonata', config: {} },                                                     'quiz',     true,  'a formula runs once for the whole quiz'],
     [{ formulary: 'entry', config: { entry_kind: 'text' } },                                   'quiz',     true,  'a text entry runs once for the whole quiz'],
     [{ formulary: 'entry', config: { entry_kind: 'number' } },                                 'quiz',     true,  'a number entry runs once for the whole quiz'],
+    [{ formulary: 'entry', config: { entry_kind: 'boolean' } },                                'quiz',     true,  'a yes-or-no entry runs once for the whole quiz'],
+    [{ formulary: 'entry', config: { entry_kind: 'enum' } },                                   'quiz',     true,  'a choice entry runs once for the whole quiz'],
+    [{ formulary: 'entry', config: { entry_kind: 'titleish' } },                               'quiz',     true,  'a preset of text runs once for the whole quiz, as text does'],
     // refused at the quiz's level:
     [{ formulary: 'aibot', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 9 } }, 'quiz', false, 'a model asked from a cell has no cell at the quiz\'s level'],
     [{ formulary: 'entry', config: { entry_kind: 'estimates' } },                              'quiz',     false, 'a question\'s category estimates are no value of the quiz'],
@@ -173,4 +202,10 @@ describe('WidgetingValidators.row', () => {
       expect(() => WidgetingValidators.row(row as never)).to.throw(Z.ZodError)
     })
   }
+})
+
+describe('EntryParamnames', () => {
+  it("is every name an entry family gives a param, the reserved ones among them", () => {
+    expect([...EntryParamnames]).to.have.members(['min', 'max', 'integer', 'max_length', 'pattern', 'lines', 'options'])
+  })
 })

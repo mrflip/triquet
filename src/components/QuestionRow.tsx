@@ -4,10 +4,10 @@ import { useCallback, useState } from 'react'
 import { Box, Checkbox, IconButton } from '@mui/material'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import clsx from 'clsx'
-import { GutterWidthPx, shownOf, type ColumnSpec } from '../lib/columns'
+import { GutterWidthPx, drawnOf, isDrawnByEditor, readoutOf, shownOf, type ColumnSpec } from '../lib/columns'
 import { openOnEntry } from './FoldButton'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
-import { WidgetedAskCell, WidgetedReadout } from './cells/readouts'
+import { DrawnReadout, WidgetedAskCell, WidgetedReadout } from './cells/readouts'
 import { EntryCell } from './cells/entry'
 import { EstimatePartReadout } from './cells/estimates'
 import * as Runner from '../lib/formulary/runner'
@@ -126,27 +126,38 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     if (widget_label === 'hint_full' && hint !== null) { onAsk(hint) }
     if (widget_label === 'butnot_full' && hint !== null) { onAskTarget(hint) }
   }
-  /** What a column shows for this question */
-  const bodyOf = (spec: ColumnSpec): React.JSX.Element => {
+  /** The widget of the widgeting a column shows, when it shows one the library has */
+  const widgetOf = (spec: ColumnSpec) => (spec.source.kind === 'widgeting' ? Runner.stepOf(run, spec.source.widgeting.label)?.widget ?? null : null)
+
+  /**
+   * What a column shows for this question: nothing while it is collapsed; a question's field, an
+   * entry's cell or a bot's asked from the cell, each in its own editor, while the column is typed
+   * into (`isDrawnByEditor`); anything else read-only, by its readout
+   */
+  const bodyOf = (spec: ColumnSpec): React.ReactNode => {
     const { source } = spec
-    if (spec.formula !== null) { return workedBody(spec) }
-    if (source.kind === 'field') { return fieldBody(source.field) }
-    if (source.kind === 'view') {
-      return <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />
+    if (spec.collapsed) { return null }
+    if (isDrawnByEditor(spec, widgetOf(spec))) {
+      if (source.kind === 'field') { return fieldBody(source.field) }
+      if (source.kind === 'widgeting') { return widgetingBody(source.widgeting, spec) }
     }
-    if (source.kind === 'widgeting' && source.widgeting.tier === 'question') { return widgetingBody(source.widgeting, spec) }
-    return <WidgetedReadout widgeted={shownOf(spec, run, templateable, question._id)} label={spec.title} wide={spec.widthPx >= WideReadoutPx} heightPx={heightPx} />
+    return readoutBody(spec)
   }
 
   /**
-   * What a column's formula worked out, read-only: one part of a category-estimate entry
+   * What a column shows read-only: by its readout when it names one or has a template; else as the
+   * cells choose, the chained-to hint as the BUT NOT preview, one part of a category-estimate entry
    * (`$.masie`) as the part is drawn, anything else as a worked-out cell is
    */
-  const workedBody = (spec: ColumnSpec): React.JSX.Element => {
-    const widgeted = shownOf(spec, run, templateable, question._id)
-    const estimating = spec.source.kind === 'widgeting' && Estimates.isEstimating(Runner.stepOf(run, spec.source.widgeting.label)?.widget ?? null)
-    const part = estimating ? partOf(spec.formula) : null
+  const readoutBody = (spec: ColumnSpec): React.JSX.Element => {
     const wide = spec.widthPx >= WideReadoutPx
+    const readout = readoutOf(spec)
+    if (readout !== null) { return <DrawnReadout drawn={drawnOf(spec, run, templateable, question._id)} readout={readout} wide={wide} heightPx={heightPx} /> }
+    if (spec.source.kind === 'view' && spec.formula === null) {
+      return <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />
+    }
+    const widgeted = shownOf(spec, run, templateable, question._id)
+    const part = Estimates.isEstimating(widgetOf(spec)) ? partOf(spec.formula) : null
     if (part !== null) { return <EstimatePartReadout part={part} widgeted={widgeted} label={spec.title} wide={wide} heightPx={heightPx} /> }
     return <WidgetedReadout widgeted={widgeted} label={spec.title} wide={wide} heightPx={heightPx} />
   }
@@ -196,17 +207,15 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     }
   }
 
-  /** What a widgeting came to: typed into for an entry, asked from the cell when its formulary is, else worked out and read-only */
+  /** What a widgeting typed into or asked from the cell came to: an entry in its cell's editor, a bot's asked from the cell */
   const widgetingBody = (widgeting: WidgetingT, spec: ColumnSpec): React.JSX.Element => {
     const { label } = widgeting
     const widgeted = Runner.widgetedOf(run, label, question._id)
-    const widget = Runner.stepOf(run, label)?.widget ?? null
+    const widget = widgetOf(spec)
     if (widget?.formulary === 'entry') {
-      return <EntryCell entry_kind={widget.config.entry_kind} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} onEnter={(value) => { onEnter(label, value) }} bag={bagFor(label)} />
+      return <EntryCell widget={widget} widgeting={widgeting} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} onEnter={(value) => { onEnter(label, value) }} bag={bagFor(label)} />
     }
-    if (widget === null || formularyFor(widget).refresh !== 'click') {
-      return <WidgetedReadout widgeted={widgeted} label={spec.title} wide={spec.widthPx >= WideReadoutPx} heightPx={heightPx} />
-    }
+    if (widget === null || formularyFor(widget).refresh !== 'click') { return readoutBody(spec) }
     return (
       <WidgetedAskCell
         widgeted={widgeted} meta={question.stored[label]?.ok?.result_meta ?? null} label={spec.title} asking={asking(label)} askable={Runner.inputOf(run, label, question._id).status === 'ok'}
@@ -227,7 +236,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       className={clsx(styles.cell, alignClassOf(spec.align))}
       style={{ width: `${String(spec.widthPx)}px` }}
       data-colname={spec.title}
-      onDoubleClick={asksOnDoubleClick(spec) ? () => { reextractFor(spec.source.kind === 'widgeting' ? spec.source.widgeting.widget_label : '') } : undefined}
+      onDoubleClick={! spec.collapsed && asksOnDoubleClick(spec) ? () => { reextractFor(spec.source.kind === 'widgeting' ? spec.source.widgeting.widget_label : '') } : undefined}
     >
       {bodyOf(spec)}
     </td>

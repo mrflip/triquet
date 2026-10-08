@@ -417,6 +417,25 @@ describe('importInto', () => {
       expect(outcome.widgetingActions).to.deep.eq([])
     })
 
+    it("adds an entry's widgeting with the params its family takes, and skips one with params it does not, saying why", () => {
+      const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'points', label: 'graded', params: { min: 1, max: 10 } }, { widget_label: 'points', label: 'chosen', params: { options: ['a'] } }], EntryLibrary)
+      expect(outcome.widgetingActions).to.deep.eq([
+        { kind: 'add_widgeting', widgeting: { widget_label: 'points', label: 'graded', description: '', params: { min: 1, max: 10 }, tier: 'question' } },
+      ])
+      expect(outcome.widgetingLog.map((entry) => [entry.label, entry.outcome])).to.deep.eq([['graded', 'added'], ['chosen', 'skipped']])
+      expect(outcome.widgetingLog[1]?.reason).to.match(/^its params will not do for points: .*options/)
+    })
+
+    it("refuses one under a word the tool keeps for its own use, saying which word", () => {
+      const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'answer_reversed', label: 'total' }, { widget_label: 'answer_reversed', label: 'status' }])
+      expect(outcome.widgetingActions).to.deep.eq([])
+      expect(outcome.widgetingLog.map((entry) => entry.reason)).to.deep.eq([
+        "label «'total'» is a word the tool keeps for its own use, or ends in _id as a pointer does: add to it, as my_label or label_2",
+        "label «'status'» is a name a question, its cells or the bag already answer to: add to it, as my_label or label_2",
+      ])
+      expect(outcome.ok).to.be.false
+    })
+
     it("removes none: a widgeting the paste leaves out is not in what is sent", () => {
       const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'answer_reversed', label: 'answer_reversed' }])
       expect(outcome.widgetingActions.map((action) => action.kind)).to.deep.eq(['add_widgeting'])
@@ -453,6 +472,11 @@ describe('importInto', () => {
     it("types a value under an entry's label into its cell, read as the export writes it or bare", () => {
       const outcome = read(enteredQuiz(), [{ label: 'leon', remark: { status: 'ok', value: 'Ask Flip.' }, points: 3 }])
       expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Ask Flip.', points: 3 })
+    })
+
+    it("holds what a question carries to its entry's kind and not its widgeting's params, which bite on the next edit", () => {
+      const quiz = { ...enteredQuiz(), widgetings: enteredQuiz().widgetings.map((widgeting) => (widgeting.label === 'points' ? { ...widgeting, params: { max: 10 } } : widgeting)) }
+      expect(enteredFor(read(quiz, [{ label: 'leon', points: 11 }]), 'leon')).to.deep.eq({ points: 11 })
     })
 
     it("empties a cell for nothing: null, an empty text, or a missing cell as the export writes it", () => {
@@ -560,6 +584,17 @@ describe('importInto: columns', () => {
     ])
   })
 
+  it("sets a column's formula, template, readout and collapse as pasted, and takes off those the paste lacks", () => {
+    const held = laidOut(['remark', 'remark', 160])
+    const dressed = { ...held, columns: held.columns.map((column) => ({ ...column, formula: '$.value', template: '{{ value }}!', readout: 'code' as const, collapsed: true })) }
+    const set = withColumns(held, { remark: { position: 0, title: 'remark', source: 'remark', width_px: 160, formula: '$.value', template: '{{ value }}!', readout: 'code', collapsed: true } })
+    expect(set.columnActions).to.deep.eq([{ kind: 'edit_column', label: 'remark', patch: { formula: '$.value', template: '{{ value }}!', readout: 'code', collapsed: true } }])
+    const bare = withColumns(dressed, { remark: { position: 0, title: 'remark', source: 'remark', width_px: 160 } })
+    expect(bare.columnActions).to.deep.eq([{ kind: 'edit_column', label: 'remark', patch: { formula: null, template: null, readout: null, collapsed: null } }])
+    const same = withColumns(dressed, { remark: { position: 0, title: 'remark', source: 'remark', width_px: 160, formula: '$.value', template: '{{ value }}!', readout: 'code', collapsed: true } })
+    expect(same.columnActions).to.deep.eq([])
+  })
+
   it("skips a column showing a widgeting the quiz will not have, and then removes none", () => {
     const quiz = laidOut(['title', 'title', 100], ['notes', 'notes', 220])
     const outcome = withColumns(quiz, { guess: { position: 0, title: 'Guess', source: 'nowhere', width_px: 160 }, title: { position: 1, title: 'title', source: 'title', width_px: 100 } })
@@ -576,6 +611,11 @@ describe('importInto: columns', () => {
   it("skips a column that does not validate, naming it", () => {
     const outcome = withColumns(laidOut(['title', 'title', 100]), { wide: { position: 0, title: 'Wide', source: 'notes', width_px: 9000 } })
     expect(outcome.columnLog.map((entry) => [entry.label, entry.outcome])).to.deep.eq([['wide', 'skipped']])
+  })
+
+  it("refuses a column under a word the tool keeps for its own use, saying which word", () => {
+    const outcome = withColumns(laidOut(['title', 'question.title', 100]), { order: { position: 0, title: 'Order', source: 'question.qnum', width_px: 60 } })
+    expect(outcome.columnLog).to.deep.include({ label: 'order', outcome: 'skipped', reason: "label «'order'» is a word the tool keeps for its own use, or ends in _id as a pointer does: add to it, as my_label or label_2" })
   })
 
   it("leaves the columns alone for a paste holding none: the questions alone, a bare list, an export from before columns were", () => {
@@ -756,7 +796,8 @@ describe('older exports', () => {
   it("still imports the library's export of widgets in a list, and of widgets keyed by scope under `widgets`", () => {
     for (const filename of ['library-2026-10-04.json', 'library-2026-10-05.json']) {
       const outcome = Importing.libraryImported(SeedWidgets, olderExport(filename))
-      expect(outcome.log.map((entry) => entry.outcome), filename).to.deep.eq([...SeedWidgets.map(() => 'kept'), 'added'])
+      // The export holds the seeds as they were then, before the entry families were seeded.
+      expect(outcome.log.map((entry) => entry.outcome), filename).to.deep.eq([...SeedWidgets.slice(0, 18).map(() => 'kept'), 'added'])
       expect(outcome.widgets?.map((widget) => widget.label), filename).to.deep.eq(['remark'])
     }
   })

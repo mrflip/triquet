@@ -9,7 +9,7 @@ export type JsonataDraft = Pick<JsonataWidgetT, 'label' | 'description' | 'formu
 /** The parts of an `aibot` widget being written or revised: its prompt, its input formula and its config */
 export type AibotDraft = Pick<AibotWidgetT, 'label' | 'description' | 'formula' | 'input_formula' | 'config'> & { formulary: 'aibot' }
 
-/** The parts of an `entry` widget being written or revised: what kind of value its cells take, fixed once it is made */
+/** The parts of an `entry` widget being written or revised: what kind of value its cells take, fixed once it is made, and the params its widgetings start from */
 export type EntryDraft = Pick<EntryWidgetT, 'label' | 'description' | 'config'> & { formulary: 'entry' }
 
 /** The parts of a widget of the library being written or revised */
@@ -117,12 +117,12 @@ function refused(issue: string, labelIssue = false): Extract<WidgetPlan, { ok: f
   return { ok: false, issue, labelIssue: labelIssue ? issue : null }
 }
 
-/** What revising a widget to `widget` sets: its description and formula, and an `aibot` widget's input formula and config; an entry's description alone */
+/** What revising a widget to `widget` sets: its description and formula, and an `aibot` widget's input formula and config; an entry's description and config, the defaults its widgetings start from */
 function patchFor(widget: WidgetT): WidgetPatch {
   const shared = { formula: widget.formula, description: widget.description }
   switch (widget.formulary) {
   case 'jsonata': { return shared }
   case 'aibot':   { return { ...shared, input_formula: widget.input_formula, config: widget.config } }
-  case 'entry':   { return { description: widget.description } }
+  case 'entry':   { return { description: widget.description, config: widget.config } }
   }
 }

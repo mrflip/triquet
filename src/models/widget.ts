@@ -4,15 +4,55 @@ import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 import { ServicelabelVals } from '../lib/credentials'
 import { ModelTierVals } from './ask'
-import { EstimateValidators, type EstimatesT } from './estimate'
+import type { EstimatesT } from './estimate'
 
 /** The formularies a widget of the library can be worked by: a JSONata formula worked out on render, a prompt put to a model, or a value a person types */
 export const FormularykindVals = ['jsonata', 'aibot', 'entry'] as const
 export type Formularykind = typeof FormularykindVals[number]
 
-/** What an `entry` widget's cells take: prose, a number, a label, a one-line title, or a question's category estimates */
-export const EntryKindVals = ['text', 'number', 'labelish', 'titleish', 'estimates'] as const
+/**
+ * What an `entry` widget's cells take (its **kind**): prose, a number, a yes or no, one of a
+ * list of options, a label, a one-line title, or a question's category estimates. Fixed once the
+ * widget is made, since the values typed hang on it.
+ */
+export const EntryKindVals = ['text', 'number', 'boolean', 'enum', 'labelish', 'titleish', 'estimates'] as const
 export type EntryKind = typeof EntryKindVals[number]
+
+/**
+ * The **families** of entry: each a cell editor and the type of value it keeps, constrained by
+ * its widgeting's params. A kind is its own family, but for `labelish` and `titleish`, which are
+ * presets of `text` (`EntryPresets`).
+ */
+export const EntryFamilyVals = ['text', 'number', 'boolean', 'enum', 'estimates'] as const
+export type EntryFamily = typeof EntryFamilyVals[number]
+
+/** The kinds a new entry widget may be made of: one per family, the presets of `text` left to the widgets that already hold them */
+export const OfferedEntryKindVals: readonly EntryKind[] = EntryFamilyVals
+
+/** The family each kind of entry belongs to */
+export const EntryFamilyOf: Readonly<Record<EntryKind, EntryFamily>> = {
+  text:      'text',
+  number:    'number',
+  boolean:   'boolean',
+  enum:      'enum',
+  labelish:  'text',
+  titleish:  'text',
+  estimates: 'estimates',
+}
+
+/** The named patterns a `text` entry may hold its cells to: a label, one line of anything, or a web address */
+export const TextPatternVals = ['label', 'oneline', 'url'] as const
+export type TextPattern = typeof TextPatternVals[number]
+
+/** How many lines a `text` entry's cell takes: one, or as many as are typed */
+export const TextLinesVals = ['one', 'many'] as const
+export type TextLines = typeof TextLinesVals[number]
+
+/** The most options an `enum` entry may offer */
+export const EnumOptionsMax = 40
+
+/** The longest an `enum` entry's option may be: a title's length */
+export const EnumOptionMaxLen = 82
 
 /** Who a widget belongs to: `pub`, the library every hunt sees, is the only scope there is so far */
 export const WidgetScopeVals = ['pub'] as const
@@ -27,7 +67,7 @@ export const JsonataDefaultInput = '$'
 /** The input formula a new `aibot` widget starts with: the clueing, for a `{{clueing}}` in its prompt */
 export const AibotDefaultInput = "{ 'clueing': qn.clueing }"
 
-export const WidgetValidators = Validator(({ obj, oneof, lit, label, labelshape, titleish, noteish, textish, formulaish, discrim, union, uint, num, stamps }) => {
+export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titleish, noteish, textish, formulaish, discrim, union, uint, num, bool, stamps }) => {
   const jsonataConfig = obj({}).strict()
     .describe('A `jsonata` widget\'s settings: none.')
   const aibotConfig = obj({
@@ -39,21 +79,52 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, labelshape,
       .describe('How much room the model is given to answer one question.'),
   })
     .describe('An `aibot` widget\'s settings: who answers, and how much room they have.')
-  const entryConfig = obj({
-    entry_kind: oneof(EntryKindVals)
-      .describe('What its cells take: `text` (prose, markdown welcome), `number`, `labelish` (a label, as `quiet_otter`), `titleish` (one line) or `estimates` (the subject categories a question draws on, each with a difficulty). Fixed once made: the values typed hang on it.'),
+  // What an entry's widgeting may say of its cells, by family: each field optional, so a widget's
+  // defaults and a widgeting's own overlay one another key by key (`EntryFormulary.inForce`).
+  const numberParams = obj({
+    min:     num.optional()
+      .describe('The least a cell may hold. Absent, there is no least, and a cell may go below nought.'),
+    max:     num.optional()
+      .describe('The most a cell may hold. Absent, there is no most.'),
+    integer: bool.optional()
+      .describe('Whether a cell holds whole numbers only. Absent, a fraction is welcome.'),
   }).strict()
-    .describe('An `entry` widget\'s settings: what kind of value is typed into its cells.')
+    .describe('What a `number` entry\'s cells may hold: between `min` and `max`, and whole when `integer`.')
+  const textParams = obj({
+    max_length: uint.min(1).max(PA.Textish.max).optional()
+      .describe(`The most characters a cell may hold. Absent, ${String(PA.Textish.max)}.`),
+    pattern:    oneof(TextPatternVals).optional()
+      .describe('A named pattern every cell must match: `label` (lowercase letters, digits and single underscores), `oneline` (one line of anything) or `url` (a web address). Any of them is one line. Absent, any prose.'),
+    lines:      oneof(TextLinesVals).optional()
+      .describe('How many lines a cell takes: `one`, a box that never wraps, or `many`, prose and markdown. Absent, `many`, unless a pattern makes it one.'),
+  }).strict()
+    .describe('What a `text` entry\'s cells may hold: how long, of what pattern, and on how many lines.')
+  const enumOption = titleish.min(1).max(EnumOptionMaxLen)
+    .describe('One option, a line of text, as the select offers it and the cell keeps it.')
+  const enumParams = obj({
+    options: arr(enumOption).max(EnumOptionsMax).optional()
+      .refine((options) => options === undefined || new Set(options).size === options.length, 'should name each option once')
+      .describe(`The options a cell may hold, in the order the select offers them, each once; at most ${String(EnumOptionsMax)}. Absent or empty, a cell may hold nothing.`),
+  }).strict()
+    .describe('What an `enum` entry\'s cells may hold: one of its options.')
+  const noParams = obj({}).strict()
+    .describe('Nothing: this kind of entry takes no params.')
 
-  // What an `entry` widget's cell holds, by its kind; an emptied cell holds no row at all.
-  const entryText = noteish.min(1)
-    .describe('Prose typed into an entry cell, trimmed; markdown welcome.')
-  const entryNumber = num
-    .describe('A number typed into an entry cell.')
-  const entryLabelish = labelshape
-    .describe('A label typed into an entry cell: plain lowercase letters, numbers and single underscores. A value, not a name in any namespace, so no word is reserved from it.')
-  const entryTitleish = titleish.min(1)
-    .describe('One line typed into an entry cell, as a title is.')
+  // An entry widget's config: its kind, and the defaults its widgetings' params overlay.
+  const entryConfigOf = <KT extends EntryKind, ST extends Z.core.$ZodLooseShape>(entry_kind: KT, params: Z.ZodObject<ST>) => (
+    obj({ entry_kind: lit(entry_kind), ...params.shape }).strict()
+      .check((context) => { for (const issue of entryParamsIssues(entry_kind, context.value)) { context.issues.push({ code: 'custom', ...issue }) } })
+  )
+  const entryConfig = discrim('entry_kind', [
+    entryConfigOf('text', textParams),
+    entryConfigOf('number', numberParams),
+    entryConfigOf('boolean', noParams),
+    entryConfigOf('enum', enumParams),
+    entryConfigOf('labelish', noParams),
+    entryConfigOf('titleish', noParams),
+    entryConfigOf('estimates', noParams),
+  ])
+    .describe('An `entry` widget\'s settings: what kind of value is typed into its cells (`entry_kind`: `text`, `number`, `boolean`, `enum`, `estimates`, or the older `labelish` and `titleish`), fixed once made since the values typed hang on it; and the params its widgetings start from, which each may overlay.')
 
   // Each field is named once, bare, and given a default in the widget and none in its row.
   const scope = oneof(WidgetScopeVals)
@@ -139,7 +210,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, labelshape,
   const row = discrim('formulary', [obj({ ...rowFields, ...jsonataFields }), obj({ ...rowFields, ...aibotFields }), obj({ ...rowFields, ...entryFields })])
     .describe('One widget as the database holds it: its fields, and its place in the library.')
 
-  return { jsonataConfig, aibotConfig, entryConfig, entryText, entryNumber, entryLabelish, entryTitleish, widgetLabel, widget, widgetPatch, row }
+  return { jsonataConfig, aibotConfig, entryConfig, numberParams, textParams, enumOption, enumParams, noParams, widgetLabel, widget, widgetPatch, row }
 })
 
 export type JsonataConfigT = Z.output<typeof WidgetValidators.jsonataConfig>
@@ -157,16 +228,81 @@ export type JsonataWidgetT = Extract<WidgetT, { formulary: 'jsonata' }>
 export type AibotWidgetT   = Extract<WidgetT, { formulary: 'aibot' }>
 /** A widget of the library whose cells a person types into */
 export type EntryWidgetT   = Extract<WidgetT, { formulary: 'entry' }>
-/** What an `entry` widget's cell holds: text, a number, or a question's category estimates */
-export type EntryValueT    = string | number | EstimatesT
+/** What an `entry` widget's cell holds: text, a number, a yes or no, or a question's category estimates */
+export type EntryValueT    = string | number | boolean | EstimatesT
+export type NumberParamsT  = Z.output<typeof WidgetValidators.numberParams>
+export type TextParamsT    = Z.output<typeof WidgetValidators.textParams>
+export type EnumParamsT    = Z.output<typeof WidgetValidators.enumParams>
+/** What a family that takes no params takes */
+export type NoParamsT      = Z.output<typeof WidgetValidators.noParams>
 
-/** The validator of what each kind of `entry` widget's cell holds */
-export const EntryValueFor: Readonly<Record<EntryKind, Z.ZodType<EntryValueT>>> = {
-  text:      WidgetValidators.entryText,
-  number:    WidgetValidators.entryNumber,
-  labelish:  WidgetValidators.entryLabelish,
-  titleish:  WidgetValidators.entryTitleish,
-  estimates: EstimateValidators.estimates,
+/** Each entry family's params, as its widgeting and its widget's config say them */
+export type EntryParamsFor = {
+  text:      TextParamsT
+  number:    NumberParamsT
+  boolean:   NoParamsT
+  enum:      EnumParamsT
+  estimates: NoParamsT
+}
+
+/**
+ * The validator of each kind of entry's params: its family's, but for the presets of `text`,
+ * which take none of their own. The one source a params editor is drawn from: each key of its
+ * shape is one field, and each field's sentence is its own.
+ */
+export const EntryParamsOf: Readonly<Record<EntryKind, Z.ZodObject>> = {
+  text:      WidgetValidators.textParams,
+  number:    WidgetValidators.numberParams,
+  boolean:   WidgetValidators.noParams,
+  enum:      WidgetValidators.enumParams,
+  labelish:  WidgetValidators.noParams,
+  titleish:  WidgetValidators.noParams,
+  estimates: WidgetValidators.noParams,
+}
+
+/** What each preset of `text` holds its cells to, beneath whatever its widget and widgeting say */
+export const EntryPresets: Readonly<Partial<Record<EntryKind, TextParamsT>>> = {
+  labelish: { pattern: 'label', lines: 'one' },
+  titleish: { pattern: 'oneline', lines: 'one', max_length: PA.Titleish.max },
+}
+
+/** Whether an entry of each kind holds one value the quiz as a whole can have: every kind but a question's category estimates */
+export const EntryKindOncePerQuiz: Readonly<Record<EntryKind, boolean>> = {
+  text:      true,
+  number:    true,
+  boolean:   true,
+  enum:      true,
+  labelish:  true,
+  titleish:  true,
+  estimates: false,
+}
+
+/** One thing wrong with an entry's params taken together: which of them to say it of, what it holds, and what is wrong */
+type ParamsIssue = { path: string[], input: unknown, message: string }
+
+/**
+ * What is wrong with an entry's params taken together, rather than one by one: a `number`'s
+ * least above its most, or a `text` held to a pattern yet given many lines. Said of the params in
+ * force, a widget's defaults overlaid by a widgeting's own, so a widgeting is told when its own
+ * fit its widget's no longer.
+ *
+ * @param entry_kind - The entry's kind, which says which params it takes.
+ * @param params - The params in force, or a widget's defaults.
+ * @returns Each issue, said of the param the author would change; empty when they agree.
+ *
+ * @example entryParamsIssues('number', { min: 10, max: 1 })  // => [{ path: ['max'], input: 1, message: 'should be no less than the least, «10»' }]
+ */
+export function entryParamsIssues(entry_kind: EntryKind, params: Record<string, unknown>): ParamsIssue[] {
+  switch (EntryFamilyOf[entry_kind]) {
+  case 'number': {
+    const { min, max } = params
+    return typeof min === 'number' && typeof max === 'number' && min > max ? [{ path: ['max'], input: max, message: `should be no less than the least, «${String(min)}»` }] : []
+  }
+  case 'text': {
+    return params.pattern !== undefined && params.lines === 'many' ? [{ path: ['lines'], input: params.lines, message: 'should be one: a pattern holds a cell to one line' }] : []
+  }
+  default: { return [] }
+  }
 }
 export type WidgetPatch    = Z.output<typeof WidgetValidators.widgetPatch>
 export type WidgetRowT     = Z.output<typeof WidgetValidators.row>
@@ -237,4 +373,4 @@ export class Widget {
 }
 
 /** How each kind of entry is named in a sentence */
-const EntryKindNames: Readonly<Record<EntryKind, string>> = { text: 'text', number: 'number', labelish: 'label', titleish: 'title', estimates: 'category estimate' }
+const EntryKindNames: Readonly<Record<EntryKind, string>> = { text: 'text', number: 'number', boolean: 'yes-or-no', enum: 'choice', labelish: 'label', titleish: 'title', estimates: 'category estimate' }

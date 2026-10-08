@@ -1,8 +1,10 @@
 'use client'
 
 import { MenuItem, Stack, TextField } from '@mui/material'
+import { EntryParamsFields } from './EntryParamsFields'
 import { EntryKindWords } from './widget-words'
-import { EntryKindVals, type EntryKind } from '../models/widget'
+import { EntryFormulary } from '../lib/formulary/entry'
+import { OfferedEntryKindVals, type EntryKind } from '../models/widget'
 import type { EntryDraft } from '../state/widget-edit'
 import styles from './workbench.module.css'
 
@@ -16,11 +18,14 @@ export type EntryFieldsProps = {
 }
 
 /**
- * An `entry` widget's label, description and kind: what its cells take, typed in by hand. There
- * is no formula to write, so no preview and no advice. The kind is chosen once, with the label:
- * the values typed into its cells hang on it.
+ * An `entry` widget's label, description and kind: what its cells take, typed in by hand; and the
+ * params its widgetings start from, each of which a widgeting may say otherwise. There is no
+ * formula to write, so no preview and no advice. The kind is chosen once, with the label, from
+ * one per family (`OfferedEntryKindVals`): the values typed into its cells hang on it.
  */
 export function EntryFields({ draft, onChange, labelEditable, labelIssue }: Readonly<EntryFieldsProps>) {
+  const { entry_kind, ...defaults } = draft.config
+  const offered = OfferedEntryKindVals.includes(entry_kind) ? OfferedEntryKindVals : [...OfferedEntryKindVals, entry_kind]
   return (
     <Stack spacing={1.5}>
       {labelEditable
@@ -38,12 +43,17 @@ export function EntryFields({ draft, onChange, labelEditable, labelIssue }: Read
         onChange={(event) => { onChange({ description: event.target.value }) }}
       />
       <TextField
-        select size="small" label="Entry kind" value={draft.config.entry_kind} disabled={! labelEditable} sx={{ maxWidth: 520 }}
+        select size="small" label="Entry kind" value={entry_kind} disabled={! labelEditable} sx={{ maxWidth: 520 }}
         helperText={labelEditable ? 'What its cells take. It cannot be changed afterward: the values typed hang on it.' : 'What its cells take, fixed once the widget was made.'}
         onChange={(event) => { onChange({ config: { entry_kind: event.target.value as EntryKind } }) }}
       >
-        {EntryKindVals.map((entry_kind) => <MenuItem key={entry_kind} value={entry_kind}>{EntryKindWords[entry_kind]}</MenuItem>)}
+        {offered.map((kind) => <MenuItem key={kind} value={kind}>{EntryKindWords[kind]}</MenuItem>)}
       </TextField>
+      <div className={styles.microcopy}>What every widgeting of it starts from; each may say otherwise for its own quiz.</div>
+      <EntryParamsFields
+        entry_kind={entry_kind} params={defaults} inherited={{}} validator={EntryFormulary.paramsOf({ config: { entry_kind } })} disabled={false}
+        onChange={(params) => { onChange({ config: { entry_kind, ...params } }) }}
+      />
     </Stack>
   )
 }

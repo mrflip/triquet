@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { AibotDefaultInput, AibotTokensMax, EntryKindVals, EntryValueFor, FormularykindVals, JsonataDefaultInput, Widget, WidgetValidators, type WidgetRowT } from '../../src/models/widget'
+import { AibotDefaultInput, AibotTokensMax, EntryFamilyOf, EntryFamilyVals, EntryKindVals, EntryParamsOf, EnumOptionsMax, FormularykindVals, JsonataDefaultInput, OfferedEntryKindVals, Widget, WidgetValidators, entryParamsIssues, type EntryKind, type WidgetRowT } from '../../src/models/widget'
 
 const Shout = { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } as const
 const Guesser = {
@@ -55,6 +55,12 @@ describe('Widget.fill', () => {
     for (const entry_kind of EntryKindVals) { expect(Widget.fill({ ...Remark, config: { entry_kind } }).config.entry_kind).to.eq(entry_kind) }
   })
 
+  it("keeps an entry's default params beside its kind, for its widgetings to start from", () => {
+    expect(Widget.fill({ ...Remark, config: { entry_kind: 'number', min: 1, max: 10, integer: true } }).config).to.deep.eq({ entry_kind: 'number', min: 1, max: 10, integer: true })
+    expect(Widget.fill({ ...Remark, config: { entry_kind: 'text', pattern: 'url' } }).config).to.deep.eq({ entry_kind: 'text', pattern: 'url' })
+    expect(Widget.fill({ ...Remark, config: { entry_kind: 'enum', options: ['easy', 'hard'] } }).config).to.deep.eq({ entry_kind: 'enum', options: ['easy', 'hard'] })
+  })
+
   it("takes the most room a model may be given, and no less than one token", () => {
     expect(Widget.fill({ ...Guesser, config: { ...Guesser.config, max_tokens: AibotTokensMax } }).config).to.have.property('max_tokens', 8000)
     expect(Widget.fill({ ...Guesser, config: { ...Guesser.config, max_tokens: 1 } }).config).to.have.property('max_tokens', 1)
@@ -89,6 +95,10 @@ describe('Widget.fill', () => {
     [{ ...Remark, config: undefined },                                              'an entry with no kind'],
     [{ ...Remark, config: { entry_kind: 'date' } },                                 'a kind of entry there is not'],
     [{ ...Remark, config: { entry_kind: 'text', max: 3 } },                         'an entry with settings beyond its kind'],
+    [{ ...Remark, config: { entry_kind: 'number', min: 10, max: 1 } },              'a number entry whose least is above its most'],
+    [{ ...Remark, config: { entry_kind: 'text', pattern: 'label', lines: 'many' } }, 'a text entry held to a pattern on many lines'],
+    [{ ...Remark, config: { entry_kind: 'labelish', pattern: 'url' } },             'a preset of text given params of its own'],
+    [{ ...Remark, config: { entry_kind: 'boolean', options: ['yes'] } },            'a yes-or-no entry with options'],
   ]
   for (const [dna, describes] of Refused) {
     it(`refuses ${describes}`, () => {
@@ -205,54 +215,83 @@ describe('Widget.flavorOf', () => {
     expect(Widget.flavorOf(Widget.fill({ ...Remark, config: { entry_kind: 'estimates' } }))).to.eq('a category estimate entry')
   })
 
+  it("names the yes-or-no and choice entries", () => {
+    expect(Widget.flavorOf(Widget.fill({ ...Remark, config: { entry_kind: 'boolean' } }))).to.eq('a yes-or-no entry')
+    expect(Widget.flavorOf(Widget.fill({ ...Remark, config: { entry_kind: 'enum', options: ['a'] } }))).to.eq('a choice entry')
+  })
+
   it("tells two entries apart by kind alone", () => {
     expect(Widget.flavorOf({ formulary: 'entry', config: { entry_kind: 'labelish' } })).not.to.eq(Widget.flavorOf({ formulary: 'entry', config: { entry_kind: 'titleish' } }))
   })
 })
 
-describe('EntryValueFor', () => {
-  it("takes prose for a text entry, trimmed, markdown and newlines and all", () => {
-    expect(EntryValueFor.text.parse('  *Ask* Flip.\nThen ask again.  ')).to.eq('*Ask* Flip.\nThen ask again.')
-  })
-
-  it("takes any finite number for a number entry, below nought and fractions included", () => {
-    expect([3, -2.5, 0].map((num) => EntryValueFor.number.parse(num))).to.deep.eq([3, -2.5, 0])
-  })
-
-  it("takes a label for a label entry, and one line for a title entry", () => {
-    expect(EntryValueFor.labelish.parse('quiet_otter')).to.eq('quiet_otter')
-    expect(EntryValueFor.titleish.parse(' The Quiet Otter ')).to.eq('The Quiet Otter')
-  })
-
-  it("takes a reserved word for a label entry: what is typed there is a value, not a name in any namespace", () => {
-    expect(EntryValueFor.labelish.parse('position')).to.eq('position')
-  })
-
-  it("takes a question's category estimates for a category-estimate entry, each difficulty medium unless said", () => {
-    expect(EntryValueFor.estimates.parse([{ category: 'tv', difficulty: 'hard' }, { category: 'art' }])).to.deep.eq([{ category: 'tv', difficulty: 'hard' }, { category: 'art', difficulty: 'medium' }])
-    expect(EntryValueFor.estimates.parse([{ category: null, difficulty: 'easy' }])).to.deep.eq([{ category: null, difficulty: 'easy' }])
-  })
-
-  const Refused: [keyof typeof EntryValueFor, unknown, string][] = [
-    ['text',     ' '.repeat(3),     'blank text, which is an emptied cell rather than a value'],
-    ['text',     'x'.repeat(3601),  'text past 3600 characters'],
-    ['text',     'a\u{7}b',         'text with a control character'],
-    ['text',     3,                 'a number in a text entry'],
-    ['number',   '3',               'text in a number entry'],
-    ['number',   Infinity,          'a number without end'],
-    ['labelish', 'Quiet Otter',     'a label that is not one'],
-    ['titleish', 'x'.repeat(83),    'a title past 82 characters'],
-    ['titleish', 'two\nlines',      'a title of two lines'],
-    ['titleish', '',                'an empty title, which is an emptied cell'],
-    ['estimates', [],                                                            'no estimates at all, which is an emptied cell'],
-    ['estimates', [{ category: 'tv' }, { category: 'tv', difficulty: 'hard' }], 'one category estimated twice'],
-    ['estimates', [{ category: null }, { category: 'tv' }],                     'no category in particular beside a category'],
-    ['estimates', [{ category: 'cooking' }],                                    'a category there is not'],
-    ['estimates', 'tv',                                                         'text in a category-estimate entry'],
+describe('entryParamsIssues', () => {
+  const Cases: [Parameters<typeof entryParamsIssues>, ReturnType<typeof entryParamsIssues>, string][] = [
+    // regular usage:
+    [['number', { min: 10, max: 1 }],              [{ path: ['max'], input: 1, message: 'should be no less than the least, «10»' }], 'a least above a most, per the doc example'],
+    [['number', { min: 1, max: 1 }],               [],                                                                        'a least that is the most: one value'],
+    [['number', { min: 1 }],                       [],                                                                        'a least with no most'],
+    [['text', { pattern: 'url', lines: 'many' }],  [{ path: ['lines'], input: 'many', message: 'should be one: a pattern holds a cell to one line' }], 'a pattern on many lines'],
+    [['text', { pattern: 'url', lines: 'one' }],   [],                                                                        'a pattern on one line'],
+    [['text', { lines: 'many' }],                  [],                                                                        'many lines with no pattern'],
+    [['labelish', { pattern: 'label', lines: 'many' }], [{ path: ['lines'], input: 'many', message: 'should be one: a pattern holds a cell to one line' }], 'a preset of text, as text'],
+    // trivial cases:
+    [['enum', { options: ['a'] }],                 [],                                                                        'a family with nothing to hold together'],
+    [['number', {}],                               [],                                                                        'no params at all'],
   ]
-  for (const [entry_kind, val, describes] of Refused) {
-    it(`refuses ${describes}`, () => {
-      expect(EntryValueFor[entry_kind].safeParse(val).success).to.be.false
+  for (const [args, expected, describes] of Cases) {
+    it(describes, () => {
+      expect(entryParamsIssues(...args)).to.deep.eq(expected)
     })
   }
+})
+
+describe('EntryParamsOf', () => {
+  it("has a validator for every kind, the presets of text taking none of their own", () => {
+    expect(Object.keys(EntryParamsOf)).to.have.members([...EntryKindVals])
+    expect(EntryParamsOf.labelish.safeParse({ pattern: 'url' }).success).to.be.false
+    expect(EntryParamsOf.titleish.safeParse({}).success).to.be.true
+  })
+
+  it("gives one key per param, for an editor to draw a field for", () => {
+    expect(Object.keys(EntryParamsOf.number.shape)).to.deep.eq(['min', 'max', 'integer'])
+    expect(Object.keys(EntryParamsOf.text.shape)).to.deep.eq(['max_length', 'pattern', 'lines'])
+    expect(Object.keys(EntryParamsOf.enum.shape)).to.deep.eq(['options'])
+    expect(Object.keys(EntryParamsOf.boolean.shape)).to.deep.eq([])
+  })
+
+  it("trims each option, and keeps them in order", () => {
+    expect(EntryParamsOf.enum.parse({ options: [' easy ', 'hard'] })).to.deep.eq({ options: ['easy', 'hard'] })
+  })
+
+  const Refused: [EntryKind, object, string][] = [
+    ['number',    { min: 'one' },                         'a least that is not a number'],
+    ['number',    { integer: 'yes' },                     'whole numbers said other than as a yes or no'],
+    ['number',    { options: ['a'] },                     'a param of another family'],
+    ['text',      { max_length: 0 },                      'room for no characters'],
+    ['text',      { max_length: 3601 },                   'room for more than any text holds'],
+    ['text',      { pattern: 'regex' },                   'a pattern that is not one of the named ones'],
+    ['text',      { lines: 'two' },                       'a number of lines that is neither one nor many'],
+    ['enum',      { options: ['a', 'a'] },                'an option named twice'],
+    ['enum',      { options: [''] },                      'an empty option'],
+    ['enum',      { options: ['two\nlines'] },            'an option of two lines'],
+    ['enum',      { options: Array.from({ length: EnumOptionsMax + 1 }, (_unused, idx) => `option_${String(idx)}`) }, 'more options than an enum may offer'],
+    ['boolean',   { default: true },                      'any param at all for a family that takes none'],
+  ]
+  for (const [entry_kind, params, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(EntryParamsOf[entry_kind].safeParse(params).success).to.be.false
+    })
+  }
+})
+
+describe('EntryFamilyOf', () => {
+  it("is each kind's own family, but for the presets of text", () => {
+    expect(EntryKindVals.map((entry_kind) => EntryFamilyOf[entry_kind])).to.deep.eq(['text', 'number', 'boolean', 'enum', 'text', 'text', 'estimates'])
+  })
+
+  it("offers a new widget one kind per family, and neither preset", () => {
+    expect(OfferedEntryKindVals).to.deep.eq([...EntryFamilyVals])
+    expect(OfferedEntryKindVals).not.to.include.members(['labelish', 'titleish'])
+  })
 })

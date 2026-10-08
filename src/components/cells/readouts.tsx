@@ -1,13 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Box, Stack } from '@mui/material'
+import { Box, Stack, Typography } from '@mui/material'
 import clsx from 'clsx'
 import { ErrBadge } from './ErrBadge'
+import { MarkdownText } from './markdown'
 import { FoldButton } from '../FoldButton'
 import { JsonText } from '../JsonFold'
 import { CellNotices } from '../../lib/notices'
 import { Widgeted, type JsonT, type WidgetedT } from '../../models/widgeted'
+import type { ColumnReadout } from '../../models/column'
+import type { DrawnT } from '../../lib/columns'
 import styles from '../workbench.module.css'
 
 export type WidgetedReadoutProps = {
@@ -40,6 +43,50 @@ export function WidgetedReadout({ widgeted, label, wide, heightPx }: Readonly<Wi
       </Box>
     </Stack>
   )
+}
+
+export type DrawnReadoutProps = {
+  /** What the column came to for this question, and the text it draws of it */
+  drawn:    DrawnT
+  /** How the text is drawn */
+  readout:  ColumnReadout
+  /** Whether the column has room to say why a formula failed */
+  wide:     boolean
+  /** The tallest the cell may be, which is the height of the row */
+  heightPx: number
+}
+
+/**
+ * One cell drawn by its column's readout: the text as itself (`plain`), as our markdown, then the
+ * sanitizer (`markdown`), verbatim and monospaced (`code`), or as the Title cell draws a
+ * question's label (`label`). Nothing is the muted dash, and a failure says so as a worked-out
+ * cell does; a template that could not be filled in says why above its text. The cell scrolls
+ * inside the row.
+ */
+export function DrawnReadout({ drawn, readout, wide, heightPx }: Readonly<DrawnReadoutProps>) {
+  const { widgeted, text, issue } = drawn
+  return (
+    <ReadonlyCell heightPx={heightPx}>
+      {text === '' || widgeted.status !== 'ok'
+        ? <WidgetedBody widgeted={widgeted.status === 'ok' ? Widgeted.missing : widgeted} wide={wide} open={false} />
+        : (
+          <>
+            {issue !== null && <Typography variant="caption" color="error" component="p" data-template-issue>{issue}</Typography>}
+            <ReadoutText text={text} readout={readout} />
+          </>
+        )}
+    </ReadonlyCell>
+  )
+}
+
+/** Text, as a readout draws it */
+function ReadoutText({ text, readout }: Readonly<{ text: string, readout: ColumnReadout }>) {
+  switch (readout) {
+  case 'plain':    { return <Box className={styles.expressedText} sx={{ whiteSpace: 'pre-wrap' }} data-readout="plain">{text}</Box> }
+  case 'markdown': { return <div className={styles.prose} data-readout="markdown"><MarkdownText text={text} cell /></div> }
+  case 'code':     { return <Box component="code" sx={{ display: 'block', fontFamily: 'var(--font-data)', fontSize: 12, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }} data-readout="code">{text}</Box> }
+  case 'label':    { return <div className={clsx(styles.metaline, styles.fieldNote)} data-readout="label">{text}</div> }
+  }
 }
 
 export type WidgetedAskCellProps = {

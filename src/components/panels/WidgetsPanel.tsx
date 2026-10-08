@@ -8,7 +8,8 @@ import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
 import { CopyButton } from '../CopyButton'
 import { hiddenUntil } from '../room'
-import { EntryKindWords, FormularyWords, NoCellsLine, StatusJoint, statusPhrases } from '../widget-words'
+import { EntryKindWords, FormularyWords, NoCellsLine, StatusJoint, paramsGist, statusPhrases } from '../widget-words'
+import { EntryFormulary } from '../../lib/formulary/entry'
 import { Formularies } from '../../lib/formulary/formularies'
 import * as Runner from '../../lib/formulary/runner'
 import * as Rank from '../../lib/rank'
@@ -33,13 +34,14 @@ export type WidgetsPanelProps = {
 }
 
 /**
- * The quiz's widgetings in run order (their positions, both tiers mixed as the author placed
- * them), each folded to a line of fields that line up down the list:
- * its label, the widget it works, how its cells stand (`statusLine`) and a snippet of its
+ * The quiz's widgetings in run order (the entries first, then the rest by their positions, both
+ * tiers mixed as the author placed them), each folded to a line of fields that line up down the
+ * list: its label, the widget it works, how its cells stand (`statusLine`) and a snippet of its
  * description. Open, the descriptions in full, the widget's formula or prompt exactly as it
  * stands, placeholders and all, and the button that copies a prompt asking a chatbot for help --
- * or, for an entry, what kind of value is typed into it. The list measures its own width, not the
- * window's, to decide which fields there is room for (`RoomFor`).
+ * or, for an entry, what kind of value is typed into it, and what its params let a cell hold. The
+ * list measures its own width, not the window's, to decide which fields there is room for
+ * (`RoomFor`).
  */
 export function WidgetsPanel({ quiz, run }: Readonly<WidgetsPanelProps>) {
   // The advice is shown a real question: the lowest-numbered, as the widget editor's preview starts on.
@@ -127,7 +129,7 @@ function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>)
         {widget?.formulary === 'entry' && (
           <>
             {widget.description === '' ? null : <p className={styles.microcopy}>The widget: {widget.description}</p>}
-            <p className={styles.microcopy}>{widgeting.tier === 'quiz' ? 'Typed into the Quiz entries panel, one value for the whole quiz.' : 'Typed into its cells, one value per question.'} {EntryKindWords[widget.config.entry_kind]}.</p>
+            <p className={styles.microcopy}>{widgeting.tier === 'quiz' ? 'Typed into the Quiz entries panel, one value for the whole quiz.' : 'Typed into its cells, one value per question.'} {_.compact([`${EntryKindWords[widget.config.entry_kind]}.`, paramsGist(EntryFormulary.inForce(widget, widgeting))]).join(' ')}</p>
           </>
         )}
         {widget && widget.formulary !== 'entry' && (

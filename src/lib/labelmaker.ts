@@ -114,6 +114,8 @@ function repaired(cleaned: string, max: number): string {
 export type IsReservedOpts = {
   /** Whether the label is a hunt's or an ident's, kept from the top-level words too (`PA.ReservedToplevel`) */
   toplevel?: boolean
+  /** Words let through all the same, whatever the reserved lists say (`PA.isUnreserved`) */
+  allowed?:  ReadonlySet<string>
 }
 
 /**
@@ -121,15 +123,16 @@ export type IsReservedOpts = {
  * does: what lets a field say why a label of the right shape is still refused.
  *
  * @param label - A label, or anything typed for one.
- * @param opts - `toplevel` for a hunt's or an ident's label, kept from the top-level words as well.
+ * @param opts - `toplevel` for a hunt's or an ident's label, kept from the top-level words as well; `allowed`, words let through.
  * @returns True when the label validator would refuse it for its word rather than its shape.
  *
  * @example isReserved('position')                       // => true
  * @example isReserved('my_position')                    // => false
  * @example isReserved('pricing', { toplevel: true })    // => true
+ * @example isReserved('min', { allowed: new Set(['min']) })  // => false
  */
 export function isReserved(label: string, opts: Readonly<IsReservedOpts> = {}): boolean {
-  return ! PA.Unreserved.rule(label) || (opts.toplevel === true && ! PA.UnreservedToplevel.rule(label))
+  return ! PA.isUnreserved(label, opts.allowed) || (opts.toplevel === true && ! PA.UnreservedToplevel.rule(label))
 }
 
 /** `label` in Title Case, for display where a heading wants words rather than an identifier */

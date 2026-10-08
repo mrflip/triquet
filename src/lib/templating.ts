@@ -6,7 +6,7 @@ import * as Shaping from './shaping'
 import type { QuizBag, QuizRun } from './formulary/runner'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
 import { TemplatableFieldVals, isTemplatableField, type QuizT } from '../models/quiz'
-import { ArchivedField, RankField, SecondaryField, type QuestionT } from '../models/question'
+import { ArchivedField, PlaceField, RankField, SecondaryField, type QuestionT } from '../models/question'
 import type { Formularykind, WidgetT } from '../models/widget'
 
 /**
@@ -39,6 +39,9 @@ import type { Formularykind, WidgetT } from '../models/widget'
  * the quiz's own (a recap's head or tail), `qn` is empty and `qn_label` blank.
  */
 export type TemplateBag = Pick<QuizBag, 'hunt' | 'realm' | 'categories' | 'quiz' | 'qns' | 'qn' | 'qn_label' | 'quiz_label'>
+
+/** What a column's template reads: the question's template bag, and the value the column's formula came to, as `value` */
+export type ValuedBag = TemplateBag & { value: unknown }
 
 /**
  * A template filled in: `markdown` is what it came to, or, when it could not be filled, the
@@ -87,7 +90,7 @@ export function inOrder(qns: unknown): Record<string, unknown>[] {
   const played = qns.filter((qn): qn is Record<string, unknown> => EST.isPlainObject(qn) && qn[SecondaryField] !== true && qn[ArchivedField] !== true)
   const ranked = EST.sortBy(played.filter((qn) => typeof qn[RankField] === 'number'), [(qn) => qn[RankField] as number])
   const unranked = played.filter((qn) => typeof qn[RankField] !== 'number' && typeof qn.clueing === 'string' && qn.clueing.trim() !== '')
-  return [...ranked, ...unranked].map((qn, idx) => ({ ...qn, number: idx + 1 }))
+  return [...ranked, ...unranked].map((qn, idx) => ({ ...qn, [PlaceField]: idx + 1 }))
 }
 
 /** The language every field and recap template is read and filled in with: Liquid, with the app's filters, a value filling in as `fillingOf` says */
@@ -166,6 +169,24 @@ export function filledBagOf(quiz: Pick<QuizT, 'templateable'>, run: QuizRun): Te
   return bagOver(run, finishedQnsOf(run, quiz.templateable), null)
 }
 
+/**
+ * What a column's template reads for one question: the question's template bag over the finished
+ * bag (its questions' templateable sources filled in, `finishedQnsOf`), with the value the
+ * column's formula came to beside the bag's own words as `value`.
+ *
+ * @param run - The quiz, run.
+ * @param templateable - What the quiz nominates as templateable.
+ * @param question_id - The question the cell is in.
+ * @param value - What the column's formula came to, or the thing its ref picked.
+ * @returns The bag.
+ *
+ * @example fill('{{ value }}%', valuedBagOf(run, [], question._id, 53)).markdown  // => '53%'
+ * @example valuedBagOf(run, ['clueing'], question._id, null).qn.clueing             // => 'By Ada'   (typed as 'By {{qn.author}}')
+ */
+export function valuedBagOf(run: QuizRun, templateable: readonly string[], question_id: string, value: unknown): ValuedBag {
+  return { ...bagOver(run, finishedQnsOf(run, templateable), question_id), value }
+}
+
 /** What `finishedQnsOf` made, by the run, and by the sources filled */
 const FinishedOf = new WeakMap<QuizRun, Map<string, readonly Record<string, unknown>[]>>()
 
@@ -213,6 +234,18 @@ function bagOver(run: QuizRun, questions: readonly Record<string, unknown>[], qu
 /** The formularies whose columns are worked out, not typed: a formula's and a bot's */
 const ComputedFormularies: ReadonlySet<Formularykind> = new Set(['jsonata', 'aibot'])
 
+/**
+ * Whether what `widget` comes to is worked out rather than typed (a formula's or a bot's), and so
+ * reaches markdown with its images made links (`imagesLinkedIn`).
+ *
+ * @example computes(Widget.fill({ label: 'sizer', formulary: 'jsonata', formula: '1' }))  // => true
+ * @example computes(Widget.fill({ label: 'authors', formulary: 'entry', config: { entry_kind: 'text' } }))  // => false
+ * @example computes(null)  // => false
+ */
+export function computes(widget: Pick<WidgetT, 'formulary'> | null): boolean {
+  return widget !== null && ComputedFormularies.has(widget.formulary)
+}
+
 /** What `imagesLinkedOf` made, by the questions it was made from, so a run's is made once however many cells read it */
 const LinkedOf = new WeakMap<readonly Record<string, unknown>[], { quiz: Record<string, unknown>, every: Record<string, unknown>[] }>()
 
@@ -226,7 +259,7 @@ const LinkedOf = new WeakMap<readonly Record<string, unknown>[], { quiz: Record<
 function imagesLinkedOf(run: QuizRun, questions: readonly Record<string, unknown>[]): { quiz: Record<string, unknown>, every: Record<string, unknown>[] } {
   const known = LinkedOf.get(questions)
   if (known !== undefined) { return known }
-  const computed = run.steps.filter(({ widget }) => widget !== null && ComputedFormularies.has(widget.formulary))
+  const computed = run.steps.filter(({ widget }) => computes(widget))
   const labelsAt = (tier: string) => computed.filter(({ widgeting }) => widgeting.tier === tier).map(({ widgeting }) => widgeting.label)
   const linked = { quiz: labelsLinkedIn(run.frame.quiz, labelsAt('quiz')), every: questions.map((qn) => labelsLinkedIn(qn, labelsAt('question'))) }
   LinkedOf.set(questions, linked)
@@ -242,11 +275,12 @@ function labelsLinkedIn(held: Record<string, unknown>, labels: readonly string[]
 
 /**
  * `val` with every `![` in every string it holds written `&#33;[`: the `!` as a character
- * reference, which markdown reads as the character and never as the start of an image.
+ * reference, which markdown reads as the character and never as the start of an image. What a
+ * formula or a bot came to is drawn as markdown only so.
  *
  * @example imagesLinkedIn({ value: ['![map](https://host/m.png)'] })  // => { value: ['&#33;[map](https://host/m.png)'] }
  */
-function imagesLinkedIn(val: unknown): unknown {
+export function imagesLinkedIn(val: unknown): unknown {
   if (typeof val === 'string') { return val.replaceAll('![', '&#33;[') }
   if (Array.isArray(val)) { return val.map((each) => imagesLinkedIn(each)) }
   if (typeof val === 'object' && val !== null) { return Object.fromEntries(Object.entries(val).map(([key, each]) => [key, imagesLinkedIn(each)])) }

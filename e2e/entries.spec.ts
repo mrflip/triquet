@@ -1,5 +1,6 @@
-import type { Page } from '@playwright/test'
-import { cellOf, closeManage, expect, exportedQuizzes, faceOf, freshWidgetLabel, manageDialog, newWidgetingDialog, openManage, openPanel, preparedExport, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
+import type { Locator, Page } from '@playwright/test'
+import { AppNotices } from '../src/lib/notices'
+import { addWidgeting, cellOf, closeManage, expect, exportedQuizzes, faceOf, freshWidgetLabel, manageDialog, newWidgetingDialog, openManage, openPanel, preparedExport, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
 
 /** The widget editor writing a new widget, open over the widgeting editor that opened it */
 function newWidgetDialog(page: Page) {
@@ -56,13 +57,113 @@ test('what is typed into an entry is kept, and emptying it empties the cell', as
   await expect(entryBox(page, 0, 'Remark')).toHaveValue('')
 })
 
-test('a label entry is tidied into a label as its box is left', async ({ page }) => {
-  await addNewEntry(page, freshWidgetLabel('nickname'), /^A label/, 'nickname')
-  await entryBox(page, 0, 'Nickname').fill('Quiet Otter!')
-  await leaveBox(page)
-  await expect(entryBox(page, 0, 'Nickname')).toHaveValue('quiet_otter')
-  await reloadOnceSaved(page)
-  await expect(entryBox(page, 0, 'Nickname')).toHaveValue('quiet_otter')
+/**
+ * Open the gear's editor of the widgeting labelled `label`, let `settle` say its params in the
+ * editor's Settings, and apply; close the gear's dialog.
+ */
+async function setParams(page: Page, label: string, settle: (settings: Locator) => Promise<void>) {
+  await openManage(page)
+  await manageDialog(page).getByRole('button', { name: `Edit widgeting ${label}` }).click()
+  const editor = page.getByRole('dialog', { name: `Widgeting: ${label}` })
+  await settle(editor.getByRole('group', { name: 'Settings' }))
+  await editor.getByRole('button', { name: 'Apply' }).click()
+  await expect(editor).toHaveCount(0)
+  await closeManage(page)
+}
+
+test('a new entry widget is one of a family, and the presets of text are not offered', async ({ page }) => {
+  await openManage(page)
+  await page.getByRole('button', { name: '+ New widgeting…' }).click()
+  await newWidgetingDialog(page).getByRole('button', { name: 'New widget…' }).click()
+  const maker = newWidgetDialog(page)
+  await maker.getByRole('combobox', { name: 'Formulary' }).click()
+  await page.getByRole('option', { name: /^An entry/ }).click()
+  await maker.getByRole('combobox', { name: 'Entry kind' }).click()
+  await expect(page.getByRole('option')).toHaveText([/^Text/, /^A number/, /^Yes or no/, /^A choice/, /^Category estimates/])
+})
+
+test.describe('the seeded families', () => {
+  test.use({ layout: { widgetings: ['memo', 'figure', 'yes_no', 'choice'] } })
+
+  test('a text entry held to the label pattern is tidied into a label as its box is left', async ({ page }) => {
+    await setParams(page, 'memo', async (settings) => {
+      await settings.getByRole('combobox', { name: 'Pattern' }).selectOption({ label: 'A label: lowercase letters, digits and single underscores' })
+    })
+    await entryBox(page, 0, 'Memo').fill('Quiet Otter!')
+    await leaveBox(page)
+    await expect(entryBox(page, 0, 'Memo')).toHaveValue('quiet_otter')
+    await reloadOnceSaved(page)
+    await expect(entryBox(page, 0, 'Memo')).toHaveValue('quiet_otter')
+  })
+
+  test('a yes-or-no entry is ticked, unticked and emptied as it is clicked, and kept', async ({ page }) => {
+    const box = cellOf(page, 0, 'Yes No').getByRole('checkbox', { name: 'Yes No' })
+    await expect(box).toHaveAttribute('aria-checked', 'mixed')
+    await box.click()
+    await expect(box).toBeChecked()
+    await reloadOnceSaved(page)
+    await expect(box).toBeChecked()
+    await box.click()
+    await expect(box).toHaveAttribute('aria-checked', 'false')
+    await box.click()
+    await expect(box).toHaveAttribute('aria-checked', 'mixed')
+    await reloadOnceSaved(page)
+    await expect(box).toHaveAttribute('aria-checked', 'mixed')
+  })
+
+  test("a choice entry offers its widgeting's options, and keeps the one picked", async ({ page }) => {
+    await setParams(page, 'choice', async (settings) => {
+      const options = settings.getByRole('textbox', { name: 'Options, one per line' })
+      await options.fill('draft\nplaytested\n\nfinal ')
+      await options.blur()
+    })
+    const select = cellOf(page, 0, 'Choice').getByRole('combobox', { name: 'Choice' })
+    await expect(select.getByRole('option')).toHaveText(['—', 'draft', 'playtested', 'final'])
+    await select.selectOption('final')
+    await reloadOnceSaved(page)
+    await expect(select).toHaveValue('final')
+    await select.selectOption({ label: '—' })
+    await reloadOnceSaved(page)
+    await expect(select).toHaveValue('')
+  })
+
+  test('a number entry held to bounds refuses a value past them, saying why, and keeps one within', async ({ page }) => {
+    await setParams(page, 'figure', async (settings) => {
+      await settings.getByRole('textbox', { name: 'Least' }).fill('1')
+      await settings.getByRole('textbox', { name: 'Most' }).fill('10')
+      await settings.getByRole('checkbox', { name: 'Whole numbers only' }).check()
+    })
+    const box = cellOf(page, 0, 'Figure').getByRole('textbox', { name: 'Figure', exact: true })
+    await box.fill('0')
+    await leaveBox(page)
+    await expect(page.getByRole('alert').filter({ hasText: AppNotices.changeNotKept })).toContainText('Figure: «0» should be «1» or more')
+    await box.fill('7')
+    await leaveBox(page)
+    await reloadOnceSaved(page)
+    await expect(box).toHaveValue('7')
+  })
+
+  test('the entries head the run order, run first wherever they were placed, and are never dragged', async ({ page }) => {
+    await addWidgeting(page, 'clueing_full')
+    await openManage(page)
+    const entries = manageDialog(page).getByRole('list', { name: 'Entries' })
+    await expect(entries.getByRole('group')).toHaveCount(4)
+    await expect(entries.getByRole('button', { name: /^Reorder/ })).toHaveCount(0)
+    await expect(manageDialog(page).getByRole('list', { name: 'Widgetings' }).getByRole('button', { name: 'Reorder clueing_full' })).toBeVisible()
+  })
+
+  test('a widgeting refuses params that do not agree, saying which', async ({ page }) => {
+    await openManage(page)
+    await manageDialog(page).getByRole('button', { name: 'Edit widgeting figure' }).click()
+    const editor = page.getByRole('dialog', { name: 'Widgeting: figure' })
+    const settings = editor.getByRole('group', { name: 'Settings' })
+    await settings.getByRole('textbox', { name: 'Least' }).fill('5')
+    await settings.getByRole('textbox', { name: 'Most' }).fill('1')
+    await settings.getByRole('textbox', { name: 'Least' }).click()
+    await expect(settings).toContainText('should be no less than the least, «5»')
+    await editor.getByRole('button', { name: 'Apply' }).click()
+    await expect(editor.getByRole('alert')).toContainText('Its params will not do')
+  })
 })
 
 test('the Widgets panel counts what has been typed, and says what the entry takes', async ({ page }) => {
@@ -72,7 +173,7 @@ test('the Widgets panel counts what has been typed, and says what the entry take
   const panel = await openPanel(page, 'Widgets')
   await expect(panel.getByRole('group', { name: 'Cells of points' })).toHaveText(/^1 current • \d+ blank$/)
   await panel.getByRole('button', { name: /^points/ }).click()
-  await expect(panel).toContainText('Typed into its cells, one value per question. A number.')
+  await expect(panel).toContainText('Typed into its cells, one value per question. A number, between bounds if you like.')
   await expect(panel.getByRole('button', { name: 'Copy a prompt for a chatbot' })).toHaveCount(0)
 })
 

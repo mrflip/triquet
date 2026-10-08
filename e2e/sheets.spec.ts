@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { addWidgeting, expect, fillRows, openPanel, test, waitUntilSaved } from './support'
+import { addWidgeting, closeManage, expect, fillRows, manageDialog, openManage, openPanel, test, waitUntilSaved } from './support'
 
 /** The lines the Copy for Sheets box currently holds */
 async function sheetsLines(page: Page): Promise<string[]> {
@@ -56,4 +56,24 @@ test('a line break in a field never starts a new spreadsheet row', async ({ page
   await expect.poll(() => sheetsText(page)).toContain('two<br/>lines')
   // The header and the five questions, and no more.
   await expect.poll(() => sheetsLines(page)).toHaveLength(6)
+})
+
+test("a column's formula and template shape its cells in the export, and collapsing it changes nothing there", async ({ page }) => {
+  await openManage(page)
+  const row = manageDialog(page).getByRole('group', { name: 'Column Clueing', exact: true })
+  await row.getByRole('button', { name: 'Formula, template and readout of Clueing' }).click()
+  await row.getByRole('combobox', { name: 'Formula' }).fill('$uppercase($)')
+  await row.getByRole('textbox', { name: 'Template' }).fill('{{ value }}!')
+  await row.getByRole('combobox', { name: 'Formula' }).click()
+  // The switch shows what the quiz holds, so it turns once the change is kept.
+  const collapsed = row.getByRole('switch', { name: 'Collapsed' })
+  await collapsed.click()
+  await expect(collapsed).toBeChecked()
+  await closeManage(page)
+  await expect.poll(async () => {
+    const shown = await sheetsLines(page)
+    const lines = shown.map((line) => line.split('\t'))
+    const clueingCol = (lines[0] ?? []).indexOf('clueing')
+    return lines.slice(1, 4).map((cells) => cells[clueingCol])
+  }).toEqual(['FIRST!', 'SECOND!', 'THIRD!'])
 })

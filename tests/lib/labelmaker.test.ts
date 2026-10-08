@@ -106,6 +106,16 @@ describe('isReserved', () => {
     expect(Labelmaker.isReserved('security', { toplevel: true })).to.be.true
     expect(Labelmaker.isReserved('position', { toplevel: true })).to.be.true
   })
+
+  it("lets through a reserved word the allowlist names, and only that one", () => {
+    expect(Labelmaker.isReserved('min', { allowed: new Set(['min']) })).to.be.false
+    expect(Labelmaker.isReserved('max', { allowed: new Set(['min']) })).to.be.true
+    expect(Labelmaker.isReserved('min', { allowed: new Set() })).to.be.true
+  })
+
+  it("keeps a top-level word from a hunt's or an ident's label though the allowlist names it", () => {
+    expect(Labelmaker.isReserved('pricing', { toplevel: true, allowed: new Set(['pricing']) })).to.be.true
+  })
 })
 
 describe('localBlankLabel', () => {

@@ -9,7 +9,7 @@ import { advicePrompt, type AdviceSpec } from './advice'
 import { AibotDefaultInput, WidgetValidators, type AibotWidgetT, type WidgetT } from '../../models/widget'
 import type { AskDoneT, AskFailedT } from '../ask/contract'
 import type { JsonT, WidgetedRecordT } from '../../models/widgeted'
-import type { WidgetingT } from '../../models/widgeting'
+import { WidgetingValidators, type WidgetingT } from '../../models/widgeting'
 import type { AdviceSubject, AskedT, InputOutcome } from './formularies'
 import type { QuizBag } from './runner'
 
@@ -35,6 +35,16 @@ export class AibotFormulary {
   static readonly refresh = 'click'
   static readonly store = 'append'
   static readonly config = WidgetValidators.aibotConfig
+
+  /**
+   * The validator of a widgeting's params: any few settings, by name, which reach the bag as
+   * `params` for the input formula to read.
+   *
+   * @example AibotFormulary.paramsOf().safeParse({ size: 3 }).success  // => true
+   */
+  static paramsOf(): typeof WidgetingValidators.params {
+    return WidgetingValidators.params
+  }
 
   /**
    * Whether the widget can be asked: a prompt that reads as a template, and an input formula

@@ -1,6 +1,6 @@
 import * as Rank from './rank'
 import * as Runner from './formulary/runner'
-import { shownOf, specsFor, type ColumnSpec } from './columns'
+import { isTypedInto, shownOf, specsFor, templatedTextOf, type ColumnSpec } from './columns'
 import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import { Widgeted } from '../models/widgeted'
@@ -16,19 +16,22 @@ type CellContext = {
 
 /**
  * What a column shows, as the text a spreadsheet cell holds: a question's own field or view as
- * typed, anything else as what it came to (`shownOf`), through its formula when it has one.
+ * typed, anything else as what it came to (`shownOf`), through its formula when it has one, and
+ * its template filled in when it has one (`templatedTextOf`). Whether the column is collapsed
+ * makes no difference here.
  *
  * @param spec - The column.
  * @param context - The question, the one it chains to, the quiz's run and what it nominates as templateable.
  * @returns The cell's text; empty when there is nothing to say.
  */
-export function cellTextOf(spec: Pick<ColumnSpec, 'source' | 'formula'>, { question, target, run, templateable }: Readonly<CellContext>): string {
+export function cellTextOf(spec: Pick<ColumnSpec, 'source' | 'formula' | 'template'>, { question, target, run, templateable }: Readonly<CellContext>): string {
   const { source } = spec
-  if (spec.formula === null && source.kind === 'field') {
+  if (spec.template !== null) { return templatedTextOf(spec, run, templateable, question._id) }
+  if (isTypedInto(spec) && source.kind === 'field') {
     if (source.field === 'chains_to') { return target ? target.label : '' }
     return question[source.field]
   }
-  if (spec.formula === null && source.kind === 'view') { return target?.hint ?? '' }
+  if (isTypedInto(spec) && source.kind === 'view') { return target?.hint ?? '' }
   return Widgeted.textOf(shownOf(spec, run, templateable, question._id))
 }
 

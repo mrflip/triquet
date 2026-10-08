@@ -77,6 +77,14 @@ export type Ref =
   | { kind: 'word', word: BagWord }
   | { kind: 'widgeting', label: string, tier: 'question' | 'quiz' }
 
+/**
+ * The stages a column may say between its source and its cell, beside the fields it has: a
+ * formula working a value out of what it shows, a template making text of the value, a readout
+ * drawing the text, and whether it is collapsed. Named here, with the column, so no widgeting
+ * takes one of them (`ReservedWidgetingLabels`) and an export's columns never read like a bag.
+ */
+export const ColumnStageFieldnames = ['formula', 'template', 'readout', 'collapsed'] as const
+
 /** Where a column sets its text across its width, header and cells alike: the order a click on its alignment steps through */
 export const ColumnAlignVals = ['left', 'center', 'right'] as const
 export type ColumnAlign = typeof ColumnAlignVals[number]
@@ -219,9 +227,9 @@ export const ColumnValidators = Validator(({ obj, str, oneof, titleish, formulai
     formula:   formula.nullable().optional(),
     template:  template.nullable().optional(),
     readout:   readout.nullable().optional(),
-    collapsed: collapsed.optional(),
+    collapsed: collapsed.nullable().optional(),
   })
-    .describe('The fields of one column being revised. A key absent means "leave whatever is already there"; a formula, template or readout of null takes it off.')
+    .describe('The fields of one column being revised. A key absent means "leave whatever is already there"; a formula, template, readout or collapsed of null takes it off.')
 
   const row = obj({
     hunt_id:  zid('hunts')

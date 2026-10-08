@@ -146,6 +146,15 @@ describe("an entry widget", () => {
     expect(widgetOf(await read(), 'remark')).to.deep.eq({ ...Remark, description: 'What the editor thinks.' })
   })
 
+  it("has the params its widgetings start from revised, and refuses ones its family does not take", async () => {
+    const seeded = await seed()
+    await seeded.actOnLibrary({ kind: 'add_widget', widget: Remark })
+    await seeded.actOnLibrary({ kind: 'edit_widget', label: 'remark', patch: { config: { entry_kind: 'text', pattern: 'url', max_length: 200 } } })
+    expect(widgetOf(await seeded.read(), 'remark').config).to.deep.eq({ entry_kind: 'text', pattern: 'url', max_length: 200 })
+    const refusals = await refusalsOf(seeded, { kind: 'edit_widget', label: 'remark', patch: { config: { entry_kind: 'text', pattern: 'url', lines: 'many' } } })
+    expect(refusals).to.deep.eq({ refused: [true], unchanged: true })
+  })
+
   it("refuses another kind, which the values typed hang on, and a formula", async () => {
     const seeded = await seed()
     await seeded.actOnLibrary({ kind: 'add_widget', widget: Remark })

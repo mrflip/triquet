@@ -109,14 +109,14 @@ export async function updateWidgeting(db: Writer, held: Doc<'widgetings'>, patch
   if (! _.isEmpty(changed)) { await db.patch('widgetings', held._id, changed) }
 }
 
-/** A revision of a column's row: any of its fields, a formula, template or readout of null taking it off */
-export type ColumnRowPatch = Omit<Partial<Z.output<typeof ColumnValidators.row>>, 'formula' | 'template' | 'readout'> & Pick<ColumnPatch, 'formula' | 'template' | 'readout'>
+/** A revision of a column's row: any of its fields, a formula, template, readout or collapsed of null taking it off */
+export type ColumnRowPatch = Omit<Partial<Z.output<typeof ColumnValidators.row>>, 'formula' | 'template' | 'readout' | 'collapsed'> & Pick<ColumnPatch, 'formula' | 'template' | 'readout' | 'collapsed'>
 
 /**
  * Revise a column's row, writing its source and formula in the plain grammar: a source in the
  * grammar before October 2026, held or given, is written as it reads now (`plainOf`), the held
- * row read so before the patch goes over it, as the browser saw it. A formula, template or
- * readout of null is taken off.
+ * row read so before the patch goes over it, as the browser saw it. A formula, template,
+ * readout or collapsed of null is taken off.
  */
 export async function updateColumn(db: Writer, held: Doc<'columns'>, patch: ColumnRowPatch): Promise<void> {
   const merged = { ..._.omit(held, SystemFields), ...plainOf(held), ...patch }

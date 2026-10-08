@@ -195,7 +195,7 @@ test('a label the questions already answer to is refused for a widgeting, with a
   await pickWidget(page, editor, 'answer_reversed')
   await editor.getByRole('textbox', { name: 'Widgeting label' }).fill('title')
   await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(editor).toContainText('which the questions already use')
+  await expect(editor).toContainText('already answer to')
 })
 
 test('a column can be added for anything the quiz can show, with its own title and width', async ({ page }) => {

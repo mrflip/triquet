@@ -1,15 +1,18 @@
 'use client'
 
-import * as Labelmaker from '../../lib/labelmaker'
-import * as PA from '../../lib/vv/patterns'
-import { NumberField, PlainField, StretchField, type TemplatedFieldProps } from './fields'
+import { EntryFormulary } from '../../lib/formulary/entry'
+import { ChoiceField, NumberField, PlainField, StretchField, TruthField, type TemplatedFieldProps } from './fields'
 import { EstimatesCell } from './estimates'
+import { useEntering } from './use-entering'
 import { Widgeted, type WidgetedT } from '../../models/widgeted'
-import type { EntryKind, EntryValueT } from '../../models/widget'
+import type { EntryValueT, EntryWidgetT } from '../../models/widget'
+import type { WidgetingT } from '../../models/widgeting'
 
 export type EntryCellProps = TemplatedFieldProps & {
-  /** What the cell takes: prose, a number, a label, a title, or a question's category estimates */
-  entry_kind: EntryKind
+  /** The entry widget the cell types into: its kind, and the params its widgetings start from */
+  widget:     Pick<EntryWidgetT, 'config'>
+  /** The widgeting working it, whose params overlay the widget's */
+  widgeting:  Pick<WidgetingT, 'params'>
   /** What the cell holds now: `ok` with the value typed, or `missing` */
   widgeted:   WidgetedT
   /** The column's title, which names the box */
@@ -22,32 +25,43 @@ export type EntryCellProps = TemplatedFieldProps & {
 }
 
 /**
- * An entry widgeting's cell: the grid's own field editor for its kind, committing on blur. Text
- * is a notes box (markdown, stretched to the row); a number is the Q# box, signed and fractional;
- * a label and a title are the Title box, a label tidied into one (and cut to a label's length) as
- * the box is left. An emptied box is sent as null, which leaves the cell `missing`. Category
- * estimates are pills, each change sent as it is made. It never asks anything of anyone. Text the
- * quiz templates shows filled in over `bag`.
+ * An entry widgeting's cell: the grid's own field editor for its family, drawn from the params in
+ * force (`EntryFormulary.inForce`), committing on blur or as it is clicked. Text is a notes box
+ * (markdown, stretched to the row), or the Title box when it takes one line, a label tidied into
+ * one as it is left; a number is the Q# box, signed unless its least is nought or more, whole when
+ * it says so, and never typed past its most; a yes or no is a checkbox; a choice is a select of its
+ * options. An emptied box is sent as null, which leaves the cell `missing`; a value the params
+ * refuse is not sent, and the author is told why (`useEntering`). Category estimates are pills,
+ * each change sent as it is made. It never asks anything of anyone. Text the quiz templates shows
+ * filled in over `bag`.
  */
-export function EntryCell({ entry_kind, widgeted, label, locked, heightPx, onEnter, bag = null }: Readonly<EntryCellProps>) {
-  const text = Widgeted.textOf(widgeted)
-  const enterText = (typed: string) => { onEnter(typed.trim() === '' ? null : typed) }
-  switch (entry_kind) {
+export function EntryCell({ widget, widgeting, widgeted, label, locked, heightPx, onEnter, bag = null }: Readonly<EntryCellProps>) {
+  const { cell, enter } = useEntering(widget, widgeting, label, onEnter)
+  switch (cell.family) {
   case 'text': {
-    return <StretchField label={label} committed={text} locked={locked} onCommit={enterText} heightPx={heightPx} bag={bag} />
+    const text = Widgeted.textOf(widgeted)
+    const enterText = (typed: string) => { enter(typed.trim() === '' ? null : typed) }
+    const maxLength = EntryFormulary.lengthMaxOf(cell.params)
+    if (! EntryFormulary.isOneLine(cell.params)) {
+      return <StretchField label={label} committed={text} locked={locked} onCommit={enterText} heightPx={heightPx} maxLength={maxLength} bag={bag} />
+    }
+    return <PlainField label={label} committed={text} locked={locked} onCommit={enterText} tidy={EntryFormulary.tidyFor(cell.params)} maxLength={maxLength} />
   }
   case 'number': {
     const committed = widgeted.status === 'ok' && typeof widgeted.value === 'number' ? widgeted.value : null
-    return <NumberField bare fractional signed label={label} locked={locked} committed={committed} onCommit={onEnter} />
+    const { signed, fractional } = EntryFormulary.numberBoxOf(cell.params, committed)
+    return <NumberField bare fractional={fractional} signed={signed} max={cell.params.max} label={label} locked={locked} committed={committed} onCommit={enter} />
   }
-  case 'labelish': {
-    return <PlainField label={label} committed={text} locked={locked} onCommit={enterText} tidy={(typed) => Labelmaker.normalize(typed)} />
+  case 'boolean': {
+    const committed = widgeted.status === 'ok' && typeof widgeted.value === 'boolean' ? widgeted.value : null
+    return <TruthField bare label={label} locked={locked} committed={committed} onCommit={enter} />
   }
-  case 'titleish': {
-    return <PlainField label={label} committed={text} locked={locked} onCommit={enterText} tidy={(typed) => typed.trim()} maxLength={PA.Titleish.max} />
+  case 'enum': {
+    const committed = widgeted.status === 'ok' && typeof widgeted.value === 'string' ? widgeted.value : null
+    return <ChoiceField bare label={label} locked={locked} committed={committed} options={cell.params.options ?? []} onCommit={enter} />
   }
   case 'estimates': {
-    return <EstimatesCell widgeted={widgeted} label={label} locked={locked} heightPx={heightPx} onEnter={onEnter} />
+    return <EstimatesCell widgeted={widgeted} label={label} locked={locked} heightPx={heightPx} onEnter={enter} />
   }
   }
 }

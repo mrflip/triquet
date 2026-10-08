@@ -5,6 +5,7 @@ import * as Jsonball from './jsonball'
 import * as Labelmaker from './labelmaker'
 import * as Recap from './recap'
 import * as UU from './useful'
+import * as Reporting from './vv/reporting'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
 import { ColumnValidators, plainOf, widgetingLabelOf, type ColumnPatch, type ColumnT } from '../models/column'
@@ -12,6 +13,7 @@ import { CategoriesDescription, CategoriesWidgetLabel, categoryDataLabelsFor, re
 import { CategoryDataLabel, SeedWidgets } from '../models/seeds'
 import { QuizValidators, isTemplatableField, templateableFrom, type QuizT, type Sortkey } from '../models/quiz'
 import { EntryFormulary } from './formulary/entry'
+import * as Formularies from './formulary/formularies'
 import { Widget, WidgetValidators, type EntryValueT, type EntryWidgetT, type WidgetT } from '../models/widget'
 import { WidgetingValidators, type WidgetingT } from '../models/widgeting'
 
@@ -391,7 +393,7 @@ function columnsRead(pasted: readonly unknown[], showable: ReadonlySet<string>):
     const parsed = ColumnValidators.column.safeParse(raw)
     if (! parsed.success) {
       const shownLabel = typeof (raw as { label?: unknown } | null)?.label === 'string' ? (raw as { label: string }).label : ''
-      log.push({ label: shownLabel, outcome: 'skipped', reason: parsed.error.issues[0]?.message ?? 'not a column this tool can read' })
+      log.push({ label: shownLabel, outcome: 'skipped', reason: reasonOf(parsed.error) })
       continue
     }
     const column = parsed.data
@@ -431,12 +433,20 @@ function placeIn(layout: string[], label: string, idx: number): void {
   layout.splice(idx, 0, label)
 }
 
-/** What revises `held` into `pasted`, field by field; null when nothing differs */
+/**
+ * What revises `held` into `pasted`, field by field; null when nothing differs. A formula,
+ * template, readout or collapse the held column has and the pasted one lacks is taken off, as the
+ * paste says the column stands.
+ */
 function columnPatchOf(held: ColumnT, pasted: ColumnT): ColumnPatch | null {
   const fieldnames = ['title', 'source', 'width_px', 'align'] as const
   const changed = fieldnames.filter((fieldname) => pasted[fieldname] !== undefined && pasted[fieldname] !== held[fieldname])
-  if (changed.length === 0) { return null }
-  return ColumnValidators.columnPatch(Object.fromEntries(changed.map((fieldname) => [fieldname, pasted[fieldname]])))
+  const stages = (['formula', 'template', 'readout', 'collapsed'] as const).filter((fieldname) => pasted[fieldname] !== held[fieldname])
+  if (changed.length === 0 && stages.length === 0) { return null }
+  return ColumnValidators.columnPatch({
+    ...Object.fromEntries(changed.map((fieldname) => [fieldname, pasted[fieldname]])),
+    ...Object.fromEntries(stages.map((fieldname) => [fieldname, pasted[fieldname] ?? null])),
+  })
 }
 
 /** The widgetings' share of the summary, or nothing when the paste carried none */
@@ -448,19 +458,22 @@ function widgetingSummary(log: readonly WidgetingLogEntry[]): string {
 
 /**
  * The pasted widgetings merged into the quiz's by label: the actions to send, and a line for each.
- * Only what changes is sent.
+ * Only what changes is sent. One whose params its widget does not take is skipped, saying why.
  */
 function widgetingsMerged(quiz: QuizT, pasted: readonly unknown[], library: readonly WidgetT[]): { actions: HuntActionDNA[], log: WidgetingLogEntry[] } {
-  const inLibrary = new Set(library.map((widget) => widget.label))
+  const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
   const heldFor = new Map(quiz.widgetings.map((widgeting) => [widgeting.label, widgeting]))
   const merged = pasted.map((raw): { action: HuntActionDNA | null, entry: WidgetingLogEntry } => {
     const parsed = WidgetingValidators.widgeting.safeParse(raw)
     const shownLabel = typeof (raw as { label?: unknown } | null)?.label === 'string' ? (raw as { label: string }).label : ''
-    if (! parsed.success) { return skippedAs(shownLabel, parsed.error.issues[0]?.message ?? 'not a widgeting this tool can read') }
-    const widgeting = parsed.data
+    if (! parsed.success) { return skippedAs(shownLabel, reasonOf(parsed.error)) }
+    const widget = widgetFor.get(parsed.data.widget_label)
+    const params = widget ? Formularies.paramsOf(widget).safeParse(parsed.data.params) : null
+    if (params && ! params.success) { return skippedAs(parsed.data.label, `its params will not do for ${parsed.data.widget_label}: ${Reporting.explain(params.error)}`) }
+    const widgeting = params ? { ...parsed.data, params: params.data } : parsed.data
     const held = heldFor.get(widgeting.label)
     if (held) { return revisedFrom(held, widgeting) }
-    if (! inLibrary.has(widgeting.widget_label)) { return skippedAs(widgeting.label, `the library holds no widget called "${widgeting.widget_label}"`) }
+    if (! widget) { return skippedAs(widgeting.label, `the library holds no widget called "${widgeting.widget_label}"`) }
     return { action: { kind: 'add_widgeting', widgeting }, entry: { label: widgeting.label, outcome: 'added', reason: null } }
   })
   return { actions: merged.flatMap(({ action }) => (action ? [action] : [])), log: merged.map(({ entry }) => entry) }
@@ -521,7 +534,7 @@ function enteredFrom(bag: Record<string, unknown>, entries: ReadonlyMap<string, 
     const pasted = pastedEntryOf(bag[label])
     if (! pasted.ok) { issues.push({ fieldpath: label, message: pasted.message, code: 'entry_unreadable' }); continue }
     if (pasted.value === null) { entered[label] = null; continue }
-    const checked = EntryFormulary.valueOf(widget).safeParse(pasted.value)
+    const checked = EntryFormulary.kindValueOf(widget).safeParse(pasted.value)
     if (checked.success) {
       entered[label] = checked.data
     } else {
@@ -691,6 +704,14 @@ function noteChainLoss(log: ImportLogEntry[], label: string) {
   })
 }
 
+/**
+ * Why a pasted widgeting, column or widget will not do, in a sentence that names what was wrong
+ * and where: `label «total» is a word the tool keeps for its own use, ...`.
+ */
+function reasonOf(err: Z.ZodError): string {
+  return Reporting.explain(err)
+}
+
 /** Every validation issue, with the field path, what was wrong, and the code */
 function issuesOf(err: Z.ZodError): ImportIssue[] {
   return err.issues.map((issue) => ({
@@ -748,7 +769,7 @@ export function libraryImported(library: readonly WidgetT[], pasted: string): Li
   const read = listed.map((each): { widget: WidgetT | null, entry: LibraryLogEntry } => {
     const parsed = WidgetValidators.widget.safeParse(each)
     const shownLabel = typeof (each as { label?: unknown } | null)?.label === 'string' ? (each as { label: string }).label : ''
-    if (! parsed.success) { return { widget: null, entry: { label: shownLabel, outcome: 'skipped', reason: parsed.error.issues[0]?.message ?? 'not a widget this tool can read' } } }
+    if (! parsed.success) { return { widget: null, entry: { label: shownLabel, outcome: 'skipped', reason: reasonOf(parsed.error) } } }
     const widget = parsed.data
     const held = heldFor.get(widget.label)
     if (! held) { return { widget, entry: { label: widget.label, outcome: 'added', reason: null } } }

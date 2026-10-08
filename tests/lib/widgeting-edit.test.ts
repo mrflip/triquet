@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { EstimatesColumnWidthPx, NewColumnWidthPx, planWidgetingEdit, type WidgetingEdit } from '../../src/lib/widgeting-edit'
+import { EstimatesColumnWidthPx, NewColumnWidthPx, planWidgetingEdit, runOrderIdxOf, type WidgetingEdit } from '../../src/lib/widgeting-edit'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
+import { Widgeting, type WidgetingT } from '../../src/models/widgeting'
 import { defaultLayout } from '../../src/models/layout'
 import { classicLayout } from '../support/layouts'
 import { SeedWidgets } from '../../src/models/seeds'
@@ -164,11 +165,11 @@ describe("planWidgetingEdit, on a locked quiz", () => {
 })
 
 describe("planWidgetingEdit, a new widgeting run once for the whole quiz", () => {
-  const withNames = [...library, Widget.fill({ label: 'names', formulary: 'entry', config: { entry_kind: 'text' } })]
+  const withNames = [...library, Widget.fill({ label: 'name_list', formulary: 'entry', config: { entry_kind: 'text' } })]
 
   it("adds it at its tier, and brings no column: it has no cell for any question", () => {
-    expect(actionsOf(ofHeld('names', { label: 'playtesters', tier: 'quiz' }), quiz, withNames)).to.deep.eq([
-      { kind: 'add_widgeting', widgeting: { widget_label: 'names', label: 'playtesters', description: '', params: {}, tier: 'quiz' } },
+    expect(actionsOf(ofHeld('name_list', { label: 'playtesters', tier: 'quiz' }), quiz, withNames)).to.deep.eq([
+      { kind: 'add_widgeting', widgeting: { widget_label: 'name_list', label: 'playtesters', description: '', params: {}, tier: 'quiz' } },
     ])
   })
 
@@ -179,14 +180,74 @@ describe("planWidgetingEdit, a new widgeting run once for the whole quiz", () =>
   })
 
   it("refuses a name the quiz itself answers to, and steps a defaulted label past one", () => {
-    expect(planWidgetingEdit(ofHeld('names', { label: 'smiths_note', tier: 'quiz' }), withNames, quiz)).to.deep.include({ ok: false, labelIssue: 'The quiz itself already answers to that name in a formula.' })
+    expect(planWidgetingEdit(ofHeld('name_list', { label: 'smiths_note', tier: 'quiz' }), withNames, quiz)).to.deep.include({ ok: false, labelIssue: 'The quiz itself already answers to that name in a formula.' })
     const smithsNote = [...library, Widget.fill({ label: 'smiths_note', formulary: 'entry', config: { entry_kind: 'text' } })]
     expect(actionsOf(ofHeld('smiths_note', { tier: 'quiz' }), quiz, smithsNote)[0]).to.deep.include({ widgeting: { widget_label: 'smiths_note', label: 'smiths_note_2', description: '', params: {}, tier: 'quiz' } })
   })
 
   it("keeps an existing widgeting's own tier, whatever the editor was opened for", () => {
-    const quizWide = { ...quiz, widgetings: [{ widget_label: 'names', label: 'playtesters', description: '', params: {}, tier: 'quiz' as const }, ...quiz.widgetings] }
+    const quizWide = { ...quiz, widgetings: [{ widget_label: 'name_list', label: 'playtesters', description: '', params: {}, tier: 'quiz' as const }, ...quiz.widgetings] }
     const held = present(quizWide.widgetings[0])
-    expect(actionsOf({ widgeting: held, label: 'testers', description: '', widgetLabel: 'names', tier: 'question' }, quizWide, withNames)).to.deep.eq([{ kind: 'edit_widgeting', label: 'playtesters', patch: { label: 'testers' } }])
+    expect(actionsOf({ widgeting: held, label: 'testers', description: '', widgetLabel: 'name_list', tier: 'question' }, quizWide, withNames)).to.deep.eq([{ kind: 'edit_widgeting', label: 'playtesters', patch: { label: 'testers' } }])
+  })
+})
+
+describe("planWidgetingEdit, an entry's params", () => {
+  const Grade = Widget.fill({ label: 'grade', formulary: 'entry', config: { entry_kind: 'number', min: 1, max: 10 } })
+  const withGrade = [...library, Grade]
+  const graded = Widgeting.fill({ widget_label: 'grade', label: 'grade', params: { max: 5 } })
+  const gradedQuiz: QuizT = { ...quiz, widgetings: [...quiz.widgetings, graded] }
+
+  it("hands a new widgeting the params given, held to its widget's family", () => {
+    const [added] = actionsOf(ofHeld('grade', { params: { integer: true } }), quiz, withGrade)
+    expect(added).to.deep.include({ kind: 'add_widgeting' })
+    expect(added?.kind === 'add_widgeting' ? added.widgeting.params : null).to.deep.eq({ integer: true })
+  })
+
+  it("revises an existing one's params alone, when only they changed", () => {
+    const edit = { widgeting: graded, label: 'grade', description: '', widgetLabel: 'grade', params: { max: 7 } }
+    expect(actionsOf(edit, gradedQuiz, withGrade)).to.deep.eq([{ kind: 'edit_widgeting', label: 'grade', patch: { params: { max: 7 } } }])
+  })
+
+  it("refuses params the family does not take, or that do not fit the widget's defaults, saying which", () => {
+    const foreign = planWidgetingEdit(ofHeld('grade', { params: { options: ['a'] } }), withGrade, quiz)
+    expect(foreign).to.deep.include({ ok: false, labelIssue: null })
+    const clashing = planWidgetingEdit(ofHeld('grade', { params: { max: 0 } }), withGrade, quiz)
+    expect(clashing.ok ? null : clashing.issue).to.eq("Its params will not do: max «0» should be no less than the least, «1»")
+  })
+
+  it("leaves an existing one's params alone when they are not what changed, whatever was written before", () => {
+    const old = { ...graded, params: { strict: true } }
+    const edit = { widgeting: old, label: 'graded_2', description: '', widgetLabel: 'grade' }
+    expect(actionsOf(edit, { ...quiz, widgetings: [...quiz.widgetings, old] }, withGrade)).to.deep.eq([{ kind: 'edit_widgeting', label: 'grade', patch: { label: 'graded_2' } }])
+  })
+})
+
+/** Whether a widgeting is one of the entries the run-order tests name */
+const isEntry = (widgeting: WidgetingT) => ['remark', 'tally'].includes(widgeting.label)
+
+/** Widgetings labelled `labels`, each working the widget of its label */
+const listOf = (...labels: string[]) => labels.map((label) => Widgeting.fill({ widget_label: label, label }))
+
+describe("runOrderIdxOf", () => {
+  const remark = listOf('remark')
+  const Cases: [string[], string, number, number, string][] = [
+    // regular usage:
+    [['remark', 'guess', 'shout'],                 'shout', 0,  1, 'a drop at the head of the rest lands just after the entries, per the doc example'],
+    [['guess', 'remark', 'shout', 'echo'],         'echo',  1,  2, 'a drop lands just before the one now there, an entry placed among them passed over'],
+    [['guess', 'remark', 'shout', 'echo'],         'guess', 2,  3, 'a drop past the last of the rest lands just after it'],
+    [['guess', 'shout', 'remark'],                 'guess', 1,  1, 'a drop at the end lands after the last of the rest, before an entry placed after it'],
+    // trivial cases:
+    [['guess'],                                    'guess', 0,  0, 'the one widgeting of the rest lands where it was'],
+    [['remark', 'tally', 'guess'],                 'guess', 5,  2, 'a drop past the end lands at the end'],
+  ]
+  for (const [labels, label, onto_idx, expected, describes] of Cases) {
+    it(describes, () => {
+      expect(runOrderIdxOf(listOf(...labels), isEntry, label, onto_idx)).to.eq(expected)
+    })
+  }
+
+  it("lands among the entries' rest wherever they are, the entries themselves never counted", () => {
+    expect(runOrderIdxOf([...remark, ...listOf('guess')], isEntry, 'guess', 0)).to.eq(1)
   })
 })

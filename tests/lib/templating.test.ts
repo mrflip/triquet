@@ -440,3 +440,40 @@ describe("templatableSources", () => {
     expect(Templating.templatableSources(TwoQuiz, []).map(({ source }) => source)).to.deep.eq(FieldSources)
   })
 })
+
+describe("valuedBagOf", () => {
+  it("is the question's template bag, with the value beside the bag's own words", () => {
+    const valued = Templating.valuedBagOf(run, [], first._id, 53)
+    expect([valued.value, (valued.qn as { title: string }).title]).to.deep.eq([53, 'One'])
+    expect(Templating.fill('{{ value }}%', valued).markdown).to.eq('53%')
+  })
+
+  it("holds the questions' templateable sources filled in, as the finished bag does", () => {
+    expect((Templating.valuedBagOf(run, ['clueing'], first._id, null).qn as { clueing: string }).clueing).to.eq('By Ada')
+    expect((Templating.valuedBagOf(run, [], first._id, null).qn as { clueing: string }).clueing).to.eq('By {{qn.author}}')
+  })
+
+  it("fills in an object value as its JSON, and reads into it", () => {
+    const valued = Templating.valuedBagOf(run, [], first._id, { guess: 'Leon' })
+    expect(Templating.fill('{{ value.guess }} / {{ value }}', valued).markdown).to.eq('Leon / {"guess":"Leon"}')
+  })
+})
+
+describe("computes", () => {
+  it("says a formula's and a bot's values are worked out, and an entry's typed", () => {
+    expect(Templating.computes(Widget.fill({ label: 'sizer', formulary: 'jsonata', formula: '1' }))).to.be.true
+    expect(Templating.computes(Widget.fill({ label: 'authors', formulary: 'entry', config: { entry_kind: 'text' } }))).to.be.false
+    expect(Templating.computes(null)).to.be.false
+  })
+})
+
+describe("imagesLinkedIn", () => {
+  it("writes every image in every string it holds as a link, however deep", () => {
+    expect(Templating.imagesLinkedIn({ value: ['![map](https://host/m.png)'] })).to.deep.eq({ value: ['&#33;[map](https://host/m.png)'] })
+    expect(Templating.imagesLinkedIn('see ![a](b) and ![c](d)')).to.eq('see &#33;[a](b) and &#33;[c](d)')
+  })
+
+  it("leaves anything that is not a string as it is", () => {
+    expect([Templating.imagesLinkedIn(3), Templating.imagesLinkedIn(null), Templating.imagesLinkedIn(true)]).to.deep.eq([3, null, true])
+  })
+})

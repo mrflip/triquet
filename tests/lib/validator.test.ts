@@ -141,3 +141,18 @@ describe('ValidatorKit.zid', () => {
     expect([converted.kind, converted.tableName]).to.deep.eq(['id', 'quizzes'])
   })
 })
+
+describe('ValidatorKit.labelAllowing', () => {
+  const allowing = ValidatorKit.labelAllowing(new Set(['min', 'max']))
+
+  it("takes a reserved word it is allowed, and refuses one it is not, per the doc examples", () => {
+    expect(ValidatorKit.labelAllowing(new Set(['min'])).parse('min')).to.eq('min')
+    expect(() => ValidatorKit.labelAllowing(new Set(['min'])).parse('max')).to.throw(Z.ZodError)
+  })
+
+  it("holds every other word to a label's shape and the reserved words, as label does", () => {
+    expect(allowing.parse('dumdum')).to.eq('dumdum')
+    expect(allowing.safeParse('total').success).to.be.false
+    expect(allowing.safeParse('Min').success).to.be.false
+  })
+})

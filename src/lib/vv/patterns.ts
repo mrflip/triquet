@@ -85,15 +85,19 @@ export const Jsident    = { re: /^[A-Za-z_$][\w$]*$/,  msg: 'should be a JavaScr
 
 /**
  * A label that is none of `words`: what keeps a name from shadowing one already in use beside it.
+ * The advice is said of the word refused, which a report puts in front of it (`«rank» is a name
+ * ...`), so it reads the same however long the list.
  *
  * @param words - The labels refused.
+ * @param msg - The advice, said of the word refused.
  * @returns The rule, and the advice it gives.
  *
  * @example reservedOf(['rank', 'title']).rule('rank')  // => false
+ * @example reservedOf(['rank']).msg                      // => 'is a name already in use beside it'
  */
-export function reservedOf(words: readonly string[]): Rulebag {
+export function reservedOf(words: readonly string[], msg = 'is a name already in use beside it'): Rulebag {
   const reserved = new Set(words)
-  return { rule: (label) => ! reserved.has(label), msg: `should not be any of ${words.join(', ')}, which the questions already use` }
+  return { rule: (label) => ! reserved.has(label), msg }
 }
 
 /** The tool's own nouns, one and many: its tables, and the things its rows and bags are made of */
@@ -108,7 +112,8 @@ const ModelNouns = [
 /**
  * The words no label may be, wherever it is used, grouped by why. Each is a word a label could
  * one day be mistaken for, beside the fields of a row, in a formula's bag, in an export's columns
- * or in a path, and so trouble that is cheap to refuse now and dear to unpick later. What only one
+ * or in a path, and so trouble that is cheap to refuse now and dear to unpick later: easier to
+ * take a word off later than to add one. A word in two groups is harmless. What only one
  * namespace must avoid is that namespace's own list (`ReservedWidgetingLabels`).
  *
  * `category` and `categories` are not here, though categories are a noun of the tool: the
@@ -132,10 +137,29 @@ export const ReservedLabelGroups = {
   devices:     ['con', 'prn', 'aux', 'nul', ...Array.from({ length: 10 }, (_unused, digit) => [`com${String(digit)}`, `lpt${String(digit)}`]).flat()],
   /** What an address might one day say beside a label, as `/h/new` */
   routes:      ['new', 'edit', 'api', 'admin'],
+  /** What a value is, rather than what it is of: the names of types, and of the entry families that take them */
+  types:       ['string', 'number', 'integer', 'float', 'boolean', 'object', 'array', 'list', 'json', 'date', 'time', 'datetime', 'enum', 'text'],
+  /** The languages and engines a quiz's text may one day be worked by, and the words for what they work */
+  engines:     [
+    'liquid', 'mustache', 'template', 'templates', 'templated', 'js', 'ts', 'javascript', 'typescript', 'wasm', 'rust',
+    'python', 'py', 'apicall', 'worker', 'workers', 'script', 'scripts', 'code', 'eval', 'exec', 'html', 'css', 'sql',
+    'yaml', 'xml', 'markdown', 'md', 'bbcode', 'bbjank', 'prompt', 'prompts', 'formula', 'formulas', 'formulary',
+    'formularies', 'regex',
+  ],
+  /** What a sheet or a formula calls a reduction: a widgeting wanting one says of what, as `clueing_sum` */
+  aggregates:  ['average', 'avg', 'mean', 'median', 'stdev', 'sum', 'total', 'count', 'min', 'max'],
+  /** JSONata's own words, which a path cannot say: `qn.and` will not parse, so nothing so labelled could be read */
+  jsonata:     ['and', 'or', 'in', 'function'],
+  /** How a value stands, and what a cell is called by it */
+  status:      ['result', 'results', 'error', 'errors', 'ok', 'stale', 'missing', 'current', 'blank', 'default', 'defaults'],
+  /** What a sheet or the grid itself calls its parts */
+  grid:        ['row', 'rows', 'col', 'cols', 'cell', 'cells', 'header', 'headers', 'index', 'idx', 'sort', 'order'],
+  /** What a lookup mistakes for the thing itself, or for its holder */
+  self:        ['self', 'this', 'me', 'it', 'name', 'names', 'data', 'item', 'items', 'object', 'root', 'parent'],
 } as const
 
-/** Every reserved word, each group's in turn */
-export const ReservedLabels: readonly string[] = Object.values(ReservedLabelGroups).flat()
+/** Every reserved word, each group's in turn, each once */
+export const ReservedLabels: readonly string[] = [...new Set<string>(Object.values(ReservedLabelGroups).flat())]
 
 const ReservedLabelSet: ReadonlySet<string> = new Set(ReservedLabels)
 
@@ -149,6 +173,22 @@ export const Unreserved = {
 } as const satisfies Rulebag
 
 /**
+ * Whether `val` is none of the words the tool keeps for its own use (`Unreserved`), or is one that
+ * `allowed` lets through all the same: the one reserved-word check, which a namespace whose own
+ * names are reserved elsewhere (an entry's params, `min` and `max`) hands its names to.
+ *
+ * @param val - A label-shaped word.
+ * @param allowed - Words let through whatever the reserved lists say.
+ * @returns True when the word may be used.
+ *
+ * @example isUnreserved('min')                    // => false
+ * @example isUnreserved('min', new Set(['min']))  // => true
+ */
+export function isUnreserved(val: string, allowed?: ReadonlySet<string>): boolean {
+  return allowed?.has(val) === true || Unreserved.rule(val)
+}
+
+/**
  * The words no hunt and no ident may be labelled, beyond those no label may be. A hunt's label and
  * an ident's are each global, the first word of an address or the name a person goes by, so these
  * are kept for the app's own pages and for whoever speaks for it.
@@ -156,7 +196,7 @@ export const Unreserved = {
 export const ReservedToplevelGroups = {
   /** The app's own corners, and the words for signing in and keeping an account */
   app:     [
-    'lib', 'sys', 'pub', 'my', 'home', 'root', 'www', 'static', 'assets', 'public', 'search', 'status',
+    'lib', 'sys', 'pub', 'my', 'home', 'www', 'static', 'assets', 'public', 'search', 'status',
     'stats', 'dashboard', 'settings', 'account', 'accounts', 'acct', 'auth', 'oauth', 'logout',
     'signin', 'signout', 'signup', 'register', 'mail', 'email',
   ],
@@ -201,6 +241,9 @@ export const UnreservedToplevel = {
     && ReservedToplevelPrefixes.every((prefix) => ! label.startsWith(prefix)),
   msg:  'is kept for the app\'s own pages and people: add to it, as my_label or label_2',
 } as const satisfies Rulebag
+
+/** A web address: `http://` or `https://`, then no space, up to what a browser's address bar holds comfortably */
+export const Weburl     = { re: /^https?:\/\/[^\p{White_Space}/?#]\P{White_Space}*$/iu, max: 2000, msg: 'should be a web address, beginning http:// or https://' } as const satisfies Patternbag
 
 /** A Convex document id: lowercase letters and digits, about 32 of them */
 export const Convexid   = { re: /^[0-9a-z]{31,37}$/, min: 31, max: 37, msg: 'should be a document id, 31 to 37 lowercase letters/numbers' } as const satisfies Patternbag

@@ -10,7 +10,7 @@ import { runOf } from '../../support/runs'
 const question = { ...Question.blank(), qnum: '1', title: 'Leon', full_answer: 'Leon' }
 const quiz = { ...Quiz.blank('Princes'), smiths_note: 'Meta: their initials.', questions: [question] }
 const place = Runner.placeOf({ label: 'deep_lake', title: 'The Deep Lake Hunt' }, { label: 'finals', title: '' })
-const bag = present(Runner.bagsAt(runOf(quiz, [], place), { label: 'col', params: { size: 3 } }).get(question._id))
+const bag = present(Runner.bagsAt(runOf(quiz, [], place), { label: 'tally', params: { size: 3 } }).get(question._id))
 
 /** What `formula`, over the whole bag, comes to for the one question */
 const runOn = (formula: string, input_formula = '$') => JsonataFormulary.run({ formula, input_formula }, null, bag)
@@ -42,7 +42,7 @@ describe('JsonataFormulary', () => {
       ["hunt.label & '/' & realm.label",           Widgeted.ok('deep_lake/finals'),                   "the hunt's and the realm's labels"],
       ["realm.title",                              Widgeted.ok('Finals'),                             "the realm's title, as shown"],
       ["quiz.smiths_note",                         Widgeted.ok('Meta: their initials.'),              "the smith's note"],
-      ["widgeting_label & ':' & $string(params.size)", Widgeted.ok('col:3'),                          "the widgeting's own label and params"],
+      ["widgeting_label & ':' & $string(params.size)", Widgeted.ok('tally:3'),                          "the widgeting's own label and params"],
       ["hunt._id",                                 Widgeted.missing,                                  'no id'],
     ]
     for (const [formula, expected, blurb] of Cases) {

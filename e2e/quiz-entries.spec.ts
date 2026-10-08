@@ -1,5 +1,5 @@
-import type { Page } from '@playwright/test'
-import { addWidgeting, cellOf, closeManage, expect, faceOf, freshWidgetLabel, manageDialog, openManage, openPanel, reloadOnceSaved, stepBy, test } from './support'
+import type { Locator, Page } from '@playwright/test'
+import { addWidgeting, cellOf, closeManage, expect, faceOf, freshWidgetLabel, manageDialog, openManage, openPanel, pickWidget, reloadOnceSaved, stepBy, test } from './support'
 
 /**
  * Write a new text entry widget into the library, labelled `widget_label`, through the quiz
@@ -23,6 +23,20 @@ async function addQuizEntry(page: Page, widget_label: string, label: string) {
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toHaveCount(0)
   await closeManage(page)
+}
+
+/**
+ * Through the gear's dialog, which must be open: the library's widget `widget_label` put to work
+ * once for the whole quiz under `label`, its settings said by `settle` when given.
+ */
+async function quizWidgetingAdded(page: Page, widget_label: string, label: string, settle?: (settings: Locator) => Promise<void>) {
+  await page.getByRole('button', { name: '+ New quiz widgeting…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New quiz widgeting' })
+  await pickWidget(page, editor, widget_label)
+  await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label)
+  if (settle) { await settle(editor.getByRole('group', { name: 'Settings' })) }
+  await editor.getByRole('button', { name: 'Apply' }).click()
+  await expect(editor).toHaveCount(0)
 }
 
 /** The Quiz entries panel, unfolded */
@@ -66,17 +80,45 @@ test('a quiz entry is typed into the Quiz entries panel, kept, and filled into a
 
 test('quiz and question widgetings share one run order, marked by tier, and one moved among the others stays there', async ({ page }) => {
   await addWidgeting(page, 'hint_full')
-  await addQuizEntry(page, freshWidgetLabel('names'), 'playtesters')
   await openManage(page)
+  await quizWidgetingAdded(page, 'clueing_full', 'quiz_sum')
   // A new widgeting goes in last, whichever its tier.
-  await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting hint_full', 'Widgeting playtesters'])
-  await expect(manageDialog(page).getByRole('group', { name: 'Widgeting playtesters' })).toContainText('whole quiz')
+  await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting hint_full', 'Widgeting quiz_sum'])
+  await expect(manageDialog(page).getByRole('group', { name: 'Widgeting quiz_sum' })).toContainText('whole quiz')
   await expect(manageDialog(page).getByRole('group', { name: 'Widgeting hint_full' })).toContainText('each question')
-  await stepBy(manageDialog(page).getByRole('button', { name: 'Reorder playtesters' }), -1)
-  await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting playtesters', 'Widgeting hint_full'])
+  await stepBy(manageDialog(page).getByRole('button', { name: 'Reorder quiz_sum' }), -1)
+  await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting quiz_sum', 'Widgeting hint_full'])
   await closeManage(page)
   await reloadOnceSaved(page)
   await openManage(page)
-  await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting playtesters', 'Widgeting hint_full'])
+  await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting quiz_sum', 'Widgeting hint_full'])
   await closeManage(page)
+})
+
+test('a quiz entry stands at the head of the run order, among the entries, and is not dragged', async ({ page }) => {
+  await addWidgeting(page, 'hint_full')
+  await addQuizEntry(page, freshWidgetLabel('names'), 'playtesters')
+  await openManage(page)
+  const entries = manageDialog(page).getByRole('list', { name: 'Entries' })
+  await expect(entries.getByRole('group', { name: 'Widgeting playtesters' })).toContainText('whole quiz')
+  await expect(manageDialog(page).getByRole('button', { name: 'Reorder playtesters' })).toHaveCount(0)
+  await closeManage(page)
+})
+
+test('a yes or no and a choice for the whole quiz are a checkbox and a select in the Quiz entries panel, kept as they are changed', async ({ page }) => {
+  await openManage(page)
+  await quizWidgetingAdded(page, 'yes_no', 'tested')
+  await quizWidgetingAdded(page, 'choice', 'stage', async (settings) => {
+    const options = settings.getByRole('textbox', { name: 'Options, one per line' })
+    await options.fill('draft\nfinal')
+    await options.blur()
+  })
+  await closeManage(page)
+  const entries = await entriesPanel(page)
+  await entries.getByRole('checkbox', { name: 'Tested' }).click()
+  await entries.getByRole('combobox', { name: 'Stage' }).selectOption('final')
+  await reloadOnceSaved(page)
+  await entriesPanel(page)
+  await expect(entries.getByRole('checkbox', { name: 'Tested' })).toBeChecked()
+  await expect(entries.getByRole('combobox', { name: 'Stage' })).toHaveValue('final')
 })

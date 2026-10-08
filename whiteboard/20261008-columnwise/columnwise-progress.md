@@ -9,18 +9,18 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | Thread | Label | Status |
 |---|---|---|
 | 1 | design note and vocabulary | landed #191 (docs only, no review) |
-| 2 | entry families | landing (review flagged; Coach ruled: production grep gate; full e2e) |
+| 2 | entry families | landed #196 (the spine restarted: #191-#193 merged) |
 | 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
-| 3b | column expression authoring | underway |
-| 7 | `liquidize` formulary | pending |
-| 6 | free regex (optional) | pending |
+| 3b | column expression authoring | landing (review clean) |
+| 7 | `liquidize` formulary | in review |
+| 6 | free regex (optional) | underway |
 | 5a | folding editors | pending |
 | 5b | run order in both places, row preview | pending |
 | 8 | seeds pass (optional) | pending |
 | 3c | columns tighten (last) | pending |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 asked for one (the fourth landing).
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more).
 
 ## What the threads have taught
 
@@ -105,6 +105,39 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   widgeting misses a column whose plain source is `categories`; only before the backfill or 3c),
   **refused to the reviewer by the permission check, so waiting on the Coach, not routed**; the
   relabel rule held twice (3c drops the migration's copy); no unit test of its own for `8562e8b`.
+
+### From thread 2 (entry families, #196)
+
+*Orchestrator:* the Coach merged #191-#193 while thread 2 landed, so #196 starts the spine afresh.
+
+* **Families** (`src/models/widget.ts`): `EntryFamilyVals`, `EntryFamilyOf`, `OfferedEntryKindVals`;
+  params validators per family (`numberParams`, `textParams`, `enumParams`, `noParams`;
+  `EntryParamsOf` by kind); `entryConfig` a union by `entry_kind`, each arm the family's params as
+  the widget's defaults; `labelish`/`titleish` are `EntryPresets` of `text`.
+* **The formulary** (`src/lib/formulary/entry.ts`): `paramsOf(widget)`, `inForce(widget,
+  widgeting)`, `valueOf(widget, widgeting)`, `kindValueOf(widget)`; `Formularies.paramsOf(widget)`
+  dispatches, `jsonata`/`aibot` the open record. **7 and 6 build on these.**
+* **Reserved words**: the record's groups are in; a widgeting's params keys are held to them but
+  for `EntryParamnames` (derived from `EntryParamsOf`), through `PA.isUnreserved(val, allowed)`,
+  which sits on the spine's Set-based `PA.Unreserved.rule` (`c6e6943`, landed beside this thread):
+  `ValidatorKit.labelAllowing(allowed)` and `Labelmaker.isReserved(label, { allowed })`. A new
+  family's param names join the allowlist by being in its validator. `categories` is not yet
+  reserved (3c).
+* **Views**: `cells/fields.tsx` `TruthField` (a tri-state checkbox) and `ChoiceField` (a native
+  select); `cells/entry.tsx` draws every family from the params in force through
+  `cells/use-entering.ts`; **`EntryParamsFields.tsx`**, the params editor (one field per key of the
+  family's validator, each committing as left), in the widgeting dialog and the widget editor:
+  5a lifts it, 6 adds its regex field there. The run-order list: *Entries* above the sortable rest;
+  `runOrderIdxOf` maps a drop onto the whole order. The Widgets panel says params (`paramsGist`).
+* **Imports** hold an entry's value to its kind, not its params; params are checked where
+  written. A cell refuses what its params refuse before sending, through the page's alarm.
+* Seeds `memo`, `figure`, `yes_no`, `choice`. `PA.Weburl` uses `\p{White_Space}` (an RE2 test
+  on the spine).
+* *Review:* `flagged` → ruled. Fixed: `c420fbf` (`EntryFormulary.numberBoxOf`: a number box shows a
+  held value as it is). Left, minor: a refused value stays in its box (`useDraft`); git history
+  lists a hunt under a new word by id; a widget's defaults can clash with a widgeting's params.
+* **For the deploy (the Coach):** before, the hard grep gate (`human/20261008-cw_families.md`);
+  after, `seeding:seedWidgets`.
 
 ### From thread 2's review (flagged, ruled)
 

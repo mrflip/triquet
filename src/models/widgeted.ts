@@ -4,6 +4,13 @@ import * as UU from '../lib/useful'
 import * as PA from '../lib/vv/patterns'
 import { EstimateValidators } from './estimate'
 
+/**
+ * The two keys a widgeted is to carry to say whether its value is current: the digest of what it
+ * was worked out from, and whether that has changed since. Named here, with the widgeted, so no
+ * widgeting takes one of them (`ReservedWidgetingLabels`).
+ */
+export const StalenessFieldnames = ['digest', 'stale'] as const
+
 /** Any JSON value: what a widgeted's `value` may be */
 export type JsonT = Z.core.util.JSONType
 
@@ -29,7 +36,7 @@ function storedIssues(stored: { status: StoredStatus, value: unknown, message: s
   ]
 }
 
-export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, oneof, union, label, noteish, timestamp, stamps, discrim, zid }) => {
+export const WidgetedValidators = Validator(({ obj, lit, str, num, bool, zod, rec, oneof, union, label, noteish, timestamp, stamps, discrim, zid }) => {
   const err = obj({
     message:  str
       .describe('Why it failed, in the author\'s words.'),
@@ -104,8 +111,8 @@ export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, one
     .check((context) => { for (const issue of storedIssues(context.value)) { context.issues.push({ code: 'custom', ...issue }) } })
     .describe('One widgeted as a browser sends it to be recorded: the question by id, the widgeting by label, and what it came to.')
 
-  const enteredValue = union([str.max(PA.Textish.max), num, EstimateValidators.estimates]).nullable()
-    .describe('What was typed into an entry cell: text, a number, or a question\'s category estimates, held to the widget\'s entry kind once it is known; null for a cell emptied.')
+  const enteredValue = union([str.max(PA.Textish.max), num, bool, EstimateValidators.estimates]).nullable()
+    .describe('What was typed into an entry cell: text, a number, a yes or no, or a question\'s category estimates, held to the widget\'s entry kind and its widgeting\'s params once they are known; null for a cell emptied.')
   const entered = obj({
     question_id:     zid('questions')
       .describe('The question it is for, by its row id.'),
