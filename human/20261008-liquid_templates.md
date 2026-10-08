@@ -25,3 +25,7 @@ What the default recap now does differently: questions in Q# order, numbered pas
 questions with no Q# that hold a clueing come last; the rule under the head only when a question
 follows. `played` and its pre-shaped values (`quoted.clueing` and the rest) are gone; a template
 reading them fills them in as nothing.
+
+**Checked 2026-10-08, with the Coach:** production's six quizzes hold no recap template of their
+own, template no field (`templated` empty everywhere), and have blank recap heads and tails.
+Nothing to convert; the PR may merge as it stands.
