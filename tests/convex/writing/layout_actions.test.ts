@@ -546,9 +546,9 @@ async function withQuizWide(): Promise<Seeded> {
 }
 
 describe("widgetings run once for the whole quiz", () => {
-  it("puts an entry above the questions, where every formula reads it, and a formula below them, where it reads them all", async () => {
+  it("puts a new one at the end of the run order, where it reads every widgeting before it", async () => {
     const { tt, read } = await withQuizWide()
-    expect(tiersOf(await read())).to.deep.eq(['playtesters:quiz', ...StandardWidgetings.map((label) => `${label}:question`), 'total:quiz'])
+    expect(tiersOf(await read())).to.deep.eq([...StandardWidgetings.map((label) => `${label}:question`), 'playtesters:quiz', 'total:quiz'])
     await expectSound(tt)
   })
 
@@ -557,10 +557,10 @@ describe("widgetings run once for the whole quiz", () => {
     expect(columnsOf(await read())).to.deep.eq(StandardColumns)
   })
 
-  it("puts a new widgeting for each question at the end of the question widgetings, above those of the quiz below them", async () => {
+  it("puts a new widgeting for each question at the end of the run order too, after those of the whole quiz", async () => {
     const { act, read } = await withQuizWide()
     await act({ kind: 'add_widgeting', widgeting: Backward })
-    expect(widgetingsOf(await read()).slice(-2)).to.deep.eq(['backward', 'total'])
+    expect(widgetingsOf(await read()).slice(-3)).to.deep.eq(['playtesters', 'total', 'backward'])
   })
 
   it("refuses a model asked from a cell, a question's category estimates, and a name the quiz itself answers to", async () => {
@@ -588,39 +588,27 @@ describe("widgetings run once for the whole quiz", () => {
     await expectRefused(await withQuizWide(), ...refusals)
   })
 
-  it("moves across the questions pivot, counted in the quiz's own list: [playtesters, questions, total]", async () => {
-    const { act, read } = await withQuizWide()
-    await act({ kind: 'move_widgeting', label: 'playtesters', onto_idx: 2 })
-    expect(widgetingsOf(await read()).slice(-2)).to.deep.eq(['total', 'playtesters'])
-    await act({ kind: 'move_widgeting', label: 'total', onto_idx: 0 })
-    expect(widgetingsOf(await read())[0]).to.eq('total')
-    expect(widgetingsOf(await read()).at(-1)).to.eq('playtesters')
-  })
-
-  it("moves a widgeting for each question among the question widgetings alone", async () => {
-    const { act, read } = await withQuizWide()
-    await act({ kind: 'move_widgeting', label: 'hint_full', onto_idx: 0 })
-    expect(widgetingsOf(await read()).slice(0, 2)).to.deep.eq(['playtesters', 'hint_full'])
+  it("moves one in the one run order, both tiers counted, and leaves them mixed where it was dropped", async () => {
+    const { tt, act, read } = await withQuizWide()
+    await act({ kind: 'move_widgeting', label: 'playtesters', onto_idx: 0 })
+    expect(widgetingsOf(await read())[0]).to.eq('playtesters')
+    await act({ kind: 'move_widgeting', label: 'total', onto_idx: 2 })
+    const asQuestions = StandardWidgetings.map((label) => `${label}:question`)
+    expect(tiersOf(await read()).slice(0, 4)).to.deep.eq(['playtesters:quiz', ...asQuestions.slice(0, 1), 'total:quiz', ...asQuestions.slice(1, 2)])
     await act({ kind: 'move_widgeting', label: 'hint_full', onto_idx: 99 })
-    expect(widgetingsOf(await read()).slice(-2)).to.deep.eq(['hint_full', 'total'])
+    expect(widgetingsOf(await read()).at(-1)).to.eq('hint_full')
+    await expectSound(tt)
   })
 
-  it("keeps a formula over the questions below them when the last question widgeting is removed and another added", async () => {
+  it("keeps the tiers mixed as placed when another is added or one removed", async () => {
     const { act, read } = await withNames(Hunt.blank())
     await act({ kind: 'add_widgeting', widgeting: { widget_label: 'names', label: 'playtesters', tier: 'quiz' } })
     await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'sum', tier: 'question' } })
     await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'total', tier: 'quiz' } })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'late', tier: 'question' } })
+    expect(tiersOf(await read())).to.deep.eq(['playtesters:quiz', 'sum:question', 'total:quiz', 'late:question'])
     await act({ kind: 'delete_widgeting', label: 'sum' })
-    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'sum2', tier: 'question' } })
-    expect(tiersOf(await read())).to.deep.eq(['playtesters:quiz', 'sum2:question', 'total:quiz'])
-  })
-
-  it("keeps a formula added before any question widgeting below those added after it", async () => {
-    const { act, read } = await withNames(Hunt.blank())
-    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'total', tier: 'quiz' } })
-    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'names', label: 'playtesters', tier: 'quiz' } })
-    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'sum', tier: 'question' } })
-    expect(tiersOf(await read())).to.deep.eq(['playtesters:quiz', 'sum:question', 'total:quiz'])
+    expect(tiersOf(await read())).to.deep.eq(['playtesters:quiz', 'total:quiz', 'late:question'])
   })
 
   it("keeps the run order whole when one is removed", async () => {

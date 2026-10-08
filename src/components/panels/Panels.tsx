@@ -42,12 +42,14 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   onRecapHead: (recap_head: string) => void
   /** Rewrite the quiz's recap tail, from the Recap panel */
   onRecapTail: (recap_tail: string) => void
+  /** Give the quiz a recap template of its own, or put it back on the default (null), from the Recap panel */
+  onRecapTemplate: (recap_template: string | null) => void
   /** Type into one of the quiz's own entries, from the Quiz entries panel: the value, or null for one emptied */
   onEnterQuiz: (widgeting_label: string, value: EntryValueT | null) => void
 }
 
 /** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, the quiz's own entries, ways to get the work back out, the widgets the quiz puts to work, and the recap note */
-export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport, onImportElsewhere, onQ1Preamble, onRecapHead, onRecapTail, onEnterQuiz }: Readonly<PanelsProps>) {
+export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport, onImportElsewhere, onQ1Preamble, onRecapHead, onRecapTail, onRecapTemplate, onEnterQuiz }: Readonly<PanelsProps>) {
   const labels = { org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
     <PanelsRow>
@@ -63,7 +65,7 @@ export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, ru
 
       <WidgetsPanel quiz={quiz} run={run} />
 
-      <RecapPanel quiz={quiz} run={run} revisable={offers.reviseQuiz} onRecapHead={onRecapHead} onRecapTail={onRecapTail} />
+      <RecapPanel quiz={quiz} run={run} revisable={offers.reviseQuiz} onRecapHead={onRecapHead} onRecapTail={onRecapTail} onRecapTemplate={onRecapTemplate} />
     </PanelsRow>
   )
 }

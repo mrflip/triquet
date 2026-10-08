@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addColumns, expect, exportedQuizzes, grid, newQuiz, openQuiz, preparedExport, showTab, test, waitUntilSaved } from './support'
+import { addColumns, expect, exportedQuizzes, grid, newQuiz, openPanel, openQuiz, preparedExport, showTab, test, waitUntilSaved } from './support'
 
 /** The Import box, its tab brought to the front */
 async function importBox(page: Page) {
@@ -121,6 +121,7 @@ test("a hunt pasted into a quiz matching none of its quizzes makes the quiz of i
   await expect(fieldAt(page, 'Clueing', 0)).toHaveValue('Sent along')
   // The new quiz's own blank questions are put away once the paste has filled it.
   await expect(grid(page).locator('tbody tr')).toHaveCount(1)
+  await openPanel(page, 'Export / Import')
   await expect(page.getByRole('status').filter({ hasText: "sent here from another quiz's Import" })).toBeVisible()
 
   await page.goto(from)
@@ -150,6 +151,7 @@ test('a hunt sent on to a quiz that is locked is not read there, and not kept to
   await openQuiz(page, 'Quiz one')
   await runImport(page, { label: 'another_hunt', quizzes: { home: { [label]: { questions: { leon: { position: 0, clueing: 'Sent along' } } }, other: { questions: {} } } } })
   await expect(page).toHaveURL(new RegExp(`/${label}/!edit$`))
+  await openPanel(page, 'Export / Import')
   await expect(page.getByRole('status').filter({ hasText: 'This quiz is locked' })).toBeVisible()
   await expect(grid(page).locator('tbody tr')).toHaveCount(5)
 

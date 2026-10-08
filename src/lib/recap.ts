@@ -1,105 +1,175 @@
+import * as EST from 'es-toolkit'
 import * as Bbjank from './bbjank'
 import * as LLSmithExport from './ll-smith-export'
 import * as Rank from './rank'
 import * as Runner from './formulary/runner'
+import * as Shaping from './shaping'
 import * as Templating from './templating'
 import { Widgeted } from '../models/widgeted'
-import { Question, type QuestionT } from '../models/question'
-import type { QuizT } from '../models/quiz'
+import { Question } from '../models/question'
+import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../models/quiz'
 
 /**
  * The recap note: what a smith posts to the league's message boards once the quiz has been
- * played. The quiz's recap head, then each question played (its clueing and BUT NOT, its answer
- * behind a spoiler, how many got it, and the question's own recap), then the recap tail, in bbjank.
+ * played. One markdown document, made by filling in mustache templates, then written in bbjank
+ * once, whole: the recap head and tail are filled in over the quiz's template bag (its questions'
+ * templated texts filled in first, as the grid shows them), then the recap
+ * template (the quiz's own, or `DefaultTemplate`) over the **recap bag**, which holds them and the
+ * questions played; then `Bbjank.toBbjank`, which writes only what it knows, is the last step.
  *
- * Each text an author wrote is converted on its own (`Bbjank.toBbjank`), so it means on the board
- * what it means on screen, and the recap's own frame (the quote naming each question, the
- * spoiler, the answer's lines) is written around it.
+ * The default template reads only what every template reads -- `{{#qns}}`, each question's own
+ * fields and its columns by label -- plain mustache and the template helpers, so an author can see
+ * where each line comes from and change any of it. What an author wrote, set into a place where
+ * markdown's structure is fragile, can change that structure: a clueing's second line can leave
+ * the quote its first line opened, a blank line in an answer breaks its spoiler. The helpers
+ * (`{{#quote}}`, `{{#oneline}}`, `{{#apart}}`) reshape a field for its place, and the recap bag still carries `played`, the questions the recap covers with each of their own
+ * fields pre-shaped for those places (`quoted.clueing`, `oneline.full_answer`, `below.recap`), for
+ * a template of the quiz's own to read.
  */
 
 /**
- * A widgeting whose label says it holds the share of players who answered a question correctly,
- * in percent: what the recap's `Correct Answer %:` line reads, when the quiz has one.
+ * The recap template every quiz follows until it is given one of its own, written with nothing
+ * but what every template reads, plain mustache and the template helpers
+ * (`Templating.Helpers`): the recap head, a rule, then each question (`{{#qns}}`, in the quiz's
+ * own order, never the archived) that has a rank -- a Q# -- and is not an alternate
+ * (`{{^secondary}}`), its rank and clueing quoted under its Q-number, with its own hint after
+ * `...OR ELSE...` when it has one; its answer behind a spoiler; the `correct_pct` column; its
+ * recap -- then the recap tail. The rule under the head is `***`: a
+ * `---` straight under it would make the head's last line a heading. Inside a section on a field
+ * (`{{#rank}}`, `{{#hint}}`) that field is the context, and the question's other fields are found
+ * on the question below it. `{{#quote}}` keeps every line of the clueing and hint in its quote,
+ * `{{#oneline}}` keeps the answer in its spoiler, `{{#apart}}` keeps a recap opening `---` from
+ * making the lines above it a heading.
  */
-export const CorrectPctRE = /^(?:correct_(?:answer_)?(?:pct|percent)|(?:pct|percent)_correct)$/
+export const DefaultTemplate = `
+{{#recap_head}}
+{{recap_head}}
+{{! A rule under the head. Not ---, which would make the line above a heading. }}
+***
 
-/** What a question's answer line opens with, ahead of the answer's spoiler */
-const AnswerLead = 'Answer: '
+{{/recap_head}}
+{{#qns}}
+{{! Only the questions with a rank (a Q#), and not the alternates. }}
+{{#rank}}
+{{^secondary}}
+> {AS: Q{{rank}}}{{rank}}. {{#quote}}{{clueing}}{{/quote}}
+{{#hint}}
+>
+> ...OR ELSE...
+>
+> {{#quote}}{{hint}}{{/quote}}
+{{/hint}}
 
-/** Where one question sits in the recap: its number, the question whose hint is its BUT NOT, and its correct-answer share */
-type PlacedT = {
-  number: number
-  target: QuestionT | null
-  pct:    string
+Answer: {{#full_answer}}~~**{{#oneline}}{{full_answer}}{{/oneline}}**~~{{/full_answer}}
+Correct Answer %: {{correct_pct}}
+{{#apart}}{{recap}}{{/apart}}
+
+{{/secondary}}
+{{/rank}}
+{{/qns}}
+{{recap_tail}}
+`.trim()
+
+/**
+ * The label of the widgeting that holds the share of players who answered a question correctly,
+ * in percent: what a question played carries as `pct`, when the quiz has one.
+ */
+export const CorrectPctLabel = 'correct_pct'
+
+/** Each of a question's own fields that hold markdown, shaped for one place in the template */
+export type ShapedT = Record<TemplatableField, string>
+
+/**
+ * One question played, as the recap template reads it inside `{{#played}}`: the question as a
+ * template's bag holds it (its fields, its templated ones filled in, and every widgeting's
+ * widgeted under its label), and beside them, winning over a widgeting of the same label, these.
+ * The shaped fields are keyed by field: `{{quoted.clueing}}`, `{{oneline.full_answer}}`,
+ * `{{below.recap}}`.
+ */
+export type PlayedT = Record<string, unknown> & {
+  /** Its place among the questions played, from 1 */
+  number:  number
+  /** Each field to follow a `> ` the template opened (`Shaping.quotedOf`): every line after the first opens `> `, indents read as quotes */
+  quoted:  ShapedT
+  /** Each field on one line (`Shaping.oneLineOf`), safe within a line of the template's */
+  oneline: ShapedT
+  /** Each field safe on the line straight after another of the template's (`Shaping.belowOf`); blank when it is */
+  below:   ShapedT
+  /** Its share of correct answers, from the quiz's `correct_pct` widgeting, on one line; blank without one */
+  pct:     string
+}
+
+/** What the recap template reads: the quiz's template bag, its recap head and tail filled in, and the questions played */
+export type RecapBagT = Templating.TemplateBag & {
+  recap_head: string
+  recap_tail: string
+  played:     PlayedT[]
+}
+
+/** The recap note in bbjank, and what keeps the recap template from filling in, if anything does */
+export type RecapNoteT = {
+  bbjank: string
+  issue:  string | null
 }
 
 /**
- * The recap note in bbjank, ready to paste into a post on the league's boards.
+ * The recap template `quiz` follows: its own, or the default.
  *
- * The recap head and tail are templates, filled in over the quiz's bag (`Templating.bagOf(run,
- * null)`); a question's fields are filled in where the quiz templates them. The questions are
- * those played: in rank order, numbered from 1, and neither archived nor alternates (as the LL
- * export going live has them) nor blank, never written into. A blank head, tail or recap is left out, with the space around it;
- * a rule sets the head apart from the questions.
+ * @example templateOf({ ...quiz, recap_template: undefined }) === DefaultTemplate  // => true
+ */
+export function templateOf(quiz: Pick<QuizT, 'recap_template'>): string {
+  return quiz.recap_template ?? DefaultTemplate
+}
+
+/**
+ * The recap note in bbjank, ready to paste into a post on the league's boards: the recap
+ * template filled in over the recap bag (`bagOf`), then written in bbjank, whole. A template that
+ * cannot be filled in is written as typed, with what is wrong with it.
  *
- * @param quiz - The quiz: its recap head and tail, and its questions.
- * @param run - Its run, for the templates' bag and a correct-answer column (`CorrectPctRE`).
- * @returns The recap note; empty for a quiz with nothing to recap.
+ * @param quiz - The quiz: its recap head, tail and template, and its questions.
+ * @param run - Its run, for the templates' bag and the correct-answer column.
+ * @returns The note, empty for a quiz with nothing to recap; and the template's issue, if any.
  *
- * @example bbjankOf({ ...quiz, recap_head: 'Thanks!', questions: [hamilton] }, run)
+ * @example noteOf({ ...quiz, recap_head: 'Thanks!', questions: [hamilton] }, run).bbjank
  *   // => 'Thanks!\n----------------------------------------\n\n[quote="Q1"]1. Who?[/quote]\n\nAnswer: [spoiler][b]HAMILTON[/b][/spoiler]\nCorrect Answer %:'
  */
-export function bbjankOf(quiz: QuizT, run: Runner.QuizRun): string {
-  const filled = Templating.filledQuiz(quiz, run)
-  const quizBag = Templating.bagOf(run, null)
-  const head = Bbjank.toBbjank(Templating.fill(quiz.recap_head, quizBag).markdown)
-  const tail = Bbjank.toBbjank(Templating.fill(quiz.recap_tail, quizBag).markdown)
-  const questionForId = new Map(filled.questions.map((question) => [question._id, question]))
-  const pctLabel = quiz.widgetings.find((widgeting) => CorrectPctRE.test(widgeting.label))?.label ?? null
-  const played = Rank.inRankOrder(LLSmithExport.exportedIn(filled.questions, 'go_live').filter((question) => ! Question.isBlank(question)))
-  const blocks = played.map((question, ii) => blockOf(question, {
-    number: ii + 1,
-    target: question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null,
-    pct:    pctLabel === null ? '' : Widgeted.textOf(Runner.widgetedOf(run, pctLabel, question._id)),
-  }))
-  const opening = head !== '' && blocks.length > 0 ? `${head}\n${Bbjank.RuleLine}` : head
-  return [opening, ...blocks, tail].filter((block) => block !== '').join('\n\n')
+export function noteOf(quiz: QuizT, run: Runner.QuizRun): RecapNoteT {
+  const filled = Templating.fill(templateOf(quiz), bagOf(quiz, run))
+  return { bbjank: Bbjank.toBbjank(filled.markdown), issue: filled.issue }
 }
 
 /**
- * One question's block of the recap: its number and clueing, with its BUT NOT, quoted under its
- * Q-number; a blank line; its answer behind a spoiler, on one line; its correct-answer share; and
- * its recap, when it has one.
+ * What the recap template reads: the quiz's template bag, its questions' templated texts filled
+ * in (`Templating.filledBagOf`), so `{{clueing}}` inside `{{#qns}}` is a templated clueing filled
+ * in; its recap head and tail, each filled in over that bag (as typed, when it cannot be); and `played`,
+ * the questions the recap covers -- in rank order, numbered from 1, and neither archived nor
+ * alternates (as the LL export going live has them) nor blank, never written into -- each with
+ * its own fields pre-shaped (`PlayedT`).
  *
- * @param question - The question, its templated fields filled in.
- * @param placed - Its number, the question it chains to, and its correct-answer share (blank when unknown).
- * @returns The block, in bbjank.
- *
- * @example blockOf({ ...qn, clueing: 'Who?', full_answer: 'HAMILTON', recap: 'Aced.' }, { number: 1, target: null, pct: '76' })
- *   // => '[quote="Q1"]1. Who?[/quote]\n\nAnswer: [spoiler][b]HAMILTON[/b][/spoiler]\nCorrect Answer %: 76\nAced.'
+ * @example bagOf(quiz, run).played.map((played) => played.number)  // => [1, 2, 3]
  */
-export function blockOf(question: QuestionT, { number, target, pct }: Readonly<PlacedT>): string {
-  const body = Bbjank.toBbjank(LLSmithExport.bodyOf(question, target))
-  const answer = answerOf(question.full_answer)
-  const recap = Bbjank.toBbjank(question.recap)
-  return [
-    `[quote="Q${String(number)}"]${String(number)}. ${body}[/quote]`,
-    '',
-    `${AnswerLead}[spoiler][b]${answer}[/b][/spoiler]`,
-    pct === '' ? 'Correct Answer %:' : `Correct Answer %: ${pct}`,
-    ...(recap === '' ? [] : [recap]),
-  ].join('\n')
-}
-
-/**
- * A full answer in bbjank, its lines folded into one. It is converted as the rest of its line,
- * after `Answer: `, so nothing it opens with reads as a list, a quote, a rule or a link
- * definition, and none of it is lost.
- *
- * @example answerOf('1984.')                 // => '1984.'
- * @example answerOf('HAMILTON\n*or* ROWAN')  // => 'HAMILTON [i]or[/i] ROWAN'
- */
-function answerOf(fullAnswer: string): string {
-  const folded = fullAnswer.split('\n').map((line) => line.trim()).filter((line) => line !== '').join(' ')
-  return Bbjank.toBbjank(AnswerLead + folded).slice(AnswerLead.length)
+export function bagOf(quiz: QuizT, run: Runner.QuizRun): RecapBagT {
+  const quizBag = Templating.filledBagOf(quiz, run)
+  const every = quizBag.quiz.questions as Record<string, unknown>[]
+  const qnFor = new Map(run.frame.question_ids.map((question_id, idx) => [question_id, every[idx] ?? {}]))
+  const hasPct = quiz.widgetings.some((widgeting) => widgeting.label === CorrectPctLabel && widgeting.tier === 'question')
+  const played = Rank.inRankOrder(LLSmithExport.exportedIn(quiz.questions, 'go_live').filter((question) => ! Question.isBlank(question)))
+  return {
+    ...quizBag,
+    recap_head: Templating.fill(quiz.recap_head, quizBag).markdown,
+    recap_tail: Templating.fill(quiz.recap_tail, quizBag).markdown,
+    played:     played.map((question, ii): PlayedT => {
+      const qn = qnFor.get(question._id) ?? {}
+      const fields = EST.mapValues(EST.pick(question, TemplatableFieldVals), (typed, field) => (typeof qn[field] === 'string' ? qn[field] : typed))
+      return {
+        ...qn,
+        ...fields,
+        number:  ii + 1,
+        quoted:  EST.mapValues(fields, Shaping.quotedOf),
+        oneline: EST.mapValues(fields, Shaping.oneLineOf),
+        below:   EST.mapValues(fields, Shaping.belowOf),
+        pct:     hasPct ? Shaping.oneLineOf(Widgeted.textOf(Runner.widgetedOf(run, CorrectPctLabel, question._id))) : '',
+      }
+    }),
+  }
 }

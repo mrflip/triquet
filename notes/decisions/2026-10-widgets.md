@@ -173,6 +173,13 @@ the quiz's own widgetings apart, with one fixed item among them, **the questions
 widgetings above it run first, then the question widgetings, then the quiz widgetings below it,
 each reading what every one before it came to.
 
+*Superseded in part by the recap sprint's thread 11 (2026-10-07), at the Coach's word ("can we
+just let them interleave?"):* the pivot is gone. The run order is the widgetings' positions, both
+tiers mixed as placed: a quiz widgeting runs once over the questions as those before it left
+them, and a question widgeting reads every quiz widgeting before it. The gear lists both tiers in
+one list, each row marked with its tier; `move_widgeting` counts that one list, as `move_column`
+does; a new widgeting of either tier goes last. The first bullet below is the history it replaced.
+
 * **Run order without a new field.** A quiz's widgetings stay one list (`position`), and the
   questions pivot sits just before the first question widgeting (`src/lib/run-order.ts`). The
   runner walks `runOrderOf` the steps; every layout change writes the positions whole, so the tiers

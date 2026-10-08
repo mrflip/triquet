@@ -333,7 +333,8 @@ A **sprint** is an ordered series of threads issued at once and run without the 
 wheel. The Coach hands the `/sprint` orchestrator the thread list; it writes a plan to
 `whiteboard/YYYYMMDD-<sprint>/<sprint>-plan.md`, then runs the threads, each in a worktree of its
 own: a fresh `thread-worker` agent builds it and a `thread-reviewer` agent then reviews its
-commits, with `/code-review` (which runs in the main checkout, so never with `--fix`) or by hand,
+commits, with `/code-review` (which runs in the main checkout, so never with `--fix`, and told to change
+nothing there) or by hand,
 making the fixes it can stand behind in the worktree as `fix:` commits; then the worker proves
 it and bids (*Finishing*, B to E). Threads land on the spine in the order they finish, none
 merged until the Coach returns.

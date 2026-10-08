@@ -79,6 +79,12 @@ describe('lengths', () => {
   it('noteish measures after trimming, so surrounding space never costs length', () => {
     accepts(CK.noteish, ` ${'x'.repeat(3600)} `)
   })
+  it('longnote takes what noteish takes, trimmed, up to 20,000 characters', () => {
+    expect(accepts(CK.longnote, '  a note\nover two lines\n')).to.eq('a note\nover two lines')
+    accepts(CK.longnote, ` ${'x'.repeat(20_000)} `)
+    rejects(CK.longnote, 'x'.repeat(20_001))
+    rejects(CK.longnote, `a${Ctrl}b`)
+  })
   it('blobbish lets you get carried away, but not indefinitely', () => {
     accepts(CK.blobbish, 'x'.repeat(800_800))
     rejects(CK.blobbish, 'x'.repeat(800_801))

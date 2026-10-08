@@ -130,6 +130,17 @@ export async function setQuizNote(db: Writer, open: OpenQuizT, action: QuizNoteA
 }
 
 /**
+ * Give the open quiz a recap template of its own, or, with null, take it away, so the quiz follows
+ * the default recap template (`Recap.DefaultTemplate`) again.
+ *
+ * @example await setRecapTemplate(db, claims, '{{recap_head}}\n\n{{#played}}{{number}}. {{title}}\n{{/played}}')
+ * @example await setRecapTemplate(db, claims, null)   // back to the default
+ */
+export async function setRecapTemplate(db: Writer, open: OpenQuizT, recap_template: string | null): Promise<void> {
+  await updateQuiz(db, openQuizRow(open), { recap_template: recap_template ?? undefined })
+}
+
+/**
  * Revise one question of the open quiz by a patch. A chain in the patch names the question it
  * points at; one that names no other question of the quiz is cleared. A question not in the
  * quiz is refused.

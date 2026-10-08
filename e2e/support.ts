@@ -346,7 +346,7 @@ export async function startHunt(page: Page): Promise<string> {
  * `role`, through the members panel, and wait until the panel lists them.
  */
 export async function addMember(page: Page, label: string, role: 'Smith' | 'Reviewer'): Promise<void> {
-  const members = page.getByRole('region', { name: 'Members' })
+  const members = await openPanel(page, 'Members')
   await members.getByLabel('Ident label').fill(label)
   await members.getByRole('combobox', { name: 'Role' }).click()
   await page.getByRole('option', { name: role }).click()
@@ -392,10 +392,29 @@ export async function waitUntilSaved(page: Page): Promise<void> {
  * @returns The tab's section, now showing.
  */
 export async function showTab(page: Page, tabname: string): Promise<Locator> {
+  await unfold(page.getByRole('region').filter({ has: page.getByRole('tab', { name: tabname, exact: true, includeHidden: true }) }))
   await page.getByRole('tab', { name: tabname, exact: true }).click()
   const section = page.getByRole('tabpanel', { name: tabname, exact: true })
   await expect(section).toBeVisible()
   return section
+}
+
+/**
+ * The panel titled `title`, unfolded: a panel in the row under the quiz starts folded to its title bar.
+ *
+ * @returns The panel's region, open.
+ */
+export async function openPanel(page: Page, title: string): Promise<Locator> {
+  const panel = page.getByRole('region', { name: title, exact: true })
+  await unfold(panel)
+  return panel
+}
+
+/** Open `panel` by its fold triangle, if it is folded */
+async function unfold(panel: Locator): Promise<void> {
+  const fold = panel.getByRole('button', { name: 'Show this panel' }).first()
+  if (await fold.getAttribute('aria-expanded') === 'false') { await fold.click() }
+  await expect(fold).toHaveAttribute('aria-expanded', 'true')
 }
 
 /**

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as Importing from '../../src/lib/importing'
+import * as Recap from '../../src/lib/recap'
 import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
@@ -618,6 +619,26 @@ describe("importInto: the quiz's own fields", () => {
     ])
     expect(outcome.actions.map((action) => action.kind)).to.deep.eq(['set_recap_head', 'set_recap_tail', 'set_templated', 'import_questions'])
     expect(outcome.summary).to.include('carried its recap head, recap tail, templated sources')
+  })
+
+  it("carries a recap template of the paste's own, and a null one puts the quiz back on the default", () => {
+    const template = '{{#played}}{{number}}. {{title}}{{/played}}'
+    expect(read(laidOut(), { recap_template: template, questions: { leon: {} } }).fieldActions).to.deep.eq([{ kind: 'set_recap_template', recap_template: template }])
+    expect(read({ ...laidOut(), recap_template: template }, { recap_template: null, questions: { leon: {} } }).fieldActions).to.deep.eq([{ kind: 'set_recap_template', recap_template: null }])
+    const kept = read(laidOut(), { recap_template: null, questions: { leon: {} } })
+    expect([kept.fieldActions, kept.fieldLog.map((entry) => [entry.fieldname, entry.outcome])]).to.deep.eq([[], [['recap_template', 'kept']]])
+  })
+
+  it("reads a pasted copy of the default recap template, stray space and all, as the default, which clears the quiz's own", () => {
+    const owned = { ...laidOut(), recap_template: '{{#played}}{{number}}{{/played}}' }
+    expect(read(owned, { recap_template: `${Recap.DefaultTemplate}\n\n`, questions: { leon: {} } }).fieldActions).to.deep.eq([{ kind: 'set_recap_template', recap_template: null }])
+    expect(read(laidOut(), { recap_template: Recap.DefaultTemplate, questions: { leon: {} } }).fieldActions).to.deep.eq([])
+  })
+
+  it("leaves a quiz's recap template alone when an older paste says nothing of it", () => {
+    const owned = { ...laidOut(), recap_template: '{{#played}}{{number}}{{/played}}' }
+    const outcome = read(owned, { recap_head: 'Thanks!', questions: { leon: {} } })
+    expect(outcome.fieldActions).to.deep.eq([{ kind: 'set_recap_head', recap_head: 'Thanks!' }])
   })
 
   it("templates a widgeting the same import adds, once it is added", () => {

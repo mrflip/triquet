@@ -1,11 +1,12 @@
 'use client'
 
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { TextField } from '@mui/material'
 import clsx from 'clsx'
 import { NumericFormat, type NumberFormatValues, type SourceInfo } from 'react-number-format'
 import { useDraft } from '../use-draft'
-import { MarkdownFace, faceOf, veiledIf } from './markdown'
+import { MarkdownFace, veiledIf } from './markdown'
+import { useFace } from './use-face'
 import type * as Templating from '../../lib/templating'
 import styles from '../workbench.module.css'
 
@@ -36,12 +37,14 @@ export type GrowingFieldProps = FieldProps & TemplatedFieldProps & {
  * to be, so the row can give both boxes the taller of the two. Until it is typed into it shows
  * its markdown rendered, and asks for room enough for whichever of the two is taller, so the row
  * keeps its height as the box is entered and left. A templated field's face is its text filled in.
+ * An image in the face that loads (or fails) after the box measured itself has it measure again.
  */
 export function GrowingField({ committed, onCommit, locked, placeholder, label, heightPx, onNatural, resizeToken, bag = null }: Readonly<GrowingFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const faceRef = useRef<HTMLDivElement>(null)
-  const face = faceOf(draft, bag)
+  const face = useFace(draft, bag, label)
+  const imageLoads = useImageLoads(faceRef, face.text)
 
   useLayoutEffect(() => {
     const area = areaRef.current
@@ -50,7 +53,7 @@ export function GrowingField({ committed, onCommit, locked, placeholder, label, 
     const naturalPx = Math.max(area.scrollHeight, faceRef.current?.scrollHeight ?? 0)
     area.style.height = `${String(heightPx)}px`
     onNatural(naturalPx)
-  }, [draft, face.text, heightPx, onNatural, resizeToken])
+  }, [draft, face.text, heightPx, onNatural, resizeToken, imageLoads])
 
   return (
     <div className={styles.veil}>
@@ -70,6 +73,29 @@ export function GrowingField({ committed, onCommit, locked, placeholder, label, 
   )
 }
 
+/**
+ * How many images have settled in the face `faceRef` holds -- loaded, or failed and drawn as
+ * their alt text -- since its text last changed to `text`: what a box that measures its face
+ * watches, since an image settling may change the face's height after it was measured. Neither
+ * event bubbles, so the face listens for them as they pass down to the image; it starts listening
+ * as the face is laid out, before the box measures it, so no image settles unheard in between.
+ */
+function useImageLoads(faceRef: React.RefObject<HTMLDivElement | null>, text: string): number {
+  const [loads, setLoads] = useState(0)
+  useLayoutEffect(() => {
+    const faceEl = faceRef.current
+    if (! faceEl || text === '') { return }
+    const onSettle = (event: Event) => { if (event.target instanceof HTMLImageElement) { setLoads((count) => count + 1) } }
+    faceEl.addEventListener('load', onSettle, { capture: true })
+    faceEl.addEventListener('error', onSettle, { capture: true })
+    return () => {
+      faceEl.removeEventListener('load', onSettle, { capture: true })
+      faceEl.removeEventListener('error', onSettle, { capture: true })
+    }
+  }, [faceRef, text])
+  return loads
+}
+
 export type StretchFieldProps = FieldProps & TemplatedFieldProps & {
   heightPx: number
   /** Always shown as typed, never rendered: Alt Text is read aloud as written */
@@ -83,7 +109,7 @@ export type StretchFieldProps = FieldProps & TemplatedFieldProps & {
  */
 export function StretchField({ committed, onCommit, locked, placeholder, label, heightPx, plain = false, bag = null }: Readonly<StretchFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
-  const face = faceOf(plain ? '' : draft, bag)
+  const face = useFace(plain ? '' : draft, bag, label)
   return (
     <div className={styles.veil}>
       <textarea

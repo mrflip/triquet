@@ -1,11 +1,12 @@
-import Mustache, { type TemplateSpans } from 'mustache'
+import Mustache, { type PartialsOrLookupFn, type RenderOptions, type TemplateSpans } from 'mustache'
 import * as UU from './useful'
 import * as Labelmaker from './labelmaker'
+import * as Shaping from './shaping'
 import type { QuizBag, QuizRun } from './formulary/runner'
 import { QuestionWidgetLabel } from '../models/column'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
 import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../models/quiz'
-import type { QuestionT } from '../models/question'
+import { ArchivedField, type QuestionT } from '../models/question'
 import type { WidgetT } from '../models/widget'
 
 /**
@@ -14,18 +15,23 @@ import type { WidgetT } from '../models/widget'
  *
  * Filling cleans nothing. What a template comes to is markdown, and goes on, whole, to the
  * markdown parser and then to the sanitizer, which is always the last step: on screen
- * `react-markdown` and `rehype-sanitize` (`Markdown.TemplatedRenderOptions`), on the board
+ * `react-markdown` and `rehype-sanitize` (`Markdown.RenderOptions`), on the board
  * `Bbjank.toBbjank`. So a value holding `<script>` is shown as the characters typed, and a value
  * holding `**bold**` is bold, since it was filled in before the parser read it.
+ *
+ * Every template may also call the app's few **helpers** (`Helpers`), each only as a section:
+ * `{{#quote}}{{clueing}}{{/quote}}` fills the section in, then shapes what it came to.
  */
 
 /**
  * What a template reads: the bag a formula reads, less what only a running widgeting has (its
- * `params` and `widgeting_label`). Each question carries the widgeted of every widgeting of the
- * quiz, under its label. For a text of the quiz's own (a recap's head or tail), `qn` is empty
- * and `qn_label` blank.
+ * `params` and `widgeting_label`), and with its questions told apart: `qns` holds only the
+ * questions a screen shows (the alternates among them, not the archived), and `quiz.questions`
+ * every one. Each question carries the widgeted of every widgeting of the quiz, under its label,
+ * and says whether it is `archived` and whether it is `secondary` (an alternate). For a text of
+ * the quiz's own (a recap's head or tail), `qn` is empty and `qn_label` blank.
  */
-export type TemplateBag = Pick<QuizBag, 'hunt' | 'realm' | 'quiz' | 'qns' | 'qn' | 'qn_label' | 'quiz_label'>
+export type TemplateBag = Pick<QuizBag, 'hunt' | 'realm' | 'categories' | 'quiz' | 'qns' | 'qn' | 'qn_label' | 'quiz_label'>
 
 /**
  * A template filled in: `markdown` is what it came to, or, when it could not be filled, the
@@ -58,12 +64,63 @@ const OverLong = 'This template comes to far too much text to show.'
 /** What one fill has left: lookups and section passes, shared by every context it pushes, and characters its tags may fill in */
 type Budget = { left: number, charsLeft: number }
 
+/** A helper: what a section it is called as came to, filled in, and that shaped */
+export type HelperT = (filled: string) => string
+
+/**
+ * The template helpers, by name: the only code a template can reach, and only as a section,
+ * `{{#name}}..{{/name}}`, whose filling the helper shapes (`Shaping`).
+ *
+ * - `quote` -- to follow a `> ` the template opened: every line after the first opens `> `, so a
+ *   many-lined text stays in its quote (`Shaping.quotedOf`).
+ * - `oneline` -- on one line, the lines joined by a space (`Shaping.oneLineOf`).
+ * - `apart` -- safe on the line straight after another: a first line of `---` or `===` is set a
+ *   blank line apart, so it never makes the line above a heading (`Shaping.belowOf`).
+ *
+ * A section named for a helper always calls the helper, whatever the bag holds under that name; a
+ * section whose closing tag stands on a line of its own keeps its last line break. The bare names
+ * are the helpers' alone: `{{quote}}` fills in nothing, and `{{^quote}}` always shows, whatever
+ * the bag holds. A key that only starts with one (`{{oneline.full_answer}}`) reads the bag as ever.
+ * Frozen, and only ever looked up by its own keys: nothing in the bag is ever called.
+ *
+ * @example fill('> {{#quote}}{{qn.clueing}}{{/quote}}', bag).markdown  // => '> Who?\n> When?'
+ * @example fill('{{#oneline}}{{qn.full_answer}}{{/oneline}}', bag).markdown  // => 'HAMILTON (accept ROWAN)'
+ */
+export const Helpers: Readonly<Record<string, HelperT>> = Object.freeze({
+  quote:   Shaping.quotedOf,
+  oneline: Shaping.oneLineOf,
+  apart:   Shaping.belowOf,
+})
+
+/** The helper `name` names, if any: only the registry's own keys */
+function helperFor(name: string): HelperT | undefined {
+  return Object.hasOwn(Helpers, name) ? Helpers[name] : undefined
+}
+
+/** A section as mustache parses it: its kind, its name, where its opening tag begins and ends, its tokens, and where its closing tag begins */
+type SectionTokenT = [string, string, number, number, string[][], number]
+
+/**
+ * Mustache's writer, with a section named for a helper (`Helpers`) filled in, then handed to the
+ * helper, in place of reading the bag.
+ */
+class FillWriter extends Mustache.Writer {
+  override renderSection(token: string[], context: Mustache.Context, partials?: PartialsOrLookupFn, typed?: string, config?: RenderOptions): string {
+    const helper = helperFor(token[1] ?? '')
+    if (helper === undefined) { return super.renderSection(token, context, partials, typed, config) }
+    const section = token as unknown as SectionTokenT
+    const filled = this.renderTokens(section[4], context, partials, typed, config)
+    const linebreak = typed?.slice(section[3], section[5]).endsWith('\n') ? '\n' : ''
+    return (context as BagContext).shape(helper, filled) + linebreak
+  }
+}
+
 /**
  * The writer every template is parsed and filled with: templating's own, its cache emptied after
  * each use. A face fills its text in on every keystroke, and mustache's shared cache would keep
  * every draft for as long as the page is open.
  */
-const Filler = new Mustache.Writer()
+const Filler = new FillWriter()
 
 /** Spends one of `budget`, or stops the fill when none is left */
 function spend(budget: Budget): void {
@@ -81,8 +138,9 @@ function spendChars(budget: Budget, filling: string): string {
 /**
  * The context a template is rendered in: a key reads only what the bag itself holds at that key,
  * never anything a JavaScript object inherits (`constructor`, `toString`, an array's `map`), and a
- * value that is a function is never called. Every lookup, and every pass through a section, counts
- * against one shared budget.
+ * value that is a function is never called. A helper's bare name reads as nothing. Every lookup,
+ * every pass through a section, and every helper called counts against one shared budget, and what
+ * a helper adds counts against the characters left.
  */
 class BagContext extends Mustache.Context {
   private readonly budget: Budget
@@ -105,9 +163,19 @@ class BagContext extends Mustache.Context {
   override lookup(dotkey: string): unknown {
     spend(this.budget)
     if (dotkey === '.') { return this.view }
+    if (helperFor(dotkey) !== undefined) { return undefined }
     const found = ownAt(this.view, dotkey.split('.'))
     if (found.held) { return typeof found.val === 'function' ? undefined : found.val }
     return this.parent?.lookup(dotkey)
+  }
+
+  /** What `helper` makes of `filled`, spending one of the budget, and whatever it adds from the characters left */
+  shape(helper: HelperT, filled: string): string {
+    spend(this.budget)
+    const shaped = helper(filled)
+    this.budget.charsLeft -= Math.max(0, shaped.length - filled.length)
+    if (this.budget.charsLeft < 0) { throw new Error(OverLong) }
+    return shaped
   }
 }
 
@@ -181,8 +249,10 @@ export function issueOf(template: string): string | null {
 
 /**
  * What a template reads for one question of a run, or for none (`question_id` null): the run's
- * place and quiz, and every question as it stands once every widgeting has run, so a template sees
- * every column. The one place a template's bag is made; widen it here.
+ * place, the hunt's categories and the quiz, and its questions as they stand once every widgeting
+ * has run, so a template sees every column -- in `qns` those a screen shows (all but the
+ * archived), in `quiz.questions` every one. `qn` is the question itself, archived or not. The one
+ * place a template's bag is made; widen it here.
  *
  * @param run - The quiz, run.
  * @param question_id - The question the text is a field of; null for a text of the quiz's own.
@@ -190,19 +260,61 @@ export function issueOf(template: string): string | null {
  *
  * @example bagOf(run, question._id).qn.clueing   // => 'Who?'
  * @example bagOf(run, null).qn                   // => {}
+ * @example bagOf(run, null).qns.length           // => 3   (and `quiz.questions` 4, with the one archived)
  */
 export function bagOf(run: QuizRun, question_id: string | null): TemplateBag {
+  return bagOver(run, run.qnsAfter, question_id)
+}
+
+/**
+ * What a text of the quiz's own reads (the recap's head, tail and template): `bagOf(run, null)`,
+ * but with every question's templated texts (`quiz.templated`: its own fields, and text entries)
+ * filled in, each over its own question's bag (`bagOf`), as the grid shows them. Filled once: a
+ * template a filled text comes to is not filled again, and one that cannot be filled stays as typed.
+ *
+ * @param quiz - The quiz: which of its texts it templates.
+ * @param run - Its run.
+ * @returns The bag, `qns` and `quiz.questions` holding the questions filled in.
+ *
+ * @example filledBagOf(quiz, run).qns[0].clueing  // => 'By Ada'   (typed as 'By {{qn.author}}')
+ */
+export function filledBagOf(quiz: Pick<QuizT, 'templated'>, run: QuizRun): TemplateBag {
+  if (quiz.templated.length === 0) { return bagOf(run, null) }
+  const filled = run.qnsAfter.map((qn, idx) => filledQnOf(quiz.templated, qn, bagOf(run, run.frame.question_ids[idx] ?? null)))
+  return bagOver(run, filled, null)
+}
+
+/** The template bag over `questions` (every question of the run, in its order) for `question_id`, or for none */
+function bagOver(run: QuizRun, questions: readonly Record<string, unknown>[], question_id: string | null): TemplateBag {
   const { frame } = run
   const idx = question_id === null ? -1 : frame.question_ids.indexOf(question_id)
+  const every = questions as Record<string, unknown>[]
   return {
     hunt:       frame.hunt,
     realm:      frame.realm,
-    quiz:       frame.quiz,
-    qns:        run.qnsAfter as Record<string, unknown>[],
-    qn:         run.qnsAfter[idx] ?? {},
+    categories: frame.categories,
+    quiz:       { ...frame.quiz, questions: every },
+    qns:        every.filter((qn) => qn[ArchivedField] !== true),
+    qn:         every[idx] ?? {},
     qn_label:   frame.qn_labels[idx] ?? '',
     quiz_label: frame.quiz_label,
   }
+}
+
+/**
+ * One question of a bag with each of its texts `templated` names filled in over `bag`, its own: a
+ * field (`question.clueing`) or a text entry, whose widgeted's value is filled in. Anything else
+ * named, or not text, is left as it is.
+ */
+function filledQnOf(templated: readonly string[], qn: Record<string, unknown>, bag: TemplateBag): Record<string, unknown> {
+  const filled = templated.flatMap((source): [string, unknown][] => {
+    const field = TemplatableFieldVals.find((each) => sourceOfField(each) === source)
+    const key = field ?? source
+    const held = qn[key]
+    if (field !== undefined) { return typeof held === 'string' ? [[key, fill(held, bag).markdown]] : [] }
+    return isWidgeted(held) && typeof held.value === 'string' ? [[key, { ...held, value: fill(held.value, bag).markdown }]] : []
+  })
+  return filled.length === 0 ? qn : { ...qn, ...Object.fromEntries(filled) }
 }
 
 /**

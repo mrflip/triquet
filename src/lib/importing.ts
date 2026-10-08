@@ -3,6 +3,7 @@ import type * as Z from 'zod'
 import { mintId } from './ids'
 import * as Jsonball from './jsonball'
 import * as Labelmaker from './labelmaker'
+import * as Recap from './recap'
 import * as UU from './useful'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
@@ -224,6 +225,7 @@ const FieldTitles: Readonly<Record<CarriedFieldname, string>> = {
   q1_preamble:  'Q1 preamble',
   recap_head:   'recap head',
   recap_tail:   'recap tail',
+  recap_template: 'recap template',
   templated:    'templated sources',
   last_sortkey: 'sort memory',
 }
@@ -255,6 +257,7 @@ function fieldsCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, showable: Read
   carry('q1_preamble', noteOf('q1_preamble'), quiz.q1_preamble, (q1_preamble) => ({ kind: 'set_q1_preamble', q1_preamble }))
   carry('recap_head', noteOf('recap_head'), quiz.recap_head, (recap_head) => ({ kind: 'set_recap_head', recap_head }))
   carry('recap_tail', noteOf('recap_tail'), quiz.recap_tail, (recap_tail) => ({ kind: 'set_recap_tail', recap_tail }))
+  carry('recap_template', recapTemplateOf(pasted), quiz.recap_template ?? '', (recap_template) => ({ kind: 'set_recap_template', recap_template: recap_template === '' ? null : recap_template }))
   const afterLayout = templatedCarried(quiz, pasted, showable, log)
   if (! Object.hasOwn(pasted.fields, 'last_sortkey')) { return { actions, afterLayout, log } }
   const sortkey = QuizValidators.sortkey.nullable().safeParse(pasted.fields.last_sortkey)
@@ -268,6 +271,19 @@ function fieldsCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, showable: Read
   }
   log.push({ fieldname: 'last_sortkey', outcome: sortkey.data === quiz.last_sortkey ? 'kept' : 'carried', reason: null })
   return { actions, afterLayout, log, last_sortkey: sortkey.data }
+}
+
+/**
+ * The recap template a paste holds, read against its rule, or null when it holds none. A null or
+ * empty one, or the default recap template itself (trimmed, as the quiz keeps it), reads as `''`:
+ * the default, which the quiz then follows rather than holding a copy of.
+ */
+function recapTemplateOf(pasted: Jsonball.PastedQuizT): { success: true, data: string } | { success: false } | null {
+  if (! Object.hasOwn(pasted.fields, 'recap_template')) { return null }
+  const raw = pasted.fields.recap_template
+  if (raw === null || raw === '') { return { success: true, data: '' } }
+  const read = QuizValidators.recap_template.safeParse(raw)
+  return read.success && read.data === Recap.DefaultTemplate ? { success: true, data: '' } : read
 }
 
 /**

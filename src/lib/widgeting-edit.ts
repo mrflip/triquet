@@ -59,7 +59,7 @@ export function planWidgetingEdit(edit: Readonly<WidgetingEdit>, library: readon
   const tier = edit.widgeting?.tier ?? edit.tier ?? DefaultTier
   if (widget && edit.widgeting === null && ! Widgeting.runsAt(widget, tier)) { return refused(RefusalNotices.tierUnoffered) }
   const siblings = new Set(quiz.widgetings.filter((other) => other.label !== edit.widgeting?.label).map((other) => other.label))
-  const reserved = tier === 'quiz' ? Quiz.exposed : []
+  const reserved = tier === 'quiz' ? Quiz.bagKeys : []
   const typed = Labelmaker.normalize(edit.label)
   const label = typed === '' ? Labelmaker.firstFree(edit.widgetLabel, new Set([...siblings, ...ReservedWidgetingLabels, ...reserved])) : typed
   if (siblings.has(label)) { return refused('Another widgeting in this quiz already has that label.', true) }

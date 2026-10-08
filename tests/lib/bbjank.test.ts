@@ -1,5 +1,10 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as Bbjank from '../../src/lib/bbjank'
+
+/** A file under `fixtures/`, as written */
+const fixtureOf = (filename: string): string => fs.readFileSync(path.join(import.meta.dirname, '../../fixtures', filename), 'utf8')
 
 const Hamilton = 'https://en.wikipedia.org/wiki/William_Rowan_Hamilton'
 const Video = 'https://www.youtube.com/watch?v=SZXHoWwBcDc'
@@ -10,6 +15,7 @@ const BbjankCases: [string, string, string][] = [
   ["Answer: ~~**HAMILTON**~~",          "Answer: [spoiler][b]HAMILTON[/b][/spoiler]",       'strikeout is a spoiler, and bold inside it converts'],
   ["~~dead {AS: the twist}~~",          "[spoiler=the twist]dead[/spoiler]",                'an {AS:} inside strikeout is the annotation, its braces dropped'],
   ["> {AS: Q1}1. Who?",                 "[quote=\"Q1\"]1. Who?[/quote]",                    'a quote opening {AS: who} is a quote by who'],
+  ["> {AS: Q1}1. Who?\n> ---",           "[quote=\"Q1\"][b]1. Who?[/b][/quote]",           'a quote whose {AS:} line a rule makes a heading is still a quote by who'],
   ["> aside\n> > deeper",               "[list]aside\n[list]deeper[/list][/list]",          'a quote with no {AS:} is a list, and a quote within it a list within that'],
   ["    verse",                         "[list]verse[/list]",                               'four leading spaces are a quote level, not code'],
   ["- one\n- two",                      "[list]\n[*] one\n[*] two[/list]",                  'a bulleted list puts each item on its own line, the close after the last'],
@@ -37,6 +43,8 @@ const BbjankCases: [string, string, string][] = [
   ["    first\n        second\n      six spaces\nback out",
     "[list]first\n[list]second[/list]\nsix spaces[/list]\nback out",
     'a line is quoted only as deep as it is indented, and spaces short of four are dropped'],
+  ["- a\n\n        *b*",              "[list]\n[*] a[/list]\n\n[list][list][i]b[/i][/list][/list]", 'an indent markdown would make code inside a list is a quote, never code'],
+  ["      six\n  two\n          ten",  "[list]six[/list]\ntwo\n[list][list]ten[/list][/list]", 'leading spaces short of a quote level are not rescued (the LL export keeps them)'],
   ["Clue line\n    verse 1\n    verse 2\n...BUT NOT...\nhint",
     "Clue line\n[list]verse 1\nverse 2[/list]\n...BUT NOT...\nhint",
     'a line set back out of an indent leaves the quote, without a blank line'],
@@ -51,7 +59,9 @@ const BbjankCases: [string, string, string][] = [
   ["1. Point\n2. Second Point,\n   continued\n   > {AS: fleas}Adam\n   > Had 'em\n3. Third point",
     "[list=1]\n[*] Point\n[*] Second Point,\n  continued\n  [quote=\"fleas\"]Adam\n  Had 'em[/quote]\n[*] Third point[/list]",
     'a numbered list is list=1, and an item carries its further lines and a quote'],
-  ["3. three\n4. four",                 "[list=1]\n[*] three\n[*] four[/list]",            'the board numbers from 1 whatever the list starts at'],
+  ["3. three\n4. four",                 "[list=3]\n[*] three\n[*] four[/list]",            'a numbered list names its start, though the board numbers from 1'],
+  ["1984. Orwell's year",               "[list=1984]\n[*] Orwell's year[/list]",           'a line opening 1984. is a list starting at 1984, which the poster sees in the tag'],
+  [String.raw`1984\. Orwell's year`,   "1984. Orwell's year",                              'an escaped full stop keeps a year from being a list'],
   ["- \n- b",                           "[list]\n[*]\n[*] b[/list]",                       'an empty item is an empty bullet'],
   // code:
   ["`www iii`",                         "[code]www iii[/code]",                             'a code span is a code tag on its line'],
@@ -59,6 +69,11 @@ const BbjankCases: [string, string, string][] = [
   ["~~~\n> not a quote\n~~~",           "[code]\n> not a quote\n[/code]",                   'markdown inside a fence is left alone'],
   // emphasis and lines:
   ["Text may be *italicized* or **bolded**.", "Text may be [i]italicized[/i] or [b]bolded[/b].", 'italics and bold'],
+  ["_it_ *it* **bold** __under__",     "[i]it[/i] [i]it[/i] [b]bold[/b] [u]under[/u]",   'one marker is italics either way; two asterisks bold, two underscores underline'],
+  ["___both___ ***both***",            "[i][u]both[/u][/i] [i][b]both[/b][/i]",           'three underscores italicize an underline, three asterisks a bold'],
+  ["**bold __under__ bold**",          "[b]bold [u]under[/u] bold[/b]",                   'underline nests in bold'],
+  ["snake__case__word",                "snake__case__word",                               'underscores inside a word are no underline'],
+  ["~~__ANSWER__~~",                   "[spoiler][u]ANSWER[/u][/spoiler]",                'an underline inside a spoiler'],
   ["It *does **nested**,\nacross lines*", "It [i]does [b]nested[/b],\nacross lines[/i]",    'nested emphasis spanning a line break'],
   ["a\nb\n\nc",                         "a\nb\n\nc",                                        'line breaks and blank lines stay as typed, never [br]'],
   ["a  \nb",                            "a\nb",                                             'a hard break is a line break'],
@@ -75,6 +90,8 @@ const BbjankCases: [string, string, string][] = [
   ["[*a*](https://x.com/a]b)",          "[url=https://x.com/a%5Db][i]a[/i][/url]",          'a bracket in an address is encoded, so it cannot end the tag'],
   ["[ref link][r]\n\n[r]: https://ex.com/r", "[url=https://ex.com/r]ref link[/url]",        'a reference link is the link its definition makes'],
   ["[nowhere][missing]",                "[nowhere][missing]",                               'a reference to no definition is its text'],
+  ["> [ref][r]\n>\n> [r]: https://ex.com/r", "[list][url=https://ex.com/r]ref[/url][/list]", 'a definition inside a quote is found'],
+  ["[ref][r]\n\n[r]: https://ex.com/1\n[r]: https://ex.com/2", "[url=https://ex.com/1]ref[/url]", 'a label defined twice is its first definition, as CommonMark has it'],
   // images:
   ["![Alt here](https://i.imgur.com/ivJKx8U.jpeg)", "[img]https://i.imgur.com/ivJKx8U.jpeg[/img]\n[list](Alt here)[/list]", "an image's alt text goes below it in parentheses"],
   ["![](https://i.imgur.com/x.png)",    "[img]https://i.imgur.com/x.png[/img]",             'an image with no alt text is the image alone'],
@@ -144,6 +161,12 @@ const YoutubeCases: [string, string | undefined, string][] = [
   ["https://notyoutube.com/watch?v=SZXHoWwBcDc",     undefined,     'a host merely ending in youtube.com is not YouTube'],
   ["not a url",                                      undefined,     'what is no address is no video'],
 ]
+
+describe('the verifier', () => {
+  it('writes fixtures/bbjank-verifier.md as fixtures/bbjank-verifier.bbjank.txt, every question the boards raised in one paste', () => {
+    expect(Bbjank.toBbjank(fixtureOf('bbjank-verifier.md'))).to.eq(fixtureOf('bbjank-verifier.bbjank.txt').replace(/\n$/, ''))
+  })
+})
 
 describe('youtubeIdOf', () => {
   for (const [url, expected, blurb] of YoutubeCases) {

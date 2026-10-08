@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-06. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `whiteboard/20261005-recap/20261005-recap_preplan.md` (the threads,
 verbatim below) and `20261005-recap_bbjank.md` (the board format's spec), beside this file.
-**Status: paused at the Coach's word after thread 6. Threads 1-6 landed (#163, #162, #161, #164, #165, #166); 7, 8, 10, 9 to run. See `human/20261006-sprint_recap_paused.md`.** `recap-progress.md`, beside this file, is newer than this plan wherever the
+**Status: resumed 2026-10-07, regular operation (reviews at medium). Threads 1-6 merged (#167); ad-hoc and fast-tracked #168, #170, #171, #172 open, 16 and 17 landing; 13, 11, 10, 12, 7, 8, 9 to run.** `recap-progress.md`, beside this file, is newer than this plan wherever the
 two disagree.
 
 **What the Coach needs by the end** (their words): "an export of simple markdown into bbjank; I can
@@ -55,6 +55,11 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 * **Hard things go to `whiteboard/TODO.md`**, under a section headed for the sprint and thread
   (`## From recap sprint, thread N: ...`), and into the report. "Do not be a hero."
 * Mustache gets a second importer (thread 4): `notes/stack.md`'s *mustache* entry names it.
+* **Targeted e2e, for a fast turnaround (the Coach, 2026-10-07).** Prove with `pnpm e2e --touched`
+  (only the spec files the branch's paths reach; a path the map does not name runs the whole suite);
+  use `pnpm e2e:smoke` for a quick signal while building, `pnpm e2e <spec>` and `pnpm e2e:rerun` to
+  repair. A spec asks for its layout up front with `test.use({ layout: ... })` (#160). A new spec
+  file needs one `@smoke` test and a `SpecCorners` entry in `scripts/spine.ts`.
 
 ## Decisions taken in YOLO
 
@@ -229,6 +234,10 @@ values from here; thread 7 reviews it.
 
 ### 7. Security review (Coach's 7th)
 
+*Orchestrator, 2026-10-07:* threads 16 and 17 landed unreviewed at the Coach's word (reviews paused
+while the Coach shipped a recap): thread 7 reviews them first, the template helpers' registry and
+the mustache writer change above all.
+
 *Coach's text:* "thread: Do a strong security review. Fix anything that's part of the sprint,
 make a note in the final report AND in the todo of other things to fix. At the end of the sprint,
 fix what you're certain of."
@@ -303,8 +312,11 @@ call, recorded. No schema change. Depends on: 6. Runs before 7, so the security 
 
 ### 12. The Coach's follow-ups on templates and the recap (2026-10-06, while paused)
 
-Gloss: the *Coach's answers* below marked thread 12: `correct_pct`
-alone, images everywhere held small in cells, categories in the bag, `quiz.questions` (all) beside
+*Orchestrator, 2026-10-07:* also takes thread 16's gaps that need the app: an alternate flag (and
+archived) on each question in the bag, so a template can skip them; the recap's `qns` carrying
+filled-in templated fields; and whether `in_order` ships as a library widget (ask; do not build).
+
+Gloss: the *Coach's answers* below marked thread 12 (`correct_pct` moved to thread 14): images everywhere held small in cells, categories in the bag, `quiz.questions` (all) beside
 `qns` (visible only). Depends on: 11 (both touch the bag). Runs before 7.
 
 ### 13. Reviews that cannot touch the main checkout (2026-10-06, while paused)
@@ -317,13 +329,104 @@ preferred. A reviewer that could not do its job because of these restrictions sa
 report (what it could not check, and why), rather than working round them. Documents only.
 Depends on: nothing.
 
+### 14. An editable recap template, in pure mustache over markdown (fast-tracked, 2026-10-07)
+
+*Coach's text:* "fast-track the editable recap bodies. I will want to do the below in pure mustache.
+In my hopes, the recap template is more like `{{ each question }} >- {AS: Q{{question.number}}}
+{{question.number}}. {{question.clueing}} ...` (that is probably not good mustache -- i'm only
+communicating flavor not intent). The flow should be markdown as far as possible, unless I'm
+missing something. We don't want to inject transformed code into a transformer. Is there any reason
+to not have the flow be `{0 to many mustaches to produce a markdown file} { render markdown } {maybe
+jank it or html it} { sanitize it }`"
+
+Gloss: replace thread 5's code-written frame (`blockOf` in `src/lib/recap.ts`) with a stored,
+editable **recap template**: markdown with mustache, filled once into one markdown document, then
+`Bbjank.toBbjank` (the writer is the sanitizer). The order: fill recap_head and recap_tail (each a
+template over the bag), then fill the recap template over a **recap bag** holding them, then convert
+the whole once.
+* **The recap bag**: the template bag (`Templating.bagOf`) plus `recap_head`, `recap_tail` (filled)
+  and `played`, the questions the recap covers (thread 5's rule: go-live, no archived or alternates,
+  no never-written blanks), in rank order, each with `number` and everything a question shows, plus
+  **pre-shaped values** for the places markdown structure is fragile, so the template stays pure
+  mustache: e.g. `quoted_body` (clueing and BUT NOT, every line prefixed `> `), `answer_line` (the
+  answer safe after `Answer: `, as `answerOf` makes it today), and `pct` (from a column labelled
+  `correct_pct` only, the Coach's answer; blank otherwise). Name them in the vocabulary.
+* **The default template** reproduces today's note exactly (a test pins it against thread 5's
+  output for the same quiz), roughly `{{recap_head}}` / rule / `{{#played}}> {AS: Q{{number}}}...
+  Answer: ~~**...**~~ ... {{/played}}` / `{{recap_tail}}`.
+* **Storage: a quiz field `recap_template`, Absentable** (`notes/deploy.md`: absence means the
+  default template), so no backfill and no tightening: optional in its row validator for good,
+  listed under `Absentable` in `tests/convex/schema.test.ts`, every reader saying what absence means.
+  A `set_recap_template` action under the same policy as `set_recap_head`. Exported and imported with
+  the quiz; old exports import.
+* **The Recap panel** gets a *Recap template* editor (folded or below the note, with a "reset to
+  default" that clears the field), shown like the head and tail (a broken template says why).
+* Takes over thread 12's "`correct_pct` only". Depends on: #168's panel changes landed (it is on
+  the spine). Proved with `pnpm e2e --touched`.
+
+### 15. The recap template reads the question's own fields, and says OR ELSE (2026-10-07)
+
+*Coach's text:* "would you make the recap template less dependent on internals; have it do quoted
+body accessing the question fields. Instead of BUT NOT, use OR ELSE and insert the hint, not the
+chained but not"
+
+Gloss: thread 14's `quoted_body` is a composite the code builds (clueing, then `...BUT NOT...` and
+the hint of the question it chains to). Replace composites with **per-field shaped values**, so the
+template names the fields it uses: e.g. `quoted.clueing`, `quoted.hint` (each line after the first
+prefixed `> `), and the same idea for the answer and recap (`oneline.full_answer`,
+`below.recap`, or names the worker finds clearer), dropping `quoted_body`, `answer_line` and
+`recap_below`. The default template then spells the question's line itself, with this question's
+**own hint** after `...OR ELSE...`, only when it has one:
+`> {AS: Q{{number}}}{{number}}. {{quoted.clueing}}{{#hint}} ...OR ELSE... {{quoted.hint}}{{/hint}}`.
+A quiz with its own template saved under thread 14's names: none exist in production yet beyond
+the Coach's own; keep the old names working only if it is free, else note it. The LL Export keeps
+its BUT NOT (the league's format); only the recap changes. Depends on: 14 (#171).
+
+### 16. The default recap template stands on the app's basic tools (2026-10-07, reviews paused)
+
+*Coach's text:* "can we pause the reviews for a bit and iterate on the code. I would like the
+template to basically stand on its own, not dependent on the app doing uneditable things that can
+be done with expressions and mustache. I have a custom expression that I want to use instead of the
+correct answer line, but we are looping on something called player, and there's things called
+oneline and quoted that I don't know where they come from. I'm guessing quoted is meant to reapply
+quote characters to the multiline sentence? Don't rip the other stuff out yet, but make the
+template do everything using the basic tools of the app and we'll see how to close the gap"
+
+Gloss: rewrite `Recap.DefaultTemplate` to use only what every template already sees: the bag's
+ordinary question loop (`{{#qns}}`, whose items carry each question's fields and its columns by
+label), the question's own fields, columns (widgeted values, the Coach's custom expressions among
+them), and plain mustache. No `played`, `quoted`, `oneline`, `below`, `pct` or `number` in the
+default. **Keep them in the bag** (not ripped out). The pinned default-note test follows the new
+output; add a test showing a custom column (a `jsonata` widgeting) used in place of the Correct
+Answer line. Write a **gap list** into the thread file and the `human/` how-to: each thing the old
+shaped values did that the basic template now gets wrong (archived/alternate/blank questions in
+the loop, numbering by rank, a multi-line field leaving its quote, a list-like answer, a `---`
+recap), with a JSONata recipe for a column that closes it where one can (e.g. a quoting formula),
+so the Coach can decide what the app should still do. **No review** for this thread, at the Coach's
+word: prove with `pnpm e2e --touched` and land. Depends on: 15 (#172).
+
+### 17. Mustache helpers for the recap's conveniences (queued after 16, 2026-10-07)
+
+*Coach's text:* "can the custom conveniences (quoted) be done with a mustache helper?" Then: "land
+the new template first".
+
+Gloss: a small fixed set of app-defined mustache lambdas, callable only as sections and only from
+app code (`quote`: fill the section, then prefix every line after the first with `> `; `oneline`:
+join onto one line; `apart`: set a leading `---` apart), so `{{#quote}}{{clueing}}{{/quote}}` works
+on any field or column. `BagContext` still calls nothing from the bag: database values can never
+be functions. Helper output is markdown and goes through the bbjank writer last. Switch the default
+template to them where thread 16's gap list says they close a gap. Depends on: 16.
+*Added by the Coach, 2026-10-07:* "make a longnote validation -- like note but length is 20,000.
+Apply it to smith note, recap_head, etc": `longnote` (noteish, max 20,000) on the quiz's
+`smiths_note`, `recap_head`, `recap_tail`, `recap_template`. Raises a limit only: no migration.
+
 ### Coach's answers while paused (2026-10-06)
 
 * **Author BBCode breaking the recap's frame: wontfix.** It may be on purpose, and the smith
   previews before posting.
 * **A clueing opening `1984. ...`:** send the number through (whatever it is, not just 1), so the
   copy-paster knows how to correct it. Goes to thread 10.
-* **`mdast-util-definitions`: yes** (thread 10). **Underline: bbjank only** (thread 10; `ll-bbcode.ts`
+* ~~**`mdast-util-definitions`: yes** (thread 10).~~ *Pulled forward into thread 14.* **Underline: bbjank only** (thread 10; `ll-bbcode.ts`
   keeps `__text__` as bold). **Fix the dangling client-first pointer** in `CLAUDE.md` and
   `notes/stack.md` (thread 10).
 * **Recap placeholder: leave it as landed** (a blank question recap writes nothing). The Coach's
@@ -344,8 +447,8 @@ Depends on: nothing.
   Thread 13.
 * **Strikeout on screen** (thread 10): `~~text~~` shows its tildes on screen today, since only the
   bbjank converter was taught GFM strikethrough. Teach react-markdown the same extension
-  (`singleTilde: false`, never `remark-gfm` whole), widen the one allowlist for `del`, and decide
-  how it looks (struck through, or spoiler-like, since it means a spoiler on the boards).
+  (`singleTilde: false`, never `remark-gfm` whole), widen the one allowlist for `del`. Plain
+  strikethrough for now; spoiler-like strikeout on screen is in the Coach's TODO (2026-10-07).
 * **Old addresses** (2026-10-07): fixed outside the sprint as #167, stacked on #166: addresses
   refuse what the server would, so `/~undefined/...` is not found. Better not-found pages are in TODO.
 * **Fixtures:** `fixtures/bbjank-verifier.md` and `fixtures/bbjank-verifier.bbjank.txt`, with a

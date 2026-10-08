@@ -1,0 +1,118 @@
+[b]The bbjank verifier[/b]
+
+Paste the bbjank beside this file into a board's preview: each section says what it should show.
+
+[b]Spoilers[/b]
+
+[spoiler=Hi I am the spoiler animation]Bruce Willis is dead[/spoiler]
+[spoiler]The annotation isn't required[/spoiler]
+About ~50 years ago, [spoiler][b]~50 YEARS[/b][/spoiler]: a single tilde is a tilde.
+[spoiler=a)b 'c']shh[/spoiler] has its annotation's bracket and quotes softened.
+
+[b]Quotes[/b]
+
+[quote="bob"]Hi, I'm bob[/quote]
+
+[quote="bob"]The name may stand on a line of its own.[/quote]
+
+[list]A quote naming nobody indents, with the tag on the same line as the text.
+[list]A quote within it indents twice.[/list][/list]
+
+You indent with spaces:
+[list]four spaces are a quote level
+[list]eight are two[/list]
+six spaces are one level, the two left over not rescued[/list]
+back out, with no blank line.
+
+[b]Lists[/b]
+
+[list]
+[*] bulleted
+[*] main bullet with sub bullets
+  [list]
+  [*] level two A
+  [*] level two B[/list]
+[*] bulleted to the left level one[/list]
+
+[list=1]
+[*] Point one
+[*] Second Point,
+  continued
+  [quote="fleas"]Adam
+  Had 'em[/quote]
+[*] Third point[/list]
+
+A text may open with a year:
+
+[list=1984]
+[*] Orwell's year opens a list at 1984: the board shows 1, the tag says what it was.[/list]
+
+1984. Escaped, it is only a year.
+
+[b]Code[/b]
+
+[code]wwww iii lll 111 iii lll 111 - - -[/code]
+
+[code]
+ssuuuup
+    code, its indent its own
+> and its markdown **too**
+[/code]
+
+[b]Emphasis[/b]
+
+Text may be [u]underlined to underscore[/u], [i]italicized for extraness[/i], [i]italicized again[/i], or [b]bolded for boldness[/b].
+It [i]does understand [b]nested[/b] text, [u]and
+it can span lines[/u][/i]
+Line breaks stay line breaks, never [br].
+
+[b]Links and images[/b]
+
+[url=https://en.wikipedia.org/wiki/William_Rowan_Hamilton]William Rowan Hamilton[/url]
+[url]https://en.wikipedia.org/wiki/William_Rowan_Hamilton[/url]
+[url]https://learnedleague.com[/url]
+[url=https://ex.com/a%5Db]a bracket in the address[/url] is encoded.
+
+[img]https://i.imgur.com/ivJKx8U.jpeg[/img]
+[list](Alt text doesn't work, so add it after a newline in parentheses)[/list]
+
+[b]YouTube[/b]
+
+[youtube]SZXHoWwBcDc[/youtube]
+
+[url=https://www.youtube.com/watch?v=SZXHoWwBcDc]"William Rowan Hamilton" by A Capella Science[/url]
+
+[youtube]SZXHoWwBcDc[/youtube]
+
+[url=https://www.youtube.com/watch?v=SZXHoWwBcDc]"William Rowan Hamilton" by A Capella Science[/url]
+
+[youtube]SZXHoWwBcDc[/youtube]
+
+[b]What goes nowhere[/b]
+
+a script, a relative address and an http image are their text alone.
+<b>HTML</b> and <script>alert(1)</script> are the characters typed.
+[b]BBCode typed in the text[/b] passes through as typed.
+
+[b]The Coach's sample[/b]
+
+First, a huge thank you to the playtesters:
+@bob
+And congratulations to the winners: @frank
+
+----------------------------------------
+
+[quote="Q1"]1. The four science YouTubers arrayed in the image below are paying homage to a notable Irish physicist, whose character later raps "And no one uses my quaternions, But just you wait, just you wait". [b]What's his name, man?[/b]
+
+...BUT NOT...
+
+the progenitors in "Viable offspring derived from fetal and adult mammalian cells" (Wilmut, Schnieke et al., Nature 1997 Feb 27;385(6619):810-3) [url=https://learnedleague.com/images/art/7998/7998_1_893016.png]Click here[/url][/quote]
+
+Answer: [spoiler][b](WILLIAM ROWAN / LEWIS) HAMILTON[/b][/spoiler]
+Correct Answer %:
+{Add Optional Text For Q1 Here or Delete}
+
+[quote="Q2"]2. [b]What name[/b] will be borne by CVN-80, the third of the Gerald R. Ford-class aircraft carriers? That storied name is also contemplated for a future vessel with hull number NCC-1701... ...OR ELSE... Tubbs' Ferrari-driving vice-squad partner[/quote]
+
+Answer: [spoiler][b]ENTERPRISE (USS ENTERPRISE, CVN-80 / ENTERPRISE RENT-A-CAR)[/b][/spoiler]
+Correct Answer %: 76

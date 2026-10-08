@@ -39,6 +39,7 @@ export async function perform(db: Writer, census: CensusT, claims: PerformClaims
   case 'set_q1_preamble':
   case 'set_recap_head':
   case 'set_recap_tail':      { await Quiz.setQuizNote(db, claims, action); return }
+  case 'set_recap_template':  { await Quiz.setRecapTemplate(db, claims, action.recap_template); return }
   case 'edit_question':       { await Quiz.editQuestion(db, claims, action.question_id, action.patch); return }
   case 'add_question':        { await Quiz.addQuestion(db, claims); return }
   case 'delete_questions':    { await Quiz.deleteQuestions(db, claims, action.question_ids); return }

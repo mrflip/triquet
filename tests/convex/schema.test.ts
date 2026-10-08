@@ -58,13 +58,15 @@ const Stamps = ['created_at', 'updated_at']
 
 /**
  * The fields a row may lack for good, their absence meaning what the code reading them says: a
- * hunt nobody has arranged reads as the default wheel, and a column nobody has aligned centers
- * Q# and lets every other cell set itself; and every stamped row's stamps, a row the trigger has
+ * hunt nobody has arranged reads as the default wheel, a quiz given no recap template of its own
+ * follows the default one, and a column nobody has aligned centers Q# and lets every other cell
+ * set itself; and every stamped row's stamps, a row the trigger has
  * not seen reading as made and last edited when the database made it (`Stamps.of`)
  */
 const Absentable: Partial<Record<TableNames, string[]>> = {
   ...Object.fromEntries(StampedTables.map((tablename) => [tablename, Stamps])),
   hunts:   ['wheel', ...Stamps],
+  quizzes: ['recap_template', ...Stamps],
   columns: ['align', ...Stamps],
 }
 

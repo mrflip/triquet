@@ -1,7 +1,8 @@
 import * as Z from 'zod'
 import { Validator, plain } from '../lib/validator'
 import { Hunt, HuntValidators } from './hunt'
-import { Question, QuestionValidators, RankField } from './question'
+import { ArchivedField, Question, QuestionValidators, RankField, SecondaryField } from './question'
+import { CategoryValidators } from './category'
 import { Quiz, QuizValidators } from './quiz'
 import { Realm, RealmValidators } from './realm'
 import { WidgetedValidators } from './widgeted'
@@ -13,12 +14,16 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, la
   const exposedQuestion = QuestionValidators.question.pick(maskOf(Question.exposed))
   const bagQuestion = exposedQuestion
     .extend({
-      label:         label
+      label:            label
         .describe('The question\'s label: what `chains_to` in another question refers to.'),
-      chains_to:     label.nullable()
+      chains_to:        label.nullable()
         .describe('The label of the question this one chains to, or null. Look it up with `qns[label = $$.qn.chains_to]`.'),
-      [RankField]:   uint.min(1).nullable()
-        .describe('This question\'s 1-based place once the quiz is put in Q# order (ties broken by title); null when it has no Q#.'),
+      [RankField]:      uint.min(1).nullable()
+        .describe('This question\'s 1-based place once the quiz is put in Q# order (ties broken by title); null when it has no Q#, or is archived.'),
+      [ArchivedField]:  bool
+        .describe('Whether the question is archived: put away from every screen and from everything handed to players, but kept with the quiz.'),
+      [SecondaryField]: bool
+        .describe('Whether the question is an alternate: a spare offered beside its peers, sorted after them, and left out when the quiz goes live.'),
     })
     .catchall(WidgetedValidators.widgeted
       .describe('What a widgeting before this one in the run order came to for this question, under that widgeting\'s label: `qn.numnum_clueing.value.items`, say. A category-estimate entry\'s carries more beside its status and value: `estimates` (its list, a question nobody has placed reading as one estimate of no category in particular), each persona\'s chance at the question, 0 to 1, as `masie`, `artie` and `poppy`, and their `average`: `qn.categories.average`, say.'))
@@ -53,12 +58,21 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, la
     })
     .describe(`The realm, within its hunt, that the quiz sits in: only ${listOf(Realm.exposed)}.`)
 
+  const bagCategory = obj({
+    label: CategoryValidators.categoryLabel,
+    title: str
+      .describe('The category as its tile names it on screen: `Math & Econ`, `TV`.'),
+  })
+    .describe('One of the subject categories a question may draw on.')
+
   const quizBag = obj({
     hunt:       bagHunt,
     realm:      bagRealm,
+    categories: arr(bagCategory)
+      .describe('The hunt\'s subject categories, in its total order: round its wheel from the top, so neighbours are kin.'),
     quiz:       bagQuiz,
     qns:        arr(bagQuestion)
-      .describe('Every question in the quiz, in the quiz\'s order.'),
+      .describe('Every question in the quiz, in the quiz\'s order, the archived among them: test `archived` to leave them out.'),
     qn:         union([bagQuestion, obj({}).strict()])
       .describe('The question the formula is being worked out for: the same object as one of `qns`. Empty for a widgeting run once for the whole quiz, which is worked out for no question.'),
     qn_label:   label.or(zod.literal(''))
@@ -76,7 +90,7 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, la
     .nullable()
     .describe('What a formula comes to for one question, as a cell shows it. Nothing at all (JSONata `undefined`), null, and an empty string all show as a muted dash, which means "nothing to say here", not zero. (A list or an object is shown as its JSON text, which is rarely what is wanted in a column, so it is not part of the intended output.)')
 
-  return { bagQuestion, bagHunt, bagRealm, bagQuiz, quizBag, formulaResult }
+  return { bagQuestion, bagHunt, bagRealm, bagCategory, bagQuiz, quizBag, formulaResult }
 })
 
 /** A Zod `pick` mask naming every field of `fields` */

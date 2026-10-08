@@ -347,7 +347,7 @@ describe('the widgetings run once for the whole quiz', () => {
     jsonataWidget('remark_count', "$count(qns[remark.status = 'ok'])"),
     jsonataWidget('early_count', "$count(qns[remark.status = 'ok'])"),
   ]
-  // In position order: early_count and playtesters above the pivot, remark and thanked for each question, remark_count below it.
+  // In position order: early_count and playtesters for the quiz, remark and thanked for each question, remark_count for the quiz.
   const quiz: QuizT = {
     ...Quiz.blank('Tiers'),
     questions: [first, second],
@@ -366,15 +366,27 @@ describe('the widgetings run once for the whole quiz', () => {
     expect(Runner.widgetedOf(run, 'thanked', second._id)).to.deep.eq(Widgeted.ok('Thanks, Ada and Grace'))
   })
 
-  it('read no question widgeting from above the pivot, and every one from below it', () => {
+  it('read no question widgeting placed after them, and every one placed before', () => {
     expect(Runner.quizWidgetedOf(run, 'early_count')).to.deep.eq(Widgeted.ok(0))
     expect(Runner.quizWidgetedOf(run, 'remark_count')).to.deep.eq(Widgeted.ok(1))
   })
 
-  it('run in run order, whatever their positions: the quiz own above the pivot, the questions, the quiz own below', () => {
-    const scrambled = { ...quiz, widgetings: [quiz.widgetings[2], quiz.widgetings[0], quiz.widgetings[1], quiz.widgetings[3], quiz.widgetings[4]].map((widgeting) => present(widgeting)) }
-    expect(runOf(scrambled, library).steps.map((step) => step.widgeting.label)).to.deep.eq(['remark', 'thanked', 'early_count', 'playtesters', 'remark_count'])
-    expect(run.steps.map((step) => step.widgeting.label)).to.deep.eq(['early_count', 'playtesters', 'remark', 'thanked', 'remark_count'])
+  it('run in position order, the tiers mixed: one for the whole quiz reads the questions as they stand at its place, and those after it read it', () => {
+    const mixedLibrary = [
+      ...library,
+      jsonataWidget('so_far', "'Remarked so far: ' & quiz.mid_count.value"),
+      jsonataWidget('so_far_count', "$count(qns[so_far.status = 'ok'])"),
+    ]
+    const mixed: QuizT = {
+      ...quiz,
+      widgetings: [...widgetingsOf(['remark', 'remarks']), tiered('mid_count', 'remark_count'), ...widgetingsOf(['so_far', 'so_far']), tiered('so_far_count', 'so_far_count')],
+    }
+    const mixedRun = runOf(mixed, mixedLibrary)
+    expect(mixedRun.steps.map((step) => step.widgeting.label)).to.deep.eq(['remark', 'mid_count', 'so_far', 'so_far_count'])
+    expect(Runner.quizWidgetedOf(mixedRun, 'mid_count')).to.deep.eq(Widgeted.ok(1))
+    expect(Runner.quizBagAt(mixedRun, { label: 'mid_count', params: {} }).qns[0]).to.not.have.property('so_far')
+    expect(Runner.widgetedOf(mixedRun, 'so_far', second._id)).to.deep.eq(Widgeted.ok('Remarked so far: 1'))
+    expect(Runner.quizWidgetedOf(mixedRun, 'so_far_count')).to.deep.eq(Widgeted.ok(2))
   })
 
   it('have no cell for any question, and are told apart from those that do', () => {
@@ -586,8 +598,28 @@ describe('what a bag exposes of a question', () => {
   const quiz = { ...Quiz.blank('Bag'), label: 'my_quiz', locked: true, questions: [recorded], widgetings: widgetingsOf(['dumdum', 'dumdum']) }
   const { qn, quiz: quizBag, hunt, realm } = present(Runner.bagsAt(runOf(quiz), { label: 'col', params: {} }).get(recorded._id))
 
-  it('gives a question only its exposed fields, with the label in force and the rank, and each earlier widgeting under its label', () => {
-    expect(Object.keys(qn).toSorted(byText)).to.deep.eq([...Question.exposed, 'dumdum', 'rank'].toSorted(byText))
+  it('gives a question only its exposed fields, with the label in force, the rank and the viz flags, and each earlier widgeting under its label', () => {
+    expect(Object.keys(qn).toSorted(byText)).to.deep.eq([...Question.exposed, 'archived', 'dumdum', 'rank', 'secondary'].toSorted(byText))
+  })
+
+  it("says whether each question is archived, and whether it is an alternate, its viz secondary", () => {
+    const archived = { ...Question.blank(), qnum: '2', viz: 'archived' as const }
+    const alternate = { ...Question.blank(), qnum: '3', viz: 'secondary' as const }
+    const bags = Runner.bagsAt(runOf({ ...quiz, questions: [recorded, archived, alternate] }), { label: 'col', params: {} })
+    const flags = bags.values().map((bag) => [bag.qn.archived, bag.qn.secondary]).toArray()
+    expect(flags).to.deep.eq([[false, false], [true, false], [false, true]])
+  })
+
+  it('keeps the archived questions in a formula\'s qns, so a chain to one still reads its hint', () => {
+    const archived = { ...Question.blank(), qnum: '2', viz: 'archived' as const }
+    const bag = present(Runner.bagsAt(runOf({ ...quiz, questions: [recorded, archived] }), { label: 'col', params: {} }).get(recorded._id))
+    expect(bag.qns.map((each) => each.archived)).to.deep.eq([false, true])
+  })
+
+  it("gives every bag the hunt's categories, in its total order, each with the title its tile shows", () => {
+    const bag = present(Runner.bagsAt(runOf(quiz), { label: 'col', params: {} }).get(recorded._id))
+    expect(bag.categories.map((category) => category.label)).to.deep.eq(Wheel.orderOf(Wheel.defaultWheel()))
+    expect(bag.categories[0]).to.deep.eq({ label: 'math_econ', title: 'Math & Econ' })
   })
 
   it('shows an earlier widgeting as its widgeted whole: its status, its value, and a failure riding along', () => {

@@ -1,5 +1,5 @@
 import { AppNotices, RefusalNotices, identUnknownNotice } from '../src/lib/notices'
-import { expect, grid, test } from './support'
+import { expect, grid, openPanel, test } from './support'
 
 // Short enough that the page scrolls, whatever the grid and panels come to.
 test.use({ viewport: { width: 1280, height: 480 } })
@@ -32,7 +32,7 @@ test('a change the server refuses raises an alarm on screen, far from the field,
 })
 
 test('a refusal shown beside the field it was about raises no alarm', async ({ page }) => {
-  const members = page.getByRole('region', { name: 'Members' })
+  const members = await openPanel(page, 'Members')
   await members.getByLabel('Ident label').fill('nobody_answers_to_this')
   await members.getByRole('button', { name: 'Add' }).click()
   await expect(members.getByText(identUnknownNotice('nobody_answers_to_this'))).toBeVisible()

@@ -108,6 +108,27 @@ test('a clueing taller than the row can grow scrolls its rendered face, and a cl
   await expect(face).toBeHidden()
 })
 
+test('an image in a clueing shows held small, and the row grows to it once it has loaded', async ({ page }) => {
+  // A tall picture at an https address, answered late, so it loads after the row has measured itself.
+  const answered = Promise.withResolvers<null>()
+  await page.route('https://images.example/tall.svg', async (route) => {
+    await answered.promise
+    await route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="400"><rect width="40" height="400"/></svg>' })
+  })
+  const clueing = cellOf(page, 0, 'Clueing').getByRole('textbox', { name: 'Clueing', exact: true })
+  await clueing.fill('Who?\n\n![A tall picture](https://images.example/tall.svg)')
+  await page.getByLabel('Quiz name').click()
+  const image = faceOf(cellOf(page, 0, 'Clueing')).getByRole('img', { includeHidden: true, name: 'A tall picture' })
+  await expect(image).toHaveAttribute('src', 'https://images.example/tall.svg')
+  const before = await clueing.evaluate((node) => node.clientHeight)
+
+  answered.resolve(null)
+  await expect.poll(() => image.evaluate((node) => (node as HTMLImageElement).naturalHeight)).toBe(400)
+  // Held to the grid's thumbnail height, `CellImageMaxPx`.
+  await expect.poll(() => image.evaluate((node) => node.getBoundingClientRect().height)).toBe(96)
+  await expect.poll(() => clueing.evaluate((node) => node.clientHeight)).toBeGreaterThan(Math.max(before, 96))
+})
+
 test('the grid opens folded, and entering a text box opens its row alone, which stays open', async ({ page }) => {
   await addColumns(page, ['hint'])
   const heightOf = async (rowIdx: number) => await cellOf(page, rowIdx, 'Hint').getByRole('textbox').evaluate((node) => node.getBoundingClientRect().height)

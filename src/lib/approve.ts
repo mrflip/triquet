@@ -390,6 +390,7 @@ const ContentPolicies = {
   set_q1_preamble:     mayReviseClaimedQuiz,
   set_recap_head:      mayReviseClaimedQuiz,
   set_recap_tail:      mayReviseClaimedQuiz,
+  set_recap_template:  mayReviseClaimedQuiz,
   edit_question:       mayReviseClaimedQuiz,
   add_question:        mayReviseClaimedQuiz,
   delete_questions:    mayReviseClaimedQuiz,

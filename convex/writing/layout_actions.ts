@@ -3,12 +3,11 @@ import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
 import { QuizFallbacks, widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
 import * as Estimates from '../../src/lib/estimates'
-import * as RunOrder from '../../src/lib/run-order'
 import { Quiz } from '../../src/models/quiz'
 import { ColumnValidators, sortkeyOf, sourceOf, widgetingLabelOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
 import { Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../../src/models/widgeting'
 import type { LayoutActionT } from '../../src/models/actions'
-import { libraryOf, widgetForLabel } from '../reading'
+import { widgetForLabel } from '../reading'
 import { deleteWidgeting as deleteWidgetingRows, movedTo, repositioned, updateColumn, updateQuiz, updateWidgeting, type OpenQuizT, type Writer } from './quiz_writing'
 import { reviseOpenLayout } from './quiz_actions'
 
@@ -41,16 +40,6 @@ function refuseQuizReserved(tier: WidgetingTier, label: string): void {
   if (tier === 'quiz' && ! Quiz.mayLabelQuizTier(label)) { refuse('labelTaken') }
 }
 
-/**
- * Whether a widgeting reads anything, by the library's widget it works: every one but an entry's.
- * One whose widget is gone counts as reading, as its formula did.
- */
-async function readsOfRows(db: Writer): Promise<(widgeting: Pick<WidgetingT, 'widget_label'>) => boolean> {
-  const library = await libraryOf(db)
-  const entries = new Set(library.filter((row) => row.formulary === 'entry').map((row) => row.label))
-  return (widgeting) => ! entries.has(widgeting.widget_label)
-}
-
 /** Write each of `ordered`'s positions as its place in the list, where it has moved */
 async function writeRunOrder(db: Writer, ordered: readonly Doc<'widgetings'>[]): Promise<void> {
   await repositioned(ordered, async (row, position) => { await updateWidgeting(db, row, { position }) })
@@ -71,13 +60,10 @@ async function refuseUnshowable(db: Writer, rows: LayoutRows, source: string): P
 }
 
 /**
- * Put a widgeting into the open quiz's run order (`RunOrder.withAdded`): one for each question at
- * the end of the question widgetings (in a quiz with none, just above its first quiz formula); an
- * entry for the whole quiz just above the questions pivot,
- * where every formula can read it; any other for the whole quiz at the very end. A label a sibling
- * has (or, for one for the whole quiz, the quiz itself answers to), a widget the library does not
- * hold or that cannot run at its tier (`Widgeting.runsAt`), or one widgeting more than a quiz may
- * hold, is refused.
+ * Put a widgeting at the end of the open quiz's run order, whichever tier it runs at, so it reads
+ * every widgeting before it. A label a sibling has (or, for one for the whole quiz, the quiz
+ * itself answers to), a widget the library does not hold or that cannot run at its tier
+ * (`Widgeting.runsAt`), or one widgeting more than a quiz may hold, is refused.
  */
 export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: WidgetingT): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
@@ -86,15 +72,8 @@ export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: Widge
     if (rows.widgetings.length >= PA.WidgetingsPerQuiz.max) { refuse('widgetingsFull') }
     const row = await widgetForLabel(db, widgeting.widget_label)
     if (! row) { refuse('widgetGone') }
-    const widget = widgetFrom(row)
-    if (! Widgeting.runsAt(widget, widgeting.tier)) { refuse('tierUnoffered') }
-    const readsOf = await readsOfRows(db)
-    const placed = RunOrder.withAdded<Doc<'widgetings'> | WidgetingT>(rows.widgetings, widgeting, (item) => ('_id' in item ? tierOf(item) : item.tier), readsOf)
-    const position = placed.indexOf(widgeting)
-    for (const [idx, item] of placed.entries()) {
-      if ('_id' in item && item.position !== idx) { await updateWidgeting(db, item, { position: idx }) }
-    }
-    await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position }))
+    if (! Widgeting.runsAt(widgetFrom(row), widgeting.tier)) { refuse('tierUnoffered') }
+    await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: rows.widgetings.length }))
   })
 }
 
@@ -165,20 +144,18 @@ export async function deleteWidgeting(db: Writer, open: OpenQuizT, label: string
     await deleteColumns(db, rows, (column) => widgetingLabelOf(column.source) === label)
     const templated = templatedOf(rows)
     if (templated.includes(label)) { await updateQuiz(db, rows.quiz, { templated: templated.filter((source) => source !== label) }) }
-    await writeRunOrder(db, RunOrder.runOrderOf(rows.widgetings.filter((widgeting) => widgeting._id !== held._id), tierOf))
+    await writeRunOrder(db, rows.widgetings.filter((widgeting) => widgeting._id !== held._id))
   })
 }
 
 /**
- * Move a widgeting of the open quiz to `onto_idx` of its own tier's list, as the gear lists it
- * (`RunOrder.movedWithin`): among the question widgetings, for one that runs for each question;
- * among the quiz's own widgetings and the questions pivot, for one that runs once for the whole
- * quiz, which a drop across the pivot runs before the question widgetings or after them.
+ * Move a widgeting of the open quiz to `onto_idx` of its run order: the one list of its
+ * widgetings, both tiers, as the gear lists them.
  */
 export async function moveWidgeting(db: Writer, open: OpenQuizT, label: string, onto_idx: number): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
     widgetingIn(rows, label)
-    await writeRunOrder(db, RunOrder.movedWithin(rows.widgetings, label, onto_idx, tierOf, await readsOfRows(db)))
+    await writeRunOrder(db, movedTo(rows.widgetings, label, onto_idx))
   })
 }
 

@@ -134,12 +134,16 @@ describe('quizBodyOf', () => {
   it("keeps every field the quiz stores and each widgeting's and column's, its sort memory and a column's alignment among them", () => {
     const chained = chainedQuiz()
     const columns = chained.columns.map((column, ii) => (ii === 0 ? { ...column, align: 'right' as const } : column))
-    const recap = { recap_head: 'Thanks to our playtesters.', recap_tail: 'Until next season.', templated: ['question.recap', 'remark'] }
+    const recap = { recap_head: 'Thanks to our playtesters.', recap_tail: 'Until next season.', recap_template: '{{#played}}{{number}}. {{title}}{{/played}}', templated: ['question.recap', 'remark'] }
     const quiz = { ...chained, columns, locked: true, smiths_note: 'Kings and lions.', ...recap, last_sortkey: 'column:title' as const }
     const body = bodyOf(quiz)
     expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, ...recap, locked: true, last_sortkey: 'column:title', created_at: null, updated_at: null })
     expect(body.widgetings.remark).to.deep.eq({ position: quiz.widgetings.length - 1, widget_label: 'remark', description: '', params: {}, tier: 'question' })
     expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'question.title', width_px: 100, align: 'right' })
+  })
+
+  it("writes the recap template of a quiz that follows the default as null", () => {
+    expect(bodyOf(chainedQuiz()).recap_template).to.be.null
   })
 
   it("puts what each widgeting came to beside the question's own fields, the worked-out ones and an entry's included", () => {
@@ -498,6 +502,15 @@ describe("a quiz's export, imported", () => {
     expect(outcome.log.flatMap((entry) => entry.issues)).to.deep.eq([])
     expect(outcome.widgetingLog.map((entry) => entry.outcome)).to.deep.eq(quiz.widgetings.map(() => 'kept'))
     expect(outcome.widgetingActions).to.deep.eq([])
+  })
+
+  it("carries the recap template across: a quiz's own onto one on the default, and the default onto one with its own", () => {
+    const quiz = chainedQuiz()
+    const owned = { ...quiz, recap_template: '{{#played}}{{number}}. {{title}}{{/played}}' }
+    const ballOf = (from: QuizT) => JSON.stringify(Exporting.quizBall(Place, 'home', from, runOf(from, EntryLibrary)).ball)
+    expect(Importing.importInto(quiz, ballOf(owned), EntryLibrary).fieldActions).to.deep.eq([{ kind: 'set_recap_template', recap_template: owned.recap_template }])
+    expect(Importing.importInto(owned, ballOf(quiz), EntryLibrary).fieldActions).to.deep.eq([{ kind: 'set_recap_template', recap_template: null }])
+    expect(Importing.importInto(owned, ballOf(owned), EntryLibrary).fieldActions).to.deep.eq([])
   })
 
   it("into an empty quiz out of the whole hunt, sends every question in order with all it holds, every widgeting in run order, and what its entries hold", () => {

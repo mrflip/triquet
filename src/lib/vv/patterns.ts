@@ -193,6 +193,8 @@ export const Fullstr  = { max: 82 } as const satisfies Patternbag      // fits a
 export const Bigstr   = { max: 200 } as const satisfies Patternbag     // about the longest product title anyone writes
 /** The same bounds as `Textish`; a note differs only in being trimmed, which is the check's business */
 export const Noteish  = { ...Textish } as const satisfies Patternbag
+/** A note that runs to pages: a quiz's own long texts (its smith's note, its recap's head, tail and template), the same characters as `Noteish`, to 20,000 */
+export const Longnote = { ...Noteish, max: 20_000 } as const satisfies Patternbag
 export const Blobbish = { ...Textish, max: 800_800 } as const satisfies Patternbag
 /** A formula is prose a person types and reads back, so it takes what `Textish` takes and stops at a screenful */
 export const Formulaish = { ...Textish, max: 999 } as const satisfies Patternbag

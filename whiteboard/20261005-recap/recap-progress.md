@@ -16,7 +16,17 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 7 | Security review | pending |
 | 8 | Security fixes, certain ones | pending |
 | 9 | Tighten the recap fields | pending |
-| 10 | The markdown dialect, settled | pending |
+| 10 | The markdown dialect, settled | landed #178 |
+| 11 | Quiz and question widgetings interleave | landed #177 |
+| 12 | Template and recap follow-ups | landing |
+| 13 | Reviews cannot touch the main checkout | landed #174 |
+| 14 | Editable recap template | landed #171 |
+| 15 | Recap reads the question's fields | landed #172 |
+| 16 | Default template on the basic tools | landed #173 (unreviewed) |
+| 17 | Template helpers, longnote | landed #175 (unreviewed) |
+| — | Ad hoc: old addresses not found | landed #167 (merged) |
+| — | Ad hoc: panels fold, resize handle | landed #168 |
+| — | Ad hoc: branch-switch spec race | landed #170 |
 
 **Paused after thread 6, at the Coach's word.** See `human/20261006-sprint_recap_paused.md`.
 Frontier on resuming: thread 7.
@@ -131,7 +141,64 @@ checkout, and to probe only in their worktree. For the Coach.
 *Orchestrator:* a spine replay's message names unlanded branches (`recap_bbjank`, `recap_widen`)
 as replayed; it skips branches checked out in worktrees, and their refs were untouched. Harmless.
 
+* **Recap template (thread 14, #171).** Pure mustache over markdown, converted once:
+  head and tail filled, then the template (quiz `recap_template`, Absentable, or
+  `Recap.DefaultTemplate`) over the recap bag (`recap_head`, `recap_tail`, `played` with `number`
+  and the shaped `quoted_body`, `answer_line`, `recap_below`, `pct` from `correct_pct`). No reset
+  button: emptying the box clears to the default. Template errors log to the console once per issue
+  (`use-face.ts`). Pulled forward `mdast-util-definitions` (thread 10) and `correct_pct` (12).
+  *Review:* fixed two (console report spammed while a section was half-typed; default plus
+  whitespace saved as the quiz's own). *Orchestrator:* directed three follow-ups before landing:
+  export `null` for a default quiz, import clears a template equal to the default, TODO widened (an
+  unclosed fence or HTML block in the head or any recap turns the rest literal, answers included).
+
+* **Recap reads fields (thread 15, #172).** `quoted_body`, `answer_line`, `recap_below` are gone;
+  each played question carries `quoted`, `oneline`, `below`, each holding the five text fields
+  shaped for that spot (`{{quoted.clueing}}`, `{{oneline.full_answer}}`, `{{below.recap}}`). The
+  default template writes `...OR ELSE...` and the question's own hint (its own paragraph in the
+  quote), never the chained-to hint; the LL Export keeps BUT NOT. Old names fill in as nothing.
+  *Review:* clean. Minor: a whitespace-only hint or answer opens its section; every field shaped
+  every way per rebuild; `quoted`/`oneline`/`below` hide same-named columns in `{{#played}}`.
+
+* **Basic-tools template (thread 16, #173, unreviewed at the Coach's word).** The default template
+  uses only `{{#qns}}`, fields, columns and plain mustache; `played` and the shaped values stay in
+  the bag, unused. Gap list (in `human/20261007-recap_template.md`): order and numbering closable by
+  a quiz-level `in_order` column; alternates, no-Q# questions and filled templated fields need the
+  app (thread 12). Thread 17's helpers close the quoting, one-line and `---` gaps.
+
+* **Reviewer rules (thread 13, #174, no review: documents only).** `thread-reviewer.md` forbids the
+  reviewer and `/code-review` any change to the main checkout, checks it before and after (reflog
+  included), and reports what it could not check. Open: whether `EnterWorktree` could give
+  reviewers a workspace of their own (needs a Coach-sanctioned experiment).
+
+* **Helpers and longnote (thread 17, #175, unreviewed at the Coach's word).** `{{#quote}}`,
+  `{{#oneline}}`, `{{#apart}}` in a frozen registry (`Templating.Helpers`), checked by section name
+  before the bag; `BagContext` still calls nothing from the bag; shapers moved to
+  `src/lib/shaping.ts`; the default template uses them. `longnote` (20,000) on `smiths_note`,
+  `recap_head`, `recap_tail`, `recap_template`. Thread 7 reviews it first.
+
+* **Interleave (thread 11, #177).** The questions pivot is gone: one run order in `position`
+  order, tiers mixed; a new widgeting of either tier goes last; `move_widgeting` counts the whole
+  list; the gear shows one *Widgetings* list with a tier chip. No schema change. *Review:* clean.
+  Deploy note: reload open tabs after deploying (a #166 tab's `move_widgeting` index means its own
+  tier's list).
+
+* **Dialect (thread 10, #178).** One indent rule in `src/lib/markdown.ts` (`indentsAsQuotes`,
+  `indentsQuoted`, `quotedByIndent`) for screen, bbjank, LL export and the `quote` helper; lists,
+  fences and HTML keep their indents (an indent markdown would make code is still a quote);
+  strikethrough on screen; bbjank `__x__` -> `[u]`, `[list=N]`; the dialect in `notes/markdown.md`;
+  fixtures `fixtures/bbjank-verifier.{md,bbjank.txt}`; a new `notes/decisions/2026-09-client-first.md`
+  (the Coach may drop it). *Review:* fixed two (list-indented verse became code; bare `\r` in the LL
+  export). Open: verse after a list now joins the list (CommonMark); dangling convex/jazz pointers;
+  a duplicated database-decisions note.
+
 ## Migration chain `recap`
+
+*Orchestrator, 2026-10-07:* the Coach merged #161 to #167 at once (safe: no tightening exists yet).
+The production deploy succeeded but **did not start the backfills** (`migrations:outstanding` showed
+all three `unknown`, 0 processed); the Coach ran them by hand, and they finished. Why the build's
+`after-vercel-build` step did not start them is not yet known (its Vercel log line `Backfills: ...`
+would say). In TODO. Thread 9's tightening may now merge whenever it is built.
 
 *Orchestrator:* the Coach merges up to thread 1's PR, waits for its production deploy's build log
 to say `Backfills: every one has finished.` (Vercel runs the backfills on deploy), then merges the

@@ -27,7 +27,7 @@ export type TemplatableField = typeof TemplatableFieldVals[number]
 /** The most sources a quiz may nominate for templating: every templatable field, and every widgeting */
 const TemplatedMax = TemplatableFieldVals.length + PA.WidgetingsPerQuiz.max
 
-export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod, titleish, noteish, label, bool, stamps, timestamp, zid, treeid }) => {
+export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod, titleish, noteish, longnote, label, bool, stamps, timestamp, zid, treeid }) => {
   const columnSortkey = zod.templateLiteral(['column:', label])
   const sortkey = union([lit(ChainOrderSortkey), columnSortkey])
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
@@ -35,17 +35,20 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
   const quizLabel = label
     .describe('A freeform-editable local identifier, generated once at creation. Meant to become the quiz\'s URL route.')
 
-  const smiths_note = noteish
+  const smiths_note = longnote
     .describe('What the smiths want to say about the quiz as a whole: its theme, its meta, what is left to do. Several paragraphs if need be; kept trimmed.')
 
   const q1_preamble = noteish
     .describe('What the LL export puts ahead of the first question when the quiz goes live, in the league\'s BBCode: a pointer to the smith\'s note, which the league\'s site shows apart from the questions. Kept trimmed.')
 
-  const recap_head = noteish
+  const recap_head = longnote
     .describe('What the recap note says ahead of the questions, once the quiz has been played: thanks to the playtesters, congratulations to the winners. Always templated. Kept trimmed.')
 
-  const recap_tail = noteish
+  const recap_tail = longnote
     .describe('What the recap note says after the questions. Always templated. Kept trimmed.')
+
+  const recap_template = longnote.min(1)
+    .describe('The recap note\'s own template, for a quiz given one: markdown with mustache, filled in over the recap bag (the template bag, with the recap head and tail filled in and the questions played, each with values shaped for where markdown\'s structure is fragile) and then written in bbjank. Absent, the quiz follows the default recap template. Kept trimmed.')
 
   const templatedSource = union([zod.templateLiteral([`${QuestionWidgetLabel}.`, oneof(TemplatableFieldVals)]), WidgetingValidators.widgetingLabel])
     .describe('One source a quiz templates, named as a column names what it shows: `question.<field>` for a question\'s own field, or a widgeting\'s label.')
@@ -62,6 +65,7 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
     q1_preamble:     q1_preamble.default(DefaultQ1Preamble),
     recap_head:      recap_head.default(''),
     recap_tail:      recap_tail.default(''),
+    recap_template:  recap_template.optional(),
     templated:       templated.default([]),
     questions:       arr(QuestionValidators.question).max(PA.QuestionsPerQuiz.max).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left. At most 999.'),
@@ -95,6 +99,7 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
     q1_preamble,
     recap_head,
     recap_tail,
+    recap_template:  recap_template.optional(),
     templated,
     locked:          bool,
     last_sortkey:    sortkey.nullable(),
@@ -104,7 +109,7 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
   })
     .describe('One quiz as the database holds it: its own fields, with its questions, widgetings and columns in rows of their own.')
 
-  return { sortkey, smiths_note, q1_preamble, recap_head, recap_tail, templatedSource, templated, quiz, row }
+  return { sortkey, smiths_note, q1_preamble, recap_head, recap_tail, recap_template, templatedSource, templated, quiz, row }
 })
 
 /** One thing wrong with a quiz, and where */
@@ -165,9 +170,9 @@ function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgetings' | 'columns
   ]
 }
 
-/** Whether `label` is one the quiz itself answers to in the bag (`Quiz.exposed`), which a widgeting for the whole quiz, put beside them, cannot take */
+/** Whether `label` is one the quiz itself answers to in the bag (`Quiz.bagKeys`), which a widgeting for the whole quiz, put beside them, cannot take */
 function isQuizReserved(label: string): boolean {
-  return (Quiz.exposed as readonly string[]).includes(label)
+  return (Quiz.bagKeys as readonly string[]).includes(label)
 }
 
 export type QuizDNA       = Z.input<typeof QuizValidators.quiz>
@@ -183,6 +188,7 @@ export class Quiz implements QuizT {
   declare q1_preamble:     string
   declare recap_head:      string
   declare recap_tail:      string
+  declare recap_template?: string
   declare templated:       string[]
   declare questions:       QuestionT[]
   declare widgetings:      WidgetingT[]
@@ -196,11 +202,18 @@ export class Quiz implements QuizT {
   /**
    * The fields a quiz shows the outside world, alphabetically: its label, the
    * smith's note, and its title. Not the id; not the questions, widgetings and columns, which
-   * are exposed on their own; not the LL export's preamble, nor the recap's head and tail, which
-   * are templated over the bag rather than read from it; and not the housekeeping -- lock,
+   * are exposed on their own; not the LL export's preamble, nor the recap's head, tail and
+   * template, which are templated over the bag rather than read from it; and not the housekeeping -- lock,
    * remembered sort, which sources are templated.
    */
   static readonly exposed = ['label', 'smiths_note', 'title'] as const
+
+  /**
+   * Every name the quiz answers to in a bag, where a widgeting for the whole quiz puts its
+   * widgeted beside them: its exposed fields, and `questions`, under which a template's bag holds
+   * every question, the archived among them (`Templating.bagOf`).
+   */
+  static readonly bagKeys = [...Quiz.exposed, 'questions'] as const
 
   /**
    * Whether `quiz` is locked: nothing in it changes until it is unlocked.
@@ -213,7 +226,7 @@ export class Quiz implements QuizT {
 
   /**
    * Whether a widgeting for the whole quiz may be labelled `label`: not a name the quiz itself
-   * answers to in the bag (`exposed`), beside which its widgeted sits as `quiz.<label>`.
+   * answers to in the bag (`bagKeys`), beside which its widgeted sits as `quiz.<label>`.
    *
    * @example Quiz.mayLabelQuizTier('playtesters')  // => true
    * @example Quiz.mayLabelQuizTier('smiths_note')  // => false
