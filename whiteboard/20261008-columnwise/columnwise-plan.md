@@ -68,6 +68,17 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
   ReDoS.
 * **Every field validator produces its own sentence** (§6, the commit model): no field relies on
   a dialog's Apply to report what is wrong.
+* **New input kinds are generic facilities** (the Coach, 2026-10-08): "This sprint will likely
+  make some new input kinds, like regex or whatnot. make those generic facilities. Make sure also
+  to weigh libraries for them." A regex field (6), an options-list field (2's enum, `EntryParamsFields`),
+  a template or formula field (3b, 7), a params editor (5a): each is a field component any form can
+  use, not a one-off inside its first caller, and library-first applies before writing one (an MUI
+  component, then a widely used library such as `react-number-format` was; record what was weighed
+  in the thread file).
+* **Reserved words take an allowlist** (the Coach, 2026-10-08): the reserved check accepts an
+  optional allowlist `Set` that forces a word allowed, so a family's own params keys (`min`, `max`,
+  `integer`) pass the full check rather than escaping it. Thread 2 builds it. `Labelmaker` is moving
+  to a `Set` outside this sprint: build on what is there, and do not rewrite it ahead of that.
 * **Hard things go to `whiteboard/TODO.md`**, under `## From columnwise sprint, thread N: ...`,
   and into the report.
 * **Proving.** `pnpm e2e --touched` or more; the orchestrator asks for a full run on 3a and 3c
