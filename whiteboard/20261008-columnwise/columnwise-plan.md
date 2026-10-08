@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: threads 1 (#191), 4 (#192), 3a (#193) landed; 2 landing; 3b underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1, 4, 3a merged (#191-#193); 2 landed (#196); 3b, 6, 7 underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
