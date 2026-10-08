@@ -229,6 +229,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         lastSortkey={quiz.last_sortkey}
         sortMark={sortMark}
         onSort={onSort}
+        onCollapse={offers.reviseLayout ? (label, collapsed) => { dispatch({ kind: 'edit_column', label, patch: { collapsed: collapsed || null } }) } : undefined}
         onChain={(question_id, chains_to) => { dispatch({ kind: 'set_chain', question_id, chains_to }) }}
         asking={asking}
         unavailableNotice={unavailableFor}
