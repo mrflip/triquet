@@ -1,6 +1,7 @@
 import { ColumnAlignVals, sortkeyOf, sourceOf, type ColumnAlign, type ColumnT, type QuestionField, type QuestionView, type WidgetingPart } from '../models/column'
 import type { WidgetingT } from '../models/widgeting'
 import type { Sortkey } from '../models/quiz'
+import { widgetingShownNotice } from './notices'
 
 /** How a column's header is drawn: along the row, or rotated into it */
 export type Headkind = 'plain' | 'vertical'
@@ -49,6 +50,39 @@ export function resolve(source: string, widgetings: readonly WidgetingT[]): Reso
   if (named.kind !== 'widgeting') { return named }
   const widgeting = widgetings.find((each) => each.label === named.label)
   return widgeting ? { kind: 'widgeting', widgeting, part: named.part } : null
+}
+
+/**
+ * The columns of a quiz that show the widgeting labelled `label`, whole or a part of it: each
+ * found through `resolve`, so a column counts in whichever grammar its source is written.
+ *
+ * @param quiz - The quiz's columns and widgetings.
+ * @param label - The widgeting's label.
+ * @returns Those columns, in the quiz's order; none when no column shows it.
+ *
+ * @example columnsShowing(quiz, 'cats').map((column) => column.label)  // => ['cats', 'cats_masie']
+ */
+export function columnsShowing<CT extends Pick<ColumnT, 'source'>>(quiz: { columns: readonly CT[], widgetings: readonly WidgetingT[] }, label: string): CT[] {
+  return quiz.columns.filter((column) => {
+    const shown = resolve(column.source, quiz.widgetings)
+    return shown?.kind === 'widgeting' && shown.widgeting.label === label
+  })
+}
+
+/**
+ * Why the widgeting labelled `label` cannot be removed from a quiz, or null when it can: a
+ * widgeting goes only once no column shows it (`columnsShowing`). The server refuses with the
+ * same sentence the widgeting editor shows in place of its remove button.
+ *
+ * @param quiz - The quiz's columns and widgetings.
+ * @param label - The widgeting's label.
+ * @returns The sentence naming the columns that hold it back, or null.
+ *
+ * @example widgetingRemovalRefusal(quiz, 'hint_full')  // => 'The column “Hint Full Sum” still shows that widgeting — remove the column first.'
+ */
+export function widgetingRemovalRefusal(quiz: { columns: readonly Pick<ColumnT, 'label' | 'title' | 'source'>[], widgetings: readonly WidgetingT[] }, label: string): string | null {
+  const showing = columnsShowing(quiz, label)
+  return showing.length === 0 ? null : widgetingShownNotice(showing.map((column) => column.title || column.label))
 }
 
 /** Whether ordering the quiz by this can mean something: a value each question has */

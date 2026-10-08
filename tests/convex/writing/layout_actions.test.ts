@@ -11,6 +11,7 @@ import { present } from '../../support/present'
 import { huntHolding, openOf, openTester, refusedAs, seedHunt, type Seeded, type Seen } from '../../support/convex'
 import { classicHunt } from '../../support/layouts'
 import { expectSound } from '../../support/soundness'
+import { noticeOf } from '../../../src/lib/refusals'
 
 /** A fresh hunt with its quiz laid out as every new quiz was before they started lean */
 function standard(locked = false): HuntT {
@@ -176,9 +177,31 @@ describe("edit_widgeting", () => {
   })
 })
 
+/** `seeded` with each of its quiz's columns labelled `columnLabels` removed, so none holds back what it showed */
+async function unshown(seeded: Seeded, ...columnLabels: string[]): Promise<Seeded> {
+  for (const label of columnLabels) { await seeded.act({ kind: 'delete_column', label }) }
+  return seeded
+}
+
+/** The sentence `pending` was refused with; fails the test when it went through */
+async function refusalSaid(pending: Promise<unknown>): Promise<string> {
+  try {
+    await pending
+  } catch (err) {
+    return noticeOf(err)
+  }
+  throw new Error('expected a refusal, and the call went through')
+}
+
 describe("delete_widgeting", () => {
-  it("removes the widgeting, and the columns that showed it, and no others", async () => {
-    const { tt, act, read } = await seed()
+  it("refuses while a column shows it, naming the column, and leaves the quiz as it was", async () => {
+    const seeded = await seed()
+    await expectRefused(seeded, [{ kind: 'delete_widgeting', label: 'hint_full' }, 'widgetingShown'])
+    expect(await refusalSaid(seeded.act({ kind: 'delete_widgeting', label: 'hint_full' }))).to.eq('The column “Hint Full Sum” still shows that widgeting — remove the column first.')
+  })
+
+  it("removes the widgeting once no column shows it, and no other, leaving the columns as they are", async () => {
+    const { tt, act, read } = await unshown(await seed(), 'hint_full')
     await act({ kind: 'delete_widgeting', label: 'hint_full' })
     const after = await read()
     expect(widgetingsOf(after)).to.deep.eq(StandardWidgetings.filter((label) => label !== 'hint_full'))
@@ -186,32 +209,33 @@ describe("delete_widgeting", () => {
     await expectSound(tt)
   })
 
+  it("is not held back by a formula that reads it, which reads nothing afterwards", async () => {
+    const { act, actOnLibrary, read } = await withWidgeting()
+    await actOnLibrary({ kind: 'add_widget', widget: { label: 'echo', formulary: 'jsonata', formula: 'qn.backward' } })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'echo', label: 'echo' } })
+    await act({ kind: 'delete_widgeting', label: 'backward' })
+    expect(widgetingsOf(await read())).to.include('echo').and.not.include('backward')
+  })
+
   it("takes what it stored with it, and leaves what its siblings stored", async () => {
     const seeded = await withStored()
     expect(await widgetedCounts(seeded)).to.deep.eq({ dumdum: 1, numnum_clueing: 1 })
+    await unshown(seeded, 'guess')
     await seeded.act({ kind: 'delete_widgeting', label: 'dumdum' })
     expect(await widgetedCounts(seeded)).to.deep.eq({ numnum_clueing: 1 })
-    expect(columnsOf(await seeded.read())).to.not.include('guess')
     await expectSound(seeded.tt)
   })
 
   it("leaves the widget it worked in the library", async () => {
-    const { act, read } = await seed()
+    const { act, read } = await unshown(await seed(), 'guess')
     const ante = await read()
     await act({ kind: 'delete_widgeting', label: 'dumdum' })
     const { library } = await read()
     expect(library).to.deep.eq(ante.library)
   })
 
-  it("forgets a sort memory that named a column it took with it", async () => {
-    const { act, read } = await seed()
-    await act({ kind: 'sort_questions', sortkey: 'column:hint_full', descending: false })
-    await act({ kind: 'delete_widgeting', label: 'hint_full' })
-    expect(quizOf(await read()).last_sortkey).to.be.null
-  })
-
-  it("keeps a sort memory that named some other column", async () => {
-    const { act, read } = await seed()
+  it("keeps the quiz's sort memory, which names a column", async () => {
+    const { act, read } = await unshown(await seed(), 'hint_full')
     await act({ kind: 'sort_questions', sortkey: 'column:clueing_full', descending: false })
     await act({ kind: 'delete_widgeting', label: 'hint_full' })
     expect(quizOf(await read()).last_sortkey).to.eq('column:clueing_full')
@@ -459,12 +483,15 @@ describe("a category-estimate widgeting's parts", () => {
       [{ kind: 'add_column', column: columnFor('gone_masie', 'gone.masie') }, 'sourceUnshowable'])
   })
 
-  it("follow the widgeting when it is renamed, and go with it when it is removed", async () => {
-    const { act, read } = await withParts()
-    await act({ kind: 'edit_widgeting', label: 'cats', patch: { label: 'topics' } })
-    expect(partColumnsOf(await read())).to.deep.eq([['cats', 'topics'], ['masie', 'topics.masie']])
-    await act({ kind: 'delete_widgeting', label: 'topics' })
-    expect(partColumnsOf(await read())).to.deep.eq([])
+  it("follow the widgeting when it is renamed, and hold it back from removal as the whole does", async () => {
+    const seeded = await withParts()
+    await seeded.act({ kind: 'edit_widgeting', label: 'cats', patch: { label: 'topics' } })
+    expect(partColumnsOf(await seeded.read())).to.deep.eq([['cats', 'topics'], ['masie', 'topics.masie']])
+    await seeded.act({ kind: 'delete_column', label: 'cats' })
+    await expectRefused(seeded, [{ kind: 'delete_widgeting', label: 'topics' }, 'widgetingShown'])
+    await seeded.act({ kind: 'delete_column', label: 'masie' })
+    await seeded.act({ kind: 'delete_widgeting', label: 'topics' })
+    expect(widgetingsOf(await seeded.read())).to.not.include('topics')
   })
 
   it("sort the questions by a persona's chance, read against the hunt's own wheel", async () => {

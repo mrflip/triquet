@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GutterWidthPx, alignAfter, alignOf, gridWidthPx, headAlignOf, qnumSortkeyOf, resolve, specFor, specsFor } from '../../src/lib/columns'
+import { GutterWidthPx, alignAfter, alignOf, columnsShowing, gridWidthPx, headAlignOf, qnumSortkeyOf, resolve, specFor, specsFor, widgetingRemovalRefusal } from '../../src/lib/columns'
 import { Column, type ColumnAlign } from '../../src/models/column'
 import { classicLayout } from '../support/layouts'
 import { Widgeting } from '../../src/models/widgeting'
@@ -36,6 +36,54 @@ describe('resolve', () => {
   it('finds nothing for a widgeting the quiz does not have, nor by the widget it works', () => {
     expect(resolve('nowhere', widgetings)).to.be.null
     expect(resolve('clueing_full', widgetings)).to.be.null
+  })
+})
+
+describe('columnsShowing', () => {
+  const quiz = {
+    widgetings,
+    columns: [
+      columnOf('question.title', 100, 'title'),
+      columnOf('total', 78, 'total'),
+      columnOf('dumdum', 160, 'guess'),
+      columnOf('total.masie', 78, 'total_masie'),
+      columnOf('gone', 78, 'gone'),
+    ],
+  }
+  const labelsShowing = (label: string) => columnsShowing(quiz, label).map((column) => column.label)
+
+  it("finds every column showing a widgeting, whole or a part of it, in the quiz's order", () => {
+    expect(labelsShowing('total')).to.deep.eq(['total', 'total_masie'])
+    expect(labelsShowing('dumdum')).to.deep.eq(['guess'])
+  })
+
+  it('finds none for a widgeting no column shows, and counts no column showing a field', () => {
+    expect(labelsShowing('numnum_hint')).to.deep.eq([])
+    expect(labelsShowing('title')).to.deep.eq([])
+  })
+
+  it('finds none for a widgeting the quiz does not have, though a column names it', () => {
+    expect(labelsShowing('gone')).to.deep.eq([])
+  })
+})
+
+describe('widgetingRemovalRefusal', () => {
+  const quiz = {
+    widgetings,
+    columns: [
+      Column.fill({ label: 'total', title: 'Total', source: 'total', width_px: 78 }),
+      Column.fill({ label: 'total_masie', title: '', source: 'total.masie', width_px: 78 }),
+      Column.fill({ label: 'guess', title: 'Guess', source: 'dumdum', width_px: 160 }),
+    ],
+  }
+
+  it('names each column that holds the widgeting back, by its title or, untitled, its label', () => {
+    expect(widgetingRemovalRefusal(quiz, 'total')).to.eq('The columns “Total” and “total_masie” still show that widgeting — remove them first.')
+    expect(widgetingRemovalRefusal(quiz, 'dumdum')).to.eq('The column “Guess” still shows that widgeting — remove the column first.')
+  })
+
+  it('is null for a widgeting no column shows', () => {
+    expect(widgetingRemovalRefusal(quiz, 'numnum_hint')).to.be.null
   })
 })
 

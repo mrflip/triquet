@@ -3,6 +3,7 @@ import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
 import { widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
 import * as Estimates from '../../src/lib/estimates'
+import { widgetingRemovalRefusal } from '../../src/lib/columns'
 import { Quiz } from '../../src/models/quiz'
 import { ColumnValidators, sortkeyOf, sourceOf, widgetingLabelOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
 import { Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../../src/models/widgeting'
@@ -117,26 +118,19 @@ export async function setTemplated(db: Writer, open: OpenQuizT, templated: reado
 }
 
 /**
- * The open quiz's columns that `doomed` picks, deleted, and a sort memory that named one of them
- * forgotten.
- */
-async function deleteColumns(db: Writer, rows: LayoutRows, doomed: (column: Doc<'columns'>) => boolean): Promise<void> {
-  const gone = rows.columns.filter((column) => doomed(column))
-  for (const column of gone) { await db.delete('columns', column._id) }
-  if (gone.some((column) => sortkeyOf(column) === rows.quiz.last_sortkey)) { await updateQuiz(db, rows.quiz, { last_sortkey: null }) }
-}
-
-/**
- * Delete a widgeting of the open quiz, everything it stored, and the columns that showed it: a
- * column with nothing to show is not a column. It leaves the sources the quiz templates too. The
- * widget it worked stays in the library.
+ * Delete a widgeting of the open quiz and everything it stored, refusing while a column shows it,
+ * whole or a part of it (`widgetingRemovalRefusal`, the sentence naming the columns): a widgeting
+ * goes only once nothing shows it, and the author removes the columns first. A formula or template
+ * naming it does not hold it back, and reads nothing afterwards. It leaves the sources the quiz
+ * templates; the widget it worked stays in the library.
  */
 export async function deleteWidgeting(db: Writer, open: OpenQuizT, label: string): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
     const held = rows.widgetings.find((widgeting) => widgeting.label === label)
     if (! held) { return }
+    const refusal = widgetingRemovalRefusal({ columns: rows.columns, widgetings: rows.widgetings.map((row) => widgetingFrom(row)) }, label)
+    if (refusal !== null) { refuse('widgetingShown', refusal) }
     await deleteWidgetingRows(db, held._id)
-    await deleteColumns(db, rows, (column) => widgetingLabelOf(column.source) === label)
     const { templated } = rows.quiz
     if (templated.includes(label)) { await updateQuiz(db, rows.quiz, { templated: templated.filter((source) => source !== label) }) }
     await writeRunOrder(db, rows.widgetings.filter((widgeting) => widgeting._id !== held._id))
@@ -187,9 +181,14 @@ export async function editColumn(db: Writer, open: OpenQuizT, label: string, pat
   })
 }
 
-/** Delete a column of the open quiz, forgetting a sort memory that named it */
+/** Delete a column of the open quiz, forgetting a sort memory that named it; nothing for a column already gone */
 export async function deleteColumn(db: Writer, open: OpenQuizT, label: string): Promise<void> {
-  await reviseOpenLayout(db, open, async (rows) => { await deleteColumns(db, rows, (column) => column.label === label) })
+  await reviseOpenLayout(db, open, async (rows) => {
+    const held = rows.columns.find((column) => column.label === label)
+    if (! held) { return }
+    await db.delete('columns', held._id)
+    if (sortkeyOf(held) === rows.quiz.last_sortkey) { await updateQuiz(db, rows.quiz, { last_sortkey: null }) }
+  })
 }
 
 /** Move a column of the open quiz to `onto_idx` among its siblings */

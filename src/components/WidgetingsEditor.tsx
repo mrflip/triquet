@@ -9,6 +9,7 @@ import { SortableList } from './SortableList'
 import { WidgetEditor } from './WidgetEditor'
 import { FormularyWords } from './widget-words'
 import { planWidgetingEdit } from '../lib/widgeting-edit'
+import { widgetingRemovalRefusal } from '../lib/columns'
 import { formularyFor } from '../lib/formulary/formularies'
 import { FormularykindVals, Widget, type WidgetT } from '../models/widget'
 import { Widgeting, type WidgetingT, type WidgetingTier } from '../models/widgeting'
@@ -133,8 +134,8 @@ type WidgetEditing = 'new' | 'held' | null
  *
  * The widget itself is the library's, so it is never edited here: a door opens the widget editor,
  * to write a new widget for this widgeting to work, or to revise the one it works, which changes
- * every quiz that works it. Nothing is applied until Apply. Removing a widgeting asks first; its
- * widget stays in the library.
+ * every quiz that works it. Nothing is applied until Apply. Removing a widgeting asks first, and
+ * is refused, naming the columns, while any column shows it; its widget stays in the library.
  */
 function WidgetingDialog({ hunt, quiz, tier, library, widgeting, revisable, changeable, dispatch, changeLibrary, onClose }: Readonly<WidgetingDialogProps>) {
   const [label, setLabel] = useState(widgeting?.label ?? '')
@@ -194,6 +195,7 @@ function WidgetingDialog({ hunt, quiz, tier, library, widgeting, revisable, chan
               <ConfirmRemove
                 noun="widgeting"
                 question={removalQuestion(widget)}
+                refusal={widgetingRemovalRefusal(quiz, widgeting.label)}
                 onConfirm={() => { dispatch({ kind: 'delete_widgeting', label: widgeting.label }); onClose() }}
               />
             )
@@ -283,8 +285,8 @@ function pickedNote(widget: WidgetT | null, gone: string | null): string {
 /** What removing a widgeting asks first: what it takes with it, by how its widget keeps its values */
 function removalQuestion(widget: WidgetT | null): string {
   switch (widget ? formularyFor(widget).store : null) {
-  case 'append': { return 'Remove this widgeting, the columns that show it, and every answer it kept? Its widget stays in the library.' }
-  case 'upsert': { return 'Remove this widgeting, the columns that show it, and everything typed into it? Its widget stays in the library.' }
-  case null:     { return 'Remove this widgeting, and the columns that show it? Its widget stays in the library.' }
+  case 'append': { return 'Remove this widgeting, and every answer it kept? Its widget stays in the library.' }
+  case 'upsert': { return 'Remove this widgeting, and everything typed into it? Its widget stays in the library.' }
+  case null:     { return 'Remove this widgeting? Its widget stays in the library.' }
   }
 }

@@ -45,6 +45,15 @@ async function applyWidget(page: Page, label: string) {
   await expect(page.getByRole('dialog')).toHaveCount(0)
 }
 
+/** Through the gear's dialog, which must be open: remove the column titled `title`, saying yes when it asks */
+async function removeColumn(page: Page, title: string) {
+  await page.getByRole('button', { name: `Edit column ${title}` }).click()
+  const editor = page.getByRole('dialog', { name: `Column: ${title}` })
+  await editor.getByRole('button', { name: 'Remove column' }).click()
+  await editor.getByRole('button', { name: 'Yes, remove' }).click()
+  await expect(page.getByRole('group', { name: `Column ${title}`, exact: true })).toHaveCount(0)
+}
+
 /** Type a full answer into the first row */
 async function answerFirstRow(page: Page, full_answer: string) {
   await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill(full_answer)
@@ -232,6 +241,7 @@ test('a widget nobody works asks first, and is removed', async ({ page }) => {
   const widget_label = freshWidgetLabel('spare')
   await addNewFormula(page, widget_label, '1', 'spare')
   await openManage(page)
+  await removeColumn(page, 'Spare')
   await page.getByRole('button', { name: 'Edit widgeting spare' }).click()
   const widgeting = page.getByRole('dialog', { name: 'Widgeting: spare' })
   await widgeting.getByRole('button', { name: 'Remove widgeting' }).click()
@@ -320,16 +330,22 @@ test('removing a column asks first, and leaves the widgeting it showed', async (
   await expect(page.getByRole('columnheader', { name: 'Hint Numeral' })).toHaveCount(0)
 })
 
-test('removing a widgeting asks first, and takes the columns that showed it', async ({ page }) => {
+test('removing a widgeting waits until no column shows it, saying which does, and then asks first', async ({ page }) => {
   await addWidgeting(page, 'hint_numeral')
   await openManage(page)
   await page.getByRole('button', { name: 'Edit widgeting hint_numeral' }).click()
   const editor = page.getByRole('dialog', { name: 'Widgeting: hint_numeral' })
+  await expect(editor).toContainText('The column “Hint Numeral” still shows that widgeting — remove the column first.')
+  await expect(editor.getByRole('button', { name: 'Remove widgeting' })).toHaveCount(0)
+  await editor.getByRole('button', { name: 'Cancel' }).click()
+
+  await removeColumn(page, 'Hint Numeral')
+  await page.getByRole('button', { name: 'Edit widgeting hint_numeral' }).click()
   await editor.getByRole('button', { name: 'Remove widgeting' }).click()
   await editor.getByRole('button', { name: 'Keep it' }).click()
   await editor.getByRole('button', { name: 'Remove widgeting' }).click()
   await editor.getByRole('button', { name: 'Yes, remove' }).click()
-  await expect(page.getByRole('group', { name: 'Column Hint Numeral' })).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Widgeting hint_numeral' })).toHaveCount(0)
   await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'Hint Numeral' })).toHaveCount(0)
 })

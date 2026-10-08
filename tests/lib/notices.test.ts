@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { botUnavailableNotice, identUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice } from '../../src/lib/notices'
+import { RefusalNotices, botUnavailableNotice, identUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, widgetingShownNotice } from '../../src/lib/notices'
 
 describe('botUnavailableNotice', () => {
   const Cases: [[string, string], string, string][] = [
@@ -57,5 +57,19 @@ describe("notOnHuntNotice", () => {
 describe("notASmithNotice", () => {
   it("says they are a reviewer, and who could make them a smith and where", () => {
     expect(notASmithNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')).to.eq('You are a reviewer on this hunt, not a smith. Ask Flip (flip_kromer) to make you one: they can change the role of your ident, “ada_lovelace”, in the Members panel beneath any of its quizzes.')
+  })
+})
+
+describe('widgetingShownNotice', () => {
+  it('names the one column showing a widgeting, and what to do first', () => {
+    expect(widgetingShownNotice(['Sum'])).to.eq('The column “Sum” still shows that widgeting — remove the column first.')
+  })
+
+  it('names every column showing it, as a list', () => {
+    expect(widgetingShownNotice(['Masie', 'Artie', 'Poppy'])).to.eq('The columns “Masie”, “Artie”, and “Poppy” still show that widgeting — remove them first.')
+  })
+
+  it("says the refusal's own sentence when it knows no column by name", () => {
+    expect(widgetingShownNotice([])).to.eq(RefusalNotices.widgetingShown)
   })
 })
