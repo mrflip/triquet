@@ -279,7 +279,7 @@ export function bagsAt(run: QuizRun, widgeting: Pick<WidgetingT, 'label' | 'para
  * The bag a widgeting for the whole quiz reads, or would read: for no question, with the
  * widgeteds of those before it (of every widgeting, for one the quiz does not run).
  *
- * @example quizBagAt(run, { label: 'total', params: {} }).qns[0]?.clueing_full
+ * @example quizBagAt(run, { label: 'grand_total', params: {} }).qns[0]?.clueing_full
  */
 export function quizBagAt(run: QuizRun, widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag {
   return quizBagOf(run.frame, run.quizAt.get(widgeting.label) ?? run.frame.quiz, run.qnsAt.get(widgeting.label) ?? run.qnsAfter, widgeting)

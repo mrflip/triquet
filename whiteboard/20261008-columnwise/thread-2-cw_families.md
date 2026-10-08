@@ -70,8 +70,9 @@ Additive to the schema: `EntryKindVals` widened, `widgets.config` gains optional
   - **The browser installs no Zod error map**, so a parse in a view says Zod's own words. The new
     browser parses pass `{ error: Reporting.customError }`; the app-wide fix is in
     `whiteboard/TODO.md`.
-  - **A row under a newly reserved label refuses every write** until relabelled (whole-row
-    validation). `human/20261008-cw_families.md` has it for the Coach.
+  - **A label under a newly reserved word fails on read as well as write** (found in review): an
+    address or org holding one cannot be opened, and a row holding one refuses every write until
+    relabelled. The Coach ruled a production grep as the gate, no code on the read paths.
   - Production needs `seeding:seedWidgets` after the deploy for the four seeds (the human note).
   - Flakes under load: `e2e/panels.spec.ts` (`preparedExport`'s box gone, three different tests;
     green twice over on one worker) and the unit `templating.test.ts` "stops a template that walks a
@@ -91,6 +92,23 @@ Additive to the schema: `EntryKindVals` widened, `widgets.config` gains optional
   - **7**: `liquidize` reports `paramsOf()` as `jsonata` does (`FormulaFacts` asks it), or takes the
     widget and gets a case in `Formularies.paramsOf`.
 
-* **For the Coach**: grep production before the deploy, and seed after it
-  (`human/20261008-cw_families.md`). One `eslint-disable-line unicorn/prefer-https` in
-  `tests/lib/vv/patterns.test.ts`, on the case testing that `http://` is a web address.
+* **Left as the review left them** (minor, each knowingly):
+  - A value its params refuse stays in the box after the alarm, until the box is next left or the
+    page reloaded: the fix is a revert in `useDraft`, which every field shares.
+  - The git history lists a hunt by its id (`huntgit.tipLabel`), not its label.
+  - A widget's defaults can be revised to clash with a widgeting's own params (a most below a
+    widgeting's least): nothing checks the widgetings when a widget is revised, and such a cell
+    then refuses everything, with the sentence.
+  - The review's own fix, `c420fbf` (`EntryFormulary.numberBoxOf`): a number box shows the value
+    its cell holds, though its params now refuse it.
+
+* **For the Coach**:
+  - **A hard gate before the deploy**: grep production for every newly reserved word among hunt,
+    realm, quiz, question, column, widget and widgeting labels and usernames (idents, orgs), and
+    relabel each found. One missed **cannot be opened** (an address slot or org is checked on
+    read: `src/lib/addresses.ts`, `convex/hunts.ts` `openHunt`), a username so labelled cannot be
+    asserted, added to a hunt or make one, and a row so labelled refuses every write until
+    relabelled. `human/20261008-cw_families.md` has the words and the recipe.
+  - Seed after the deploy: `seeding:seedWidgets` (the same note).
+  - One `eslint-disable-line unicorn/prefer-https` in `tests/lib/vv/patterns.test.ts`, on the case
+    testing that `http://` is a web address.

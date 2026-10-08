@@ -149,9 +149,9 @@ export function alignOf(column: Pick<ColumnT, 'source' | 'formula' | 'align'>): 
  * Where a column's header sits: where the column says, Q# centered, a turned header to the right
  * over the numbers below it, any other to the left. It is what the column editor shows.
  *
- * @example headAlignOf({ label: 'qnum', title: 'Q#', source: 'qnum', width_px: 60 })       // => 'center'
- * @example headAlignOf({ label: 'sum', title: 'Sum', source: 'dumdum', width_px: 78 })     // => 'right'
- * @example headAlignOf({ label: 'notes', title: 'Notes', source: 'notes', width_px: 220 })  // => 'left'
+ * @example headAlignOf({ label: 'qnum', title: 'Q#', source: 'qnum', width_px: 60 })              // => 'center'
+ * @example headAlignOf({ label: 'clueing_sum', title: 'Sum', source: 'dumdum', width_px: 78 })    // => 'right'
+ * @example headAlignOf({ label: 'notes', title: 'Notes', source: 'notes', width_px: 220 })         // => 'left'
  */
 export function headAlignOf(column: ColumnT): ColumnAlign {
   return alignOf(column) ?? (headkindOf(refOf(column.source), column.width_px) === 'vertical' ? 'right' : 'left')
