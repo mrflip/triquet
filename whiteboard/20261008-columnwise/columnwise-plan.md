@@ -359,3 +359,10 @@ thread (last, the top of the series).
   them).
 * The preplan's line 514 ("`template` is mustache") is superseded by its later ruling (Liquid,
   no mustache anywhere); the plan follows the later one.
+* **3a's review hit the permission check** (2026-10-08): it refused the reviewer a read-only grep of
+  `tests/convex/writing/quiz_writing.test.ts` and `layout_actions.test.ts`, and an edit to
+  `convex/writing/layout_actions.ts`. The reviewer reported both, and did not work round them.
+  Not routed to another agent. Waiting on the Coach: whether 3a's worker (or a later thread)
+  applies the reviewer's proposed `shadowedBy` fix (a column whose plain source `categories` names
+  a `categories` widgeting is missed on rename and delete; minor, only before 3a's backfill or
+  before 3c reserves `categories`), and adds a unit test for `8562e8b`.
