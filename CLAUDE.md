@@ -158,6 +158,7 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
   - `notes/stack.md` *(auto-loads)* -- what we build with. Consult it when
     adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
   - `notes/deploy.md` -- agents never deploy to production, but look here if humans request your guidance.
+  - `notes/security.md` -- decisions a security reviewer should look at. Add one when you make such a decision.
   - `notes/testing.md` *(auto-loads)* -- test conventions.
   - `notes/convex.md` *(auto-loads)* -- how we use Convex, where we depart from its guidelines, and which Convex skill to name when.
   - `notes/views.md` *(auto-loads)* -- how a view is built: MUI first, the tripwires, and which MUI skill to name when.
