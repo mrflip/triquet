@@ -8,10 +8,10 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 
 | Thread | Label | Status |
 |---|---|---|
-| 1 | design note and vocabulary | landing (docs only, no review) |
-| 2 | entry families | pending |
-| 3a | columns widen (Serial Deploy) | pending |
-| 4 | removal and commit model | pending |
+| 1 | design note and vocabulary | landed #191 (docs only, no review) |
+| 2 | entry families | underway |
+| 3a | columns widen (Serial Deploy) | underway |
+| 4 | removal and commit model | underway |
 | 3b | column expression authoring | pending |
 | 7 | `liquidize` formulary | pending |
 | 6 | free regex (optional) | pending |
