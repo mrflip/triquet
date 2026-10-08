@@ -12,7 +12,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 2 | entry families | landed #196 (the spine restarted: #191-#193 merged) |
 | 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
-| 3b | column expression authoring | underway |
+| 3b | column expression authoring | landing (review clean) |
 | 7 | `liquidize` formulary | underway |
 | 6 | free regex (optional) | underway |
 | 5a | folding editors | pending |
