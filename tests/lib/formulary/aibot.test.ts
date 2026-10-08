@@ -54,7 +54,7 @@ describe('AibotFormulary', () => {
       expect(AibotFormulary.check(widgetOf('dumdum'))).to.be.null
       expect(AibotFormulary.check({ ...widgetOf('dumdum'), formula: '  ' })).to.eq('The prompt is empty')
       expect(AibotFormulary.check(widgetOf('dumdum', '{'))).to.match(/^The input formula: /)
-      expect(AibotFormulary.check({ ...widgetOf('dumdum'), formula: 'Q: {{clueing' })).to.match(/^The prompt: Unclosed tag/)
+      expect(AibotFormulary.check({ ...widgetOf('dumdum'), formula: 'Q: {{clueing' })).to.match(/^The prompt: output "\{\{clueing" not closed/)
     })
   })
 
@@ -72,9 +72,9 @@ describe('AibotFormulary', () => {
     })
 
     it('fails, with its input, for a template that does not parse', () => {
-      const rendered = AibotFormulary.prompt({ ...widgetOf('dumdum'), formula: '{{#clueing}}' }, bag)
+      const rendered = AibotFormulary.prompt({ ...widgetOf('dumdum'), formula: '{% if clueing %}' }, bag)
       expect(rendered).to.deep.include({ status: 'errored', input: { clueing: 'Who?' } })
-      expect(rendered.status === 'errored' && rendered.message).to.match(/^The prompt: Unclosed section/)
+      expect(rendered.status === 'errored' && rendered.message).to.match(/^The prompt: tag \{% if clueing %\} not closed/)
     })
 
     it('fails for a prompt longer than may be sent', () => {
@@ -116,9 +116,9 @@ describe('AibotFormulary', () => {
     })
 
     it('records a prompt that cannot be sent as a failure, asking nothing', async () => {
-      const asked = await AibotFormulary.run({ ...widgetOf('dumdum'), formula: '{{#clueing}}' }, widgeting, bag)
+      const asked = await AibotFormulary.run({ ...widgetOf('dumdum'), formula: '{% if clueing %}' }, widgeting, bag)
       expect(asked?.widgeted).to.deep.include({ status: 'errored', value: null, result_meta: {} })
-      expect(asked?.widgeted.message).to.match(/^The prompt: Unclosed section/)
+      expect(asked?.widgeted.message).to.match(/^The prompt: tag \{% if clueing %\} not closed/)
       expect(vi.mocked(askModel).mock.calls).to.have.lengthOf(0)
     })
   })

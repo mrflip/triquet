@@ -151,11 +151,11 @@ function isObject(val: unknown): boolean {
 function adviceSpec(input_formula: string, input: InputOutcome | null, widgeting: AdviceSubject | null): AdviceSpec {
   const label = widgeting?.label ?? '<label>'
   return {
-    preamble: 'I use a small quiz-editing tool. In it, a column can be filled for every question of a quiz by putting a prompt to a language model, one question at a time. The prompt is a mustache template, filled in for each question from a small JSON object, its input. The model is asked for a JSON object, which the tool keeps as the cell\'s value. I would like your help with the prompt for one such column.',
+    preamble: 'I use a small quiz-editing tool. In it, a column can be filled for every question of a quiz by putting a prompt to a language model, one question at a time. The prompt is a Liquid template, filled in for each question from a small JSON object, its input. The model is asked for a JSON object, which the tool keeps as the cell\'s value. I would like your help with the prompt for one such column.',
     noun:     'prompt',
     reads:    [
       '## What the prompt is filled in from',
-      `The input is worked out by this JSONata expression: \`${input_formula}\`. Each \`{{name}}\` in the prompt is replaced by that key of the input: a string as it is, anything else as its JSON. \`{{#items}}...{{/items}}\` repeats its body for each item of a list, reading the item's own keys inside it.`,
+      `The input is worked out by this JSONata expression: \`${input_formula}\`. Each \`{{ name }}\` in the prompt is replaced by that key of the input: a string as it is, anything else as its JSON. \`{% for item in items %}...{{ item.text }}...{% endfor %}\` repeats its body for each item of a list, \`{% if hint %}...{% endif %}\` shows its body only when the key holds something, and Liquid's own filters work (\`{{ items | join: ', ' }}\`).`,
       ...(input?.status === 'ok' ? ['', 'For one real question it comes to:', '', '```json', UU.jsonify(input.input, { pretty: true }), '```'] : []),
     ].join('\n'),
     comesTo: [

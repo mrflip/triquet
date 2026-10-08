@@ -9,13 +9,12 @@
 
 ## Known Bugs
 
-* **The production deploy of #167 did not start its backfills.** `scripts/convex-migrations.ts
+* **The production deploy of #163 did not start its backfills.** `scripts/convex-migrations.ts
   after-vercel-build` should run `migrations:runAll` on a production build; after the recap chain's
   deploy, `migrations:outstanding` showed all three `unknown` with nothing processed, and the Coach
-  ran them by hand. Read that build's Vercel log (`Backfills:`) and find why, before the next
-  migration relies on it. 2026-10-07.
+  ran them by hand (2026-10-07; done, and #183 has since removed them). Read that build's Vercel
+  log (`Backfills:`) and find why, before the next migration relies on it.
 
-* wontfix: strikethru as fancy spoilers in markdown: I don't know if we want it and it means clicking to hide, and it would be weird in editing.
 * **Resize handles on other boxes.** The recap note's box has one (`ReadonlyBox`'s `resizable`,
   CSS `resize: vertical`): give the other read-only boxes and the long editing boxes one too.
   Asked by the Coach, 2026-10-07.
@@ -65,6 +64,37 @@ prove before you bid, and bid cheaply. Two ideas were proposed along the way and
 
 * Git repos are per-browser: there's no actual full history. Also repos that were accessed from your browser as a different user show up as orphaned and are downloadable.
 
+* Strikethrough as fancy spoilers in markdown on screen: not clearly wanted, it means clicking to
+  hide, and it would be weird while editing.
+
+* **Author BBCode can break the recap's frame.** BBCode typed in a text passes through as typed, so
+  a `[/quote]` in a clueing closes the question's quote early, and a `[/spoiler]` in an answer
+  reveals it. The smith previews before posting. (Coach, recap sprint.)
+
+* **O5: unlimited usernames per session, unlimited anonymous sign-in.** One username may make 99
+  hunts (recap thread 8), but a session may assert any number of usernames, so a determined session
+  can still fill the app's hunt cap. A rate limit on sign-in and new idents would close it. (Coach,
+  2026-10-08.)
+
+* **O8: no time budget per quiz run for formulas.** A formula's timebox is per evaluation, on the
+  main thread, so a slow formula over many questions can hold the page. A budget per run, or
+  formulas in a Worker, would close it. (Coach, 2026-10-08.)
+
+
+## Flaky specs
+
+Most full e2e runs under load have at least one spec that then passes alone, unchanged
+(`pnpm e2e:log` keeps count). The most frequent, 2026-10-06 to 2026-10-08:
+
+* **`reviews.spec.ts` › "the smith's note folded to a line"** (7 flakes; about 1 in 4 even run
+  alone): its locator is built from the fold's `aria-controls`, a `useId` value, and sometimes finds
+  no element by it. A locator by role or label inside the *Smith's note* region would not depend on
+  the id.
+* `routing.spec.ts` › "opens in the mode the visitor works in when it names none" (5), and
+  › "takes the author's address along when the friend relabels the quiz" (4).
+* `reviews.spec.ts` › "opens a first review for a reviewer who arrives straight at the review's
+  address" (5).
+* `quiz-history.spec.ts` › "an edit commits only the files it changed ... a milestone ... tags it" (4).
 
 ## From widgets sprint: imported replies, and staleness back
 
@@ -110,44 +140,34 @@ by label* (the bullet that follows "open PR #66"), and *Deferred*, *Staleness*.
 * A YouTube embed in the middle of a paragraph leaves the space before it at the end of its line.
 * A quote's `{AS: name}` holding emphasis (`{AS: **Q1**}`) is no name: the quote is a `[list]` with
   the marker kept as text. Only a plain-text name is read.
-* ~~No underline from markdown~~: *thread 10: `__text__` is `[u]` in bbjank (the source at the
-  node says which marker made it).*
 * Not handled, written as their text: footnotes, tables, task lists (none of those extensions is
   loaded).
 
 ## From recap sprint, thread 4: field templates
 
-`src/lib/templating.ts` (`fill`, `bagOf`), the face in `components/cells/markdown.tsx`, the
+`src/lib/templating.ts` (`fill`, `bagOf`; Liquid since 2026-10-08), the face in `components/cells/markdown.tsx`, the
 gear's *Templates*. Left, as not worth a hero's effort yet:
 
-* **The review screen shows a templated field as typed**: a playtester reads `{{qn.photo}}`, not the
+* **The review screen shows a templated field as typed**: a playtester reads `{{ qn.photo }}`, not the
   photo. Filling it there needs the quiz's run on the review screen (and a reviewer is not sent
   what the widgetings stored).
 * **A templated image reaches the LL Export as markdown** (`![alt](https://..)`): `ll-bbcode.ts`
   has no image rule. The league's own image syntax would go there.
 * A templated widgeting that is not a text entry (a JSONata readout, say) can be nominated only
   while already nominated, and nothing fills it on screen: its readout is no markdown face.
-* ~~Categories are not in the template bag~~: thread 12 put `categories` (label and title, in the
-  hunt's total order) in every bag, a formula's and a template's.
-* ~~An image that loads after a row has measured itself does not grow the row~~: thread 12 has
-  `GrowingField` measure again on an image's load, and holds a cell's image to a thumbnail.
-* `lib/ask/prompts.ts` and `lib/templating.ts` each check a template's parse and raw tags; one could
-  lend the other its check.
+* **Each templated face may fill to 100,000 characters** and re-parses on every render
+  (`components/cells/use-face.ts`), so a quiz of many templated cells near the cap costs the parse
+  of each. Memoize `faceOf` by text and bag, or a lower cap for field templates. (Thread 7.)
+* A column's own copy of the questions (a formula reading `qns`) holds templated fields as typed,
+  since a formula runs before any template is filled.
+* A templated widgeting's widgeted is filled in the recap's bag whenever its value is text, a
+  readout's as well as a text entry's; the grid fills only text entries.
 
 ## From recap sprint, thread 5: the recap panel
 
-`src/lib/recap.ts` (`bbjankOf`), `components/panels/RecapPanel.tsx`. Left, as not worth a hero's
+`src/lib/recap.ts` (`noteOf`), `components/panels/RecapPanel.tsx`. Left, as not worth a hero's
 effort yet:
 
-* ~~A stored, editable recap template~~: done in thread 14 (`recap_template`, `Recap.DefaultTemplate`).
-* **A decision for the Coach: author BBCode can break the recap's frame.** BBCode typed in the
-  text passes through as typed (thread 2's design), so a `[/quote]` in a clueing or hint closes the
-  question's quote early, and a `[/spoiler]` or `[/b]` in an answer reveals it. Fixing it means
-  choosing which BBCode an author may still write, and trying an escape on the board. Thread 7
-  (security review) will look at it.
-* ~~A clueing opening `1984. ...` loses its number in the recap~~: since thread 14 the clueing follows
-  `1. ` on the quote's line, so it is text. Elsewhere (a head, a recap) thread 10's writer names the
-  start, `[list=1984]`, so the poster sees what the board renumbers.
 * `Correct Answer %:` reads only a column labelled `correct_pct` (thread 14, the Coach's answer);
   nothing in the app records the share yet.
 * The league's own form writes `{Add Optional Text For Qn Here or Delete}` where a question has no
@@ -167,37 +187,12 @@ effort yet:
   the one document, so everything after it -- later questions, their answers included, outside
   their spoilers -- comes out as literal text (it was contained when each text was converted
   alone). Wontfix-adjacent: the smith previews before posting. A fix would close such blocks in
-  `below.recap` and the head, or convert those texts alone again.
+  a recap and the head, or convert those texts alone again.
 * **An answer with its own `**` or `~~`** can tangle with the default template's `~~**...**~~`
-  around `oneline.full_answer`; `*Hamlet*` comes out `[i][b]..[/b][/i]` (same look on the board).
-* The pre-shaped values are the recap's own; a field template set into a quote meets the same
-  trouble and has none. Shared shaping (a mustache lambda is not on offer: `BagContext` calls no
-  functions) would be a later design. Within the recap, only a question's own fields are shaped
-  (`quoted.clueing`, ...), not its text columns (a widgeting's widgeted); a column set into a quote
-  meets the same trouble (recap thread 15).
-
-## From recap sprint, thread 16: the default recap template on the basic tools
-
-`Recap.DefaultTemplate` reads only `{{#qns}}`, fields, columns and plain mustache; `played` and the
-pre-shaped values stay in the recap bag, unused by the default, until the Coach decides what the app
-should still do. The gap list, with a JSONata column for each gap one can close, is in
-`human/20261007-recap_template.md`. What only the app can close:
-
-* ~~**The bag does not say which questions are alternates**~~: thread 12 gave each question
-  `archived` and `secondary`, and a template's `qns` leaves the archived out; the default skips the
-  alternates.
-* ~~**A templated field reads as typed in `qns`**~~: thread 12's recap bag carries them filled, in
-  `qns` and `quiz.questions`. Still as typed: a column's own copy of the questions (the `in_order`
-  recipe's list), since a formula reads them before any template is filled.
-* **The default numbers by `rank`, which counts an alternate's place**: with the alternates now left
-  out, the question after one is numbered one high (it was so before, with the alternate shown).
-  The `in_order` column closes it; so would a played-number in the bag. The Coach's call (thread 12
-  asked).
-* ~~If the recipes stay recipes, they could ship as library widgets (`quoted`, `answer_line`,
-  `recap_below`, `in_order`), or a mustache lambda be allowed for shaping~~ *Thread 17: the
-  template helpers `{{#quote}}`, `{{#oneline}}`, `{{#apart}}` close the shaping gaps in the
-  default.* Left: `in_order` as a library widget, or not; and whether `played` and its shaped
-  values (now the helpers' twins) stay in the recap bag. The Coach's call.
+  around `qn.full_answer | oneline`; `*Hamlet*` comes out `[i][b]..[/b][/i]` (same look on the board).
+* **On a very large quiz the default note may pass `FilledMax`** (100,000 characters): about 999
+  questions of ordinary length. A real LL quiz is far smaller; a budget scaled to the quiz would
+  close it.
 
 ## From recap sprint, thread 10: the markdown dialect
 
@@ -264,52 +259,20 @@ From `0b8079c`:
 
 Read any of them with `git show 0b8079c -- <path>` or `git show 4f33026 -- <path>`.
 
-## From recap sprint, thread 12: the template and recap follow-ups
-
-* ~~**Images in reviewers' texts.**~~ *Thread 7: a reviewer's image is drawn as a link to it (`imagesAsLinks`), fetched only if followed; smiths' texts keep theirs.* Images now show in every field's markdown (the Coach's answer),
-  reviewers' guesses, comments and overall note among them: an image a reviewer writes is fetched
-  by every smith who opens the Reviews panel, telling the image's host when (lazily, with no
-  referrer, but by the viewer's address). Thread 7 to weigh whether reviewers' texts keep images.
-* A widgeting already labelled `archived` or `secondary` (or a quiz-wide one labelled `questions`)
-  in production now refuses every write to it, as one labelled `recap` did in thread 1. Worth a
-  look before merging (`human/20261007-recap_followups.md`).
-* A templated widgeting's widgeted is filled in the recap's bag whenever its value is text, a
-  readout's as well as a text entry's; the grid fills only text entries (thread 4's note above).
-* **`e2e/reviews.spec.ts` › "smith's note folded to a line" is intermittent** (about 1 in 4 run
-  alone, failing on the base commit too): its locator is built from the fold's `aria-controls`, a
-  `useId` value, and sometimes finds no element by it. Predates thread 12; a locator by role or
-  label inside the *Smith's note* region would not depend on the id.
-
 ## From recap sprint, thread 7: security
 
-Detail, evidence and fix sketches: `whiteboard/20261005-recap/security-findings.md`. Thread 8 fixed
-O4, O7, O6's headers and O5 as far as one username; the rest wait on the Coach.
+Detail, evidence and fix sketches: `whiteboard/20261005-recap/security-findings.md`; decisions worth
+a security reviewer's eye: `notes/security.md`. Fixed since: O2 (`TRIQUET_ADMINS`), O4, O6's
+headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (above).
 
-* **O1, high, certain (fix needs a small design call).** `src/app/api/ask/route.ts` answers any
-  POST on the server's Anthropic key (Opus tier, `max_tokens` as asked): no session, no rate limit.
-  Check the caller's Convex Auth token (and username, or smith standing), rate-limit per ident, cap
-  `max_tokens`. *Coach, 2026-10-08:* once there is OAuth, asking becomes bring-your-own-key.
-* **O2, medium/high, certain (needs the Coach: who are the admins?).** `Actor.isAdmin` is `true` for
-  everyone, so anyone with a username can rewrite every library widget used by every hunt
-  (`widgets.perform`), and read `widgets.usage` and `stats.backfills`. *Fixed* (2026-10-08): the
-  deployment's `TRIQUET_ADMINS` names them (`Actor.namesAdmin`); the Coach sets production's to
-  `mrflip`.
-* **O3, medium, certain in code / uncertain in production.** An unheld legacy ident goes to the
-  first session asserting it (`claimFor`), and `hunts.open` tells anyone a hunt's smiths' usernames.
-  Close out unheld idents; name smiths only to a session with a username.
-* **O5, low, the rest of it (a design call).** One username may now make 99 hunts (thread 8), but a
-  session may assert any number of usernames and anonymous sign-in is unlimited: rate-limit sign-in
-  and new idents.
-* **O6, the CSP (uncertain).** The other headers are on (thread 8); try a nonce'd `script-src` CSP
-  on a preview.
-* **O8, low, uncertain.** A formula's timebox is per evaluation on the main thread: no budget per
-  quiz run.
+* **Review and test the Content Security Policy.** The other headers are on (`next.config.ts`).
+  A `script-src` policy needs Next's inline scripts allowed, by a per-request nonce (which costs
+  the prerendered, client-first pages) or by their hashes: try it on a preview first. LiquidJS
+  needs no `eval`. An `img-src` rule could also answer O9. (Coach, 2026-10-08.)
+* **O1, the ask route answers any POST** on the server's Anthropic key (Opus tier, `max_tokens` as
+  asked): no session, no rate limit. *Coach, 2026-10-08:* once there is OAuth, asking becomes
+  bring-your-own-key.
+* **O3, unheld legacy idents.** An ident nobody holds goes to the first session asserting it
+  (`claimFor`), and `hunts.open` tells anyone a hunt's smiths' usernames. Close out unheld idents;
+  name smiths only to a session with a username.
 * **O9, info.** An image may be any `https` address, the viewer's own network included.
-* ~~Sprint, uncertain: a filled value (a library formula's or an `aibot` answer) can draw an image
-  whose address carries quiz text~~ *Fixed* (2026-10-08, the Coach's yes): an image in a formula's
-  or a bot's column reaches a template as a link (`Templating.bagOf`). Each
-  templated face may fill to 100,000 characters and re-parse on every render (memoize `faceOf`, or
-  a lower cap for field templates).
-* Sprint, minor, uncertain whether it matters: the default recap template stops on `FillBudget`
-  (10,000) between 350 and 400 questions, and near 999 would also pass `FilledMax`. A real LL quiz
-  is far smaller: recorded, not changed.

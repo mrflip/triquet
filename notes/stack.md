@@ -143,24 +143,21 @@ Settled; reach for these before writing the equivalent.
   asking first, under the rule above (`mdast-util-definitions` with the Coach's yes). Parse only; it
   renders nothing, so the rich-text questions under Discuss stay open. Added Sept 2026 without
   asking first.
-* **mustache** (mustache.js, with `@types/mustache`) for an `aibot` widget's prompt template,
-  rendered over what its input formula came to: `{{name}}`, sections and inverted sections, and
-  nothing that runs code. HTML escaping is off (a prompt is prose for a model), and a value that is
-  not a string fills in as its JSON. One file imports it, `lib/ask/prompts.ts`, through
-  `lib/mustachery.ts`'s context, which reads only the input's own keys and calls nothing. Added Oct
-  2026 by the rewidgeting sprint without asking first, under the rule above. Field and recap
-  templates moved to LiquidJS (below); prompts may follow, with their stored templates converted.
-* **LiquidJS** (`liquidjs`) for a field the quiz templates and for the recap template, filled in
-  over the quiz's bag (`lib/templating.ts`, its one importer): Liquid, the language Shopify and
-  Jekyll give end users, interpreted rather than compiled to code, so no `eval` and nothing a
-  Content Security Policy must allow. Set to read only the bag's own keys (`ownPropertyOnly`),
-  with JavaScript truthiness (an empty field is false, as it was under mustache), unknown filters
-  refused, and `include`/`render`/`layout` refused as a template is read. Its own limits (time,
-  allocation, template length) stand behind the app's counted budgets: pieces written, characters
-  written, characters shaped. The app adds four filters: `quote`, `oneline`, `apart` (from a frozen
-  registry) and `in_order`. It calls a function it finds in the bag, so the bag holds only JSON
+* **LiquidJS** (`liquidjs`), the app's one template language (`lib/liquidry.ts`, its one importer):
+  a field the quiz templates and the recap template, filled in over the quiz's bag
+  (`lib/templating.ts`), and an `aibot` widget's prompt, rendered over what its input formula came
+  to (`lib/ask/prompts.ts`). Liquid, the language Shopify and Jekyll give end users, interpreted
+  rather than compiled to code, so no `eval` and nothing a Content Security Policy must allow. Set
+  to read only its scope's own keys (`ownPropertyOnly`), with JavaScript truthiness (an empty field
+  is false), unknown filters refused, and `include`/`render`/`layout` refused as a template is read.
+  HTML escaping is off: a field template is markdown, which the parser and then the sanitizer read
+  after it, and a prompt is prose for a model. Its own limits (time, allocation, template length)
+  stand behind the app's counted budgets: pieces written, characters written, characters shaped.
+  Templates get four filters of the app's: `quote`, `oneline`, `apart` (from a frozen registry) and
+  `in_order`. It calls a function it finds in its scope, so a scope holds only data
   (`notes/security.md`). Chosen by the Coach over Handlebars (2026-10-08), which compiles templates
-  to JavaScript and whose remote-code-execution flaws were all in templates from users.
+  to JavaScript and whose remote-code-execution flaws were all in templates from users; it replaced
+  mustache, field templates first and prompts the same day.
 * **react-markdown**, with **remark-breaks** and **rehype-sanitize**, for showing a field's
   markdown: `src/lib/markdown.ts` holds the options and the one allowlist schema (widen it there,
   never at a call site; it keeps an image only at a whole `https` address),

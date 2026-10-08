@@ -1,7 +1,7 @@
-import { Context, Liquid, LiquidError, Tag, toValueSync, type Emitter, type Liquid as LiquidT, type TagToken, type TopLevelToken } from 'liquidjs'
 import * as EST from 'es-toolkit'
 import * as UU from './useful'
 import * as Labelmaker from './labelmaker'
+import * as Liquidry from './liquidry'
 import * as Shaping from './shaping'
 import type { QuizBag, QuizRun } from './formulary/runner'
 import { QuestionWidgetLabel } from '../models/column'
@@ -22,8 +22,8 @@ import type { Formularykind, WidgetT } from '../models/widget'
  * changed on the way in: an image in a formula's or a bot's column is made a link to it, so only
  * text a person typed draws an image.
  *
- * Liquid is interpreted, never compiled to code, and reads only what the bag itself holds at a
- * key (`ownPropertyOnly`), never anything a JavaScript object inherits. A template may use
+ * Liquid as `Liquidry` holds it: interpreted, reading only what the bag itself holds at a key,
+ * never anything a JavaScript object inherits, its budgets counted. A template may use
  * Liquid's own tags and filters (`{% for %}`, `{% if %}`, `| sort`, `| where`) and the app's
  * (`Helpers`, `in_order`): `{{ qn.clueing | quote }}`, `{% assign played = qns | in_order %}`. A
  * filter goes in an `assign`, never in a `for` tag, which would pass it over. It may not include
@@ -50,52 +50,10 @@ export type FilledT = {
   issue:    string | null
 }
 
-/**
- * The most pieces one fill may write out: each value a tag fills in, and each run of the
- * template's own text, every time a loop writes it again. Past this, a template nesting a list in
- * a list in a list is stopped rather than left to hang the page. Counted, so a template stops at
- * the same place on any machine.
- */
-export const FillBudget = 100_000
-
-/**
- * The longest a filled template may come to; anything longer is refused rather than drawn. What
- * its tags fill in, and its own text each time a loop writes it out again, are counted as they
- * go, so a tag filling in a whole list's JSON again and again, or a long line of text repeated by
- * a list inside a list, is stopped before it is built.
- */
-export const FilledMax = 100_000
-
-/**
- * The most characters one fill's filters may shape (`Helpers`), all told: a long text captured
- * and shaped again and again is stopped rather than left to hang the page.
- */
-export const ShapedMax = 1_000_000
-
-/**
- * Liquid's own limits, behind the counts above: the longest a template may be, the longest one
- * fill may take (milliseconds), and the most it may allocate. Each stops what the counts cannot
- * see: a loop that writes nothing, a range of a hundred million numbers.
- */
-const LiquidLimits = { parseLimit: 100_000, renderLimit: 1000, memoryLimit: 10_000_000 } as const
-
-/** Said when a fill is stopped for writing more than `FillBudget` pieces */
-const OverBudget = 'This template reads too much: a list inside a list inside a list, perhaps.'
-
-/** Said when a fill comes to more than `FilledMax` characters */
-const OverLong = 'This template comes to far too much text to show.'
-
-/** Said when a fill's filters shape more than `ShapedMax` characters */
-const OverShaped = 'This template shapes too much text: the same long text shaped again and again, perhaps.'
-
-/** A fill stopped by a budget of ours, which says why in its message alone */
-class FillStopped extends Error {}
-
-/** What one fill has left: pieces it may write out, characters it may write out, and characters its filters may shape */
-type Budget = { left: number, charsLeft: number, shapingLeft: number }
+export { FillBudget, FilledMax, ShapedMax } from './liquidry'
 
 /** A filter of the app's: a value, as it would fill in, shaped */
-export type HelperT = (filled: string) => string
+export type HelperT = Liquidry.ShaperT
 
 /**
  * The app's text filters, by name, each shaping a value as it would fill in (`Shaping`):
@@ -133,69 +91,8 @@ export function inOrder(qns: unknown): Record<string, unknown>[] {
   return [...ranked, ...unranked].map((qn, idx) => ({ ...qn, number: idx + 1 }))
 }
 
-/** Where a fill's budget rides on its Liquid context: a key no template can name */
-const BudgetKey = Symbol('budget')
-
-/** The budget of the fill `context` belongs to */
-function budgetIn(context: Context): Budget {
-  return (context.globals as Record<symbol, Budget | undefined>)[BudgetKey]!
-}
-
-/** What a filter of `helper` makes of `val`, as it would fill in, spending what it is handed from the characters filters may shape */
-function shapedBy(helper: HelperT, context: Context, val: unknown): string {
-  const budget = budgetIn(context)
-  const filled = fillingOf(val)
-  budget.shapingLeft -= filled.length
-  if (budget.shapingLeft < 0) { throw new FillStopped(OverShaped) }
-  return helper(filled)
-}
-
-/**
- * A tag that would include another template (`{% include %}`, `{% render %}`, `{% layout %}`),
- * refused as the template is read: there are none to include.
- */
-class RefusedTag extends Tag {
-  constructor(token: TagToken, remainTokens: TopLevelToken[], liquid: LiquidT) {
-    super(token, remainTokens, liquid)
-    throw new Error(`{% ${token.name} %} includes another template, and there are none to include`)
-  }
-
-  * render(): Generator<unknown, void> {} // eslint-disable-line @typescript-eslint/no-empty-function -- never reached: the tag refuses itself as it is read
-}
-
-/** The engine every template is read and filled with: Liquid as `fill` describes it, with the app's filters, and no way to include another template */
-const Engine = ((): Liquid => {
-  const engine = new Liquid({ ownPropertyOnly: true, jsTruthy: true, strictFilters: true, ...LiquidLimits })
-  for (const [name, helper] of Object.entries(Helpers)) {
-    engine.registerFilter(name, function shaping(this: { context: Context }, val: unknown) { return shapedBy(helper, this.context, val) })
-  }
-  engine.registerFilter('in_order', inOrder)
-  for (const name of ['include', 'render', 'layout']) { engine.registerTag(name, RefusedTag) }
-  return engine
-})()
-
-/**
- * Where a fill writes what it comes to: each piece, a value a tag fills in (already as it fills
- * in, `fillingOf`) or a run of the template's own text, counted against the fill's budget as it is
- * written, so a runaway template is stopped before its text is built.
- */
-class CountingEmitter implements Emitter {
-  buffer = ''
-  private readonly budget: Budget
-
-  constructor(budget: Budget) {
-    this.budget = budget
-  }
-
-  write(piece: unknown): void {
-    const text = typeof piece === 'string' ? piece : fillingOf(piece)
-    this.budget.left -= 1
-    if (this.budget.left < 0) { throw new FillStopped(OverBudget) }
-    this.budget.charsLeft -= text.length
-    if (this.budget.charsLeft < 0) { throw new FillStopped(OverLong) }
-    this.buffer += text
-  }
-}
+/** The language every field and recap template is read and filled in with: Liquid, with the app's filters, a value filling in as `fillingOf` says */
+const Renderer = Liquidry.rendererFor({ fillingOf, shapers: Helpers, filters: { in_order: inOrder } })
 
 /**
  * `template` filled in over `bag`, or the template as typed with what is wrong with it.
@@ -214,16 +111,8 @@ class CountingEmitter implements Emitter {
  * @example fill('{% if qn.hint %}', bag)                            // => { markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1' }
  */
 export function fill(template: string, bag: TemplateBag): FilledT {
-  const budget: Budget = { left: FillBudget, charsLeft: FilledMax, shapingLeft: ShapedMax }
-  try {
-    const parsed = Engine.parse(template)
-    const context = new Context(bag, Engine.options, { sync: true, globals: { [BudgetKey]: budget } }, { liquid: Engine })
-    const emitter = new CountingEmitter(budget)
-    toValueSync(Engine.renderer.renderTemplates(parsed, context, emitter))
-    return { markdown: emitter.buffer, issue: null }
-  } catch (err) {
-    return { markdown: template, issue: issueMessageOf(err) }
-  }
+  const { text, issue } = Renderer.render(template, bag)
+  return { markdown: text, issue }
 }
 
 /**
@@ -237,18 +126,7 @@ export function fill(template: string, bag: TemplateBag): FilledT {
  * @example issueOf('By {{ qn.author }}')        // => null
  */
 export function issueOf(template: string): string | null {
-  try {
-    Engine.parse(template)
-    return null
-  } catch (err) {
-    return issueMessageOf(err)
-  }
-}
-
-/** What a template's failure says: Liquid's message, with where it stopped reading; or, for a budget of ours, ours alone; never a stack */
-function issueMessageOf(err: unknown): string {
-  if (err instanceof LiquidError && err.originalError instanceof FillStopped) { return err.originalError.message }
-  return err instanceof Error ? err.message : 'This does not read as a template'
+  return Renderer.issueOf(template)
 }
 
 /**
