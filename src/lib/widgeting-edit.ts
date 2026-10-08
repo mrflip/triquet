@@ -2,6 +2,7 @@ import * as Labelmaker from './labelmaker'
 import * as Estimates from './estimates'
 import * as Formularies from './formulary/formularies'
 import { RefusalNotices } from './notices'
+import { columnsShowing } from './columns'
 import * as UU from './useful'
 import * as Reporting from './vv/reporting'
 import { Column, namesFor, plainOf } from '../models/column'
@@ -43,7 +44,8 @@ export type WidgetingPlan =
 /**
  * The actions that applying `edit` of a widgeting comes to, or the reason it cannot be.
  *
- * An existing widgeting is revised only where it changed. Its params are held to the widget it
+ * An existing widgeting is revised only where it changed; relabelled, a column still headed after
+ * its old label is headed after the new. Its params are held to the widget it
  * works (`Formularies.paramsOf`), as the server holds them. A new one works a widget the library
  * holds and can run at its tier (`Widgeting.runsAt`), and is labelled as its widget is unless the
  * author says otherwise, growing `_2`, `_3` while that is taken or reserved (for one run once for
@@ -76,7 +78,7 @@ export function planWidgetingEdit(edit: Readonly<WidgetingEdit>, library: readon
   }
   const paramsIssue = widget ? paramsIssueOf(widget, edit.widgeting, checked.data.params) : null
   if (paramsIssue !== null) { return refused(paramsIssue) }
-  if (edit.widgeting !== null) { return { ok: true, actions: editWidgetingActions(edit.widgeting, checked.data) } }
+  if (edit.widgeting !== null) { return { ok: true, actions: editWidgetingActions(edit.widgeting, checked.data, quiz) } }
   if (tier === 'quiz') { return { ok: true, actions: [{ kind: 'add_widgeting', widgeting: checked.data }] } }
   const width_px = widget && Estimates.isEstimating(widget) ? EstimatesColumnWidthPx : NewColumnWidthPx[widget?.formulary ?? 'jsonata']
   return { ok: true, actions: [{ kind: 'add_widgeting', widgeting: checked.data }, newColumnFor(quiz, checked.data.label, width_px)] }
@@ -136,14 +138,23 @@ export function newColumnShowing(quiz: Pick<QuizT, 'columns'>, source: string): 
   return { kind: 'add_column', column: Column.fill({ label, title: named.title, source, width_px: AddedColumnWidthPx }) }
 }
 
-/** Revising only what changed in an existing widgeting */
-function editWidgetingActions(held: WidgetingT, next: WidgetingT): HuntActionDNA[] {
+/**
+ * Revising only what changed in an existing widgeting. A relabel carries the columns showing it
+ * along (the reducer's doing); a column still headed after its old label, as a new one is, is
+ * headed after the new.
+ */
+function editWidgetingActions(held: WidgetingT, next: WidgetingT, quiz: QuizT): HuntActionDNA[] {
   const patch: WidgetingPatch = {
     ...(held.label !== next.label && { label: next.label }),
     ...(held.description !== next.description && { description: next.description }),
     ...(UU.jsonify(held.params) !== UU.jsonify(next.params) && { params: next.params }),
   }
-  return Object.keys(patch).length === 0 ? [] : [{ kind: 'edit_widgeting', label: held.label, patch }]
+  if (Object.keys(patch).length === 0) { return [] }
+  const headedAfter = held.label === next.label ? [] : columnsShowing(quiz, held.label).filter((column) => column.title === Labelmaker.titleize(held.label))
+  return [
+    { kind: 'edit_widgeting', label: held.label, patch },
+    ...headedAfter.map((column): HuntActionDNA => ({ kind: 'edit_column', label: column.label, patch: { title: Labelmaker.titleize(next.label) } })),
+  ]
 }
 
 /**

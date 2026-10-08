@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { BagWordVals, Column, ColumnValidators, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, RefTitles, WidgetingPartTitles, WidgetingPartVals, beforeOctoberOf, columnLabelOf, namesFor, partFormulaOf, partOf, plainOf, refOf, sortkeyOf, widgetingLabelOf, widgetingSourceOf } from '../../src/models/column'
+import { BagWordVals, Column, ColumnValidators, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, RefTitles, WidgetingPartTitles, WidgetingPartVals, beforeOctoberOf, columnLabelOf, namesFor, partFormulaOf, partOf, plainOf, refOf, retitledPatch, sortkeyOf, widgetingLabelOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
 
 const base = { label: 'clueing', title: 'Clueing', source: 'clueing', width_px: 330 }
 
@@ -181,6 +181,24 @@ describe('widgetingSourceOf and widgetingLabelOf', () => {
 
   it('take every part as a column did before October 2026', () => {
     expect(WidgetingPartVals.every((part) => ColumnValidators.column.safeParse({ ...base, source: `cats.${part}` }).success)).to.be.true
+  })
+})
+
+describe('retitledPatch', () => {
+  const RetitledCases: [Pick<ColumnT, 'title' | 'source' | 'formula'>, ColumnPatch, ColumnPatch, string][] = [
+    // the doc examples:
+    [{ title: 'Category Data', source: 'category_data' },  { formula: '$.masie' }, { formula: '$.masie', title: 'Masie' }, 'a part picked: headed after the part'],
+    [{ title: 'Remarks',       source: 'notes' },          { source: 'hint' },     { source: 'hint' },                     'headed otherwise by the author: left as it is'],
+    // the rest:
+    [{ title: 'Notes',         source: 'notes' },          { source: 'hint' },     { source: 'hint', title: 'Hint' },      'what it shows changed: headed after the new'],
+    [{ title: 'Masie',         source: 'category_data', formula: '$.masie' }, { formula: null }, { formula: null, title: 'Category Data' }, 'the formula taken off: headed after the whole'],
+    [{ title: 'Notes',         source: 'notes' },          { formula: '$uppercase($)' }, { formula: '$uppercase($)' },    'a formula that is no part: the header stays'],
+    [{ title: 'Notes',         source: 'notes' },          { source: 'hint', title: 'Mine' }, { source: 'hint', title: 'Mine' }, 'a patch heading it itself'],
+    [{ title: 'Notes',         source: 'notes' },          { width_px: 90 },       { width_px: 90 },                       'a patch that changes neither'],
+    [{ title: 'Hint',          source: 'question.hint' },  { source: 'notes' },    { source: 'notes', title: 'Notes' },    'the grammar before October 2026, read plain'],
+  ]
+  it.each(RetitledCases)('%j patched %j => %j: %s', (column, patch, expected) => {
+    expect(retitledPatch(column, patch)).to.deep.eq(expected)
   })
 })
 

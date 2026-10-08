@@ -350,6 +350,28 @@ export function namesFor(source: string, formula: string | null = null): { label
   }
 }
 
+/**
+ * `patch` with the column's title carried along: a column still headed as `namesFor` heads what
+ * it shows, as a new one is, is headed after what it shows once the patch changes what that is or
+ * its formula. A column the author has headed otherwise, or a patch that sets the title itself,
+ * is left as it is.
+ *
+ * @param column - The column as it stands.
+ * @param patch - The change to it.
+ * @returns The patch, with a title when the header follows.
+ *
+ * @example retitledPatch({ title: 'Category Data', source: 'category_data', ... }, { formula: '$.masie' })  // => { formula: '$.masie', title: 'Masie' }
+ * @example retitledPatch({ title: 'Remarks', source: 'notes', ... }, { source: 'hint' })                     // => { source: 'hint' }
+ */
+export function retitledPatch(column: Pick<ColumnT, 'title' | 'source' | 'formula'>, patch: ColumnPatch): ColumnPatch {
+  if (patch.title !== undefined || (patch.source === undefined && patch.formula === undefined)) { return patch }
+  const plain = plainOf(column)
+  if (column.title !== namesFor(plain.source, plain.formula ?? null).title) { return patch }
+  const formula = patch.formula === undefined ? plain.formula ?? null : patch.formula
+  const { title } = namesFor(patch.source ?? plain.source, formula)
+  return title === column.title ? patch : { ...patch, title }
+}
+
 /** What a sort memory says when it was last put in the order of a column */
 export type ColumnSortkey = `column:${string}`
 

@@ -58,6 +58,20 @@ describe("planWidgetingEdit, editing a widgeting", () => {
     expect(actionsOf(untouched({ label: 'Hint Total!' }))).to.deep.eq([{ kind: 'edit_widgeting', label: 'hint_full', patch: { label: 'hint_total' } }])
   })
 
+  it("heads a column still headed after the widgeting's old label after its new one, as a new column is", () => {
+    const plain = { ...quiz, columns: quiz.columns.map((column) => (column.source === 'hint_full' ? { ...column, title: 'Hint Full' } : column)) }
+    const actions = actionsOf(untouched({ label: 'hint_total' }), plain)
+    const column = present(plain.columns.find((each) => each.source === 'hint_full'))
+    expect(actions).to.deep.eq([
+      { kind: 'edit_widgeting', label: 'hint_full', patch: { label: 'hint_total' } },
+      { kind: 'edit_column',    label: column.label, patch: { title: 'Hint Total' } },
+    ])
+  })
+
+  it("leaves a column the author has headed otherwise as it is headed", () => {
+    expect(actionsOf(untouched({ label: 'hint_total' })).map((action) => action.kind)).to.deep.eq(['edit_widgeting'])
+  })
+
   it("reads a cleared label as its widget's, which it already has", () => {
     expect(actionsOf(untouched({ label: '' }))).to.deep.eq([])
   })
