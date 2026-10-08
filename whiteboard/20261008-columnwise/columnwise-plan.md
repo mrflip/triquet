@@ -284,6 +284,24 @@ backtracking such as `re2js`), evaluated on both the server and the client where
 checked. A new dependency: full e2e run; a library `notes/stack.md` marks *Discuss* is a
 `blocked`. Depends on: 2.
 
+*The Coach, 2026-10-08:* "for regexes I want to be able to hand them to zod. The chief risk is
+someone footgunning themselves. Let's apply recheck, if there is ever an incident we can look
+again at tradeoffs." *Orchestrator's reading:* `recheck` (npm, 4.5.0, about 5.8 MB unpacked: a
+pure-JS build, a JVM jar and native binaries as optional dependencies, and `synckit` for
+`checkSync`) checks the **pattern** where it is written: at the params entrypoints (`addWidgeting`,
+`editWidgeting`, the planner, an import, a widget's default params), on commit (blur), never per
+keystroke. A pattern recheck calls `safe` is stored; past that boundary it is trusted, compiled
+once and handed to Zod (`z.string().regex(...)`) to check typed cells. Refuse, with a sentence:
+`vulnerable`, **`unknown`** (a timeout or an unsupported feature: strict, as footgun-proofing
+asks), and a pattern `new RegExp` will not compile. Cap the pattern's length; a fixed set of
+flags. **The server's check is the authority**; the browser's is a courtesy and may load recheck
+lazily. **Prove first** that recheck runs in Convex's default runtime (a V8 isolate, no worker
+threads, no native binaries: likely its `pure` backend, `RECHECK_BACKEND=pure`, async `check`) within
+a mutation's time limit, with recheck's own `timeout` well under it. If it will not run there, the
+check would have to move to a Node action, which breaks "validate in the mutation": that is a
+`blocked`. Add recheck to `notes/stack.md` (**Use**, the Coach's ruling) and a line to
+`notes/security.md`.
+
 ### 7. The `liquidize` formulary
 
 *Coach's text:* "**The `liquidize` formulary.** The class in `src/lib/formulary/liquidize.ts`,
