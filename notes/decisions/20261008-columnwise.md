@@ -43,7 +43,7 @@ One entry widget per family; the library gains one only when a new editor does.
 | family | params | editor | runs at `quiz` |
 |---|---|---|---|
 | `number` | `min`, `max`, `integer` | `NumberField`, the params driving `signed` and `fractional` | yes |
-| `text` | `max_length`, `pattern`, `lines` (`one` or `many`) | `PlainField` (one) or `StretchField` (many) | yes |
+| `text` | `max_length`, `pattern`, `regex`, `lines` (`one` or `many`) | `PlainField` (one) or `StretchField` (many) | yes |
 | `boolean` | none | a checkbox; an emptied cell is `missing`, so tri-state for free | yes |
 | `enum` | `options`, a list of one-line strings, each once | a select | yes |
 | `estimates` | none, as now | pills | no |
@@ -64,9 +64,17 @@ One entry widget per family; the library gains one only when a new editor does.
   `entry_kind`. The params in force are the widget's, overlaid key by key by the widgeting's. An
   admin seeds `difficulty` as a number entry of 1 to 10; a widgeting may still say otherwise.
 * **`pattern` is a named pattern**: `label`, `oneline` or `url`, each a pattern of
-  `src/lib/vv/patterns.ts`. Never a bare `new RegExp` over author text. A free `regex` is thread
-  6's, with its answer to ReDoS (a checker library or an engine without backtracking, by
-  `notes/stack.md`'s process), checked on the server and in the browser alike.
+  `src/lib/vv/patterns.ts`. Never a bare `new RegExp` over author text but through
+  `lib/regexes.ts`, and only once the pattern is through the ReDoS check.
+* **`regex` is the author's own** (thread 6): `{ source, flags }`, beside `pattern` (a cell
+  matches both), one line of at most 200 characters, flags of `i`, `m`, `s` and `u`, in that
+  order. The ReDoS answer is recheck (the Coach's ruling): a pattern is checked where a mutation
+  writes it (`addWidgeting`, `editWidgeting`, `addWidget`, `editWidget`, `importWidgets`, which a
+  quiz's import reaches through its actions), unless the row already held it, and refused unless
+  recheck calls it `safe`. Past that boundary it is trusted: compiled once and handed to Zod as
+  each cell is checked. The browser's `RegexField` asks recheck as a courtesy, as the pattern is
+  committed; the planner holds the pattern only to the params validator (its length, its flags,
+  that it compiles), since recheck in the browser answers asynchronously.
 * **`labelish` and `titleish` are presets of `text`** (`pattern: 'label'`, one line; `pattern:
   'oneline'`, one line, a title's length). Not offered for a new widget; rows holding them stay
   valid, and their cells are drawn as now.

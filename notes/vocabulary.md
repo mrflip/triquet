@@ -36,7 +36,7 @@ code does not say so yet, the record names the thread that makes it.
   A widgeting is removed only once no column shows it (*removal*).
 * **params** -- what a widgeting hands its widget beyond the bag, by name: the revisable half of
   a widget's definition. For an entry, its family's constraints (a number's `min` and `max`, a
-  text's `pattern`); for a `liquidize`, its template; open and unused for `jsonata` and `aibot`.
+  text's named `pattern` and its own `regex`); for a `liquidize`, its template; open and unused for `jsonata` and `aibot`.
   Validated by what the formulary reports for the widget (`paramsOf`). A widget's `config` may hold
   default params; the widgeting's win, key by key. Reaches the bag as `params`.
 * **widgeted** -- what one widgeting came to for one question, or, for a widgeting of the `quiz`

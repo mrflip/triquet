@@ -14,6 +14,12 @@ security expert who knows what questions to ask.
   written `&#33;[` in the template's bag (`Templating.bagOf`). An image whose `![` the template's
   own text supplies (`![map]({{qn.col}})`, or a `!` typed just before a tag) takes its address from
   the column.
+* 2026-10-08 (columnwise sprint, thread 6): a smith writes regular expressions of their own (a
+  `text` entry's `regex` param, or an admin a widget's default), run against every cell typed into
+  that column, in every smith's browser and on the server as the cell is written. A pattern is held
+  to recheck's verdict (`lib/redos.ts`) where a mutation writes it, and refused unless recheck calls
+  it `safe` within 200 ms; past that it is trusted and never checked again, nor timeboxed as it
+  runs. Its source is at most 200 characters, its flags `i`, `m`, `s` and `u` only.
 * `Actor.isAdmin` is an equality check on the username, against the deployment's `TRIQUET_ADMINS`
   (production: `mrflip`), made on the server as it builds the actor and carried to the browser;
   `*` makes every username an admin, which `scripts/convex_dev` sets on every local backend.
