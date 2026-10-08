@@ -11,7 +11,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 1 | design note and vocabulary | landed #191 (docs only, no review) |
 | 2 | entry families | underway |
 | 3a | columns widen (Serial Deploy) | underway |
-| 4 | removal and commit model | underway |
+| 4 | removal and commit model | landing (review clean) |
 | 3b | column expression authoring | pending |
 | 7 | `liquidize` formulary | pending |
 | 6 | free regex (optional) | pending |
