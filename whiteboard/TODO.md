@@ -229,6 +229,21 @@ questions pivot, closing the two items about it):
   box is plain text. The recap's head and tail, always templated, read it as `quiz.<label>`.
 * **A reviewer is sent none of the quiz's entries**, as none of a question's stored widgeteds.
 
+## From columnwise sprint, thread 2: entry families
+
+Built: `boolean` and `enum` entries, params per family, the named patterns, entries first. Left:
+
+* **The browser installs no Zod error map** (`Reporting.installErrorMap` runs in Convex and the
+  tests, not in `src/app/providers.tsx`), so a message a view shows from a parse reads Zod's own
+  words ("Too small: expected number to be >=1") unless the parse passes `{ error:
+  Reporting.customError }`, as the entry cells, the params fields and the widgeting planner now do.
+  Installing it once beside `AlarmsProvider` would make every view's sentences the server's; check
+  the specs that read a sentence first.
+* **A choice column sorts alphabetically**, not in its options' order (`Sortings.sortValueOf`
+  reads the text). Sorting by the option's place wants the column to know its widgeting's params.
+* **An enum cell holding an option since dropped** shows it as an extra option until another is
+  picked; nothing lists the cells a revised list strands.
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and
