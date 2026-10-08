@@ -117,7 +117,7 @@ test('a templated clueing shows what an entry holds, filled in before its markdo
 
   await clueing.fill('By {{qn.author')
   await leaveBox(page)
-  await expect(face).toContainText('Unclosed tag')
+  await expect(face).toContainText('not closed')
   await expect(clueing).toHaveAttribute('aria-invalid', 'true')
 
   await reloadOnceSaved(page)
