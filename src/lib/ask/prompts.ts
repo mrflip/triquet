@@ -1,97 +1,61 @@
-import Mustache, { type TemplateSpans } from 'mustache'
 import * as UU from '../useful'
-import { OwnKeysContext } from '../mustachery'
+import * as Formulas from '../formulas'
+import * as Liquidry from '../liquidry'
 
-/** The kinds of template span that read a key of the input: `{{name}}`, `{{{name}}}`, `{{#name}}`, `{{^name}}` */
-const ReadingSpans: ReadonlySet<string> = new Set(['name', '&', '#', '^'])
+/** What one value fills in as: nothing for none, a string as it is, anything else as its JSON */
+function fillingOf(val: unknown): string {
+  if (val === null || val === undefined) { return '' }
+  return typeof val === 'string' ? val : UU.jsonify(val)
+}
+
+/** The language every prompt template is read and rendered with: Liquid, as `Liquidry` holds it, with no filters of the app's */
+const Renderer = Liquidry.rendererFor({ fillingOf })
 
 /**
- * `template`, a mustache prompt template, rendered over `input`.
+ * `template`, a Liquid prompt template, rendered over `input`.
  *
  * Nothing is HTML-escaped: the prompt is prose for a model, never a page. A string fills in as
- * it is; any other value fills in as its JSON, so `{{items}}` over a list of spans reads as the
+ * it is; any other value fills in as its JSON, so `{{ items }}` over a list of spans reads as the
  * list rather than as `[object Object]`. A key the input lacks fills in as nothing, and so does
- * anything past the input's own keys (`{{constructor}}`) or a function in it: the template reads
- * the input, and calls nothing (`OwnKeysContext`).
+ * anything past the input's own keys (`{{ constructor }}`). A function in the input is dropped
+ * before the template reads it, so nothing is ever called.
  *
  * @param template - A prompt template, as an `aibot` widget's formula holds it.
  * @param input - What the widget's input formula came to.
  * @returns The prompt as it will be sent.
- * @throws When the template does not parse (an unclosed section, say); `templateIssue` names it first.
+ * @throws When the template does not read, or reads too much; `templateIssue` names the first first.
  *
- * @example renderPrompt('Question: {{clueing}}', { clueing: 'Who?' })  // => 'Question: Who?'
- * @example renderPrompt('Spans: {{items}}', { items: [1, 2] })        // => 'Spans: [1,2]'
+ * @example renderPrompt('Question: {{ clueing }}', { clueing: 'Who?' })  // => 'Question: Who?'
+ * @example renderPrompt('Spans: {{ items }}', { items: [1, 2] })        // => 'Spans: [1,2]'
  */
 export function renderPrompt(template: string, input: Readonly<Record<string, unknown>>): string {
-  return Mustache.render(template, new OwnKeysContext(input), {}, { escape: fillingOf })
+  const { text, issue } = Renderer.render(template, Formulas.plainJson(input) ?? {})
+  if (issue !== null) { throw new Error(issue) }
+  return text
 }
 
 /**
- * What is wrong with `template` as a prompt template, or null when nothing is: a template that
- * does not parse, or one that fills a key in raw (`{{{name}}}` or `{{&name}}`), which would fill a
- * list or an object in as `[object Object]` where `{{name}}` fills it in as its JSON.
+ * What is wrong with `template` as a prompt template, or null when nothing is: one that does not
+ * read as Liquid, names a filter there is none of, or includes another template.
  *
- * @example templateIssue('{{#items}}{{text}}')  // => 'Unclosed section "items" at 18'
- * @example templateIssue('Question: {{{clueing}}}')  // => '{{{clueing}}} would fill a list or an object in as [object Object]: write {{clueing}}, ...'
- * @example templateIssue('Question: {{clueing}}')  // => null
+ * @example templateIssue('{% for item in items %}{{ item.text }}')  // => 'tag {% for item in items %} not closed, line:1, col:1'
+ * @example templateIssue('Question: {{ clueing }}')                 // => null
  */
 export function templateIssue(template: string): string | null {
-  return parseIssue(template) ?? rawTagIssue(template)
+  return Renderer.issueOf(template)
 }
 
 /**
  * The keys of the input a template reads at its top level and `input` does not hold: each fills
- * in as nothing. A key read only inside a section is the section's business, and is left out.
+ * in as nothing. A name a loop or an `assign` makes is the template's own, and is left out.
  *
- * @param template - A prompt template; one that does not parse reads nothing.
+ * @param template - A prompt template; one that does not read reads nothing.
  * @param input - What the template is rendered over.
  * @returns The keys, in the order the template first reads them.
  *
- * @example unfilledKeys('{{clueing}} {{hint}}', { clueing: 'Who?' })  // => ['hint']
- * @example unfilledKeys('{{qn.hint}}', { qn: {} })                   // => []
+ * @example unfilledKeys('{{ clueing }} {{ hint }}', { clueing: 'Who?' })  // => ['hint']
+ * @example unfilledKeys('{{ qn.hint }}', { qn: {} })                     // => []
  */
 export function unfilledKeys(template: string, input: Readonly<Record<string, unknown>>): string[] {
-  if (parseIssue(template) !== null) { return [] }
-  const keys = readKeys(Mustache.parse(template)).map((key) => key.split('.', 1)[0] ?? key)
-  return [...new Set(keys)].filter((key) => key !== '' && ! Object.hasOwn(input, key))
-}
-
-/** The keys the top level of a parsed template reads, `.` (the whole context) aside */
-function readKeys(spans: TemplateSpans): string[] {
-  return spans
-    .filter(([spankind]) => ReadingSpans.has(spankind))
-    .map(([, key]) => key)
-    .filter((key) => key !== '.')
-}
-
-/** What one value fills in as: a string as it is, anything else as its JSON */
-function fillingOf(val: unknown): string {
-  return typeof val === 'string' ? val : UU.jsonify(val)
-}
-
-/** Why `template` does not parse as mustache, or null when it does */
-function parseIssue(template: string): string | null {
-  try {
-    Mustache.parse(template)
-    return null
-  } catch (err) {
-    return err instanceof Error ? err.message : 'The prompt does not read as a template'
-  }
-}
-
-/** The first tag of a template that parses which fills a key in raw, said with what to write instead; null when none does */
-function rawTagIssue(template: string): string | null {
-  const raw = rawSpansOf(Mustache.parse(template))[0]
-  if (raw === undefined) { return null }
-  const [, key, beg, end] = raw
-  return `${template.slice(beg, end)} would fill a list or an object in as [object Object]: write {{${key}}}, which fills in text as it is and anything else as its JSON`
-}
-
-/** Every span of a parsed template, its sections' included, that fills a key in raw */
-function rawSpansOf(spans: TemplateSpans): TemplateSpans {
-  return spans.flatMap((span) => {
-    if (span[0] === '&') { return [span] }
-    const inner = span[4]
-    return Array.isArray(inner) ? rawSpansOf(inner) : []
-  })
+  return Renderer.globalsOf(template).filter((key) => ! Object.hasOwn(input, key))
 }

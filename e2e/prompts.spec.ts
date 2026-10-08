@@ -58,8 +58,8 @@ test('the preview names a placeholder the input does not fill, and a template th
   await pastePrompt(page, freshWidgetLabel('riddler'), 'riddle', 'Riddle: {{clueing}} and {{hint}}')
   const editor = promptDialog(page)
   await expect(editor.getByRole('note')).toContainText('The input holds nothing for {{hint}}')
-  await editor.getByRole('textbox', { name: 'Prompt', exact: true }).fill('Riddle: {{#clueing}}')
-  await expect(editor).toContainText('Unclosed section "clueing"')
+  await editor.getByRole('textbox', { name: 'Prompt', exact: true }).fill('Riddle: {% if clueing %}')
+  await expect(editor).toContainText('tag {% if clueing %} not closed')
 })
 
 test('a question whose input comes to nothing would not be asked, and the preview says so', async ({ page }) => {

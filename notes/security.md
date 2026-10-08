@@ -19,9 +19,11 @@ security expert who knows what questions to ask.
   `*` makes every username an admin, which `scripts/convex_dev` sets on every local backend.
 * The first user to claim a username becomes that user: an ident nobody holds goes to the first
   session to assert it (`claimFor`, `convex/writing/account_actions.ts`).
-* 2026-10-08: field and recap templates are LiquidJS, written by any smith of a quiz and run in
-  every smith's browser. LiquidJS calls a function it finds as an own property of what it reads;
+* 2026-10-08: field, recap and prompt templates are LiquidJS (`lib/liquidry.ts`): a field or
+  recap template is written by any smith of a quiz and run in every smith's browser; a prompt is
+  written by an admin and rendered in the browser of whoever asks. LiquidJS calls a function it finds as an own property of what it reads;
   the template bag is built only from JSON (stored rows, and formula results with functions
-  stripped by `Formulas.plainJson`), and a test holds a formula that comes to a function to that.
+  stripped by `Formulas.plainJson`), and a test holds a formula that comes to a function to that;
+  a prompt's input goes through `Formulas.plainJson` before it is read.
   Runaway templates stop on the app's counted budgets, behind LiquidJS's own time and allocation
   limits, which have had bypasses before (CVE-2026-44645).

@@ -89,7 +89,7 @@ export type Formulary = {
 | | `jsonata` | `aibot` | `entry` (thread 8) |
 |---|---|---|---|
 | class | `JsonataFormulary` | `AibotFormulary` | `EntryFormulary` |
-| `formula` is | a JSONata expression | a mustache prompt template | nothing (empty) |
+| `formula` is | a JSONata expression | a prompt template (Liquid since 2026-10-08; mustache when this was written) | nothing (empty) |
 | `defaultInput` | `$` | `{ 'clueing': qn.clueing }` | null |
 | `refresh` | `live` | `click` | null |
 | `store` | null | `append` | `upsert` |
@@ -562,7 +562,7 @@ clean break makes renaming in place safe; any reader of an old action log should
   tier and token room in, a vetted JSON object out (thread 4). A free-form relay is more abusable
   than three fixed jobs: `Approval` and the credentials check stay as strict, the prompt's size is
   bounded as well as the reply's, and rate limiting moves closer. As built:
-  - **The browser renders the prompt**, with mustache (`src/lib/ask/prompts.ts`), over the input
+  - **The browser renders the prompt**, with mustache then, Liquid since 2026-10-08 (`src/lib/ask/prompts.ts`), over the input
     formula's object as plain JSON (a JSONata function is dropped, never called): HTML escaping is
     off, and a value that is not a string fills in as its JSON. A template that does not parse, one
     that fills a key in raw (`{{{name}}}` or `{{&name}}`, which would skip that and send a list as
