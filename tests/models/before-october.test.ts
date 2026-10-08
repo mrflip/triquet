@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categoryDataOf, relabelledSource } from '../../src/models/before-october'
+import { categoryDataLabelsFor, categoryDataOf, relabelledSource } from '../../src/models/before-october'
 
 describe('categoryDataOf', () => {
   const Cases: [string, string | null, string][] = [
@@ -18,6 +18,21 @@ describe('categoryDataOf', () => {
       expect(categoryDataOf(label)).to.eq(expected)
     })
   }
+})
+
+describe('categoryDataLabelsFor', () => {
+  it('relabels each widgeting `categoryDataOf` does, under its label there where it is free', () => {
+    expect([...categoryDataLabelsFor(['categories', 'dumdum', 'categories_2'])]).to.deep.eq([['categories', 'category_data'], ['categories_2', 'category_data_2']])
+  })
+
+  it('gives the first free label after it where the quiz holds that already, or another is to take it', () => {
+    expect([...categoryDataLabelsFor(['categories', 'category_data'])]).to.deep.eq([['categories', 'category_data_2']])
+    expect([...categoryDataLabelsFor(['categories', 'categories_2', 'category_data'])]).to.deep.eq([['categories', 'category_data_3'], ['categories_2', 'category_data_2']])
+  })
+
+  it('relabels nothing in a quiz with none of them', () => {
+    expect(categoryDataLabelsFor(['dumdum', 'category_data']).size).to.eq(0)
+  })
 })
 
 describe('relabelledSource', () => {

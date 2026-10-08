@@ -1,3 +1,4 @@
+import * as Labelmaker from '../lib/labelmaker'
 import { QuizRefPrefix } from './column'
 import { CategoryDataLabel } from './seeds'
 
@@ -29,6 +30,28 @@ export function categoryDataOf(label: string): string | null {
   if (label === CategoriesWidgetLabel) { return CategoryDataLabel }
   const nth = label.startsWith(`${CategoriesWidgetLabel}_`) ? label.slice(CategoriesWidgetLabel.length + 1) : ''
   return /^[1-9]\d*$/.test(nth) ? `${CategoryDataLabel}_${nth}` : null
+}
+
+/**
+ * What each of one quiz's widgeting `labels` from before October 2026 that `categoryDataOf`
+ * relabels goes by now: its label there, or, where the quiz holds that already or another of them
+ * is to take it, the first free label after it (`Labelmaker.firstFree`), so no two come to share
+ * one. The rule `backfillCategoryDataWidgetings` (`convex/migrations.ts`) follows.
+ *
+ * @example categoryDataLabelsFor(['categories', 'categories_2'])   // => Map { categories => category_data, categories_2 => category_data_2 }
+ * @example categoryDataLabelsFor(['categories', 'category_data'])  // => Map { categories => category_data_2 }
+ */
+export function categoryDataLabelsFor(labels: readonly string[]): Map<string, string> {
+  const kept = labels.filter((label) => categoryDataOf(label) === null)
+  const labelFor = new Map<string, string>()
+  for (const label of labels) {
+    const relabelled = categoryDataOf(label)
+    if (relabelled === null) { continue }
+    const others = labels.filter((other) => other !== label).flatMap((other) => categoryDataOf(other) ?? [])
+    const taken = new Set([...kept, ...others, ...labelFor.values()])
+    labelFor.set(label, Labelmaker.firstFree(relabelled, taken))
+  }
+  return labelFor
 }
 
 /**

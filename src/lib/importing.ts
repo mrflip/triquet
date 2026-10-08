@@ -8,7 +8,7 @@ import * as UU from './useful'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
 import { ColumnValidators, plainOf, widgetingLabelOf, type ColumnPatch, type ColumnT } from '../models/column'
-import { CategoriesDescription, CategoriesWidgetLabel, categoryDataOf, relabelledSource } from '../models/before-october'
+import { CategoriesDescription, CategoriesWidgetLabel, categoryDataLabelsFor, relabelledSource } from '../models/before-october'
 import { CategoryDataLabel, SeedWidgets } from '../models/seeds'
 import { QuizValidators, isTemplatableField, templateableFrom, type QuizT, type Sortkey } from '../models/quiz'
 import { EntryFormulary } from './formulary/entry'
@@ -317,17 +317,17 @@ function templateableCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, showable
  * A pasted quiz with what an export from before October 2026 holds read as it is now, as the
  * backfills of the columnwise sprint read the rows (`convex/migrations.ts`), and for good, since
  * an export is a promise: the category-estimate entry `categories` as `category_data`, and each
- * widgeting labelled `categories` or `categories_<n>` as `category_data` or `category_data_<n>`
- * (`categoryDataOf`), with each question's cell, column and nomination naming one; each column's
- * source in the plain grammar (`plainOf`); and `templated` as `templateable`, in the plain grammar
+ * widgeting labelled `categories` or `categories_<n>` as `category_data` or `category_data_<n>`,
+ * or the first free label after it where the paste holds that already (`categoryDataLabelsFor`),
+ * with each question's cell, column and nomination naming one; each column's source in the plain
+ * grammar (`plainOf`); and `templated` as `templateable`, in the plain grammar
  * (`templateableFrom`), unless the paste holds a `templateable` too. Anything not in that grammar
  * is left for the reading after to take or refuse.
  */
 function beforeOctoberRead(quiz: Jsonball.PastedQuizT): Jsonball.PastedQuizT {
-  const labelFor = new Map(quiz.widgetings.flatMap((raw) => {
+  const labelFor = categoryDataLabelsFor(quiz.widgetings.flatMap((raw) => {
     const label = fieldOf(raw, 'label')
-    const relabelled = typeof label === 'string' ? categoryDataOf(label) : null
-    return relabelled === null || typeof label !== 'string' ? [] : [[label, relabelled] as const]
+    return typeof label === 'string' ? [label] : []
   }))
   const widgetings = quiz.widgetings.map((raw) => {
     if (! EST.isPlainObject(raw)) { return raw }

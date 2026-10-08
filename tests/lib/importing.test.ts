@@ -793,6 +793,21 @@ describe('importInto: an export from before October 2026', () => {
     expect(outcome.ok).to.be.true
   })
 
+  it("gives `categories` the first free label after `category_data` where the paste holds that already, as the backfill does", () => {
+    const clashing = read(laidOut(), {
+      templated:  ['categories', 'category_data'],
+      widgetings: { categories: { position: 0, widget_label: 'categories' }, category_data: { position: 1, widget_label: 'categories' } },
+      questions:  { leon: {
+        position:      0,
+        categories:    { status: 'ok', value: [{ category: 'art', difficulty: 'easy' }] },
+        category_data: { status: 'ok', value: [{ category: 'physics_eng', difficulty: 'hard' }] },
+      } },
+    })
+    expect(clashing.widgetingActions.flatMap((action) => (action.kind === 'add_widgeting' ? [action.widgeting.label] : []))).to.deep.eq(['category_data_2', 'category_data'])
+    expect(enteredFor(clashing, 'leon')).to.deep.eq({ category_data_2: [{ category: 'art', difficulty: 'easy' }], category_data: [{ category: 'physics_eng', difficulty: 'hard' }] })
+    expect(clashing.fieldActions).to.deep.include({ kind: 'set_templateable', templateable: ['category_data_2', 'category_data'] })
+  })
+
   it("prefers a paste's `templateable` to its `templated`, where it holds both", () => {
     const both = read(laidOut(), { templated: ['question.clueing'], templateable: ['hint'], questions: { leon: {} } })
     expect(both.fieldActions).to.deep.eq([{ kind: 'set_templateable', templateable: ['hint'] }])
