@@ -186,6 +186,26 @@ export class EntryFormulary {
   static isOneLine(params: TextParamsT): boolean {
     return params.lines === 'one' || params.pattern !== undefined
   }
+
+  /**
+   * How a `number` entry's box takes what is typed: signed unless its least is nought or more,
+   * fractional unless it is whole. A box holding a number its params now refuse takes it as it
+   * stands, since the box would otherwise show it cut down (`-4` as `4`, `2.5` as `2`), and a
+   * constraint bites only on the next edit, where the value typed is refused with a sentence.
+   *
+   * @param params - The params in force.
+   * @param held - What the cell holds now, or null for nothing.
+   * @returns Whether the box takes a minus sign, and a fraction.
+   *
+   * @example EntryFormulary.numberBoxOf({ min: 0, integer: true }, 3)     // => { signed: false, fractional: false }
+   * @example EntryFormulary.numberBoxOf({ min: 0, integer: true }, -2.5)  // => { signed: true, fractional: true }
+   */
+  static numberBoxOf(params: EntryParamsFor['number'], held: number | null): { signed: boolean, fractional: boolean } {
+    return {
+      signed:     params.min === undefined || params.min < 0 || (held !== null && held < 0),
+      fractional: params.integer !== true || (held !== null && ! Number.isSafeInteger(held)),
+    }
+  }
 }
 
 /** The params a widget gives its widgetings to start from: its config, without its kind */

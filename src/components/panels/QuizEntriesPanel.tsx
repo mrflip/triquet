@@ -103,8 +103,8 @@ function EntryBox({ widget, widgeting, widgeted, label, locked, onEnter }: Reado
   switch (cell.family) {
   case 'number': {
     const committed = widgeted.status === 'ok' && typeof widgeted.value === 'number' ? widgeted.value : null
-    const { min, max, integer } = cell.params
-    return <NumberField fractional={integer !== true} signed={min === undefined || min < 0} max={max} label={label} locked={locked} committed={committed} onCommit={enter} />
+    const { signed, fractional } = EntryFormulary.numberBoxOf(cell.params, committed)
+    return <NumberField fractional={fractional} signed={signed} max={cell.params.max} label={label} locked={locked} committed={committed} onCommit={enter} />
   }
   case 'boolean': {
     const committed = widgeted.status === 'ok' && typeof widgeted.value === 'boolean' ? widgeted.value : null

@@ -200,6 +200,20 @@ describe('EntryFormulary', () => {
       expect(EntryFormulary.isOneLine({ lines: 'many' })).to.be.false
     })
   })
+
+  describe('numberBoxOf', () => {
+    it("takes a minus sign unless the least is nought or more, and a fraction unless whole, per the doc examples", () => {
+      expect(EntryFormulary.numberBoxOf({ min: 0, integer: true }, 3)).to.deep.eq({ signed: false, fractional: false })
+      expect(EntryFormulary.numberBoxOf({}, null)).to.deep.eq({ signed: true, fractional: true })
+      expect(EntryFormulary.numberBoxOf({ min: -5 }, null)).to.deep.eq({ signed: true, fractional: true })
+    })
+
+    it("takes what the cell already holds as it stands, though its params now refuse it", () => {
+      expect(EntryFormulary.numberBoxOf({ min: 0, integer: true }, -2.5)).to.deep.eq({ signed: true, fractional: true })
+      expect(EntryFormulary.numberBoxOf({ min: 1 }, -4)).to.deep.eq({ signed: true, fractional: true })
+      expect(EntryFormulary.numberBoxOf({ integer: true }, 2.5)).to.deep.eq({ signed: true, fractional: true })
+    })
+  })
 })
 
 describe('Formularies.paramsOf', () => {
