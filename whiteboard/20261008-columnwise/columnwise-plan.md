@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: threads 1 (#191) and 4 (#192) landed; 2 and 3a underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1 (#191), 4 (#192), 3a (#193) landed; 2 landing; 3b underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -366,3 +366,8 @@ thread (last, the top of the series).
   applies the reviewer's proposed `shadowedBy` fix (a column whose plain source `categories` names
   a `categories` widgeting is missed on rename and delete; minor, only before 3a's backfill or
   before 3c reserves `categories`), and adds a unit test for `8562e8b`.
+* **Thread 2's reserved words break reads** of a label that already holds one (addresses, a
+  username's session and hunt joins). *Ruled 2026-10-08:* gate on a production grep, and relabel
+  what it finds before deploying; no change to the read paths. Thread 2's PR says `Before merging:`.
+* **3a's open calls** (minor): the empty-estimates-cell rule (`27bf8b3`); *Category Data* vs
+  *Categories* as a new estimates column's header.
