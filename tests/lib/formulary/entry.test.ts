@@ -83,6 +83,9 @@ describe('EntryFormulary', () => {
       ['text',      { max_length: 5 },                   'Five!',                            'Five!',                        'text as long as it may be'],
       ['text',      { pattern: 'url' },                  'https://example.com',              'https://example.com',          'a web address for one held to the url pattern'],
       ['text',      { pattern: 'label' },                'position',                         'position',                     'a reserved word for one held to the label pattern: a value, not a name in any namespace'],
+      ['text',      { regex: { source: '^[A-Z]{3}$', flags: '' } }, 'ABC',                 'ABC',                          'what matches its own regular expression'],
+      ['text',      { regex: { source: '^[a-z]{3}$', flags: 'i' } }, 'AbC',                 'AbC',                          'what matches its own regular expression, ignoring case as its flags say'],
+      ['text',      { pattern: 'oneline', regex: { source: 'otter', flags: '' } }, 'a quiet otter', 'a quiet otter',      'what matches both a named pattern and its own regular expression'],
       ['labelish',  {},                                  'quiet_otter',                      'quiet_otter',                  'a label for a label entry'],
       ['titleish',  {},                                  ' The Quiet Otter ',                'The Quiet Otter',              'one line for a title entry, trimmed'],
       // number:
@@ -114,6 +117,9 @@ describe('EntryFormulary', () => {
       ['text',      { pattern: 'oneline' },              'two\nlines',                   'two lines for one held to a pattern'],
       ['text',      { pattern: 'url' },                  'example.com',                  'an address with no scheme for one held to the url pattern'],
       ['text',      { pattern: 'label' },                'Quiet Otter',                  'what is not a label for one held to the label pattern'],
+      ['text',      { regex: { source: '^[A-Z]{3}$', flags: '' } }, 'ABCD',             'what does not match its own regular expression'],
+      ['text',      { regex: { source: '^[A-Z]{3}$', flags: '' } }, 'abc',              'what matches its own regular expression only when case is ignored, which its flags do not say'],
+      ['text',      { pattern: 'url', regex: { source: 'otter', flags: '' } }, 'a quiet otter', 'what matches its own regular expression but not the named pattern beside it'],
       ['labelish',  {},                                  'Quiet Otter',                  'a label that is not one'],
       ['titleish',  {},                                  'x'.repeat(83),                 'a title past 82 characters'],
       ['titleish',  {},                                  'two\nlines',                   'a title of two lines'],
@@ -152,6 +158,18 @@ describe('EntryFormulary', () => {
       expect(EntryFormulary.valueOf(entryOf('number', { max: 10 }), saying()).safeParse(11).success).to.be.false
       expect(EntryFormulary.valueOf(entryOf('number', { max: 10 }), saying({ max: 20 })).safeParse(11).success).to.be.true
     })
+  })
+
+  it("says what a cell's text should match, its own regular expression shown as one is written", () => {
+    const checked = EntryFormulary.valueOf(entryOf('text'), saying({ regex: { source: '^[A-Z]{3}$', flags: 'i' } })).safeParse('ABCD')
+    expect(checked.error?.issues.map((issue) => issue.message)).to.deep.eq(['should match «/^[A-Z]{3}$/i»'])
+  })
+
+  it("holds a cell to a regular expression its widget gives as a default", () => {
+    const coded = entryOf('text', { regex: { source: '^[A-Z]{3}$', flags: '' } })
+    expect(EntryFormulary.valueOf(coded, saying()).safeParse('ABC').success).to.be.true
+    expect(EntryFormulary.valueOf(coded, saying()).safeParse('ABCD').success).to.be.false
+    expect(EntryFormulary.valueOf(coded, saying({ regex: { source: '^[A-Z]{4}$', flags: '' } })).safeParse('ABCD').success).to.be.true
   })
 
   describe('kindValueOf', () => {

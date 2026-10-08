@@ -180,6 +180,43 @@ describe("an entry widget", () => {
   })
 })
 
+describe("an entry widget's regular expression", () => {
+  const Coded = { ...Remark, label: 'airport', config: { entry_kind: 'text', regex: { source: '^[A-Z]{3}$', flags: '' } } } as const
+  const Risky = { entry_kind: 'text', regex: { source: '^(A+)+$', flags: '' } } as const
+
+  it("is kept as a default when recheck finds it safe", async () => {
+    const { actOnLibrary, read } = await seed()
+    await actOnLibrary({ kind: 'add_widget', widget: Coded })
+    expect(widgetOf(await read(), 'airport').config).to.deep.eq(Coded.config)
+  })
+
+  it("is refused, writing nothing, when recheck does not find it safe: added, revised or imported", async () => {
+    const seeded = await seed()
+    await seeded.actOnLibrary({ kind: 'add_widget', widget: Coded })
+    await expectRefused(seeded,
+      [{ kind: 'add_widget', widget: { ...Coded, label: 'shout', config: Risky } },          'regexRisky'],
+      [{ kind: 'edit_widget', label: 'airport', patch: { config: Risky } },                      'regexRisky'],
+      [{ kind: 'import_widgets', widgets: [Shout, { ...Coded, label: 'loud', config: Risky }] }, 'regexRisky'],
+      [{ kind: 'import_widgets', widgets: [{ ...Coded, config: Risky }] },                    'regexRisky'])
+  })
+
+  it("is not held against an import that passes its widget over, as another kind", async () => {
+    const { actOnLibrary, read } = await seed()
+    await actOnLibrary({ kind: 'add_widget', widget: { ...Remark, label: 'airport', config: { entry_kind: 'number' } } })
+    await actOnLibrary({ kind: 'import_widgets', widgets: [{ ...Coded, config: Risky }, Shout] })
+    expect(widgetOf(await read(), 'airport').config).to.deep.eq({ entry_kind: 'number' })
+    expect(labelsOf(await read()).at(-1)).to.eq('shout')
+  })
+
+  it("is imported again as the library holds it, the whole library at once", async () => {
+    const seeded = await seed()
+    await seeded.actOnLibrary({ kind: 'add_widget', widget: Coded })
+    const ante = await seeded.read()
+    await seeded.actOnLibrary({ kind: 'import_widgets', widgets: ante.library })
+    expect(await seeded.read()).to.deep.eq(ante)
+  })
+})
+
 describe("move_widget", () => {
   it("reorders the library, and only it", async () => {
     const { actOnLibrary, read } = await seed(classicHunt())

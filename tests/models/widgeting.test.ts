@@ -206,6 +206,11 @@ describe('WidgetingValidators.row', () => {
 
 describe('EntryParamnames', () => {
   it("is every name an entry family gives a param, the reserved ones among them", () => {
-    expect([...EntryParamnames]).to.have.members(['min', 'max', 'integer', 'max_length', 'pattern', 'lines', 'options'])
+    expect([...EntryParamnames]).to.have.members(['min', 'max', 'integer', 'max_length', 'pattern', 'regex', 'lines', 'options'])
+  })
+
+  it("lets a widgeting's params name a text's regular expression, though `regex` is a reserved word", () => {
+    expect(Widgeting.fill({ widget_label: 'memo', label: 'airport', params: { regex: { source: '^[A-Z]{3}$', flags: '' } } }).params).to.deep.eq({ regex: { source: '^[A-Z]{3}$', flags: '' } })
+    expect(WidgetingValidators.widgeting.safeParse({ widget_label: 'memo', label: 'regex' }).success).to.be.false
   })
 })

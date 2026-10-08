@@ -255,9 +255,19 @@ describe('EntryParamsOf', () => {
 
   it("gives one key per param, for an editor to draw a field for", () => {
     expect(Object.keys(EntryParamsOf.number.shape)).to.deep.eq(['min', 'max', 'integer'])
-    expect(Object.keys(EntryParamsOf.text.shape)).to.deep.eq(['max_length', 'pattern', 'lines'])
+    expect(Object.keys(EntryParamsOf.text.shape)).to.deep.eq(['max_length', 'pattern', 'regex', 'lines'])
     expect(Object.keys(EntryParamsOf.enum.shape)).to.deep.eq(['options'])
     expect(Object.keys(EntryParamsOf.boolean.shape)).to.deep.eq([])
+  })
+
+  it("takes a text's own regular expression, its flags none unless said, beside a named pattern", () => {
+    expect(EntryParamsOf.text.parse({ regex: { source: '^[A-Z]{3}$' } })).to.deep.eq({ regex: { source: '^[A-Z]{3}$', flags: '' } })
+    expect(EntryParamsOf.text.parse({ pattern: 'oneline', regex: { source: String.raw`^\p{Lu}`, flags: 'iu' } })).to.deep.eq({ pattern: 'oneline', regex: { source: String.raw`^\p{Lu}`, flags: 'iu' } })
+  })
+
+  it("says why a regular expression will not compile, of its source", () => {
+    const checked = EntryParamsOf.text.safeParse({ regex: { source: '(a', flags: '' } })
+    expect(checked.error?.issues.map(({ path, message }) => ({ path, message }))).to.deep.eq([{ path: ['regex', 'source'], message: 'will not compile: Unterminated group' }])
   })
 
   it("trims each option, and keeps them in order", () => {
@@ -272,6 +282,17 @@ describe('EntryParamsOf', () => {
     ['text',      { max_length: 3601 },                   'room for more than any text holds'],
     ['text',      { pattern: 'regex' },                   'a pattern that is not one of the named ones'],
     ['text',      { lines: 'two' },                       'a number of lines that is neither one nor many'],
+    ['text',      { regex: '^a+$' },                      'a regular expression said as a string, without its flags beside it'],
+    ['text',      { regex: { source: '' } },              'a regular expression with no source'],
+    ['text',      { regex: { source: 'a'.repeat(201) } }, 'a regular expression past 200 characters'],
+    ['text',      { regex: { source: 'a\nb' } },         'a regular expression of two lines'],
+    ['text',      { regex: { source: '(a' } },            'a regular expression that will not compile'],
+    ['text',      { regex: { source: String.raw`\p{L}` , flags: 'u' }, pattern: 'nope' }, 'a regular expression beside a pattern that is not one'],
+    ['text',      { regex: { source: 'a', flags: 'g' } }, 'a regular expression flagged global, which remembers where it last matched'],
+    ['text',      { regex: { source: 'a', flags: 'y' } }, 'a regular expression flagged sticky, which remembers where it last matched'],
+    ['text',      { regex: { source: 'a', flags: 'ii' } }, 'a flag said twice'],
+    ['text',      { regex: { source: 'a', flags: 'ui' } }, 'flags out of their order'],
+    ['text',      { regex: { source: 'a', extra: 1 } },   'a regular expression with a field of its own beyond source and flags'],
     ['enum',      { options: ['a', 'a'] },                'an option named twice'],
     ['enum',      { options: [''] },                      'an empty option'],
     ['enum',      { options: ['two\nlines'] },            'an option of two lines'],

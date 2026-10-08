@@ -2,6 +2,7 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
+import * as Regexes from '../lib/regexes'
 import { ServicelabelVals } from '../lib/credentials'
 import { ModelTierVals } from './ask'
 import type { EstimatesT } from './estimate'
@@ -67,7 +68,7 @@ export const JsonataDefaultInput = '$'
 /** The input formula a new `aibot` widget starts with: the clueing, for a `{{clueing}}` in its prompt */
 export const AibotDefaultInput = "{ 'clueing': qn.clueing }"
 
-export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titleish, noteish, textish, formulaish, discrim, union, uint, num, bool, stamps }) => {
+export const WidgetValidators = Validator(({ obj, arr, oneof, lit, str, label, titleish, noteish, textish, formulaish, discrim, union, uint, num, bool, stamps }) => {
   const jsonataConfig = obj({}).strict()
     .describe('A `jsonata` widget\'s settings: none.')
   const aibotConfig = obj({
@@ -90,15 +91,28 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titlei
       .describe('Whether a cell holds whole numbers only. Absent, a fraction is welcome.'),
   }).strict()
     .describe('What a `number` entry\'s cells may hold: between `min` and `max`, and whole when `integer`.')
+  const regex = obj({
+    source: str.min(1).max(Regexes.SourceMax).regex(PA.Stringish.re, PA.Stringish.msg)
+      .describe(`The pattern, as written between a regular expression's slashes: at most ${String(Regexes.SourceMax)} characters, on one line.`),
+    flags:  str.regex(Regexes.FlagsRe, 'should be some of «i», «m», «s» and «u», each once, in that order').default('')
+      .describe('Its flags: `i` to ignore case, `m` for `^` and `$` at each line, `s` for `.` across a newline, `u` for Unicode. Absent, none.'),
+  }).strict()
+    .check((context) => {
+      const issue = Regexes.compileIssueOf(context.value)
+      if (issue !== null) { context.issues.push({ code: 'custom', path: ['source'], input: context.value.source, message: issue }) }
+    })
+    .describe('A regular expression of the author\'s own. Where it is written, it is also held to taking no longer to match than a text is long (`Redos`).')
   const textParams = obj({
     max_length: uint.min(1).max(PA.Textish.max).optional()
       .describe(`The most characters a cell may hold. Absent, ${String(PA.Textish.max)}.`),
     pattern:    oneof(TextPatternVals).optional()
       .describe('A named pattern every cell must match: `label` (lowercase letters, digits and single underscores), `oneline` (one line of anything) or `url` (a web address). Any of them is one line. Absent, any prose.'),
+    regex:      regex.optional()
+      .describe('A regular expression of your own every cell must match, beside any named pattern: its source and flags. One that could take too long to match some text is refused where it is written. Absent, none.'),
     lines:      oneof(TextLinesVals).optional()
       .describe('How many lines a cell takes: `one`, a box that never wraps, or `many`, prose and markdown. Absent, `many`, unless a pattern makes it one.'),
   }).strict()
-    .describe('What a `text` entry\'s cells may hold: how long, of what pattern, and on how many lines.')
+    .describe('What a `text` entry\'s cells may hold: how long, of what pattern or regular expression, and on how many lines.')
   const enumOption = titleish.min(1).max(EnumOptionMaxLen)
     .describe('One option, a line of text, as the select offers it and the cell keeps it.')
   const enumParams = obj({
@@ -210,7 +224,7 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titlei
   const row = discrim('formulary', [obj({ ...rowFields, ...jsonataFields }), obj({ ...rowFields, ...aibotFields }), obj({ ...rowFields, ...entryFields })])
     .describe('One widget as the database holds it: its fields, and its place in the library.')
 
-  return { jsonataConfig, aibotConfig, entryConfig, numberParams, textParams, enumOption, enumParams, noParams, widgetLabel, widget, widgetPatch, row }
+  return { jsonataConfig, aibotConfig, entryConfig, regex, numberParams, textParams, enumOption, enumParams, noParams, widgetLabel, widget, widgetPatch, row }
 })
 
 export type JsonataConfigT = Z.output<typeof WidgetValidators.jsonataConfig>

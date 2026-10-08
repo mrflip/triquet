@@ -773,6 +773,16 @@ describe("hunts.perform", () => {
       expect(cellOf(await read(), 'grade')?.newest.value).to.eq(5)
     })
 
+    it("holds what was typed to a text's own regular expression, as the widget or its widgeting says it", async () => {
+      const { act, actOnLibrary, read, id } = await withEntries()
+      await putFamilyToWork({ act, actOnLibrary }, 'airport', { entry_kind: 'text', regex: { source: '^[A-Z]{3}$', flags: '' } }, { regex: { source: '^[a-z]{3}$', flags: 'i' } })
+      const ante = await read()
+      for (const refused of ['ABCD', 'A1C']) { await refusalOf(act(entering(id, 'airport', refused))) }
+      expect(await read()).to.deep.eq(ante)
+      await act(entering(id, 'airport', 'aBc'))
+      expect(cellOf(await read(), 'airport')?.newest.value).to.eq('aBc')
+    })
+
     it("keeps a yes or no, and one of a choice's options, and refuses what is none of them", async () => {
       const { act, actOnLibrary, read, id } = await withEntries()
       await putFamilyToWork({ act, actOnLibrary }, 'checked', { entry_kind: 'boolean' })

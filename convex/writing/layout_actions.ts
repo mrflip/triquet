@@ -11,6 +11,7 @@ import type { LayoutActionT } from '../../src/models/actions'
 import { widgetForLabel } from '../reading'
 import { deleteWidgeting as deleteWidgetingRows, movedTo, repositioned, updateColumn, updateQuiz, updateWidgeting, type OpenQuizT, type Writer } from './quiz_writing'
 import { reviseOpenLayout } from './quiz_actions'
+import { refuseRiskyRegexes } from './regex_vetting'
 
 /** The widgeting of the quiz labelled `label`, refusing when there is none */
 function widgetingIn(rows: LayoutRows, label: string): Doc<'widgetings'> {
@@ -65,7 +66,8 @@ function refuseUnshowable(rows: LayoutRows, source: string): void {
  * every widgeting before it. A label a sibling has (or, for one for the whole quiz, the quiz
  * itself answers to), a widget the library does not hold or that cannot run at its tier
  * (`Widgeting.runsAt`), or one widgeting more than a quiz may hold, is refused; and so are params
- * its widget does not take (`Formularies.paramsOf`).
+ * its widget does not take (`Formularies.paramsOf`), and a regular expression among them that
+ * recheck does not find safe (`refuseRiskyRegexes`).
  *
  * @throws A refusal, or a Zod error when its params do not fit its widget; nothing is written.
  */
@@ -79,15 +81,22 @@ export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: Widge
     const widget = widgetFrom(row)
     if (! Widgeting.runsAt(widget, widgeting.tier)) { refuse('tierUnoffered') }
     const params = Formularies.paramsOf(widget).parse(widgeting.params)
+    refuseRiskyRegexes([params])
     await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, params, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: rows.widgetings.length }))
   })
 }
 
-/** `params` held to the widget `held` works, when the library holds it: a widgeting of a widget gone is held to no more than any widgeting's */
+/**
+ * `params` held to the widget `held` works, when the library holds it: a widgeting of a widget
+ * gone is held to no more than any widgeting's. A regular expression among them that `held` did not
+ * already hold is held to recheck's verdict (`refuseRiskyRegexes`).
+ */
 async function paramsFor(db: Writer, held: Doc<'widgetings'>, params: WidgetingPatch['params']): Promise<WidgetingPatch['params']> {
   if (params === undefined) { return undefined }
   const row = await widgetForLabel(db, held.widget_label)
-  return row ? Formularies.paramsOf(widgetFrom(row)).parse(params) : params
+  const checked = row ? Formularies.paramsOf(widgetFrom(row)).parse(params) : params
+  refuseRiskyRegexes([checked], [held.params])
+  return checked
 }
 
 /**

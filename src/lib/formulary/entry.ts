@@ -1,6 +1,7 @@
 import type * as Z from 'zod'
 import _ from 'es-toolkit/compat'
 import * as Labelmaker from '../labelmaker'
+import * as Regexes from '../regexes'
 import { ValidatorKit } from '../validator'
 import * as PA from '../vv/patterns'
 import { EstimateValidators } from '../../models/estimate'
@@ -213,12 +214,17 @@ function defaultsOf(widget: EntryWidgetish): Record<string, unknown> {
   return _.omit(widget.config, ['entry_kind'])
 }
 
-/** What a `text` entry's cell may hold: trimmed prose, never empty, held to its params */
+/**
+ * What a `text` entry's cell may hold: trimmed prose, never empty, held to its params: its length,
+ * its named pattern, and its own regular expression, which was checked for safety where it was
+ * written (`Redos`) and is trusted here.
+ */
 function textValueOf(params: TextParamsT): Z.ZodType<string> {
   const pattern = params.pattern === undefined ? null : TextPatterns[params.pattern]
   const oneLine = EntryFormulary.isOneLine(params) ? noteish.regex(PA.Stringish.re, PA.Stringish.msg) : noteish
   const bounded = oneLine.min(pattern?.min ?? 1).max(EntryFormulary.lengthMaxOf(params))
-  return pattern === null ? bounded : bounded.regex(pattern.re, pattern.msg)
+  const named = pattern === null ? bounded : bounded.regex(pattern.re, pattern.msg)
+  return params.regex === undefined ? named : named.regex(Regexes.compiled(params.regex), `should match «${Regexes.shown(params.regex)}»`)
 }
 
 /** What a `number` entry's cell may hold: a number within its bounds, whole when it says so */

@@ -3,3 +3,9 @@ allowBuilds:
   unrs-resolver: true
 patchedDependencies:
   zod@4.6.5: patches/zod@4.6.5.patch
+ignoredOptionalDependencies:
+  - recheck-jar
+  - recheck-linux-x64
+  - recheck-macos-arm64
+  - recheck-macos-x64
+  - recheck-windows-x64
