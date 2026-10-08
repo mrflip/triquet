@@ -179,34 +179,53 @@ function FoldedLine({ widget, widgeting, locked, revise }: Readonly<FoldedLinePr
   }
 }
 
-/** Params sent and not yet back, or refused, beside the params they were set over */
-type PendingParams = { params: Record<string, JsonT>, base: string, sent: boolean }
+/**
+ * Params sent and not yet back, or refused, beside the held params (as `UU.jsonify` writes them)
+ * they may show over: those they were set over, and those of each sending before them not yet back
+ */
+export type PendingParams = { params: Record<string, JsonT>, over: readonly string[], sent: boolean }
 
 /**
  * An entry widgeting's params in its folded line, side by side, each committing as it is left or
  * picked. Params sent show until the quiz's watch brings them back, so a second field left before
  * then builds on the first; params the planner refuses stay in the fields, each saying its own
- * sentence, until the widgeting's params change.
+ * sentence, until the widgeting's params change. Held params changing to anything this line did
+ * not send (the same widgeting's line elsewhere, another tab) take the fields over.
  */
 function FoldedParams({ widget, widgeting, locked, revise }: Readonly<Omit<FoldedLineProps, 'widget'> & { widget: EntryWidgetT }>) {
   const [pending, setPending] = useState<PendingParams | null>(null)
   const held = UU.jsonify(widgeting.params)
-  const params = pendingShown(pending, held) ?? widgeting.params
+  const shown = pendingShown(pending, held)
+  // Once the held params have moved past what was pending, it is done with: held coming back round to what it was set over does not revive it.
+  if (pending !== null && shown === null) { setPending(null) }
   const { entry_kind, ...defaults } = widget.config
+  const onChange = (next: Record<string, JsonT>) => {
+    const over = pending === null || shown === null ? [held] : [...pending.over, ...(pending.sent ? [UU.jsonify(pending.params)] : [])]
+    setPending({ params: next, over, sent: revise({ params: next }) === null })
+  }
   return (
     <EntryParamsFields
-      entry_kind={entry_kind} params={params} inherited={defaults} validator={EntryFormulary.paramsOf(widget)} disabled={locked}
-      layout="line" label={`Settings of ${widgeting.label}`}
-      onChange={(next) => { setPending({ params: next, base: held, sent: revise({ params: next }) === null }) }}
+      entry_kind={entry_kind} params={shown ?? widgeting.params} inherited={defaults} validator={EntryFormulary.paramsOf(widget)} disabled={locked}
+      layout="line" label={`Settings of ${widgeting.label}`} onChange={onChange}
     />
   )
 }
 
-/** The pending params to show over those held, or null for none: sent ones until the watch brings them back, refused ones until the held change */
-function pendingShown(pending: PendingParams | null, held: string): Record<string, JsonT> | null {
-  if (pending === null) { return null }
-  if (pending.sent) { return UU.jsonify(pending.params) === held ? null : pending.params }
-  return pending.base === held ? pending.params : null
+/**
+ * The pending params to show over those held, or null for none: sent ones until the watch brings
+ * them back, refused ones until the held change; either, only while the held are those they were
+ * set over or an earlier sending's on its way.
+ *
+ * @param pending - What was last sent or refused, or null for nothing.
+ * @param held - The widgeting's params as held now, as `UU.jsonify` writes them.
+ * @returns The params to show, or null to show those held.
+ *
+ * @example pendingShown({ params: { max: 5 }, over: ['{}'], sent: true }, '{}')         // => { max: 5 }
+ * @example pendingShown({ params: { max: 5 }, over: ['{}'], sent: true }, '{"max":7}')  // => null
+ */
+export function pendingShown(pending: PendingParams | null, held: string): Record<string, JsonT> | null {
+  if (! pending?.over.includes(held)) { return null }
+  return pending.sent && UU.jsonify(pending.params) === held ? null : pending.params
 }
 
 type DescriptionFieldProps = {
