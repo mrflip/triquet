@@ -46,3 +46,5 @@ friend's Members panel, and `prompts.spec.ts:92`).
 * **For the Coach**:
   - Minor: *Done* drops a quiz label (or hunt name or label) typed and not yet Relabelled, as
     *Cancel* did. Commit-as-you-go makes that easier to miss; 5a could mark an unsaved label.
+    The review (clean) also found the label draft goes stale if the quiz is relabelled elsewhere
+    while the dialog is open. The orchestrator gave both to thread 5a.
