@@ -244,6 +244,22 @@ Built: `boolean` and `enum` entries, params per family, the named patterns, entr
 * **An enum cell holding an option since dropped** shows it as an extra option until another is
   picked; nothing lists the cells a revised list strands.
 
+## From columnwise sprint, thread 5a: the folding editor
+
+Built: columns lead, each widgeting a panel folded to its line, the dialogs retired. Left:
+
+* **Params sent and refused by the server stay in their fields** (`FoldedParams` in
+  `WidgetingPanel.tsx` shows sent params until the quiz's watch brings them back, so a second field
+  left before the echo builds on the first). The planner holds params to the widget as the server
+  does, so a refusal there is a race (the widget revised meanwhile); the alarm says so, and the
+  fields show what was sent until the next change. The same shape as thread 2's `useDraft` leftover.
+* **A new widget written from the folding editor's doors is not told the widgeting it is for**
+  (`NewWidgetDoor`): the widgeting is made after the widget, labelled as it. The widget editor's
+  preview and advice prompt therefore name no widgeting there; *Edit the widget…* in a panel does.
+* **A column's header follows what it shows only while it is the default one** (`retitledPatch`);
+  a column label never follows a relabel. If authors want the label to follow too, it is the same
+  rule one field over, but a column label is named by the quiz's sort memory.
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and

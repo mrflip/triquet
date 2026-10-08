@@ -94,12 +94,17 @@ code does not say so yet, the record names the thread that makes it.
 * **library** -- every widget there is. Its own export and import, apart from any hunt's. It
   belongs to no hunt, and is changed by an admin on a mutation of its own (`widgets.perform`), with
   no hunt or quiz open.
-* **catalogue** -- the library as the widgeting editor's picker offers it.
-* **widgeting editor** -- the quiz's dialog for one widgeting: the widget it works, picked from the
-  catalogue, and its own label and description. It never edits the widget. The columnwise sprint
-  retires it for the **folding editor**: a column row leading, its widgeting's **folded line**
-  (the formulary's few fields: an entry's params, a formula) beneath it, unfolding into the
-  widgeting's full panel, which is the same fields with more rows.
+* **catalogue** -- the library as a picker offers it, to put a widget to work: grouped by formulary,
+  found by typing, made at once as it is picked.
+* **folding editor** -- how the manage dialog edits a quiz's columns and widgetings, every field
+  kept as it is made. The column leads: each column is a **panel**, its row of fields unfolding to
+  the rest of it; beneath a column showing a widgeting, that widgeting's panel, folded to its
+  **folded line** (the few fields its formulary folds to: an entry's params, a formula's formula
+  read-only, nothing for a prompt), unfolding to the **widgeting panel**: the same line with more
+  rows (its label, its description, the widget behind its door, the columns showing it, its
+  removal). The run order's rows are the same panel. It replaced the column and widgeting dialogs
+  (the **widgeting editor**, retired by the columnwise sprint). A label, which other things name,
+  waits on its own *Relabel* and says so while it waits.
 * **widget editor** -- the library's dialog for one widget: its formulary (chosen once, when it is
   written), formula, input formula and config, how far it is put to work, and its removal. The
   widget stays behind this door: an edit to it is global and admin-only.
@@ -450,7 +455,7 @@ that makes it.
   `label`. Absent, as the cells choose; with a template, or showing a `liquidize`, `markdown`. A
   cell typed into (a field, an entry, a bot's asked cell, while the column is identity with no
   template) is drawn by its own box, whatever the readout says.
-* **preset** (a column's) -- a formula the column editor offers beside a ref for what it picks:
+* **preset** (a column's) -- a formula a column's panel offers beside a ref for what it picks:
   an estimates entry's parts (`$.masie`), the field names of a word whose schema is known
   (`$.title` of `quiz`, each question's of `qns`). `ColumnMenu.PresetSources` lists where they
   come from.

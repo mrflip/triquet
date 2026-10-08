@@ -276,6 +276,13 @@ Two warnings:
   labels (`use-preview-bag`'s picker, quiz select dropped), beneath it that question's
   `QuestionRow` drawn from `specsFor` and the quiz's run, read-only, grip, checkbox and ask
   handlers off.
+* *As built (5a):* a `jsonata` widgeting's folded line is its widget's formula **read-only**, the
+  widget being behind its door (an admin's *Edit the widget…* is in the open panel); a widgeting
+  is not renamed before it is made but after, so **a column still headed as `namesFor` heads what
+  it shows follows** a change of its ref, its formula (a part picked) or its widgeting's label
+  (`retitledPatch`; `planWidgetingEdit`), and a header the author wrote stays. Whatever is made
+  arrives open. *+ New widgeting…* and *+ New quiz widgeting…* stay beside the run order, the
+  catalogue made at once as it is picked, until 5b moves them.
 
 ## 8. Removal, and the commit model (thread 4; 5a everywhere)
 
