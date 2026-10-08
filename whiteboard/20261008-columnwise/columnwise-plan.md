@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: threads 1, 4, 3a merged (#191-#193); 2 (#196) and 3b (#197) landed; 6, 7, 5a underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1, 4, 3a merged (#191-#193); 2 (#196) and 3b (#197) landed; 6 landing, 7 in rework, 5a in review.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -388,3 +388,10 @@ thread (last, the top of the series).
 * **7's open call** (minor): `liquidize`'s `template_from` with no formula reads as a column with
   no formula does (the field itself, a widgeting's `value`), not `$`; the record's §3 amended.
 * **After the deploy:** `seeding:seedWidgets` (thread 2's four families and thread 7's `blurb`).
+* **Thread 7's review (flagged), ruled 2026-10-08:** a `liquidize` template stopped by a limit
+  stops its column (as a JSONata timeout does), **and** the column gets one shared time budget;
+  decision 5 amended. And one params-key allowlist per formulary (`jsonata`, `aibot`: none).
+* **Before deploying thread 6:** query production for widgetings whose `params` hold a `regex`
+  key (one written by a direct call before the deploy would never be checked); expect none.
+* **5a's call to confirm** (minor): a column whose header is still the automatic one follows what
+  it shows, its formula and its widgeting's relabel (`retitledPatch`); a typed header stays.

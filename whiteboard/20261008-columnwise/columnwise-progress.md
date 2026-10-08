@@ -13,9 +13,9 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
 | 3b | column expression authoring | landed #197 |
-| 7 | `liquidize` formulary | in review |
-| 6 | free regex (optional) | in review |
-| 5a | folding editors | underway |
+| 7 | `liquidize` formulary | rework (review flagged; Coach ruled: stop + column budget, per-formulary allowlist) |
+| 6 | free regex (optional) | landing (review clean; full e2e) |
+| 5a | folding editors | in review |
 | 5b | run order in both places, row preview | pending |
 | 8 | seeds pass (optional) | pending |
 | 3c | columns tighten (last) | pending |
