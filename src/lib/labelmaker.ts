@@ -129,7 +129,7 @@ export type IsReservedOpts = {
  * @example isReserved('pricing', { toplevel: true })    // => true
  */
 export function isReserved(label: string, opts: Readonly<IsReservedOpts> = {}): boolean {
-  return ! PA.Unreserved.re.test(label) || (opts.toplevel === true && ! PA.UnreservedToplevel.re.test(label))
+  return ! PA.Unreserved.rule(label) || (opts.toplevel === true && ! PA.UnreservedToplevel.rule(label))
 }
 
 /** `label` in Title Case, for display where a heading wants words rather than an identifier */

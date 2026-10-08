@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: threads 1 (#191) and 4 (#192) landed; 2 and 3a underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1 (#191), 4 (#192), 3a (#193) landed; 2 landing; 3b underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -68,6 +68,17 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
   ReDoS.
 * **Every field validator produces its own sentence** (§6, the commit model): no field relies on
   a dialog's Apply to report what is wrong.
+* **New input kinds are generic facilities** (the Coach, 2026-10-08): "This sprint will likely
+  make some new input kinds, like regex or whatnot. make those generic facilities. Make sure also
+  to weigh libraries for them." A regex field (6), an options-list field (2's enum, `EntryParamsFields`),
+  a template or formula field (3b, 7), a params editor (5a): each is a field component any form can
+  use, not a one-off inside its first caller, and library-first applies before writing one (an MUI
+  component, then a widely used library such as `react-number-format` was; record what was weighed
+  in the thread file).
+* **Reserved words take an allowlist** (the Coach, 2026-10-08): the reserved check accepts an
+  optional allowlist `Set` that forces a word allowed, so a family's own params keys (`min`, `max`,
+  `integer`) pass the full check rather than escaping it. Thread 2 builds it. `Labelmaker` is moving
+  to a `Set` outside this sprint: build on what is there, and do not rewrite it ahead of that.
 * **Hard things go to `whiteboard/TODO.md`**, under `## From columnwise sprint, thread N: ...`,
   and into the report.
 * **Proving.** `pnpm e2e --touched` or more; the orchestrator asks for a full run on 3a and 3c
@@ -366,3 +377,8 @@ thread (last, the top of the series).
   applies the reviewer's proposed `shadowedBy` fix (a column whose plain source `categories` names
   a `categories` widgeting is missed on rename and delete; minor, only before 3a's backfill or
   before 3c reserves `categories`), and adds a unit test for `8562e8b`.
+* **Thread 2's reserved words break reads** of a label that already holds one (addresses, a
+  username's session and hunt joins). *Ruled 2026-10-08:* gate on a production grep, and relabel
+  what it finds before deploying; no change to the read paths. Thread 2's PR says `Before merging:`.
+* **3a's open calls** (minor): the empty-estimates-cell rule (`27bf8b3`); *Category Data* vs
+  *Categories* as a new estimates column's header.

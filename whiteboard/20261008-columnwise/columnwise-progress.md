@@ -9,10 +9,10 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | Thread | Label | Status |
 |---|---|---|
 | 1 | design note and vocabulary | landed #191 (docs only, no review) |
-| 2 | entry families | in review |
-| 3a | columns widen (Serial Deploy) | landing (review fixed; full e2e) |
+| 2 | entry families | landing (review flagged; Coach ruled: production grep gate; full e2e) |
+| 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
-| 3b | column expression authoring | pending |
+| 3b | column expression authoring | underway |
 | 7 | `liquidize` formulary | pending |
 | 6 | free regex (optional) | pending |
 | 5a | folding editors | pending |
@@ -20,7 +20,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 8 | seeds pass (optional) | pending |
 | 3c | columns tighten (last) | pending |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone).
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 asked for one (the fourth landing).
 
 ## What the threads have taught
 
@@ -75,3 +75,41 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   relabelled (the Coach may want an unsaved mark); the quiz label draft is set once from
   `quiz.label`, so a relabel elsewhere while the dialog is open would be undone by a click on
   *Relabel*. 5a rebuilds these editors and takes both.
+
+### From thread 3a (columns widen, #193, Serial Deploy: columnwise)
+
+* **The ref** (`src/models/column.ts`): `refOf` parses a plain key (a question field, `butnot`, a
+  key `label`/`rank`/`archived`/`secondary`, a widgeting label, a word `quiz`/`hunt`/`realm`/
+  `categories`/`qns`) or `quiz.<label>`; `plainOf`/`beforeOctoberOf` read the old grammar until 3c.
+  `resolve` finds on `qn` first, then the top level. `columnPatch` takes `null` to take
+  `formula`/`template`/`readout` off.
+* **What a column shows** is `Columns.shownOf(spec, run, templateable, question_id)`, worked by
+  its formula through `JsonataFormulary.worked` once per run; the sheet (`cellTextOf`) and the
+  sorts (`sortValueFor`) go through it. A formula's input comes from the formula bag
+  (`run.qnsAfter`, archived included), templateable sources filled. 3b adds template and readout
+  as later stages of the same path.
+* **Already drawn** (pulled forward from 3b): a formula'd column read-only
+  (`QuestionRow.workedBody`; `$.masie` as `EstimatePartReadout`), keys, words and `quiz.<label>`
+  as readouts. 3b builds the menu, `template`, `readout`, `collapsed` and the double-click.
+* **templateable**: `quizzes.templateable`, `set_templateable`, `TemplateableEditor.tsx`; the one
+  fill is `Templating.finishedQnsOf(run, templateable)` (thread 7 shares it).
+* **Decision (the Coach may overrule):** a `missing` widgeted with parts beside it (an empty
+  estimates cell) is worked on by the formula, so a backfilled `$.masie` keeps its value
+  (`27bf8b3`, reverts cleanly; the record's §4 amended). A new estimates column is headed
+  *Category Data*.
+* `run.parts` and `Runner.widgetedOf`'s part argument are gone: parts live only in the bag.
+* **3c's checklist is in `thread-3a-cw_widen.md`**, ten items, with the ledger row drafted.
+* *Review:* `fixed`: `8562e8b` (`updateColumn` reads the stored column plain before merging) and
+  `ab77f54` (the importer's `categories` relabel follows the backfill's first-free rule,
+  `categoryDataLabelsFor`). Left: the reviewer's `shadowedBy` (a renamed or deleted `categories`
+  widgeting misses a column whose plain source is `categories`; only before the backfill or 3c),
+  **refused to the reviewer by the permission check, so waiting on the Coach, not routed**; the
+  relabel rule held twice (3c drops the migration's copy); no unit test of its own for `8562e8b`.
+
+### From thread 2's review (flagged, ruled)
+
+* *Orchestrator:* the reviewer found that a label under a newly reserved word fails on **read**
+  too: `src/lib/addresses.ts` and `openHunt` check slots with `label`/`userlabel`, so such a
+  hunt, realm or quiz cannot be opened, and such a username cannot be asserted again or join a
+  hunt. **The Coach ruled: gate on a production grep**, no change to the read paths. Thread 2's
+  `human/` note, thread file and PR (`Before merging:`) carry the gate.

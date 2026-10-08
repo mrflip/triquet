@@ -21,22 +21,22 @@ const ReservedOfCases: [string, boolean, string][] = [
 describe('reservedOf', () => {
   for (const [word, allowed, describes] of ReservedOfCases) {
     it(describes, () => {
-      expect(Reserved.re.test(word)).to.eq(allowed)
+      expect(Reserved.rule(word)).to.eq(allowed)
     })
   }
 
   it("reads the doc block's example", () => {
-    expect(PA.reservedOf(['rank', 'title']).re.test('rank')).to.be.false
+    expect(PA.reservedOf(['rank', 'title']).rule('rank')).to.be.false
   })
 
   it("names every refused word in its advice", () => {
     expect(Reserved.msg).to.eq('should not be any of rank, title, question, which the questions already use')
   })
 
-  it("refuses only the empty string when no word is reserved", () => {
+  it("refuses nothing when no word is reserved, the empty string included", () => {
     const none = PA.reservedOf([])
-    expect(none.re.test('rank')).to.be.true
-    expect(none.re.test('')).to.be.false
+    expect(none.rule('rank')).to.be.true
+    expect(none.rule('')).to.be.true
   })
 })
 
@@ -76,12 +76,12 @@ const UnreservedCases: [string, boolean, string][] = [
 describe('Unreserved', () => {
   for (const [word, allowed, describes] of UnreservedCases) {
     it(`${describes} (${word || 'blank'})`, () => {
-      expect(PA.Unreserved.re.test(word)).to.eq(allowed)
+      expect(PA.Unreserved.rule(word)).to.eq(allowed)
     })
   }
 
   it("refuses every reserved word", () => {
-    expect(PA.ReservedLabels.filter((word) => PA.Unreserved.re.test(word))).to.deep.eq([])
+    expect(PA.ReservedLabels.filter((word) => PA.Unreserved.rule(word))).to.deep.eq([])
   })
 })
 
@@ -136,12 +136,12 @@ const UnreservedToplevelCases: [string, boolean, string][] = [
 describe('UnreservedToplevel', () => {
   for (const [word, allowed, describes] of UnreservedToplevelCases) {
     it(`${describes} (${word || 'blank'})`, () => {
-      expect(PA.UnreservedToplevel.re.test(word)).to.eq(allowed)
+      expect(PA.UnreservedToplevel.rule(word)).to.eq(allowed)
     })
   }
 
   it("refuses every top-level reserved word", () => {
-    expect(PA.ReservedToplevel.filter((word) => PA.UnreservedToplevel.re.test(word))).to.deep.eq([])
+    expect(PA.ReservedToplevel.filter((word) => PA.UnreservedToplevel.rule(word))).to.deep.eq([])
   })
 })
 
@@ -159,5 +159,66 @@ describe('ReservedToplevel', () => {
   it("holds no word a prefix already refuses", () => {
     const covered = PA.ReservedToplevel.filter((word) => PA.ReservedToplevelPrefixes.some((prefix) => word.startsWith(prefix)))
     expect(covered).to.deep.eq([])
+  })
+})
+
+const TrimmedCases: [string, boolean, string][] = [
+  // regular usage:
+  ["abc",           true,   'a word is trimmed'],
+  ["a b",           true,   'a space inside is no matter'],
+  ["a\u{A0}b",      true,   'a no-break space inside is no matter'],
+  [" abc",          false,  'a leading space is refused'],
+  ["abc\t",         false,  'a trailing tab is refused'],
+  // the spaces past ASCII, every one that JavaScript's \s knows:
+  ["\u{A0}abc",     false,  'a leading no-break space is refused'],
+  ["abc\u{3000}",   false,  'a trailing ideographic space is refused'],
+  ["\u{2028}abc",   false,  'a leading line separator is refused'],
+  ["abc\u{FEFF}",   false,  'a trailing byte-order mark is refused'],
+  ["\u{85}abc",     false,  'a leading next-line is refused, being a control character'],
+  // trivial cases:
+  ["a",             true,   'one character is trimmed'],
+  ["",              true,   'an empty string is trimmed'],
+  [" ",             false,  'a lone space is refused'],
+]
+
+describe('Trimmed', () => {
+  for (const [str, allowed, describes] of TrimmedCases) {
+    it(describes, () => {
+      expect(PA.Trimmed.re.test(str)).to.eq(allowed)
+    })
+  }
+})
+
+const ReplykeyCases: [string, boolean, string][] = [
+  ["answer",        true,   'a plain key is kept'],
+  ["a $ b",         true,   'a dollar sign past the first character is kept'],
+  ["$answer",       false,  'a key opening with a dollar sign is refused'],
+  ["$",             false,  'a lone dollar sign is refused'],
+  ["café",          false,  'a key past printable ASCII is refused'],
+  ["",              true,   'an empty key is kept'],
+]
+
+describe('Replykey', () => {
+  for (const [key, allowed, describes] of ReplykeyCases) {
+    it(describes, () => {
+      expect(PA.Replykey.re.test(key)).to.eq(allowed)
+    })
+  }
+})
+
+describe('every regex here', () => {
+  const regexes = Object.entries(PA).flatMap(([exportname, val]): [string, RegExp][] => {
+    if (val instanceof RegExp) { return [[exportname, val]] }
+    if (typeof val === 'object' && 're' in val && val.re instanceof RegExp) { return [[exportname, val.re]] }
+    return []
+  })
+
+  it('is found, so the next test has something to read', () => {
+    expect(regexes.map(([exportname]) => exportname)).to.include.members(['TrimmedRe', 'Label', 'Replykey', 'Email'])
+  })
+
+  it(String.raw`reads alike to RE2: no lookaround, no backreference, no \s`, () => {
+    const unportable = regexes.filter(([, re]) => /\(\?<?[=!]|\\[1-9]|\\k<|\\s/.test(re.source)).map(([exportname]) => exportname)
+    expect(unportable).to.deep.eq([])
   })
 })

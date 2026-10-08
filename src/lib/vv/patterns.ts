@@ -1,7 +1,11 @@
-// Regexes and bounds, with the sentence each one wants to say when it fails.
+// Regexes, rules and bounds, with the sentence each one wants to say when it fails.
 //
 // This file imports nothing, on purpose: a module that needs one pattern should pay for one
 // pattern and not for a schema library. The checks are built on top, in ./checks/*.
+//
+// Every regex here is one RE2 reads as JavaScript does: no lookaround, no backreference, and no
+// `\s`, which RE2 takes for ASCII spaces alone. What a regex could only say by looking around --
+// that a label is none of a list of words -- is a rule instead.
 
 /** A pattern, its bounds, and the advice it gives -- the shape every check below is built from */
 export type Patternbag = {
@@ -15,6 +19,14 @@ export type Patternbag = {
   max?:  number
 }
 
+/** A check that is a rule rather than a pattern, and the advice it gives: what keeps a value from being any of a list of words */
+export type Rulebag = {
+  /** Whether the value passes */
+  rule: (str: string) => boolean
+  /** Advice, phrased to follow the offending value: "should not be ..." */
+  msg:  string
+}
+
 //
 // == [Character sets] ==
 //
@@ -26,8 +38,11 @@ export const TextishRe   = /^[\P{Cc}\t\r\n]*$/u
 /** Any character except a control character */
 export const StringishRe = /^\P{Cc}*$/u
 
-/** Neither begins nor ends with a space or a control character */
-export const TrimmedRe   = /^([^\s\p{Cc}].*[^\s\p{Cc}]|[^\s\p{Cc}]|)$/su
+/**
+ * Neither begins nor ends with a space or a control character. A space is any JavaScript's `\s`
+ * matches: `\p{White_Space}` and the byte-order mark.
+ */
+export const TrimmedRe   = /^([^\p{White_Space}\u{FEFF}\p{Cc}].*[^\p{White_Space}\u{FEFF}\p{Cc}]|[^\p{White_Space}\u{FEFF}\p{Cc}]|)$/su
 
 export const Asciish   = { re: AsciishRe,   msg: 'should have only unaccented keyboard characters' } as const satisfies Patternbag
 /** Paragraphs of prose: newlines and tabs welcome, control characters not, and past 3600 characters it is not a field any more */
@@ -70,15 +85,15 @@ export const Jsident    = { re: /^[A-Za-z_$][\w$]*$/,  msg: 'should be a JavaScr
 
 /**
  * A label that is none of `words`: what keeps a name from shadowing one already in use beside it.
- * The words are labels, so none needs escaping.
  *
  * @param words - The labels refused.
- * @returns The pattern, and the advice it gives.
+ * @returns The rule, and the advice it gives.
  *
- * @example reservedOf(['rank', 'title']).re.test('rank')  // => false
+ * @example reservedOf(['rank', 'title']).rule('rank')  // => false
  */
-export function reservedOf(words: readonly string[]): Patternbag & { re: RegExp, msg: string } {
-  return { re: new RegExp(`^(?!(?:${words.join('|')})$)`), msg: `should not be any of ${words.join(', ')}, which the questions already use` }
+export function reservedOf(words: readonly string[]): Rulebag {
+  const reserved = new Set(words)
+  return { rule: (label) => ! reserved.has(label), msg: `should not be any of ${words.join(', ')}, which the questions already use` }
 }
 
 /** The tool's own nouns, one and many: its tables, and the things its rows and bags are made of */
@@ -122,14 +137,16 @@ export const ReservedLabelGroups = {
 /** Every reserved word, each group's in turn */
 export const ReservedLabels: readonly string[] = Object.values(ReservedLabelGroups).flat()
 
+const ReservedLabelSet: ReadonlySet<string> = new Set(ReservedLabels)
+
 /**
  * A label that is no reserved word, and does not end in `_id` or `_ids`, which is how a pointer
  * to a row is named. Says nothing of the label's shape, which is `Label`'s business.
  */
 export const Unreserved = {
-  re:  new RegExp(`^(?!(?:${ReservedLabels.join('|')})$)(?!.*_ids?$)`),
-  msg: 'is a word the tool keeps for its own use, or ends in _id as a pointer does: add to it, as my_label or label_2',
-} as const satisfies Patternbag
+  rule: (label: string) => ! ReservedLabelSet.has(label) && ! label.endsWith('_id') && ! label.endsWith('_ids'),
+  msg:  'is a word the tool keeps for its own use, or ends in _id as a pointer does: add to it, as my_label or label_2',
+} as const satisfies Rulebag
 
 /**
  * The words no hunt and no ident may be labelled, beyond those no label may be. A hunt's label and
@@ -167,8 +184,11 @@ export const ReservedToplevel: readonly string[] = Object.values(ReservedTopleve
  */
 export const ReservedToplevelPrefixes: readonly string[] = ['secur', 'login', 'triquet', 'help', 'admin', 'support', 'official', 'verif']
 
-/** Whole labels of these forms are kept too: `pub` and two characters more, for scopes of the library beside `pub` */
+/** Whole labels of these forms are kept too, each a regex of the whole label: `pub` and two characters more, for scopes of the library beside `pub` */
 export const ReservedToplevelForms: readonly string[] = ['pub..']
+
+const ReservedToplevelSet: ReadonlySet<string> = new Set(ReservedToplevel)
+const ReservedToplevelFormRe = new RegExp(`^(?:${ReservedToplevelForms.join('|')})$`)
 
 /**
  * A hunt's or an ident's label that is no top-level reserved word or form, and begins with no
@@ -176,9 +196,11 @@ export const ReservedToplevelForms: readonly string[] = ['pub..']
  * business.
  */
 export const UnreservedToplevel = {
-  re:  new RegExp(`^(?!(?:${[...ReservedToplevel, ...ReservedToplevelForms].join('|')})$)(?!(?:${ReservedToplevelPrefixes.join('|')}))`),
-  msg: 'is kept for the app\'s own pages and people: add to it, as my_label or label_2',
-} as const satisfies Patternbag
+  rule: (label: string) => ! ReservedToplevelSet.has(label)
+    && ! ReservedToplevelFormRe.test(label)
+    && ReservedToplevelPrefixes.every((prefix) => ! label.startsWith(prefix)),
+  msg:  'is kept for the app\'s own pages and people: add to it, as my_label or label_2',
+} as const satisfies Rulebag
 
 /** A Convex document id: lowercase letters and digits, about 32 of them */
 export const Convexid   = { re: /^[0-9a-z]{31,37}$/, min: 31, max: 37, msg: 'should be a document id, 31 to 37 lowercase letters/numbers' } as const satisfies Patternbag
@@ -209,7 +231,7 @@ export const Titleish = { max: 82, ...Stringish } as const satisfies Patternbag
 /** A widgeted's value, and the free bag of how it ran: room for a long list of spans, short of a document */
 export const WidgetedJson = { max: 40_000, msg: 'is too large to keep' } as const satisfies Patternbag
 /** A key of a model's reply object, as the database will keep one: printable ASCII, not opening with `$` */
-export const Replykey     = { re: /^(?!\$)[\u{20}-\u{7E}]*$/u, max: 200, msg: 'is not a key the tool can keep' } as const satisfies Patternbag
+export const Replykey     = { re: /^(?:[\u{20}-\u{23}\u{25}-\u{7E}][\u{20}-\u{7E}]*)?$/u, max: 200, msg: 'is not a key the tool can keep' } as const satisfies Patternbag
 /**
  * How deep a model's reply object may nest, how many items one list of it may hold, and how many
  * keys one object of it may hold. Kept as a widgeted's value, the reply sits one level down in a

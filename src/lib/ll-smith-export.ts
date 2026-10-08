@@ -137,7 +137,7 @@ export function fieldTextOf(text: string): string {
 /** BBCode with every run of dollar signs broken up, so it never reads as a record's end, and every pipe written as a broken bar (`¦`), so it never reads as a field's */
 function safeOf(bbcode: string): string {
   return bbcode
-    .split(/(?<=\$)(?=\$)/).join(DollarFence)
+    .replaceAll(/\$+/g, (run) => Array.from({ length: run.length }, () => '$').join(DollarFence))
     // A broken bar stands in for a pipe, which the format keeps for separating fields.
     .replaceAll('|', '¦')
 }
