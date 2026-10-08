@@ -1,7 +1,7 @@
 import { test as base, expect, type Browser, type BrowserContext, type BrowserContextOptions, type Locator, type Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import type * as Routes from '../src/lib/routes'
-import { RefTitles, type QuestionField, type QuestionView } from '../src/models/column'
+import { namesFor, type QuestionField, type QuestionView } from '../src/models/column'
 import * as Z from 'zod'
 import { runAsAdmin } from './admin'
 
@@ -181,18 +181,53 @@ export async function closeManage(page: Page): Promise<void> {
   await expect(page.getByRole('dialog')).toHaveCount(0)
 }
 
-/** The widgeting editor for a new widgeting, open over the gear's dialog */
-export function newWidgetingDialog(page: Page): Locator {
-  return page.getByRole('dialog', { name: 'New widgeting' })
+/**
+ * Pick the library's widget labelled `widget_label` from the catalogue `picker` (a combobox,
+ * opened by a *+ New ...* button): typed into it, and chosen from what that finds by the label it
+ * shows. The widgeting is made as it is picked.
+ */
+export async function pickWidget(page: Page, picker: Locator, widget_label: string): Promise<void> {
+  await picker.fill(widget_label)
+  await page.getByRole('option').filter({ has: page.getByText(widget_label, { exact: true }) }).click()
+}
+
+/** A widgeting's panel in the manage dialog's run order (rather than its copy beneath a column) */
+export function widgetingPanel(page: Page, label: string): Locator {
+  return manageDialog(page).getByRole('list', { name: /^(Entries|Widgetings)$/ }).getByRole('group', { name: `Widgeting ${label}`, exact: true })
+}
+
+/** A column's panel in the manage dialog's columns editor, by its title: the last, where two share it */
+export function columnPanel(page: Page, title: string): Locator {
+  return manageDialog(page).getByRole('list', { name: 'Columns' }).getByRole('group', { name: `Column ${title}`, exact: true }).last()
+}
+
+/** Unfold a panel by its triangle, named `foldname` ("Column Remarks in full"), unless it is open already */
+export async function unfoldBy(scope: Locator, foldname: string): Promise<void> {
+  await foldTo(scope, foldname, true)
+}
+
+/** Fold a panel by its triangle, named `foldname`, unless it is folded already: a new column's arrives open */
+export async function foldBy(scope: Locator, foldname: string): Promise<void> {
+  await foldTo(scope, foldname, false)
+}
+
+/** Set a panel's triangle, named `foldname`, to `open` */
+async function foldTo(scope: Locator, foldname: string, open: boolean): Promise<void> {
+  const fold = scope.getByRole('button', { name: foldname, exact: true }).first()
+  if (await fold.getAttribute('aria-expanded') !== String(open)) { await fold.click() }
+  await expect(fold).toHaveAttribute('aria-expanded', String(open))
 }
 
 /**
- * Pick the library's widget labelled `widget_label` in the widgeting editor `editor`: typed into
- * its picker, and chosen from what that finds by the label it shows.
+ * Relabel the widgeting labelled `from` to `onto` through its panel in the run order, which the
+ * gear's dialog must be showing.
  */
-export async function pickWidget(page: Page, editor: Locator, widget_label: string): Promise<void> {
-  await editor.getByRole('combobox', { name: 'Widget' }).fill(widget_label)
-  await page.getByRole('option').filter({ has: page.getByText(widget_label, { exact: true }) }).click()
+export async function relabelWidgeting(page: Page, from: string, onto: string): Promise<void> {
+  const panel = widgetingPanel(page, from)
+  await unfoldBy(panel, `Widgeting ${from} in full`)
+  await panel.getByRole('textbox', { name: 'Widgeting label' }).fill(onto)
+  await panel.getByRole('button', { name: `Relabel widgeting ${from}` }).click()
+  await expect(widgetingPanel(page, onto)).toBeVisible()
 }
 
 /**
@@ -217,15 +252,15 @@ export async function addWidgetings(page: Page, widget_labels: readonly string[]
   await closeManage(page)
 }
 
-/** Through the gear's dialog, which must be open: a new widgeting of `widget_label`, under `label` or the widget's own */
+/**
+ * Through the gear's dialog, which must be open: a new widgeting of `widget_label`, made as it is
+ * picked with the column it brings (headed after the widget), then relabelled `label` if one is given.
+ */
 async function widgetingAdded(page: Page, widget_label: string, label = ''): Promise<void> {
-  await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  const editor = newWidgetingDialog(page)
-  await pickWidget(page, editor, widget_label)
-  if (label !== '') { await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label) }
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(editor).toHaveCount(0)
-  await expect(manageDialog(page).getByRole('group', { name: `Column ${Labelmaker.titleize(label || widget_label)}`, exact: true })).toBeVisible()
+  await manageDialog(page).getByRole('button', { name: '+ New widgeting…' }).click()
+  await pickWidget(page, manageDialog(page).getByRole('combobox', { name: 'A new widgeting, for each question' }), widget_label)
+  await expect(columnPanel(page, Labelmaker.titleize(widget_label))).toBeVisible()
+  if (label !== '') { await relabelWidgeting(page, widget_label, label) }
 }
 
 /**
@@ -235,16 +270,20 @@ async function widgetingAdded(page: Page, widget_label: string, label = ''): Pro
  */
 export async function addColumns(page: Page, fields: readonly (QuestionField | QuestionView)[]): Promise<void> {
   await openManage(page)
-  for (const field of fields) {
-    await page.getByRole('button', { name: '+ New column…' }).click()
-    const editor = page.getByRole('dialog', { name: /^New column/ })
-    await editor.getByRole('combobox', { name: 'Shows' }).click()
-    await page.getByRole('option', { name: new RegExp(`^${field} `) }).click()
-    await editor.getByRole('button', { name: 'Apply' }).click()
-    await expect(editor).toHaveCount(0)
-    await expect(manageDialog(page).getByRole('group', { name: `Column ${RefTitles[field]}`, exact: true })).toBeVisible()
-  }
+  for (const field of fields) { await columnAdded(page, field) }
   await closeManage(page)
+}
+
+/**
+ * Through the gear's dialog, which must be open: a new column showing `source`, made as it is
+ * picked from *+ New column…*'s first item, and headed after what it shows.
+ */
+export async function columnAdded(page: Page, source: string): Promise<void> {
+  await manageDialog(page).getByRole('button', { name: '+ New column…' }).click()
+  await page.getByRole('menuitem', { name: 'Showing something the quiz has…' }).click()
+  await manageDialog(page).getByRole('combobox', { name: 'The new column shows' }).fill(source)
+  await page.getByRole('option', { name: new RegExp(`^${source} `) }).click()
+  await expect(columnPanel(page, namesFor(source).title)).toBeVisible()
 }
 
 /** How Convex's HTTP API names a mutation that collided with others on every one of its own retries */
@@ -412,9 +451,7 @@ export async function openPanel(page: Page, title: string): Promise<Locator> {
 
 /** Open `panel` by its fold triangle, if it is folded */
 async function unfold(panel: Locator): Promise<void> {
-  const fold = panel.getByRole('button', { name: 'Show this panel' }).first()
-  if (await fold.getAttribute('aria-expanded') === 'false') { await fold.click() }
-  await expect(fold).toHaveAttribute('aria-expanded', 'true')
+  await unfoldBy(panel, 'Show this panel')
 }
 
 /**

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addColumns, addWidgeting, addWidgetings, cellOf, closeManage, dragOnto, expect, freshWidgetLabel, grid, manageDialog, newWidgetingDialog, openManage, pickWidget, reloadOnceSaved, stepBy, test, valuesOf, waitUntilSaved } from './support'
+import { addColumns, addWidgeting, addWidgetings, cellOf, closeManage, columnAdded, columnPanel, dragOnto, expect, freshWidgetLabel, grid, manageDialog, openManage, pickWidget, relabelWidgeting, reloadOnceSaved, stepBy, test, foldBy, unfoldBy, valuesOf, waitUntilSaved, widgetingPanel } from './support'
 
 /** The widget editor writing a new widget, open over whichever dialog opened it */
 function newWidgetDialog(page: Page) {
@@ -7,22 +7,26 @@ function newWidgetDialog(page: Page) {
 }
 
 /**
- * Write a new formula into the library, labelled `widget_label`, through the widgeting editor's
- * door, and put it to work in the open quiz under `label`; close the gear's dialog
+ * Write a new formula into the library, labelled `widget_label`, through the door beside the
+ * catalogue, which puts it to work in the open quiz as it is written; relabel its widgeting
+ * `label`, and close the gear's dialog
  */
 async function addNewFormula(page: Page, widget_label: string, formula: string, label: string) {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  const editor = newWidgetingDialog(page)
-  await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label)
-  await editor.getByRole('button', { name: 'New widget…' }).click()
+  await writeNewFormula(page, widget_label, formula)
+  await relabelWidgeting(page, widget_label, label)
+  await closeManage(page)
+}
+
+/** Through the gear's dialog, which must be open: write a new formula from *+ New widgeting…*'s door, which puts it to work */
+async function writeNewFormula(page: Page, widget_label: string, formula: string) {
+  await manageDialog(page).getByRole('button', { name: '+ New widgeting…' }).click()
+  await manageDialog(page).getByRole('button', { name: 'New widget…' }).click()
   await newWidgetDialog(page).getByRole('textbox', { name: 'Widget label' }).fill(widget_label)
   await setFormula(page, formula)
   await newWidgetDialog(page).getByRole('button', { name: 'Apply' }).click()
   await expect(newWidgetDialog(page)).toHaveCount(0)
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(editor).toHaveCount(0)
-  await closeManage(page)
+  await expect(widgetingPanel(page, widget_label)).toBeVisible()
 }
 
 /** Open the library, and then one of its formulas */
@@ -45,13 +49,13 @@ async function applyWidget(page: Page, label: string) {
   await expect(page.getByRole('dialog')).toHaveCount(0)
 }
 
-/** Through the gear's dialog, which must be open: remove the column titled `title`, saying yes when it asks */
+/** Through the gear's dialog, which must be open: remove the column titled `title` from its unfolded panel, saying yes when it asks */
 async function removeColumn(page: Page, title: string) {
-  await page.getByRole('button', { name: `Edit column ${title}` }).click()
-  const editor = page.getByRole('dialog', { name: `Column: ${title}` })
-  await editor.getByRole('button', { name: 'Remove column' }).click()
-  await editor.getByRole('button', { name: 'Yes, remove' }).click()
-  await expect(page.getByRole('group', { name: `Column ${title}`, exact: true })).toHaveCount(0)
+  const panel = columnPanel(page, title)
+  await unfoldBy(panel, `Column ${title} in full`)
+  await panel.getByRole('button', { name: 'Remove column' }).click()
+  await panel.getByRole('button', { name: 'Yes, remove' }).click()
+  await expect(columnPanel(page, title)).toHaveCount(0)
 }
 
 /** Type a full answer into the first row */
@@ -145,83 +149,79 @@ test('a formula that would never end is stopped, and the page stays usable', asy
   await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('Still typing')
 })
 
-test('a new widget is written through the widgeting editor\'s door, and put to work at once', { tag: '@smoke' }, async ({ page }) => {
+test('a new widget is written through the door beside the catalogue, and put to work as it is written', { tag: '@smoke' }, async ({ page }) => {
   const widget_label = freshWidgetLabel('title_length')
   await openManage(page)
   await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  const editor = newWidgetingDialog(page)
-  // The widgeting editor writes no formula itself: that is the widget editor's.
-  await expect(editor.getByRole('textbox', { name: 'Formula', exact: true })).toHaveCount(0)
-  await editor.getByRole('button', { name: 'New widget…' }).click()
-  await newWidgetDialog(page).getByRole('textbox', { name: 'Widget label' }).fill(widget_label)
-  await setFormula(page, '$length(qn.title)')
-  await newWidgetDialog(page).getByRole('button', { name: 'Apply' }).click()
-  // Back in the widgeting editor, the new widget is the one picked.
-  await expect(editor.getByRole('combobox', { name: 'Widget' })).toHaveValue(/^Title Length/)
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  // Blank, the widgeting's label is the new widget's.
-  await expect(manageDialog(page).getByRole('group', { name: `Widgeting ${widget_label}` })).toBeVisible()
-  await page.getByRole('button', { name: `Edit widgeting ${widget_label}` }).click()
-  const widgeting = page.getByRole('dialog', { name: `Widgeting: ${widget_label}` })
-  await widgeting.getByRole('textbox', { name: 'Widgeting label' }).fill('title_length')
-  await widgeting.getByRole('button', { name: 'Apply' }).click()
+  // Putting a widget to work writes no formula itself: that is the widget editor's.
+  await expect(manageDialog(page).getByRole('textbox', { name: 'Formula', exact: true })).toHaveCount(0)
+  await writeNewFormula(page, widget_label, '$length(qn.title)')
+  // Made at once, its label the new widget's, with its column headed after it.
+  await expect(columnPanel(page, titleOf(widget_label))).toBeVisible()
+  await relabelWidgeting(page, widget_label, 'title_length')
+  // A column still headed after the widgeting's label follows its relabel.
+  await expect(columnPanel(page, 'Title Length')).toBeVisible()
   await closeManage(page)
   await page.getByRole('textbox', { name: 'Title' }).first().fill('Leon')
   await page.getByLabel('Quiz name').click()
-  // The column came with the widgeting, titled after its first label, and followed its rename.
-  await expect(cellOf(page, 0, widget_label.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' '))).toHaveText('4')
+  await expect(cellOf(page, 0, 'Title Length')).toHaveText('4')
 })
 
-test('a new widgeting keeps its label and description, and brings a column titled after it', async ({ page }) => {
+/** How a label is headed: its words capitalized */
+function titleOf(label: string): string {
+  return label.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+}
+
+test('a new widgeting is relabelled and described in its panel, and brings a column headed after it', async ({ page }) => {
   await openManage(page)
   await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  const editor = newWidgetingDialog(page)
-  await pickWidget(page, editor, 'answer_reversed')
-  await editor.getByRole('textbox', { name: 'Widgeting label' }).fill('backward')
-  await editor.getByRole('textbox', { name: 'Widgeting description' }).fill('For the palindrome round.')
-  await editor.getByRole('button', { name: 'Apply' }).click()
+  await pickWidget(page, manageDialog(page).getByRole('combobox', { name: 'A new widgeting, for each question' }), 'answer_reversed')
+  await relabelWidgeting(page, 'answer_reversed', 'backward')
+  const panel = widgetingPanel(page, 'backward')
+  await panel.getByRole('textbox', { name: 'Widgeting description' }).fill('For the palindrome round.')
+  await panel.getByRole('textbox', { name: 'Widgeting label' }).focus()
   await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'Backward' })).toBeVisible()
   await reloadOnceSaved(page)
   await openManage(page)
-  await page.getByRole('button', { name: 'Edit widgeting backward' }).click()
-  await expect(page.getByRole('textbox', { name: 'Widgeting description' })).toHaveValue('For the palindrome round.')
+  await unfoldBy(widgetingPanel(page, 'backward'), 'Widgeting backward in full')
+  await expect(widgetingPanel(page, 'backward').getByRole('textbox', { name: 'Widgeting description' })).toHaveValue('For the palindrome round.')
 })
 
-test('a label the questions already answer to is refused for a widgeting, with a reason', async ({ page }) => {
+test('a label the questions already answer to is refused for a widgeting, with a reason, and stays to be changed', async ({ page }) => {
+  await addWidgeting(page, 'answer_reversed')
   await openManage(page)
-  await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  const editor = newWidgetingDialog(page)
-  await pickWidget(page, editor, 'answer_reversed')
-  await editor.getByRole('textbox', { name: 'Widgeting label' }).fill('title')
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(editor).toContainText('already answer to')
+  const panel = widgetingPanel(page, 'answer_reversed')
+  await unfoldBy(panel, 'Widgeting answer_reversed in full')
+  await panel.getByRole('textbox', { name: 'Widgeting label' }).fill('title')
+  await expect(panel).toContainText('Not kept yet: Relabel keeps it.')
+  await panel.getByRole('button', { name: 'Relabel widgeting answer_reversed' }).click()
+  await expect(panel).toContainText('already answer to')
+  await expect(panel.getByRole('textbox', { name: 'Widgeting label' })).toHaveValue('title')
 })
 
-test('a column can be added for anything the quiz can show, with its own title and width', async ({ page }) => {
+test('a column can be added for anything the quiz can show, made at once, then titled, labelled and sized in place', async ({ page }) => {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New column…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New column' })
-  await editor.getByRole('textbox', { name: 'Column title' }).fill('More notes')
-  await editor.getByRole('textbox', { name: 'Column label' }).fill('more_notes')
-  await editor.getByRole('combobox', { name: 'Shows' }).click()
-  await page.getByRole('option', { name: /^notes / }).click()
-  await editor.getByRole('spinbutton', { name: 'Width (px)' }).fill('200')
-  await editor.getByRole('button', { name: 'Apply' }).click()
+  await columnAdded(page, 'notes')
+  // A second column showing the notes, labelled apart from the first, and open for the rest of it.
+  const panel = columnPanel(page, 'Notes')
+  await expect(panel.getByRole('textbox', { name: 'Column label' })).toHaveValue('notes_2')
+  await panel.getByRole('textbox', { name: 'Column label' }).fill('more_notes')
+  await panel.getByRole('button', { name: 'Relabel column Notes' }).click()
+  await expect(columnPanel(page, 'Notes').getByRole('textbox', { name: 'Column label' })).toHaveValue('more_notes')
+  await columnPanel(page, 'Notes').getByRole('textbox', { name: 'Width (px)' }).first().fill('200')
+  await columnPanel(page, 'Notes').getByRole('textbox', { name: 'Column title' }).first().fill('More notes')
+  await columnPanel(page, 'Notes').getByRole('textbox', { name: 'Column title' }).first().press('Tab')
   await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'More notes' })).toBeVisible()
   await reloadOnceSaved(page)
   await expect(page.getByRole('columnheader', { name: 'More notes' })).toBeVisible()
 })
 
-test('a new column offers first what no column shows yet, and takes that field\'s own name: a lean quiz opts back into its hint', async ({ page }) => {
+test("a new column takes the name of what it shows: a lean quiz opts back into its hint", async ({ page }) => {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New column…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New column' })
-  await expect(editor.getByRole('combobox', { name: 'Shows' })).toHaveText(/^hint/)
-  await expect(editor.getByRole('textbox', { name: 'Column title' })).toHaveAttribute('placeholder', 'Hint')
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(manageDialog(page).getByRole('group', { name: 'Column Hint', exact: true })).toContainText('hint')
+  await columnAdded(page, 'hint')
+  await expect(columnPanel(page, 'Hint')).toContainText('hint')
   await closeManage(page)
   await expect(page.getByRole('textbox', { name: 'Hint', exact: true })).toHaveCount(5)
 })
@@ -242,10 +242,11 @@ test('a widget nobody works asks first, and is removed', async ({ page }) => {
   await addNewFormula(page, widget_label, '1', 'spare')
   await openManage(page)
   await removeColumn(page, 'Spare')
-  await page.getByRole('button', { name: 'Edit widgeting spare' }).click()
-  const widgeting = page.getByRole('dialog', { name: 'Widgeting: spare' })
+  const widgeting = widgetingPanel(page, 'spare')
+  await unfoldBy(widgeting, 'Widgeting spare in full')
   await widgeting.getByRole('button', { name: 'Remove widgeting' }).click()
   await widgeting.getByRole('button', { name: 'Yes, remove' }).click()
+  await expect(widgeting).toHaveCount(0)
   await closeManage(page)
 
   await openWidget(page, widget_label)
@@ -271,14 +272,14 @@ test('a widget label the library already has is refused with a reason', async ({
   await expect(editor).toContainText('already has that label')
 })
 
-test('the widgeting editor picks from the whole library, grouped by formulary, and finds a widget by what is typed', async ({ page }) => {
+test('the catalogue picks from the whole library, grouped by formulary, and finds a widget by what is typed', async ({ page }) => {
   await openManage(page)
   await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  const editor = newWidgetingDialog(page)
-  await editor.getByRole('combobox', { name: 'Widget' }).click()
+  const picker = manageDialog(page).getByRole('combobox', { name: 'A new widgeting, for each question' })
+  await expect(page.getByRole('listbox')).toBeVisible()
   const listbox = page.getByRole('listbox')
   for (const group of ['Formulas', 'Prompts']) { await expect(listbox.getByText(group, { exact: true })).toBeVisible() }
-  await editor.getByRole('combobox', { name: 'Widget' }).fill('reversed')
+  await picker.fill('reversed')
   await expect(listbox.getByRole('option')).toHaveCount(1)
   await expect(listbox.getByRole('option')).toContainText('answer_reversed')
 })
@@ -298,34 +299,35 @@ test('a widget written in the library itself chooses its formulary first', async
   await expect(page.getByRole('group', { name: `Widget ${widget_label}` })).toContainText('prompt')
 })
 
-test('a column is retitled in place, and everything else is behind its gear', async ({ page }) => {
+test('a column is retitled in place, and the rest of it unfolds beneath its row', async ({ page }) => {
   await openManage(page)
-  await page.getByRole('group', { name: 'Column Notes' }).getByRole('textbox', { name: 'Column title' }).fill('Remarks')
-  await page.getByRole('button', { name: 'Edit column Full Answer' }).focus()
-  await expect(page.getByRole('group', { name: 'Column Remarks' })).toBeVisible()
-  await page.getByRole('button', { name: 'Edit column Remarks' }).click()
-  const editor = page.getByRole('dialog', { name: 'Column: Remarks' })
-  await editor.getByRole('spinbutton', { name: 'Width (px)' }).fill('200')
-  await editor.getByRole('button', { name: 'Apply' }).click()
+  await columnPanel(page, 'Notes').getByRole('textbox', { name: 'Column title' }).fill('Remarks')
+  await page.getByRole('button', { name: 'Column Full Answer in full' }).focus()
+  const panel = columnPanel(page, 'Remarks')
+  await expect(panel).toBeVisible()
+  await expect(panel.getByRole('textbox', { name: 'Column label' })).toHaveCount(0)
+  await panel.getByRole('button', { name: 'Column Remarks in full' }).click()
+  await expect(panel.getByRole('textbox', { name: 'Column label' })).toHaveValue('notes')
+  await expect(panel.getByRole('combobox', { name: 'Formula', exact: true })).toBeVisible()
   await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'Remarks' })).toBeVisible()
+  // The panel stays as it was left across a reopen.
+  await openManage(page)
+  await expect(columnPanel(page, 'Remarks').getByRole('textbox', { name: 'Column label' })).toHaveValue('notes')
 })
 
 test('removing a column asks first, and leaves the widgeting it showed', async ({ page }) => {
   await addWidgeting(page, 'hint_numeral')
   await openManage(page)
-  await page.getByRole('button', { name: 'Edit column Hint Numeral' }).click()
-  const editor = page.getByRole('dialog', { name: 'Column: Hint Numeral' })
-  await editor.getByRole('button', { name: 'Remove column' }).click()
-  await editor.getByRole('button', { name: 'Keep it' }).click()
-  await editor.getByRole('button', { name: 'Cancel' }).click()
-  await expect(page.getByRole('group', { name: 'Column Hint Numeral' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Edit column Hint Numeral' }).click()
-  await editor.getByRole('button', { name: 'Remove column' }).click()
-  await editor.getByRole('button', { name: 'Yes, remove' }).click()
-  await expect(page.getByRole('group', { name: 'Column Hint Numeral' })).toHaveCount(0)
-  await expect(page.getByRole('group', { name: 'Widgeting hint_numeral' })).toBeVisible()
+  const panel = columnPanel(page, 'Hint Numeral')
+  await unfoldBy(panel, 'Column Hint Numeral in full')
+  await panel.getByRole('button', { name: 'Remove column' }).click()
+  await panel.getByRole('button', { name: 'Keep it' }).click()
+  await expect(panel.getByRole('button', { name: 'Remove column' })).toBeVisible()
+  await panel.getByRole('button', { name: 'Remove column' }).click()
+  await panel.getByRole('button', { name: 'Yes, remove' }).click()
+  await expect(columnPanel(page, 'Hint Numeral')).toHaveCount(0)
+  await expect(widgetingPanel(page, 'hint_numeral')).toBeVisible()
   await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'Hint Numeral' })).toHaveCount(0)
 })
@@ -333,21 +335,38 @@ test('removing a column asks first, and leaves the widgeting it showed', async (
 test('removing a widgeting waits until no column shows it, saying which does, and then asks first', async ({ page }) => {
   await addWidgeting(page, 'hint_numeral')
   await openManage(page)
-  await page.getByRole('button', { name: 'Edit widgeting hint_numeral' }).click()
-  const editor = page.getByRole('dialog', { name: 'Widgeting: hint_numeral' })
-  await expect(editor).toContainText('The column “Hint Numeral” still shows that widgeting — remove the column first.')
-  await expect(editor.getByRole('button', { name: 'Remove widgeting' })).toHaveCount(0)
-  await editor.getByRole('button', { name: 'Cancel' }).click()
+  const panel = widgetingPanel(page, 'hint_numeral')
+  await unfoldBy(panel, 'Widgeting hint_numeral in full')
+  await expect(panel).toContainText('The column “Hint Numeral” still shows that widgeting — remove the column first.')
+  await expect(panel.getByRole('button', { name: 'Remove widgeting' })).toHaveCount(0)
 
   await removeColumn(page, 'Hint Numeral')
-  await page.getByRole('button', { name: 'Edit widgeting hint_numeral' }).click()
-  await editor.getByRole('button', { name: 'Remove widgeting' }).click()
-  await editor.getByRole('button', { name: 'Keep it' }).click()
-  await editor.getByRole('button', { name: 'Remove widgeting' }).click()
-  await editor.getByRole('button', { name: 'Yes, remove' }).click()
-  await expect(page.getByRole('group', { name: 'Widgeting hint_numeral' })).toHaveCount(0)
+  await panel.getByRole('button', { name: 'Remove widgeting' }).click()
+  await panel.getByRole('button', { name: 'Keep it' }).click()
+  await panel.getByRole('button', { name: 'Remove widgeting' }).click()
+  await panel.getByRole('button', { name: 'Yes, remove' }).click()
+  await expect(panel).toHaveCount(0)
   await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'Hint Numeral' })).toHaveCount(0)
+})
+
+test("a column showing a widgeting carries the widgeting's folded line beneath it, and the widgeting's panel lists the columns showing it", async ({ page }) => {
+  await addWidgeting(page, 'hint_full')
+  await openManage(page)
+  await columnAdded(page, 'hint_full')
+  // Beneath each column showing it, a copy of its panel, folded to its line: a formula's formula.
+  const beneath = columnPanel(page, 'Hint Full').getByRole('group', { name: 'Widgeting hint_full', exact: true })
+  await expect(beneath.getByRole('textbox', { name: 'Formula', exact: true })).toHaveValue(/numnum_hint/)
+  await expect(beneath.getByRole('textbox', { name: 'Formula', exact: true })).not.toBeEditable()
+  await unfoldBy(beneath, 'Widgeting hint_full in full')
+  // Unfolded beneath one column, it lists the other, which unfolds to its own fields.
+  await expect(beneath.getByRole('list', { name: 'Columns showing hint_full' }).getByRole('listitem')).toHaveCount(1)
+  await beneath.getByRole('button', { name: 'Shown by column Hint Full' }).click()
+  await expect(beneath.getByRole('textbox', { name: 'Column label' })).toHaveValue('hint_full')
+  // In the run order it lists both.
+  const panel = widgetingPanel(page, 'hint_full')
+  await unfoldBy(panel, 'Widgeting hint_full in full')
+  await expect(panel.getByRole('list', { name: 'Columns showing hint_full' }).getByRole('listitem')).toHaveCount(2)
 })
 
 /** The grid's first `count` column titles, left to right, with the blank grip column dropped */
@@ -399,7 +418,7 @@ test('the widgetings are listed in run order, and can be dragged too', async ({ 
   const list = manageDialog(page).getByRole('list', { name: 'Widgetings' })
   await dragOnto(page, list.getByRole('button', { name: 'Reorder hint_full' }), list.getByRole('button', { name: 'Reorder dumdum' }))
   await expect.poll(async () => {
-    const labels = await manageDialog(page).getByRole('group', { name: /^Widgeting / }).evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+    const labels = await list.getByRole('group', { name: /^Widgeting / }).evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
     return labels[0]
   }).toBe('Widgeting hint_full')
 })
@@ -407,8 +426,10 @@ test('the widgetings are listed in run order, and can be dragged too', async ({ 
 test('every dialog has a close button, and an editor is not dismissed by clicking behind it', async ({ page }) => {
   await addWidgeting(page, 'hint_full')
   await openManage(page)
-  await page.getByRole('button', { name: 'Edit widgeting hint_full' }).click()
-  const editor = page.getByRole('dialog', { name: 'Widgeting: hint_full' })
+  const panel = widgetingPanel(page, 'hint_full')
+  await unfoldBy(panel, 'Widgeting hint_full in full')
+  await panel.getByRole('button', { name: 'Edit the widget…' }).click()
+  const editor = page.getByRole('dialog', { name: 'Widget: hint_full' })
   await page.mouse.click(4, 4)
   await expect(editor).toBeVisible()
   await editor.getByRole('button', { name: 'Close', exact: true }).click()
@@ -421,8 +442,11 @@ test('a column row gives up its label, then what it shows, then its width, as th
   await addWidgeting(page, 'hint_full')
   await openManage(page)
   const row = page.getByRole('group', { name: 'Column Hint Full' })
-  // The widget is labelled as the column is, so the picked source says it too: the label is the last.
-  const label = row.getByText('hint_full', { exact: true }).last()
+  // The new column arrived open; folded, its row alone has these.
+  await foldBy(row, 'Column Hint Full in full')
+  // The widget is labelled as the column is, so the picked source says it before the label, and the
+  // widgeting's line beneath the row after it.
+  const label = row.getByText('hint_full', { exact: true }).nth(1)
   const shows = row.getByRole('combobox', { name: 'Shows' })
   const width = row.getByRole('textbox', { name: 'Width (px)' })
   const title = row.getByRole('textbox', { name: 'Column title' })
@@ -439,18 +463,19 @@ test('a column row gives up its label, then what it shows, then its width, as th
   await visibleAt(400, [false, false, false])
 })
 
-test('what a column shows and its width are changed in place, and kept', async ({ page }) => {
+test('what a column shows and its width are changed in place, and kept; a header still after what it showed follows', async ({ page }) => {
   await addWidgeting(page, 'hint_full')
   await openManage(page)
-  const row = page.getByRole('group', { name: 'Column Hint Full' })
-  await row.getByRole('combobox', { name: 'Shows' }).click()
-  await page.getByRole('option', { name: 'notes', exact: false }).first().click()
+  await foldBy(columnPanel(page, 'Hint Full'), 'Column Hint Full in full')
+  await columnPanel(page, 'Hint Full').getByRole('combobox', { name: 'Shows' }).click()
+  await page.getByRole('option', { name: /^hint — / }).click()
+  const row = columnPanel(page, 'Hint')
   await row.getByRole('textbox', { name: 'Width (px)' }).fill('250')
   await row.getByRole('textbox', { name: 'Column title' }).focus()
   await closeManage(page)
   await reloadOnceSaved(page)
   await openManage(page)
-  await expect(row.getByRole('combobox', { name: 'Shows' })).toHaveText('notes')
+  await expect(row.getByRole('combobox', { name: 'Shows' })).toHaveText('hint')
   await expect(row.getByRole('textbox', { name: 'Width (px)' })).toHaveValue('250')
 })
 
@@ -524,7 +549,7 @@ test('a blank formula makes a prompt that asks for one', async ({ page, context 
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openManage(page)
   await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  await newWidgetingDialog(page).getByRole('button', { name: 'New widget…' }).click()
+  await manageDialog(page).getByRole('button', { name: 'New widget…' }).click()
   await page.getByRole('button', { name: 'Copy a prompt for a chatbot' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Copied' })).toBeVisible()
   const copied = await page.evaluate(() => navigator.clipboard.readText())

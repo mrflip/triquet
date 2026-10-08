@@ -1,23 +1,27 @@
 import type { Locator, Page } from '@playwright/test'
 import { AppNotices } from '../src/lib/notices'
-import { addWidgeting, cellOf, closeManage, expect, exportedQuizzes, faceOf, freshWidgetLabel, manageDialog, newWidgetingDialog, openManage, openPanel, preparedExport, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
+import { addWidgeting, cellOf, closeManage, columnPanel, expect, exportedQuizzes, faceOf, freshWidgetLabel, manageDialog, openManage, openPanel, pickWidget, preparedExport, relabelWidgeting, reloadOnceSaved, showTab, test, waitUntilSaved, widgetingPanel } from './support'
 
-/** The widget editor writing a new widget, open over the widgeting editor that opened it */
+/** The widget editor writing a new widget, open over the gear's dialog that opened it */
 function newWidgetDialog(page: Page) {
   return page.getByRole('dialog', { name: /^New widget(?!ing)/ })
 }
 
+/** Through the gear's dialog, which must be open: open the widget editor from *+ New column…*'s *A new widget…* */
+async function newWidgetFromColumns(page: Page) {
+  await manageDialog(page).getByRole('button', { name: '+ New column…' }).click()
+  await page.getByRole('menuitem', { name: 'A new widget…' }).click()
+  await expect(newWidgetDialog(page)).toBeVisible()
+}
+
 /**
  * Write a new entry widget into the library, labelled `widget_label` and taking the kind whose
- * words match `kind`, through the widgeting editor's door, and put it to work in the open quiz
- * under `label`; close the gear's dialog.
+ * words match `kind`, through *+ New column…*'s *A new widget…*, which puts it to work in the open
+ * quiz with its column as it is written; relabel it `label`, and close the gear's dialog.
  */
 async function addNewEntry(page: Page, widget_label: string, kind: RegExp, label: string) {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  const editor = newWidgetingDialog(page)
-  await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label)
-  await editor.getByRole('button', { name: 'New widget…' }).click()
+  await newWidgetFromColumns(page)
   const maker = newWidgetDialog(page)
   await maker.getByRole('combobox', { name: 'Formulary' }).click()
   await page.getByRole('option', { name: /^An entry/ }).click()
@@ -28,8 +32,7 @@ async function addNewEntry(page: Page, widget_label: string, kind: RegExp, label
   await expect(maker.getByRole('textbox', { name: 'Formula', exact: true })).toHaveCount(0)
   await maker.getByRole('button', { name: 'Apply' }).click()
   await expect(maker).toHaveCount(0)
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(editor).toHaveCount(0)
+  await relabelWidgeting(page, widget_label, label)
   await closeManage(page)
 }
 
@@ -58,23 +61,44 @@ test('what is typed into an entry is kept, and emptying it empties the cell', as
 })
 
 /**
- * Open the gear's editor of the widgeting labelled `label`, let `settle` say its params in the
- * editor's Settings, and apply; close the gear's dialog.
+ * Let `settle` say the params of the widgeting labelled `label` in its folded line, in the run
+ * order of the gear's dialog, each kept as it is left or picked; close the gear's dialog.
  */
 async function setParams(page: Page, label: string, settle: (settings: Locator) => Promise<void>) {
   await openManage(page)
-  await manageDialog(page).getByRole('button', { name: `Edit widgeting ${label}` }).click()
-  const editor = page.getByRole('dialog', { name: `Widgeting: ${label}` })
-  await settle(editor.getByRole('group', { name: 'Settings' }))
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(editor).toHaveCount(0)
+  await settle(settingsOf(page, label))
   await closeManage(page)
 }
 
+/** The params of the widgeting labelled `label`, in its folded line in the run order of the gear's dialog */
+function settingsOf(page: Page, label: string): Locator {
+  return widgetingPanel(page, label).getByRole('group', { name: `Settings of ${label}` })
+}
+
+test('a new entry and its column are made in one go from + New column…, its settings in the line beneath the column', async ({ page }) => {
+  await openManage(page)
+  await manageDialog(page).getByRole('button', { name: '+ New column…' }).click()
+  await page.getByRole('menuitem', { name: 'A new entry…' }).click()
+  const picker = manageDialog(page).getByRole('combobox', { name: 'A new entry' })
+  // Only the entries are offered.
+  await expect(page.getByRole('listbox').getByText('Formulas', { exact: true })).toHaveCount(0)
+  await pickWidget(page, picker, 'figure')
+  const column = columnPanel(page, 'Figure')
+  await expect(column).toBeVisible()
+  const settings = column.getByRole('group', { name: 'Settings of figure' })
+  await settings.getByRole('textbox', { name: 'Least' }).fill('5')
+  await settings.getByRole('textbox', { name: 'Least' }).press('Tab')
+  await expect(widgetingPanel(page, 'figure')).toContainText('entry figure')
+  await closeManage(page)
+  const box = cellOf(page, 0, 'Figure').getByRole('textbox', { name: 'Figure', exact: true })
+  await box.fill('2')
+  await leaveBox(page)
+  await expect(page.getByRole('alert').filter({ hasText: AppNotices.changeNotKept })).toContainText('Figure: «2» should be «5» or more')
+})
+
 test('a new entry widget is one of a family, and the presets of text are not offered', async ({ page }) => {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  await newWidgetingDialog(page).getByRole('button', { name: 'New widget…' }).click()
+  await newWidgetFromColumns(page)
   const maker = newWidgetDialog(page)
   await maker.getByRole('combobox', { name: 'Formulary' }).click()
   await page.getByRole('option', { name: /^An entry/ }).click()
@@ -131,7 +155,8 @@ test.describe('the seeded families', () => {
     await setParams(page, 'figure', async (settings) => {
       await settings.getByRole('textbox', { name: 'Least' }).fill('1')
       await settings.getByRole('textbox', { name: 'Most' }).fill('10')
-      await settings.getByRole('checkbox', { name: 'Whole numbers only' }).check()
+      await settings.getByRole('checkbox', { name: 'Whole numbers only' }).click()
+      await expect(settings.getByRole('checkbox', { name: 'Whole numbers only' })).toBeChecked()
     })
     const box = cellOf(page, 0, 'Figure').getByRole('textbox', { name: 'Figure', exact: true })
     await box.fill('0')
@@ -190,22 +215,35 @@ test.describe('the seeded families', () => {
     await addWidgeting(page, 'clueing_full')
     await openManage(page)
     const entries = manageDialog(page).getByRole('list', { name: 'Entries' })
-    await expect(entries.getByRole('group')).toHaveCount(4)
+    await expect(entries.getByRole('group', { name: /^Widgeting / })).toHaveCount(4)
     await expect(entries.getByRole('button', { name: /^Reorder/ })).toHaveCount(0)
     await expect(manageDialog(page).getByRole('list', { name: 'Widgetings' }).getByRole('button', { name: 'Reorder clueing_full' })).toBeVisible()
   })
 
-  test('a widgeting refuses params that do not agree, saying which', async ({ page }) => {
+  test('a widgeting refuses params that do not agree, saying which beside the field, and the one that does not agree is not kept', async ({ page }) => {
     await openManage(page)
-    await manageDialog(page).getByRole('button', { name: 'Edit widgeting figure' }).click()
-    const editor = page.getByRole('dialog', { name: 'Widgeting: figure' })
-    const settings = editor.getByRole('group', { name: 'Settings' })
+    const settings = settingsOf(page, 'figure')
     await settings.getByRole('textbox', { name: 'Least' }).fill('5')
     await settings.getByRole('textbox', { name: 'Most' }).fill('1')
     await settings.getByRole('textbox', { name: 'Least' }).click()
     await expect(settings).toContainText('should be no less than the least, «5»')
-    await editor.getByRole('button', { name: 'Apply' }).click()
-    await expect(editor.getByRole('alert')).toContainText('Its params will not do')
+    await closeManage(page)
+    await reloadOnceSaved(page)
+    await openManage(page)
+    await expect(settingsOf(page, 'figure').getByRole('textbox', { name: 'Most' })).toHaveValue('')
+  })
+
+  test("a column showing an entry carries its settings beneath it, and a change there is the widgeting's everywhere", async ({ page }) => {
+    await openManage(page)
+    const beneath = columnPanel(page, 'Figure').getByRole('group', { name: 'Settings of figure' })
+    await beneath.getByRole('textbox', { name: 'Least' }).fill('3')
+    await beneath.getByRole('textbox', { name: 'Least' }).press('Tab')
+    await expect(settingsOf(page, 'figure').getByRole('textbox', { name: 'Least' })).toHaveValue('3')
+    await closeManage(page)
+    const box = cellOf(page, 0, 'Figure').getByRole('textbox', { name: 'Figure', exact: true })
+    await box.fill('2')
+    await leaveBox(page)
+    await expect(page.getByRole('alert').filter({ hasText: AppNotices.changeNotKept })).toContainText('Figure: «2» should be «3» or more')
   })
 })
 

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cellOf, closeManage, expect, manageDialog, openManage, openPanel, reloadOnceSaved, test } from './support'
+import { cellOf, closeManage, columnAdded, columnPanel, expect, openManage, openPanel, reloadOnceSaved, test } from './support'
 
 /** The list of categories of the pill numbered `nth` (from 1) in the Category Data cell of the row at `rowIdx` */
 function categoryList(page: Page, rowIdx: number, nth: number) {
@@ -26,16 +26,14 @@ async function pick(page: Page, list: ReturnType<typeof categoryList>, choice: s
 /** Through the columns editor, a column showing the part `part` of the widgeting `category_data`, by the formula picking it, and close the gear's dialog */
 async function addPartColumn(page: Page, part: string, title: string) {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New column…' }).click()
-  const editor = page.getByRole('dialog', { name: /^New column/ })
-  await editor.getByRole('combobox', { name: 'Shows' }).click()
-  await page.getByRole('option', { name: /^category_data / }).click()
-  // The parts are presets of the formula beside what the column shows.
-  await editor.getByRole('combobox', { name: 'Formula' }).click()
+  await columnAdded(page, 'category_data')
+  // The parts are presets of the formula beside what the column shows; the header follows the part.
+  const panel = columnPanel(page, 'Category Data')
+  await panel.getByRole('combobox', { name: 'Formula' }).click()
   await page.getByRole('option', { name: new RegExp(String.raw`^\$\.${part}`) }).click()
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(editor).toHaveCount(0)
-  await expect(manageDialog(page).getByRole('group', { name: `Column ${title}`, exact: true })).toBeVisible()
+  // Kept as the box is left.
+  await panel.getByRole('combobox', { name: 'Formula' }).press('Tab')
+  await expect(columnPanel(page, title)).toBeVisible()
   await closeManage(page)
 }
 

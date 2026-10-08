@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { addColumns, addWidgeting, cellOf, closeManage, expect, faceOf, fillRows, foldedRows, grid, manageDialog, openManage, reloadOnceSaved, rowAt, test, valuesOf, waitUntilSaved } from './support'
+import { addColumns, addWidgeting, cellOf, closeManage, columnPanel, expect, faceOf, fillRows, foldedRows, grid, openManage, reloadOnceSaved, rowAt, test, unfoldBy, valuesOf, waitUntilSaved } from './support'
 
 /** The triangle in the grid's corner, which folds every row or unfolds them all */
 function foldAll(page: Page): Locator {
@@ -12,8 +12,8 @@ function foldAll(page: Page): Locator {
  */
 async function columnStages(page: Page, title: string): Promise<Locator> {
   await openManage(page)
-  const row = manageDialog(page).getByRole('group', { name: `Column ${title}`, exact: true })
-  await row.getByRole('button', { name: `Formula, template and readout of ${title}` }).click()
+  const row = columnPanel(page, title)
+  await unfoldBy(row, `Column ${title} in full`)
   await expect(row.getByRole('textbox', { name: 'Template' })).toBeVisible()
   return row
 }

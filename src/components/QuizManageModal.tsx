@@ -12,6 +12,7 @@ import NextLink from './NextLink'
 import { TemplateableEditor } from './TemplateableEditor'
 import { WidgetingsEditor } from './WidgetingsEditor'
 import type { WorkbenchOffersT } from './offers'
+import type { FoldSet } from './use-folds'
 import * as Labelmaker from '../lib/labelmaker'
 import * as HuntMirror from '../state/hunt-mirror'
 import { AppNotices } from '../lib/notices'
@@ -35,8 +36,10 @@ export type QuizManageModalProps = {
   /** What the screen offers whoever is working: the quiz's own label and layout are left as they are where it is not revisable */
   offers:    WorkbenchOffersT
   dispatch:  (action: HuntActionDNA) => void
-  /** Carry out a change to the library, from the widgeting editor's door to the widget editor (`useLibraryActions`) */
+  /** Carry out a change to the library, from a widgeting's door to the widget editor (`useLibraryActions`) */
   changeLibrary: (action: LibraryActionDNA) => void
+  /** Which of the columns' and widgetings' panels are open, kept by the screen so they stay so across a reopen */
+  folds:     FoldSet
   /** Go to another quiz of the realm */
   onOpen:    (quiz: Labelmaker.Labelled) => void
   /** Open the library for editing */
@@ -54,8 +57,9 @@ export type QuizManageModalProps = {
 }
 
 /**
- * The gear icon's modal: editing this quiz's own label (top), its computed columns, its widgetings
- * for each question and those run once for the whole quiz, which of its fields are templateable, its
+ * The gear icon's modal: editing this quiz's own label (top), its columns, each with the widgeting
+ * it shows folded beneath it, its widgetings for each question and those run once for the whole
+ * quiz, in run order, which of its fields are templateable, its
  * history,
  * a quick way to open any other quiz in the realm by name, the hunt's title and label, the quiz's
  * archived questions, each to un-archive or delete, and, fenced off at the foot, deleting the quiz
@@ -65,7 +69,7 @@ export type QuizManageModalProps = {
  * closes it. A label, which other things name, waits for its own *Relabel* button, as the hunt's
  * title and label wait for theirs.
  */
-export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt, onDeleteQuestion }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, folds, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt, onDeleteQuestion }: Readonly<QuizManageModalProps>) {
   const [noted, setNoted] = useState<string | null>(null)
   const huntLabel = hunt.label
   const quizLabel = quiz.label
@@ -138,8 +142,16 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
 
           <section>
             <Typography variant="h6" component="h3">Columns</Typography>
-            <p className={styles.microcopy}>The grid&apos;s columns in the order they appear. Drag a handle to move one; the gear opens the rest.</p>
-            <ColumnsEditor quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch} />
+            <p className={styles.microcopy}>
+              The grid&apos;s columns in the order they appear. Drag a handle to move one; its triangle
+              unfolds the rest of it. Beneath a column showing a widgeting, that widgeting&apos;s line,
+              unfolding to the whole of it. Every change is kept as it is made; a label waits for its
+              own <em>Relabel</em>.
+            </p>
+            <ColumnsEditor
+              hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary}
+              dispatch={dispatch} changeLibrary={changeLibrary} folds={folds}
+            />
           </section>
 
           <section>
@@ -151,7 +163,10 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
               (the playtesters, the winners), or a formula over the questions as those above it left
               them -- and those below read it as <code>{'quiz.<label>'}</code>. Templates read them all.
             </p>
-            <WidgetingsEditor hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary} dispatch={dispatch} changeLibrary={changeLibrary} onEditLibrary={onEditLibrary} />
+            <WidgetingsEditor
+              hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary}
+              dispatch={dispatch} changeLibrary={changeLibrary} folds={folds} onEditLibrary={onEditLibrary}
+            />
           </section>
 
           <section>
