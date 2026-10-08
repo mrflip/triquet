@@ -7,9 +7,7 @@ rewidgeting sprint; this record was written by that sprint's first thread
 **Replaces:** expressions, expressings, the bots and their prompts as code, the botting widget, and
 the `bottings` table with its three projected question fields.
 
-*Form.* No earlier decision record is in the tree to copy (`CLAUDE.md` and
-`notes/database-decisions.md` name records under `notes/decisions/` that are not there), so this
-one takes a plain form: context, decision, consequences, deferred, and a closing list of the calls
+*Form.* This record takes a plain form: context, decision, consequences, deferred, and a closing list of the calls
 this record made where the sprint plan left them open. `notes/vocabulary.md` carries the words.
 
 ## Context
@@ -330,7 +328,7 @@ default order puts the `aibot` widgetings first, as today's default layout puts 
 
 **The bag gains, at the top level**, the widgeting's own `params` and its `widgeting_label`, beside
 `qn_label` and `quiz_label`. The bag is therefore made per (question, widgeting); the per-render
-cost of that is `notes/database-decisions.md`'s memoization item, not this sprint's.
+cost of that is `notes/decisions/20260928-database-decisions.md`'s memoization item, not this sprint's.
 
 **The reserved pattern.** A widgeting's label may not be:
 

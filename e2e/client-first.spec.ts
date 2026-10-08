@@ -1,6 +1,6 @@
 import { addWidgetings, expect, reloadOnceSaved, startHunt, test, valuesOf } from './support'
 
-// The client-first rule (notes/decisions/2026-09-client-first.md) as a test: with nothing reachable
+// The client-first rule (notes/decisions/20260928-database-decisions.md, *Client-first*) as a test: with nothing reachable
 // but the page itself and its database -- no bots route, no other host -- the app still opens,
 // edits and keeps what it is given, and asking a bot is the only server function it needs.
 

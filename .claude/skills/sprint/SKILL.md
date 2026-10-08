@@ -32,7 +32,7 @@ Pick a short `sprint_name` from the work (the Coach's word for it if they gave o
 checkout, make `whiteboard/YYYYMMDD-<sprint_name>/` with two files.
 
 **`<sprint_name>-plan.md`** -- the high-level plan, modelled on
-`whiteboard/convex_yay-plan.md` at sprint scale:
+`whiteboard/20261005-recap/recap-plan.md`:
 
 * A header: date, mode (normal or YOLO, see §4), the review level (`medium` unless the
   Coach named another, or `none` if they said to skip review), how many threads may run at

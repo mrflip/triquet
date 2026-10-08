@@ -27,7 +27,7 @@ Everything here is chosen against the same test: **boring** (proven, widely adop
 use cases waiting for a not-very-weird app), **agent-friendly** (old enough to be in the agent's
 training), **ergonomic**, **zero-ops from as few places as reasonable**, and offering a
 **disciplined interface**. The full list, as it applies to storage and hosting, is in
-`notes/database-decisions.md`.
+`notes/decisions/20260928-database-decisions.md`.
 
 Version numbers and release status drift. Before pinning anything, check the current release --
 don't trust a recalled version number, including one recalled by an agent.
@@ -41,7 +41,7 @@ don't trust a recalled version number, including one recalled by an agent.
 * **Next.js** (App Router) on **Vercel**. **Client-first**: the app runs on static hosting plus
   stateless functions, and the database. Pages prerender at build; user data never renders on a
   server. The ask route is the one named server function.
-  See `notes/decisions/2026-09-client-first.md`.
+  See `notes/decisions/20260928-database-decisions.md`, *Client-first*.
 * **Node 24**, the newest LTS Vercel runs, and the same everywhere. `.tool-versions` holds the exact
   version, for asdf and CI (`node-version-file`); `engines.node` in `package.json` holds the major,
   which is all Vercel reads. `@types/node` follows the same major.
@@ -59,14 +59,13 @@ don't trust a recalled version number, including one recalled by an agent.
     object of promises to an object of results, is how `convex/authorize.ts` gathers its evidence
     in one round.
 * **Convex** (`convex`, pinned exact) is the database, and `convex/` at the repo root the whole
-  server side. See `notes/decisions/2026-09-convex.md` for the shape of the data and the rules
-  that follow, and `notes/database-decisions.md` for the verdict. Read
+  server side. See `notes/decisions/20260928-database-decisions.md` for the verdict and its reasoning. Read
   `convex/_generated/ai/guidelines.md` before working in `convex/`, and work from the installed
   source, not recall.
   - **Jazz v2** was the database before it, for most of September 2026; `jazz-tools` is gone, and
-    what it taught is in `notes/decisions/2026-09-jazz.md`.
+    what it taught is in `notes/decisions/20260928-database-decisions.md`, *What Jazz taught us*.
   - **Turso is not coming back**; libSQL and Drizzle went with it (Sept 2026). Drizzle returns
-    only through `notes/database-decisions.md`.
+    only through `notes/decisions/20260928-database-decisions.md`.
 * **convex-helpers** (pinned exact), Convex's own companion library. Its `server/zod4` is how a Zod
   schema becomes a Convex validator (`zodOutputToConvexFields`, `zodOutputToConvex`, `zid`) and how a function takes
   Zod arguments (`zCustomQuery`, `zCustomMutation`). Its `server/rowLevelSecurity`
@@ -388,7 +387,7 @@ Raised in review and not yet decided. Until one is settled, don't build further 
 direction, and don't "fix" the code to match the line above that it contradicts.
 
 Settled in Sept 2026, and recorded in `notes/decisions/`: where the database lives (Convex, after
-a trial of Jazz; `notes/database-decisions.md` has the verdict), the rendering policy
+a trial of Jazz; `notes/decisions/20260928-database-decisions.md` has the verdict), the rendering policy
 (client-first; pages prerender at build), client state (Convex queries, one per thing a screen
 shows, assembled on the server; `hunts.perform` writes rows), models versus schema (the Zod row
 validators are the source, and `convex/schema.ts` is derived from them), and the shape of
