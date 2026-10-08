@@ -59,7 +59,7 @@ export const labelshape = lower.min(PA.Label.min).max(PA.Label.max).regex(PA.Lab
  * The reservation is a refinement rather than a second pattern, so a template built from a label
  * (`column:<label>`) still reads the label's shape as its pattern.
  */
-export const label     = labelshape.refine((val) => PA.Unreserved.rule(val), PA.Unreserved.msg).describe('simple label')
+export const label     = labelshape.refine((val) => PA.isUnreserved(val), PA.Unreserved.msg).describe('simple label')
 /** A label global across the app, a hunt's: a label, and none of the words kept for the app's own pages and people (`PA.ReservedToplevel`) */
 export const toplabel  = label.refine((val) => PA.UnreservedToplevel.rule(val), PA.UnreservedToplevel.msg).describe('top-level label')
 /** A username, an ident's label: label-shaped, 6 to 24 characters, and none of the words a label or a top-level label is kept from */

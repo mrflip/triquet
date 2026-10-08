@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { Question } from '../../src/models/question'
-import { ReservedWidgetingLabels, Widgeting, WidgetingValidators } from '../../src/models/widgeting'
+import { EntryParamnames, ReservedWidgetingLabels, Widgeting, WidgetingValidators } from '../../src/models/widgeting'
 
 const QuizId = 'k57a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 const HuntId = 'k67a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
@@ -82,7 +82,12 @@ describe('Widgeting.fill', () => {
     expect(Widgeting.fill({ widget_label: 'notes', label: 'notes_2' }).widget_label).to.eq('notes')
   })
 
+  it("takes a param an entry family names, though the word is reserved", () => {
+    expect(Widgeting.fill({ widget_label: 'figure', label: 'grade', params: { min: 1, max: 10, integer: true } }).params).to.deep.eq({ min: 1, max: 10, integer: true })
+  })
+
   const Refused: [object, string][] = [
+    [{ params: { total: 3 } },                            'a param under a reserved word no entry family names'],
     [{ label: 'Dum Dum' },                                'a label that is not one'],
     [{ widget_label: 'A B' },                             'a widget label that is not one'],
     [{ description: 'x'.repeat(3601) },                   'a description past 3600 characters'],
@@ -197,4 +202,10 @@ describe('WidgetingValidators.row', () => {
       expect(() => WidgetingValidators.row(row as never)).to.throw(Z.ZodError)
     })
   }
+})
+
+describe('EntryParamnames', () => {
+  it("is every name an entry family gives a param, the reserved ones among them", () => {
+    expect([...EntryParamnames]).to.have.members(['min', 'max', 'integer', 'max_length', 'pattern', 'lines', 'options'])
+  })
 })

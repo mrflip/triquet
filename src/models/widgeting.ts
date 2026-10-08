@@ -9,7 +9,7 @@ import * as PA from '../lib/vv/patterns'
 import { ColumnStageFieldnames, ColumnValidators, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals } from './column'
 import { ArchivedField, PlaceField, Question, RankField, SecondaryField, VizField } from './question'
 import { StalenessFieldnames, WidgetedValidators } from './widgeted'
-import { EntryKindOncePerQuiz, type WidgetT } from './widget'
+import { EntryKindOncePerQuiz, EntryParamsOf, type WidgetT } from './widget'
 
 /**
  * The keys at the top of every bag a formula reads (`QuizBagValidators.quizBag`, which is held to
@@ -47,6 +47,9 @@ export const ReservedWidgetingLabels: readonly string[] = _.uniq([
   ...WidgetingPartVals,
 ])
 
+/** The names the entry families give their params, which a widgeting's params may take though they are reserved words */
+export const EntryParamnames: ReadonlySet<string> = new Set(Object.values(EntryParamsOf).flatMap((validator) => Object.keys(validator.shape)))
+
 const Reserved = PA.reservedOf(ReservedWidgetingLabels, 'is a name a question, its cells or the bag already answer to: add to it, as my_label or label_2')
 
 /**
@@ -59,7 +62,7 @@ export type WidgetingTier = typeof WidgetingTierVals[number]
 /** The tier every widgeting runs at unless made to run once per quiz */
 export const DefaultTier: WidgetingTier = 'question'
 
-export const WidgetingValidators = Validator(({ obj, rec, oneof, label, labelshape, noteish, zod, uint, stamps, zid }) => {
+export const WidgetingValidators = Validator(({ obj, rec, oneof, label, labelAllowing, noteish, zod, uint, stamps, zid }) => {
   // Each field is named once, bare, then defaulted in the widgeting and made optional in its patch.
   const widgetingLabel = label.refine((val) => Reserved.rule(val), Reserved.msg)
     .describe('What the widgeting is called within its quiz, unique there and none of the names a question already answers to. Columns, the bag and exports name it by this.')
@@ -67,8 +70,8 @@ export const WidgetingValidators = Validator(({ obj, rec, oneof, label, labelsha
     .describe('Which widget of the library it works, by label: labels are fixed once made, so exports round-trip with no id to translate.')
   const description = noteish
     .describe('What this widgeting is for in this quiz, in the author\'s words.')
-  // A param is named by its widget's formulary, never by an author, so no word is reserved from it: an entry's `min`, say.
-  const params = rec(labelshape, zod.json())
+  // A param named by an entry family (`min`, `max`, `integer`) is let through though it is reserved; any other is held to every label's words.
+  const params = rec(labelAllowing(EntryParamnames), zod.json())
     .refine((val) => UU.jsonify(val).length <= PA.ParamsJson.max, PA.ParamsJson.msg)
     .describe('What it hands its widget beyond the bag, by name, held to its widget\'s formulary where a widgeting is written (`paramsOf`): an entry\'s constraints, say. Reaches the bag as `params`.')
   const tier = oneof(WidgetingTierVals)

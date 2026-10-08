@@ -1,6 +1,7 @@
 import * as Z from 'zod'
 import { zid as convexZid } from 'convex-helpers/server/zod4'
 import * as CK from './vv/checks/strings'
+import * as PA from './vv/patterns'
 import { Inconsistent } from './errors'
 
 /** What a row id looks like: a Convex document id, or a UUID */
@@ -58,6 +59,14 @@ export const ValidatorKit = {
   toplabel:  CK.toplabel,
   /** Shaped as a label, but any word at all: a value typed in a label's alphabet that names nothing in the tool */
   labelshape: CK.labelshape,
+  /**
+   * A label, but for the reserved words of `allowed`, which it takes all the same: what the keys
+   * of a namespace whose own names are reserved elsewhere are held to.
+   *
+   * @example labelAllowing(new Set(['min'])).parse('min')  // => 'min'
+   * @example labelAllowing(new Set(['min'])).parse('max')  // throws
+   */
+  labelAllowing: (allowed: ReadonlySet<string>) => CK.labelshape.refine((val) => PA.isUnreserved(val, allowed), PA.Unreserved.msg).describe('simple label, or one of a few allowed'),
   /** A username -- an ident's label: label-shaped, 6 to 24 characters, since it is a name a person chose and types to become; never a reserved word, top-level ones included */
   userlabel:  CK.userlabel,
   /** Epoch milliseconds */

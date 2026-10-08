@@ -35,8 +35,14 @@ Additive to the schema: `EntryKindVals` widened, `widgets.config` gains optional
      own: drawn as now, not offered for a new widget.
   2. Cross-field checks run on a widget's config alone and on a widgeting's params overlaid on the
      widget's defaults (`EntryFormulary.paramsOf(widget)`), each said of the param to change.
-  3. A widgeting's `params` keys are `labelshape`, not `label`: the formulary names them, and
-     `min`, `max`, `integer` are now reserved words.
+  3. A widgeting's `params` keys are held to every label's reserved words, but for an allowlist:
+     the names the entry families give their params (`EntryParamnames`, derived from
+     `EntryParamsOf`), so `min`, `max` and `integer` go through (the Coach's ruling). The check is
+     one optional `allowed` Set on the one reserved-word check: `PA.isUnreserved(val, allowed)`,
+     which `label`, `ValidatorKit.labelAllowing(allowed)` and `Labelmaker.isReserved(label, {
+     allowed })` all go through. **The seam**: the reserved words became a Set-based rule
+     (`PA.Unreserved.rule`, `c6e6943`) on the spine while this thread ran; the allowlist sits on
+     top of it in `PA.isUnreserved`, the one place a label is asked whether its word is reserved.
   4. **An import holds an entry's value to its kind, not its params** (`kindValueOf`): an export is
      a promise, and a constraint bites on the next edit. Pasted params are held to the family; a
      widgeting whose params will not do is skipped, saying why.
@@ -110,5 +116,7 @@ Additive to the schema: `EntryKindVals` widened, `widgets.config` gains optional
     asserted, added to a hunt or make one, and a row so labelled refuses every write until
     relabelled. `human/20261008-cw_families.md` has the words and the recipe.
   - Seed after the deploy: `seeding:seedWidgets` (the same note).
+  - The browser installing no Zod error map stays a TODO (`whiteboard/TODO.md`, *From columnwise
+    sprint, thread 2*), as ruled.
   - One `eslint-disable-line unicorn/prefer-https` in `tests/lib/vv/patterns.test.ts`, on the case
     testing that `http://` is a web address.

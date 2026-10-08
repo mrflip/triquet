@@ -173,6 +173,22 @@ export const Unreserved = {
 } as const satisfies Rulebag
 
 /**
+ * Whether `val` is none of the words the tool keeps for its own use (`Unreserved`), or is one that
+ * `allowed` lets through all the same: the one reserved-word check, which a namespace whose own
+ * names are reserved elsewhere (an entry's params, `min` and `max`) hands its names to.
+ *
+ * @param val - A label-shaped word.
+ * @param allowed - Words let through whatever the reserved lists say.
+ * @returns True when the word may be used.
+ *
+ * @example isUnreserved('min')                    // => false
+ * @example isUnreserved('min', new Set(['min']))  // => true
+ */
+export function isUnreserved(val: string, allowed?: ReadonlySet<string>): boolean {
+  return allowed?.has(val) === true || Unreserved.rule(val)
+}
+
+/**
  * The words no hunt and no ident may be labelled, beyond those no label may be. A hunt's label and
  * an ident's are each global, the first word of an address or the name a person goes by, so these
  * are kept for the app's own pages and for whoever speaks for it.

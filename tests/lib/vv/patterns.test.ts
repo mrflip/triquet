@@ -267,3 +267,17 @@ describe('Weburl', () => {
     expect(performance.now() - started).to.be.lessThan(100)
   })
 })
+
+describe('isUnreserved', () => {
+  it("is the reserved-word check, letting through only what the allowlist names, per the doc examples", () => {
+    expect(PA.isUnreserved('min')).to.be.false
+    expect(PA.isUnreserved('min', new Set(['min']))).to.be.true
+  })
+
+  it("takes a word on no list with or without an allowlist, and a pointer's suffix only when allowed", () => {
+    expect(PA.isUnreserved('dumdum')).to.be.true
+    expect(PA.isUnreserved('dumdum', new Set(['min']))).to.be.true
+    expect(PA.isUnreserved('quiz_id', new Set(['min']))).to.be.false
+    expect(PA.isUnreserved('quiz_id', new Set(['quiz_id']))).to.be.true
+  })
+})
