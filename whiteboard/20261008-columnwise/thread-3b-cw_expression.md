@@ -76,6 +76,14 @@ each. No schema change: the column's four fields were 3a's.
     (no optimistic update for `edit_column`); an e2e must click and wait, not `check()`.
   - The importer dropped a pasted column's formula on a held column before this thread.
 
+* **Review** (`clean`, no fixes). Left, for the record:
+  - A template reading `{{ qn.<computed> }}` gets `&#33;[` from `bagOver`'s image linking, even in
+    the sheet or under a plain readout (only `value` is linked by the readout).
+  - `textedOf`'s cache key joins free text (formula, template) with a newline: two columns could
+    in principle collide on the same key.
+  - A collapsed column in the card layout (below 640px) keeps 20px and cannot be restored from
+    its hidden head there; the editor's *Collapsed* switch still restores it.
+
 * **For later threads**:
   - **5a**: lift `ColumnRefField` and `ColumnStagesFields` into the folding editor; the row's
     local `unfolded` state is the place `use-folds` goes. `FormulaField` is the folded line's
