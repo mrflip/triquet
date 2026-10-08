@@ -30,7 +30,7 @@ export const DefaultTier: WidgetingTier = 'question'
 
 export const WidgetingValidators = Validator(({ obj, rec, oneof, label, noteish, zod, uint, stamps, zid }) => {
   // Each field is named once, bare, then defaulted in the widgeting and made optional in its patch.
-  const widgetingLabel = label.regex(Reserved.re, Reserved.msg)
+  const widgetingLabel = label.refine((val) => Reserved.rule(val), Reserved.msg)
     .describe('What the widgeting is called within its quiz, unique there and none of the names a question already answers to. Columns, the bag and exports name it by this.')
   const widget_label = label
     .describe('Which widget of the library it works, by label: labels are fixed once made, so exports round-trip with no id to translate.')
