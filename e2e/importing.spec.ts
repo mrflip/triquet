@@ -138,7 +138,10 @@ test("an export from before October 2026 reads as it did: its category estimates
   })
   await expect(cellOf(page, 0, 'Masie')).toHaveText('69%')
   await openManage(page)
-  await expect(manageDialog(page).getByRole('group', { name: 'Column Masie', exact: true }).getByRole('combobox', { name: 'Shows' })).toHaveText(/^category_data, \$\.masie/)
+  const masie = manageDialog(page).getByRole('group', { name: 'Column Masie', exact: true })
+  await expect(masie.getByRole('combobox', { name: 'Shows' })).toHaveText('category_data')
+  await masie.getByRole('button', { name: 'Formula, template and readout of Masie' }).click()
+  await expect(masie.getByRole('combobox', { name: 'Formula' })).toHaveValue('$.masie')
   await closeManage(page)
 })
 

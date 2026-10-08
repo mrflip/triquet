@@ -29,7 +29,10 @@ async function addPartColumn(page: Page, part: string, title: string) {
   await page.getByRole('button', { name: '+ New column…' }).click()
   const editor = page.getByRole('dialog', { name: /^New column/ })
   await editor.getByRole('combobox', { name: 'Shows' }).click()
-  await page.getByRole('option', { name: new RegExp(String.raw`^category_data, \$\.${part} `) }).click()
+  await page.getByRole('option', { name: /^category_data / }).click()
+  // The parts are presets of the formula beside what the column shows.
+  await editor.getByRole('combobox', { name: 'Formula' }).click()
+  await page.getByRole('option', { name: new RegExp(String.raw`^\$\.${part}`) }).click()
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toHaveCount(0)
   await expect(manageDialog(page).getByRole('group', { name: `Column ${title}`, exact: true })).toBeVisible()

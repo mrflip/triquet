@@ -1,9 +1,21 @@
 import type { Locator, Page } from '@playwright/test'
-import { addColumns, addWidgeting, cellOf, expect, faceOf, foldedRows, grid, reloadOnceSaved, rowAt, test, valuesOf, waitUntilSaved } from './support'
+import { addColumns, addWidgeting, cellOf, closeManage, expect, faceOf, fillRows, foldedRows, grid, manageDialog, openManage, reloadOnceSaved, rowAt, test, valuesOf, waitUntilSaved } from './support'
 
 /** The triangle in the grid's corner, which folds every row or unfolds them all */
 function foldAll(page: Page): Locator {
   return grid(page).getByRole('button', { name: 'Show questions in full' })
+}
+
+/**
+ * In the gear's columns editor, the column titled `title` unfolded to its formula, template,
+ * readout and collapse; the gear is left open.
+ */
+async function columnStages(page: Page, title: string): Promise<Locator> {
+  await openManage(page)
+  const row = manageDialog(page).getByRole('group', { name: `Column ${title}`, exact: true })
+  await row.getByRole('button', { name: `Formula, template and readout of ${title}` }).click()
+  await expect(row.getByRole('textbox', { name: 'Template' })).toBeVisible()
+  return row
 }
 
 /** Where `located` is drawn on the page */
@@ -198,4 +210,81 @@ test('as cards, below 640px, every question shows in full, and folds again when 
   await expect(foldedRows(page)).toHaveCount(0)
   await page.setViewportSize({ width: 1280, height: 900 })
   await expect(foldedRows(page)).toHaveCount(5)
+})
+
+test("a column's template draws its cells read-only, by its readout, until it is taken off, when they are typed into again", async ({ page }) => {
+  await fillRows(page, [{ Title: 'Leon' }])
+  await waitUntilSaved(page)
+  const titleCell = cellOf(page, 0, 'Title')
+  await expect(titleCell.getByRole('textbox', { name: 'Title' })).toHaveCount(1)
+
+  const stages = await columnStages(page, 'Title')
+  await stages.getByRole('textbox', { name: 'Template' }).fill('**{{ value }}!**')
+  // Committed as the box is left, as every field of the column is.
+  await stages.getByRole('combobox', { name: 'Formula' }).click()
+  await closeManage(page)
+  await expect(titleCell.locator('strong')).toHaveText('Leon!')
+  await expect(titleCell.getByRole('textbox', { name: 'Title' })).toHaveCount(0)
+
+  await columnStages(page, 'Title')
+  await stages.getByRole('combobox', { name: 'Readout' }).click()
+  await page.getByRole('option', { name: 'Code' }).click()
+  await closeManage(page)
+  await expect(titleCell.locator('code')).toHaveText('**Leon!**')
+  await reloadOnceSaved(page)
+  await expect(titleCell.locator('code')).toHaveText('**Leon!**')
+
+  await columnStages(page, 'Title')
+  await stages.getByRole('textbox', { name: 'Template' }).fill('')
+  await stages.getByRole('combobox', { name: 'Formula' }).click()
+  await closeManage(page)
+  await expect(titleCell.getByRole('textbox', { name: 'Title' })).toHaveValue('Leon')
+})
+
+test("a template that will not read says so beside its box, and is not kept", async ({ page }) => {
+  const stages = await columnStages(page, 'Notes')
+  await stages.getByRole('textbox', { name: 'Template' }).fill('{% if value %}')
+  await stages.getByRole('combobox', { name: 'Formula' }).click()
+  await expect(stages).toContainText('Template does not read as Liquid')
+  await closeManage(page)
+  await expect(cellOf(page, 0, 'Notes').getByRole('textbox', { name: 'Notes' })).toHaveCount(1)
+})
+
+test("a formula over a field shows what it came to, read-only", async ({ page }) => {
+  await fillRows(page, [{ Clueing: 'which region?' }])
+  const stages = await columnStages(page, 'Clueing')
+  await stages.getByRole('combobox', { name: 'Formula' }).fill('$uppercase($)')
+  await stages.getByRole('textbox', { name: 'Template' }).click()
+  await closeManage(page)
+  await expect(cellOf(page, 0, 'Clueing')).toHaveText('WHICH REGION?')
+  await expect(cellOf(page, 0, 'Clueing').getByRole('textbox')).toHaveCount(0)
+})
+
+test("a double-click on a column's head collapses it to its turned header, its cells empty, and another restores it, kept across a reload", async ({ page }) => {
+  const head = grid(page).getByRole('columnheader', { name: 'Notes', exact: true })
+  const widthOf = async () => {
+    const box = await boxOf(head)
+    return box.width
+  }
+  const wasPx = await widthOf()
+  await head.dblclick()
+  await expect(head).toHaveAttribute('data-collapsed', 'true')
+  await expect(cellOf(page, 0, 'Notes').getByRole('textbox')).toHaveCount(0)
+  await expect.poll(widthOf).toBeLessThan(30)
+  await reloadOnceSaved(page)
+  await expect(head).toHaveAttribute('data-collapsed', 'true')
+  await head.dblclick()
+  await expect(head).not.toHaveAttribute('data-collapsed')
+  await expect.poll(widthOf).toBeCloseTo(wasPx, 0)
+  await expect(cellOf(page, 0, 'Notes').getByRole('textbox', { name: 'Notes' })).toHaveCount(1)
+})
+
+test("a double-click on a sortable head sorts once, not twice, as it collapses the column", async ({ page }) => {
+  await fillRows(page, [{ 'Q#': '2' }, { 'Q#': '1' }])
+  await waitUntilSaved(page)
+  const head = grid(page).getByRole('columnheader', { name: 'Q#', exact: true })
+  await head.getByRole('button', { name: 'Q#' }).dblclick()
+  await expect(head).toHaveAttribute('data-collapsed', 'true')
+  await head.dblclick()
+  await expect(head).toHaveAttribute('aria-sort', 'ascending')
 })
