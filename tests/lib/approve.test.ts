@@ -26,7 +26,7 @@ const question_id   = 'jh71ffnfm8vbc2rdm5m90sv8kd7fnhj4' as Id<'questions'>
 const alice_id      = 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>
 const bob_id        = 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'idents'>
 
-const Alice = Actor.asIdent(user_id, { _id: alice_id, label: 'alice_smiths' })
+const Alice = Actor.asIdent(user_id, { _id: alice_id, label: 'alice_smiths' }, true)
 
 /** The four standings a request can come with */
 const StandingVals = ['smith', 'reviewer', 'stranger', 'anonymous'] as const
@@ -175,7 +175,7 @@ describe('Approve.mayReadLibrary', () => {
   })
 })
 
-/** Nobody is an admin, as `Actor.isAdmin` would say once it is given a real rule */
+/** Nobody is an admin, as `Actor.isAdmin` says on a deployment that names none */
 function nobodyIsAdmin(): void {
   vi.spyOn(Actor, 'isAdmin').mockReturnValue(false)
 }
@@ -187,7 +187,7 @@ describe('Approve.mayChangeLibrary', () => {
     expect(Approve.mayChangeLibrary(Actor.anonymous)).to.eq('notIdentified')
   })
 
-  it('an admin: anyone who has, while `Actor.isAdmin` approves everyone', () => {
+  it('an admin: one the deployment names (`Actor.isAdmin`)', () => {
     expect(Approve.mayChangeLibrary(Alice)).to.eq('allow')
   })
 
@@ -318,7 +318,7 @@ const Matrix = {
   delete_column:       [{ kind: 'delete_column', label: 'qnum' },                                                                    Revisers],
   move_column:         [{ kind: 'move_column', label: 'qnum', onto_idx: 1 },                                                         Revisers],
   set_templated:       [{ kind: 'set_templated', templated: ['question.recap'] },                                                    Revisers],
-  // library, an admin's, of the actor alone (every ident, while `Actor.isAdmin` approves everyone):
+  // library, an admin's, of the actor alone (Alice, an admin here):
   add_widget:          [{ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } },  Idents],
   edit_widget:         [{ kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },                         Idents],
   delete_widget:       [{ kind: 'delete_widget', label: 'shout' },                                                                   Idents],

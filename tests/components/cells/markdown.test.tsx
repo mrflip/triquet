@@ -108,6 +108,37 @@ describe("MarkdownText, on images", () => {
   })
 })
 
+describe("MarkdownText, with imagesAsLinks, as a reviewer's words are drawn", () => {
+  it("draws an image as a link to it, by its alt text, and fetches nothing", () => {
+    const markup = renderToStaticMarkup(<MarkdownText imagesAsLinks text="See ![A cat](https://e.co/cat.png)" />)
+    expect(markup).not.to.contain('<img')
+    expect(markup).to.eq('<p>See <a href="https://e.co/cat.png" target="_blank" rel="noopener noreferrer">A cat</a></p>')
+  })
+
+  it("names the link by the image's address when it has no alt text", () => {
+    expect(renderedText(<MarkdownText imagesAsLinks text="![](https://e.co/cat.png)" />)).to.eq('https://e.co/cat.png')
+  })
+
+  it("draws an image at an address the allowlist drops as its alt text alone, linking nowhere", () => {
+    expect(renderToStaticMarkup(<MarkdownText imagesAsLinks text="![A cat](javascript:alert(1))" />)).to.eq('<p>A cat</p>')
+  })
+
+  it("draws a linked image as its words inside the link around it, never a link inside a link", () => {
+    expect(renderToStaticMarkup(<MarkdownText imagesAsLinks text="[![A cat](https://e.co/cat.png)](https://e.co/page)" />)).to.eq(
+      '<p><a href="https://e.co/page" target="_blank" rel="noopener noreferrer">A cat</a></p>',
+    )
+    expect(renderToStaticMarkup(<MarkdownText imagesAsLinks text="[![](https://e.co/cat.png)](https://e.co/page)" />)).to.eq(
+      '<p><a href="https://e.co/page" target="_blank" rel="noopener noreferrer">https://e.co/cat.png</a></p>',
+    )
+  })
+
+  it("does the same on a face", () => {
+    const markup = renderToStaticMarkup(<MarkdownFace inInput imagesAsLinks text="![A cat](https://e.co/cat.png)" />)
+    expect(markup).not.to.contain('<img')
+    expect(markup).to.contain('<a href="https://e.co/cat.png"')
+  })
+})
+
 describe("MarkdownFace", () => {
   it("says why a template could not be filled in, above its text as typed", () => {
     const face = faceOf('By {{qn.author', bagHolding({}))

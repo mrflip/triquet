@@ -13,12 +13,12 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 4 | Field templates | landed #164 |
 | 5 | The recap panel | landed #165 |
 | 6 | Quiz-level widgetings and entries | landed #166 |
-| 7 | Security review | pending |
-| 8 | Security fixes, certain ones | pending |
-| 9 | Tighten the recap fields | pending |
+| 7 | Security review | landed #181 |
+| 8 | Security fixes, certain ones | landed #182 |
+| 9 | Tighten the recap fields | landed #183 |
 | 10 | The markdown dialect, settled | landed #178 |
 | 11 | Quiz and question widgetings interleave | landed #177 |
-| 12 | Template and recap follow-ups | landing |
+| 12 | Template and recap follow-ups | landed #179 |
 | 13 | Reviews cannot touch the main checkout | landed #174 |
 | 14 | Editable recap template | landed #171 |
 | 15 | Recap reads the question's fields | landed #172 |
@@ -28,8 +28,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | — | Ad hoc: panels fold, resize handle | landed #168 |
 | — | Ad hoc: branch-switch spec race | landed #170 |
 
-**Paused after thread 6, at the Coach's word.** See `human/20261006-sprint_recap_paused.md`.
-Frontier on resuming: thread 7.
+**Done, 2026-10-07.** Every thread landed. See `human/20261007-sprint_recap_done.md`.
 
 ## What the threads have taught
 
@@ -191,6 +190,35 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   (the Coach may drop it). *Review:* fixed two (list-indented verse became code; bare `\r` in the LL
   export). Open: verse after a list now joins the list (CommonMark); dangling convex/jazz pointers;
   a duplicated database-decisions note.
+
+* **Follow-ups (thread 12, #179).** Images in every field (https, alt; 96px in grid cells, rows
+  re-measure on load or error); `categories`, `archived`, `secondary` in every bag (new reserved
+  labels: check production before merging); a template's `qns` holds visible questions only, a
+  formula's still every question (five seeded BUT NOT formulas read archived chain targets);
+  `Templating.filledBagOf` fills templated fields once per question for the recap; the default
+  skips alternates with `{{^secondary}}`. *Review:* fixed one (image load listener ran after the
+  measure). Open: `in_order` as a library widget; images in reviewers' texts (thread 7).
+
+* **Security review (thread 7, #181).** Fixed in the sprint's code: a field template could run a
+  co-smith's tab out of memory (literal text now counted against `FilledMax`, helper input against
+  `ShapedMax`); the indent rule was quadratic (one pass now); images in reviewers' words are links.
+  *Review:* fixed two (nested link from a linked image; the timing test's timeout). Outside the
+  sprint, in `security-findings.md`: O1 open paid ask route (high; needs the Coach), O2
+  `isAdmin` true for everyone (needs the Coach), O3 legacy idents first-come, O4 asker identity not
+  checked against the session, O5 one session can fill the hunt cap, O6 no security headers, O7
+  `prompts.ts` default mustache context, O8 per-run formula budget, O9 image addresses. Thread 8
+  fixes the certain ones that need no decision.
+
+* **Certain security fixes (thread 8, #182).** O4 a session counts as an ident only while it
+  holds it; O5 99 hunts per username (`testing:makeHunt` exempt, test-only); O7 prompts render in
+  `OwnKeysContext` (`src/lib/mustachery.ts`), shared with templating; O6 four security headers on
+  every response, no CSP. *Review:* clean. Open: O5 only partly closed (unlimited usernames per
+  session); `X-Frame-Options: DENY` blocks outside embedding; O1, O2, O3, O8, O9 and images in
+  filled values wait on the Coach.
+
+* **Tighten (thread 9, #183).** The five widened fields are required again; fallbacks and the three
+  backfills dropped; `recap_template` stays optional; ledger rows in `notes/deploy.md`. *Review:*
+  clean. History at the end: nothing to fold, since #163 is the only widening and #183 tops the stack.
 
 ## Migration chain `recap`
 

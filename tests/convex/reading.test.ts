@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntingFor, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, usageOf,
+  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntingFor, huntsCountedInOrg, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, usageOf,
   wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -74,6 +74,27 @@ describe("huntForLabel", () => {
     await holding(Hunt.blank('twice_made'), first.tt, 'pat_smith')
     const found = await first.tt.run(async (ctx) => await huntForLabel(ctx.db, 'twice_made'))
     expect(found?._id).to.eq(first.hunt_id)
+  })
+})
+
+describe("huntsCountedInOrg", () => {
+  it("counts the org's hunts, and none of another org's", async () => {
+    const { tt } = await holding(Hunt.blank('quiet_otter'), openTester(), 'pat_smith')
+    await holding(Hunt.blank('loud_heron'), tt, 'pat_smith')
+    await holding(Hunt.blank('loud_heron'), tt, 'lee_jones')
+    const counts = await tt.run(async (ctx) => [await huntsCountedInOrg(ctx.db, 'pat_smith'), await huntsCountedInOrg(ctx.db, 'lee_jones'), await huntsCountedInOrg(ctx.db, 'nobody_yet')])
+    expect(counts).to.deep.eq([2, 1, 0])
+  })
+
+  it("counts no further than the most one org may make", async () => {
+    const tt = openTester()
+    await tt.run(async (ctx) => {
+      const labels = Array.from({ length: PA.HuntsPerOrg.max + 1 }, (_unused, idx) => `hunt_${String(idx)}`)
+      for (const label of labels) {
+        await ctx.db.insert('hunts', { label, orglabel: 'pat_smith', title: '', branch: 'main' })
+      }
+    })
+    expect(await tt.run(async (ctx) => await huntsCountedInOrg(ctx.db, 'pat_smith'))).to.eq(PA.HuntsPerOrg.max)
   })
 })
 
@@ -288,7 +309,7 @@ describe("usageOf", () => {
     const { hunt_id, quiz_id } = await holding(huntHolding([Quiz.blank()]), tt)
     await tt.run(async (ctx) => {
       for (let ii = 0; ii <= PA.WidgetingsCounted.max; ii++) {
-        await ctx.db.insert('widgetings', { hunt_id, quiz_id, widget_label: 'dumdum', label: `guess_${String(ii)}`, description: '', params: {}, position: ii })
+        await ctx.db.insert('widgetings', { hunt_id, quiz_id, widget_label: 'dumdum', label: `guess_${String(ii)}`, description: '', params: {}, tier: 'question', position: ii })
       }
     })
     const usage = await tt.run(async (ctx) => await usageOf(ctx.db, 'dumdum'))
@@ -304,6 +325,17 @@ describe("identFor", () => {
     const { user_id } = await signedIn(tt)
     const found = await tt.run(async (ctx) => [await identFor(ctx.db, flip.user_id), await identFor(ctx.db, user_id)])
     expect(found.map((ident) => ident?.label ?? null)).to.deep.eq(['quiet_otter', null])
+  })
+
+  it("is null for a session whose newest identing names an ident it no longer holds", async () => {
+    const tt = openTester()
+    const [flip, bob] = [await identified(tt, 'flip_kromer'), await identified(tt, 'bob_smiths')]
+    await tt.run(async (ctx) => {
+      await ctx.db.patch('idents', flip.ident_id, { user_id: bob.user_id })
+      await ctx.db.patch('idents', bob.ident_id, { user_id: null })
+    })
+    const found = await tt.run(async (ctx) => [await identFor(ctx.db, flip.user_id), await identFor(ctx.db, bob.user_id)])
+    expect(found).to.deep.eq([null, null])
   })
 })
 

@@ -266,7 +266,7 @@ Read any of them with `git show 0b8079c -- <path>` or `git show 4f33026 -- <path
 
 ## From recap sprint, thread 12: the template and recap follow-ups
 
-* **Images in reviewers' texts.** Images now show in every field's markdown (the Coach's answer),
+* ~~**Images in reviewers' texts.**~~ *Thread 7: a reviewer's image is drawn as a link to it (`imagesAsLinks`), fetched only if followed; smiths' texts keep theirs.* Images now show in every field's markdown (the Coach's answer),
   reviewers' guesses, comments and overall note among them: an image a reviewer writes is fetched
   by every smith who opens the Reviews panel, telling the image's host when (lazily, with no
   referrer, but by the viewer's address). Thread 7 to weigh whether reviewers' texts keep images.
@@ -279,3 +279,37 @@ Read any of them with `git show 0b8079c -- <path>` or `git show 4f33026 -- <path
   alone, failing on the base commit too): its locator is built from the fold's `aria-controls`, a
   `useId` value, and sometimes finds no element by it. Predates thread 12; a locator by role or
   label inside the *Smith's note* region would not depend on the id.
+
+## From recap sprint, thread 7: security
+
+Detail, evidence and fix sketches: `whiteboard/20261005-recap/security-findings.md`. Thread 8 fixed
+O4, O7, O6's headers and O5 as far as one username; the rest wait on the Coach.
+
+* **O1, high, certain (fix needs a small design call).** `src/app/api/ask/route.ts` answers any
+  POST on the server's Anthropic key (Opus tier, `max_tokens` as asked): no session, no rate limit.
+  Check the caller's Convex Auth token (and username, or smith standing), rate-limit per ident, cap
+  `max_tokens`. *Coach, 2026-10-08:* once there is OAuth, asking becomes bring-your-own-key.
+* **O2, medium/high, certain (needs the Coach: who are the admins?).** `Actor.isAdmin` is `true` for
+  everyone, so anyone with a username can rewrite every library widget used by every hunt
+  (`widgets.perform`), and read `widgets.usage` and `stats.backfills`. *Fixed* (2026-10-08): the
+  deployment's `TRIQUET_ADMINS` names them (`Actor.namesAdmin`); the Coach sets production's to
+  `mrflip`.
+* **O3, medium, certain in code / uncertain in production.** An unheld legacy ident goes to the
+  first session asserting it (`claimFor`), and `hunts.open` tells anyone a hunt's smiths' usernames.
+  Close out unheld idents; name smiths only to a session with a username.
+* **O5, low, the rest of it (a design call).** One username may now make 99 hunts (thread 8), but a
+  session may assert any number of usernames and anonymous sign-in is unlimited: rate-limit sign-in
+  and new idents.
+* **O6, the CSP (uncertain).** The other headers are on (thread 8); try a nonce'd `script-src` CSP
+  on a preview.
+* **O8, low, uncertain.** A formula's timebox is per evaluation on the main thread: no budget per
+  quiz run.
+* **O9, info.** An image may be any `https` address, the viewer's own network included.
+* ~~Sprint, uncertain: a filled value (a library formula's or an `aibot` answer) can draw an image
+  whose address carries quiz text~~ *Fixed* (2026-10-08, the Coach's yes): an image in a formula's
+  or a bot's column reaches a template as a link (`Templating.bagOf`). Each
+  templated face may fill to 100,000 characters and re-parse on every render (memoize `faceOf`, or
+  a lower cap for field templates).
+* Sprint, minor, uncertain whether it matters: the default recap template stops on `FillBudget`
+  (10,000) between 350 and 400 questions, and near 999 would also pass `FilledMax`. A real LL quiz
+  is far smaller: recorded, not changed.

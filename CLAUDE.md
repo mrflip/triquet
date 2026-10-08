@@ -21,7 +21,7 @@ rows read back. `notes/convex.md` holds the conventions and where this project d
 Convex's own guidelines, and loads itself when work touches `convex/` or the browser's side of it.
 
 **The app is client-first**: static hosting plus stateless functions, and the database. The ask route is the one named server function. Never add a second
-without a Coach. See `notes/decisions/2026-09-client-first.md`.
+without a Coach. See `notes/decisions/20260928-database-decisions.md`, *Client-first*.
 
 Project instructions, loaded at the start of every session. Keep this file short and true:
 everything here costs context on every task, whether or not the task needs it.
@@ -158,10 +158,10 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
   - `notes/stack.md` *(auto-loads)* -- what we build with. Consult it when
     adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
   - `notes/deploy.md` -- agents never deploy to production, but look here if humans request your guidance.
+  - `notes/security.md` -- decisions a security reviewer should look at. Add one when you make such a decision.
   - `notes/testing.md` *(auto-loads)* -- test conventions.
   - `notes/convex.md` *(auto-loads)* -- how we use Convex, where we depart from its guidelines, and which Convex skill to name when.
   - `notes/views.md` *(auto-loads)* -- how a view is built: MUI first, the tripwires, and which MUI skill to name when.
-  - `notes/prior-work/` -- retrospectives and old prompts. Unreliable narrators: history, not spec.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
   formatting question. Where it and a prose document disagree, it is a bug -- flag it.
 * `/notes/relics.md` -- consult **only** when explicitly told we will work in the relics lagoon.

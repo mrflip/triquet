@@ -101,6 +101,12 @@ describe("forScreen", () => {
     expect(Markdown.quotedByIndent('        two\n    one')).to.deep.eq({ source: '> > two\n>\n> one', closers: new Set([2]) })
   })
 
+  it("reads a long text of many blocks in one pass, as a filled template may come to", { timeout: 10_000 }, () => {
+    const blocks = '<b>\n\n'.repeat(60_000)
+    expect(Markdown.indentsQuoted(blocks)).to.eq(blocks)
+    expect(Markdown.indentsAsQuotes(blocks)).to.eq(blocks)
+  })
+
   it("renders the line after a quote outside it", () => {
     expect(rendered('Clue\n    verse one\n    verse two\nWho wrote it?')).to.eq(
       '<p>Clue</p>\n<blockquote>\n<p>verse one<br/>\nverse two</p>\n</blockquote>\n<p>Who wrote it?</p>',

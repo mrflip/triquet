@@ -99,6 +99,7 @@ export const RefusalNotices = {
   quizzesFull:      `A realm holds at most ${String(PA.QuizzesPerRealm.max)} quizzes.`,
   libraryFull:      `The library holds at most ${String(PA.WidgetsInLibrary.max)} widgets.`,
   huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,
+  orgFull:          `One username may make at most ${String(PA.HuntsPerOrg.max)} hunts.`,
   huntingsFull:     `A hunt holds at most ${String(PA.HuntingsPerHunt.max)} members.`,
   botsOff:          'Asking Claude is switched off on this server for now — everything else still works.',
 } as const

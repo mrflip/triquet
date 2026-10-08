@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { internal } from '../../convex/_generated/api'
 import { Hunt } from '../../src/models/hunt'
+import * as PA from '../../src/lib/vv/patterns'
 import { EstimatesColumnWidthPx, NewColumnWidthPx } from '../../src/lib/widgeting-edit'
 import { AddedColumnWidthPx } from '../../src/models/layout'
 import { identified, openTester, seedHunt, type Tester } from '../support/convex'
@@ -111,6 +112,20 @@ describe("testing.makeHunt", () => {
     const second = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })
     expect(second).not.to.eq(first)
     const made = await madeOf(tt, second)
+    expect(made.smiths).to.deep.eq(['tester_maker'])
+  })
+
+  it("makes a hunt for an ident whose org holds as many as one username may make", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    await identified(tt, 'tester_maker')
+    await tt.run(async (ctx) => {
+      const labels = Array.from({ length: PA.HuntsPerOrg.max }, (_unused, idx) => `hunt_${String(idx)}`)
+      for (const label of labels) {
+        await ctx.db.insert('hunts', { label, orglabel: 'tester_maker', title: '', branch: 'main' })
+      }
+    })
+    const made = await madeOf(tt, await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' }))
     expect(made.smiths).to.deep.eq(['tester_maker'])
   })
 

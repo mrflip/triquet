@@ -102,13 +102,6 @@ describe('quizFrom', () => {
     expect(_.pick(quizFrom(rows), ['recap_head', 'recap_tail', 'templated'])).to.deep.eq({ recap_head: 'Thanks, playtesters!', recap_tail: 'Next season.', templated: ['question.recap', 'dumdum'] })
   })
 
-  it('reads a quiz, question and widgeting written before the recap and the tiers as having an empty recap, templating nothing, each widgeting run for each question', () => {
-    const older = { ...rows, quiz: _.omit(QuizRow, ['recap_head', 'recap_tail', 'templated']), questions: [_.omit(QuestionRow, ['recap'])], widgetings: [_.omit(WidgetingRow, ['tier'])] }
-    const quiz = quizFrom(older)
-    expect([quiz.recap_head, quiz.recap_tail, quiz.templated, quiz.questions[0]?.recap, quiz.widgetings[0]?.tier]).to.deep.eq(['', '', [], '', 'question'])
-    expect(Quiz.fill(quiz).questions).to.have.lengthOf(1)
-  })
-
   it('carries the quiz\'s widgetings, each without its ids or place', () => {
     expect(quizFrom(rows).widgetings).to.deep.eq([{ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, tier: 'question' }])
   })
@@ -137,8 +130,8 @@ describe('seenQuestionFor', () => {
     })
   })
 
-  it("sends a smith the recap of a question written before questions had one as empty, and a reviewer no recap", () => {
-    expect(seenQuestionFor(_.omit(QuestionRow, ['recap']), new Map(), Smith)).to.deep.include({ recap: '' })
+  it("sends a smith the question's recap, and a reviewer no recap", () => {
+    expect(seenQuestionFor({ ...QuestionRow, recap: 'Leon.' }, new Map(), Smith)).to.deep.include({ recap: 'Leon.' })
     expect(seenQuestionFor({ ...QuestionRow, recap: 'Leon.' }, new Map(), Reviewer)).to.not.have.property('recap')
   })
 
@@ -262,8 +255,8 @@ describe('widgetingFrom', () => {
     expect(widgetingFrom(WidgetingRow)).to.deep.eq({ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, tier: 'question' })
   })
 
-  it('keeps a widgeting that runs once per quiz, and reads one written before widgetings had tiers as run for each question', () => {
-    expect([widgetingFrom({ ...WidgetingRow, tier: 'quiz' }).tier, widgetingFrom(_.omit(WidgetingRow, ['tier'])).tier]).to.deep.eq(['quiz', 'question'])
+  it('keeps a widgeting that runs once per quiz', () => {
+    expect(widgetingFrom({ ...WidgetingRow, tier: 'quiz' }).tier).to.eq('quiz')
   })
 })
 

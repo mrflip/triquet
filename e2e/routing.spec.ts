@@ -28,6 +28,19 @@ function fieldsOf(page: Page, fieldname: string): Locator {
   return grid(page).getByRole('textbox', { name: fieldname, exact: true })
 }
 
+test('every page and route answers with the security headers: framed by no other site, sniffed for no other type, its address kept from other sites', async ({ request }) => {
+  const Expected = {
+    'x-frame-options':        'DENY',
+    'x-content-type-options': 'nosniff',
+    'referrer-policy':        'strict-origin-when-cross-origin',
+    'permissions-policy':     'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  }
+  for (const address of ['/', '/my/hunts', '/api/ask']) {
+    const response = await request.get(address)
+    expect(response.headers(), address).toMatchObject(Expected)
+  }
+})
+
 test.describe('the front door', () => {
   test('asks a visitor who has not said who they are', async ({ page }) => {
     await page.goto('/')

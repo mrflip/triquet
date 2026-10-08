@@ -1,4 +1,5 @@
 import type * as MT from 'mdast'
+import * as EST from 'es-toolkit'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmAutolinkLiteralFromMarkdown } from 'mdast-util-gfm-autolink-literal'
 import { gfmStrikethroughFromMarkdown } from 'mdast-util-gfm-strikethrough'
@@ -108,12 +109,14 @@ function markdownsOwnLinesOf(text: string): (lineIdx: number) => boolean {
     .filter((node) => node.type === 'list' || node.type === 'html' || (node.type === 'code' && isFenced(node, text)))
     .map((node) => linesOf(node))
   const disowned = blocks.filter((node) => node.type === 'list').flatMap((list) => indentedCodesIn(list, text)).map((code) => linesOf(code))
-  return (lineIdx) => covers(owned, lineIdx + 1) && ! covers(disowned, lineIdx + 1)
+  const ownedNums = lineNumsIn(owned)
+  const disownedNums = lineNumsIn(disowned)
+  return (lineIdx) => ownedNums.has(lineIdx + 1) && ! disownedNums.has(lineIdx + 1)
 }
 
-/** Whether any of `spans` covers the line numbered `lineNum`, counting from 1 */
-function covers(spans: readonly { beg: number, end: number }[], lineNum: number): boolean {
-  return spans.some(({ beg, end }) => beg <= lineNum && lineNum <= end)
+/** Every line number, counting from 1, that one of `spans` covers: asked of once per line, so a long text is read in one pass */
+function lineNumsIn(spans: readonly { beg: number, end: number }[]): ReadonlySet<number> {
+  return new Set(spans.flatMap(({ beg, end }) => EST.range(beg, end + 1)))
 }
 
 /** The lines a node covers, first and last, counting from 1 */

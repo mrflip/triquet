@@ -1,8 +1,8 @@
 # The cloud, measured (2026-09-28)
 
-Phase 3b of `whiteboard/convex_yay-plan.md` asked for phase 4's numbers again once the app was in
+Phase 3b of the move to Convex asked for phase 4's numbers again once the app was in
 the cloud. Production is at `triquet.vercel.app`; these are its numbers beside a local backend's.
-The full tables are in `notes/database-decisions.md` (*Measured in the cloud*).
+The full tables are in `notes/decisions/20260928-database-decisions.md` (*Measured in the cloud*).
 
 ## How
 

@@ -163,8 +163,8 @@ words above.
   The functions that hold the whole database instead are named in `Unscoped`
   (`convex/authorize.ts`). Not a widget's `scope`.
 * **admin** -- one who looks after what belongs to no hunt: the library. Changing it is an admin's
-  act (`Approve.mayChangeLibrary`). Who is an admin is decided in one place, `Actor.isAdmin`, and
-  nowhere else; until that is settled it approves everyone who has asserted a username.
+  act (`Approve.mayChangeLibrary`). Who is an admin is the deployment's `TRIQUET_ADMINS` to say
+  (`Actor.namesAdmin`), decided on the server as it builds the actor; policies ask `Actor.isAdmin`.
 * **census** -- what a write must know across every hunt, asked of the whole database and
   answered with an id or a yes, never a row: whose a hunt label is, whether a widget is worked
   anywhere (`CensusT` in `convex/reading.ts`). A hunt's mutation, and the library's, holds one

@@ -94,6 +94,8 @@ if ! push; then
   push
 fi
 "$convex" env set TRIQUET_CLEARABLE yes > /dev/null
+# Every username an admin of a local backend, unless the environment names its admins (Actor.namesAdmin)
+"$convex" env set TRIQUET_ADMINS "${TRIQUET_ADMINS:-*}" > /dev/null
 scripts/convex_auth_keys "$role"
 if [[ "$reset" == yes ]]; then scripts/convex_reset "$role"; fi
 if [[ "$seed" == yes ]]; then "$convex" run seeding:seedWidgets > /dev/null; fi

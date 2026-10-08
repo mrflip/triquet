@@ -2,12 +2,13 @@ import Mustache, { type PartialsOrLookupFn, type RenderOptions, type TemplateSpa
 import * as UU from './useful'
 import * as Labelmaker from './labelmaker'
 import * as Shaping from './shaping'
+import { OwnKeysContext } from './mustachery'
 import type { QuizBag, QuizRun } from './formulary/runner'
 import { QuestionWidgetLabel } from '../models/column'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
 import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../models/quiz'
 import { ArchivedField, type QuestionT } from '../models/question'
-import type { WidgetT } from '../models/widget'
+import type { Formularykind, WidgetT } from '../models/widget'
 
 /**
  * Field templates: a field's markdown filled in, by mustache, over the quiz's bag, before
@@ -17,7 +18,9 @@ import type { WidgetT } from '../models/widget'
  * markdown parser and then to the sanitizer, which is always the last step: on screen
  * `react-markdown` and `rehype-sanitize` (`Markdown.RenderOptions`), on the board
  * `Bbjank.toBbjank`. So a value holding `<script>` is shown as the characters typed, and a value
- * holding `**bold**` is bold, since it was filled in before the parser read it.
+ * holding `**bold**` is bold, since it was filled in before the parser read it. One thing is
+ * changed on the way in: an image in a formula's or a bot's column is made a link to it, so only
+ * text a person typed draws an image.
  *
  * Every template may also call the app's few **helpers** (`Helpers`), each only as a section:
  * `{{#quote}}{{clueing}}{{/quote}}` fills the section in, then shapes what it came to.
@@ -50,10 +53,18 @@ export const FillBudget = 10_000
 
 /**
  * The longest a filled template may come to; anything longer is refused rather than drawn. What
- * its tags fill in is counted as it goes, so a tag filling in a whole list's JSON, again and
- * again, is stopped before it is built.
+ * its tags fill in, and its own text each time a section writes it out again, are counted as they
+ * go, so a tag filling in a whole list's JSON again and again, or a long line of text repeated by
+ * a list inside a list, is stopped before it is built, and before any helper is handed it.
  */
 export const FilledMax = 100_000
+
+/**
+ * The most characters one fill's helpers may shape, all told. Each helper is handed what its
+ * section came to, so a helper inside a helper inside a helper shapes the same text again and
+ * again; past this, the fill is stopped rather than left to hang the page.
+ */
+export const ShapedMax = 1_000_000
 
 /** Said when a fill is stopped for spending more than `FillBudget` */
 const OverBudget = 'This template reads too much: a list inside a list inside a list, perhaps.'
@@ -61,8 +72,11 @@ const OverBudget = 'This template reads too much: a list inside a list inside a 
 /** Said when a fill comes to more than `FilledMax` characters */
 const OverLong = 'This template comes to far too much text to show.'
 
-/** What one fill has left: lookups and section passes, shared by every context it pushes, and characters its tags may fill in */
-type Budget = { left: number, charsLeft: number }
+/** Said when a fill's helpers shape more than `ShapedMax` characters */
+const OverShaped = 'This template shapes too much text: a helper inside a helper inside a helper, perhaps.'
+
+/** What one fill has left, shared by every context it pushes: lookups and section passes, characters it may write out, and characters its helpers may shape */
+type Budget = { left: number, charsLeft: number, shapingLeft: number }
 
 /** A helper: what a section it is called as came to, filled in, and that shaped */
 export type HelperT = (filled: string) => string
@@ -102,9 +116,15 @@ type SectionTokenT = [string, string, number, number, string[][], number]
 
 /**
  * Mustache's writer, with a section named for a helper (`Helpers`) filled in, then handed to the
- * helper, in place of reading the bag.
+ * helper, in place of reading the bag; and the template's own text counted against the fill's
+ * budget each time it is written out.
  */
 class FillWriter extends Mustache.Writer {
+  override renderTokens(tokens: string[][], context: Mustache.Context, partials?: PartialsOrLookupFn, typed?: string, config?: RenderOptions): string {
+    (context as BagContext).spendText(tokens)
+    return super.renderTokens(tokens, context, partials, typed, config)
+  }
+
   override renderSection(token: string[], context: Mustache.Context, partials?: PartialsOrLookupFn, typed?: string, config?: RenderOptions): string {
     const helper = helperFor(token[1] ?? '')
     if (helper === undefined) { return super.renderSection(token, context, partials, typed, config) }
@@ -136,13 +156,14 @@ function spendChars(budget: Budget, filling: string): string {
 }
 
 /**
- * The context a template is rendered in: a key reads only what the bag itself holds at that key,
- * never anything a JavaScript object inherits (`constructor`, `toString`, an array's `map`), and a
- * value that is a function is never called. A helper's bare name reads as nothing. Every lookup,
- * every pass through a section, and every helper called counts against one shared budget, and what
- * a helper adds counts against the characters left.
+ * The context a template is rendered in: as `OwnKeysContext`, a key reads only what the bag itself
+ * holds at that key, never anything a JavaScript object inherits, and a value that is a function
+ * is never called; and a helper's bare name reads as nothing. Every lookup, every pass through a
+ * section, and every helper called counts against one shared budget; the template's own text each
+ * time it is written out, and what a helper adds, count against the characters left; what a helper
+ * is handed counts against the characters helpers may shape.
  */
-class BagContext extends Mustache.Context {
+class BagContext extends OwnKeysContext {
   private readonly budget: Budget
 
   constructor(view: unknown, parent: BagContext | undefined, budget: Budget) {
@@ -162,31 +183,27 @@ class BagContext extends Mustache.Context {
 
   override lookup(dotkey: string): unknown {
     spend(this.budget)
-    if (dotkey === '.') { return this.view }
     if (helperFor(dotkey) !== undefined) { return undefined }
-    const found = ownAt(this.view, dotkey.split('.'))
-    if (found.held) { return typeof found.val === 'function' ? undefined : found.val }
-    return this.parent?.lookup(dotkey)
+    return super.lookup(dotkey)
   }
 
-  /** What `helper` makes of `filled`, spending one of the budget, and whatever it adds from the characters left */
+  /** Spends the characters of the template's own text among `tokens`, about to be written out once more */
+  spendText(tokens: readonly string[][]): void {
+    for (const [tokenkind, text] of tokens) {
+      if (tokenkind === 'text') { spendChars(this.budget, text ?? '') }
+    }
+  }
+
+  /** What `helper` makes of `filled`, spending one of the budget, `filled` from the characters helpers may shape, and whatever it adds from the characters left */
   shape(helper: HelperT, filled: string): string {
     spend(this.budget)
+    this.budget.shapingLeft -= filled.length
+    if (this.budget.shapingLeft < 0) { throw new Error(OverShaped) }
     const shaped = helper(filled)
     this.budget.charsLeft -= Math.max(0, shaped.length - filled.length)
     if (this.budget.charsLeft < 0) { throw new Error(OverLong) }
     return shaped
   }
-}
-
-/** What `keypath` reaches in `view`, walking only the bag's own keys of its objects and lists */
-function ownAt(view: unknown, keypath: readonly string[]): { held: boolean, val: unknown } {
-  let val = view
-  for (const key of keypath) {
-    if (typeof val !== 'object' || val === null || ! Object.hasOwn(val, key)) { return { held: false, val: undefined } }
-    val = (val as Record<string, unknown>)[key]
-  }
-  return { held: true, val }
 }
 
 /**
@@ -209,7 +226,7 @@ function ownAt(view: unknown, keypath: readonly string[]): { held: boolean, val:
 export function fill(template: string, bag: TemplateBag): FilledT {
   const issue = issueOf(template)
   if (issue !== null) { return { markdown: template, issue } }
-  const budget: Budget = { left: FillBudget, charsLeft: FilledMax }
+  const budget: Budget = { left: FillBudget, charsLeft: FilledMax, shapingLeft: ShapedMax }
   try {
     const markdown = Filler.render(template, BagContext.over(bag, budget), undefined, { escape: (val: unknown) => spendChars(budget, fillingOf(val)) })
     return markdown.length > FilledMax ? { markdown: template, issue: OverLong } : { markdown, issue: null }
@@ -251,8 +268,9 @@ export function issueOf(template: string): string | null {
  * What a template reads for one question of a run, or for none (`question_id` null): the run's
  * place, the hunt's categories and the quiz, and its questions as they stand once every widgeting
  * has run, so a template sees every column -- in `qns` those a screen shows (all but the
- * archived), in `quiz.questions` every one. `qn` is the question itself, archived or not. The one
- * place a template's bag is made; widen it here.
+ * archived), in `quiz.questions` every one. `qn` is the question itself, archived or not. An image
+ * in a formula's or a bot's column comes as a link to it (`imagesLinkedOf`). The one place a
+ * template's bag is made; widen it here.
  *
  * @param run - The quiz, run.
  * @param question_id - The question the text is a field of; null for a text of the quiz's own.
@@ -288,17 +306,60 @@ export function filledBagOf(quiz: Pick<QuizT, 'templated'>, run: QuizRun): Templ
 function bagOver(run: QuizRun, questions: readonly Record<string, unknown>[], question_id: string | null): TemplateBag {
   const { frame } = run
   const idx = question_id === null ? -1 : frame.question_ids.indexOf(question_id)
-  const every = questions as Record<string, unknown>[]
+  const { quiz, every } = imagesLinkedOf(run, questions)
   return {
     hunt:       frame.hunt,
     realm:      frame.realm,
     categories: frame.categories,
-    quiz:       { ...frame.quiz, questions: every },
+    quiz:       { ...quiz, questions: every },
     qns:        every.filter((qn) => qn[ArchivedField] !== true),
     qn:         every[idx] ?? {},
     qn_label:   frame.qn_labels[idx] ?? '',
     quiz_label: frame.quiz_label,
   }
+}
+
+/** The formularies whose columns are worked out, not typed: a formula's and a bot's */
+const ComputedFormularies: ReadonlySet<Formularykind> = new Set(['jsonata', 'aibot'])
+
+/** What `imagesLinkedOf` made, by the questions it was made from, so a run's is made once however many cells read it */
+const LinkedOf = new WeakMap<readonly Record<string, unknown>[], { quiz: Record<string, unknown>, every: Record<string, unknown>[] }>()
+
+/**
+ * The run's quiz and `questions` as a template reads them: in each computed column's widgeted (a
+ * formula's or a bot's, never an entry's or a field), every image is a link to it (`![alt](src)`
+ * becomes `&#33;[alt](src)`, a `!` and then a link), so a value a template fills in can make no
+ * browser fetch from an address it chose. Typed text keeps its images. Formulas read the run
+ * itself, untouched.
+ */
+function imagesLinkedOf(run: QuizRun, questions: readonly Record<string, unknown>[]): { quiz: Record<string, unknown>, every: Record<string, unknown>[] } {
+  const known = LinkedOf.get(questions)
+  if (known !== undefined) { return known }
+  const computed = run.steps.filter(({ widget }) => widget !== null && ComputedFormularies.has(widget.formulary))
+  const labelsAt = (tier: string) => computed.filter(({ widgeting }) => widgeting.tier === tier).map(({ widgeting }) => widgeting.label)
+  const linked = { quiz: labelsLinkedIn(run.frame.quiz, labelsAt('quiz')), every: questions.map((qn) => labelsLinkedIn(qn, labelsAt('question'))) }
+  LinkedOf.set(questions, linked)
+  return linked
+}
+
+/** `held` with what each of `labels` holds imagesLinkedIn; `held` itself when it holds none of them */
+function labelsLinkedIn(held: Record<string, unknown>, labels: readonly string[]): Record<string, unknown> {
+  const present = labels.filter((label) => Object.hasOwn(held, label))
+  if (present.length === 0) { return held }
+  return { ...held, ...Object.fromEntries(present.map((label) => [label, imagesLinkedIn(held[label])])) }
+}
+
+/**
+ * `val` with every `![` in every string it holds written `&#33;[`: the `!` as a character
+ * reference, which markdown reads as the character and never as the start of an image.
+ *
+ * @example imagesLinkedIn({ value: ['![map](https://host/m.png)'] })  // => { value: ['&#33;[map](https://host/m.png)'] }
+ */
+function imagesLinkedIn(val: unknown): unknown {
+  if (typeof val === 'string') { return val.replaceAll('![', '&#33;[') }
+  if (Array.isArray(val)) { return val.map((each) => imagesLinkedIn(each)) }
+  if (typeof val === 'object' && val !== null) { return Object.fromEntries(Object.entries(val).map(([key, each]) => [key, imagesLinkedIn(each)])) }
+  return val
 }
 
 /**

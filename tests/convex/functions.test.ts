@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { api } from '../../convex/_generated/api'
 import { askerOf, emptyIfDenied } from '../../convex/functions'
 import * as Actor from '../../src/lib/actor'
 import * as Approve from '../../src/lib/approve'
@@ -6,6 +7,8 @@ import { refuse } from '../../src/lib/refusals'
 import { identified, openTester, signedIn } from '../support/convex'
 
 describe("askerOf", () => {
+  afterEach(() => { vi.unstubAllEnvs() })
+
   it("is nobody, with no session, for a request that carries no token", async () => {
     const tt = openTester()
     expect(await tt.run(async (ctx) => await askerOf(ctx))).to.deep.eq({ actor: Actor.anonymous, user_id: null })
@@ -21,6 +24,24 @@ describe("askerOf", () => {
     const tt = openTester()
     const flip = await identified(tt, 'flip_kromer')
     expect(await flip.as.run(async (ctx) => await askerOf(ctx))).to.deep.eq({ actor: flip.actor, user_id: flip.user_id })
+  })
+
+  it("is an admin only where the deployment's TRIQUET_ADMINS names its username, and the browser is told so", async () => {
+    const tt = openTester()
+    const [flip, ada] = [await identified(tt, 'mrflip'), await identified(tt, 'ada_lovelace')]
+    vi.stubEnv('TRIQUET_ADMINS', 'mrflip')
+    const askers = await Promise.all([flip, ada].map(async (each) => await each.as.run(async (ctx) => await askerOf(ctx))))
+    expect(askers.map(({ actor }) => Actor.isAnonymous(actor) ? null : actor.admin)).to.deep.eq([true, false])
+    expect(await flip.as.query(api.idents.current, {})).to.deep.include({ actor: { ...flip.actor, admin: true } })
+    vi.stubEnv('TRIQUET_ADMINS', '')
+    expect(await flip.as.query(api.idents.current, {})).to.deep.include({ actor: { ...flip.actor, admin: false } })
+  })
+
+  it("is the session's user, anonymous, once the ident it asserted is held by another session", async () => {
+    const tt = openTester()
+    const [flip, bob] = [await identified(tt, 'flip_kromer'), await signedIn(tt)]
+    await tt.run(async (ctx) => { await ctx.db.patch('idents', flip.ident_id, { user_id: bob.user_id }) })
+    expect(await flip.as.run(async (ctx) => await askerOf(ctx))).to.deep.eq({ actor: Actor.anonymous, user_id: flip.user_id })
   })
 
   it("is nobody, with no session, for a token whose session Convex Auth no longer holds", async () => {

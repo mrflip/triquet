@@ -19,10 +19,16 @@ import type { QuizT } from '../src/models/quiz'
 /** What a query or a mutation reads through */
 export type Reader = QueryCtx['db']
 
-/** The ident the session `user_id` asserted last, by its newest identing; null when it has asserted none */
+/**
+ * The ident the session `user_id` asserted last, by its newest identing, while the session still
+ * holds it; null when it has asserted none, or when that ident is no longer its own (held by
+ * another session, or by none). No write of the app takes an ident from its holder, but an
+ * identing alone never makes a session an ident it does not hold.
+ */
 export async function identFor(db: Reader, user_id: Id<'users'>): Promise<Doc<'idents'> | null> {
   const identing = await db.query('identings').withIndex('by_user_id', (cvx) => cvx.eq('user_id', user_id)).order('desc').first()
-  return identing && await db.get('idents', identing.ident_id)
+  const ident = identing && await db.get('idents', identing.ident_id)
+  return ident?.user_id === user_id ? ident : null
 }
 
 /** The ident answering to `label`: the earliest made, should two have been made with one */
@@ -48,6 +54,17 @@ export async function huntForLabel(db: Reader, label: string): Promise<Doc<'hunt
  */
 export async function huntInOrg(db: Reader, orglabel: string, label: string): Promise<Doc<'hunts'> | null> {
   return await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', orglabel).eq('label', label)).first()
+}
+
+/**
+ * How many hunts the org `orglabel` holds, counted as far as the most a person may make there
+ * (`PA.HuntsPerOrg`): past that, that many. Only the deployment's admin makes hunts past it.
+ *
+ * @example await huntsCountedInOrg(db, 'pat_smith')  // => 2
+ */
+export async function huntsCountedInOrg(db: Reader, orglabel: string): Promise<number> {
+  const hunts = await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', orglabel)).take(PA.HuntsPerOrg.max)
+  return hunts.length
 }
 
 /** Every hunt, in the order they were made */

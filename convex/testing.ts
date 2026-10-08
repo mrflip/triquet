@@ -1,7 +1,6 @@
 import { env } from './_generated/server'
 import type { Doc } from './_generated/dataModel'
 import schema from './schema'
-import * as Actor from '../src/lib/actor'
 import * as Labelmaker from '../src/lib/labelmaker'
 import * as Routes from '../src/lib/routes'
 import { ValidatorKit } from '../src/lib/validator'
@@ -13,7 +12,7 @@ import { AddedColumnWidthPx } from '../src/models/layout'
 import { HomeRealmLabel } from '../src/models/realm'
 import { zInternalMutation } from './functions'
 import { huntInOrg, identForLabel, layoutOf, realmsOf, widgetForLabel, wholeQuizOf } from './reading'
-import { newHunt } from './writing/account_actions'
+import { makeHuntFor } from './writing/account_actions'
 import { addColumn, performLayout } from './writing/layout_actions'
 import type { OpenQuizT, Writer } from './writing/quiz_writing'
 
@@ -57,7 +56,9 @@ const LabelDrawsMax = 9
  * Make a hunt for the ident labelled `ident`, as its smith, the way the hunts list's *+ New hunt*
  * does (`new_hunt`), and lay out its quiz with `widgetings` and `columns` the way the gear's
  * dialogs would, in the order given. The e2e suite's way in to a quiz that is not about the way
- * in: the ident is the one its worker's browsers hold, and the address is where they go.
+ * in: the ident is the one its worker's browsers hold, and the address is where they go. Unlike
+ * `new_hunt`, it makes one however many its ident has made (`makeHuntFor`): a worker makes every
+ * hunt of its tests, and a run on one worker makes more than one username may.
  * Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production never has.
  *
  * Internal, never public: acting as whichever ident an argument names is for a holder of the
@@ -84,7 +85,7 @@ export const makeHunt = zInternalMutation({
     const ident = await identForLabel(ctx.db, identLabel)
     if (! ident?.user_id) { throw new Error(`No session holds the ident ${identLabel}: say who you are at the front door first`) }
     const hunt = await freshHuntLabel(ctx.db, ident.label)
-    const hunt_id = await newHunt(ctx.db, Actor.asIdent(ident.user_id, ident), hunt)
+    const hunt_id = await makeHuntFor(ctx.db, ident, hunt)
     const [home] = await realmsOf(ctx.db, hunt_id)
     const quiz = home?.quizzes[0]
     if (! home || ! quiz) { throw new Error(`The hunt ${hunt} was made without its quiz`) }

@@ -215,7 +215,7 @@ export async function identified(tt: Tester, label: string): Promise<Identified>
   if (held) { return held }
   const session = await signedIn(tt)
   const ident_id = await session.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label, title: '' } }) as Id<'idents'>
-  const holder = { ...session, ident_id, label, actor: Actor.asIdent(session.user_id, { _id: ident_id, label }) }
+  const holder = { ...session, ident_id, label, actor: Actor.asIdent(session.user_id, { _id: ident_id, label }, Actor.namesAdmin(process.env.TRIQUET_ADMINS, label)) }
   holders.set(label, holder)
   return holder
 }

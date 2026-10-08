@@ -16,9 +16,7 @@ touch the human's `dev` backend.
 ## The shape of the data
 
 Storage is Convex, replacing Jazz in September 2026; Turso is out for good. The evaluation's
-verdict is `notes/database-decisions.md` and its decision `notes/decisions/2026-09-convex.md`. The
-plan and its handoff are `whiteboard/convex_yay-plan.md` and `whiteboard/convex_yay-progress.md`:
-the thread's history, read when a question is "why is it like this", not as spec.
+verdict and its reasoning are `notes/decisions/20260928-database-decisions.md`.
 
 Rows, not a tree. A view dispatches an action, the `hunts.perform` mutation (`widgets.perform`,
 for the library) writes the rows it comes to, and views subscribe to query functions that
@@ -159,8 +157,8 @@ this file wins; the list below is the whole of the difference.
 
 ## Where this project departs from Convex's guidelines
 
-Convex's guidelines target `^1.44.0` (fetched 2026-09-27). "Settled item N" names an entry in
-the *Settled* list of `whiteboard/convex_yay-progress.md`, where the reasoning was recorded.
+Convex's guidelines target `^1.44.0` (fetched 2026-09-27). "Settled item N" numbers a decision
+as the move to Convex settled it.
 
 * **`import { v as CVX }`**, never `v`. Settled item 1; `eslint` refuses the paste
   (`triquet/convex-values-as-cvx`).

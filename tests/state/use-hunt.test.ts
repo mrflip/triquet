@@ -10,7 +10,7 @@ function quizRow(tail: string, label: string): Doc<'quizzes'> {
   return {
     _id: `j97d0qbj35dar1v8edndzckvsx8f8${tail}` as Id<'quizzes'>, _creationTime: 1, hunt_id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>,
     realm_id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>,
-    title: '', label, smiths_note: '', q1_preamble: '', locked: false, last_sortkey: null, row_ordering: [],
+    title: '', label, smiths_note: '', q1_preamble: '', recap_head: '', recap_tail: '', templated: [], locked: false, last_sortkey: null, row_ordering: [],
   }
 }
 
@@ -69,7 +69,7 @@ describe('placeIn', () => {
   })
 })
 
-const Alice = Actor.asIdent('m57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>, { _id: 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>, label: 'alice_smiths' })
+const Alice = Actor.asIdent('m57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>, { _id: 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>, label: 'alice_smiths' }, true)
 
 describe('claimsOf', () => {
   it("holds who is looking, the hunt, their standing there and the quiz on screen's lock", () => {

@@ -5,12 +5,13 @@ import type { QuizRowT } from '../models/quiz'
 /** Who a request is from, before they have asserted a username, signed in or not */
 export type AnonymousActorT = { kind: 'anonymous' }
 
-/** Who a request is from, once their session has asserted a username: the session's user, and the ident it took on last */
+/** Who a request is from, once their session has asserted a username: the session's user, the ident it took on last, and whether the deployment names that username an admin (`namesAdmin`) */
 export type IdentActorT = {
   kind:        'ident'
   user_id:     Id<'users'>
   ident_id:    Id<'idents'>
   ident_label: string
+  admin:       boolean
 }
 
 /**
@@ -28,11 +29,32 @@ export const anonymous: AnonymousActorT = Object.freeze({ kind: 'anonymous' })
  *
  * @param user_id - The session's user.
  * @param ident - The ident it took on last.
+ * @param admin - Whether the deployment names its username an admin (`namesAdmin`), as only the server can say.
  *
- * @example Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' })  // => { kind: 'ident', user_id, ident_id, ident_label: 'flip_kromer' }
+ * @example Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false)  // => { kind: 'ident', user_id, ident_id, ident_label: 'flip_kromer', admin: false }
  */
-export function asIdent(user_id: Id<'users'>, ident: { _id: Id<'idents'>, label: string }): IdentActorT {
-  return { kind: 'ident', user_id, ident_id: ident._id, ident_label: ident.label }
+export function asIdent(user_id: Id<'users'>, ident: { _id: Id<'idents'>, label: string }, admin: boolean): IdentActorT {
+  return { kind: 'ident', user_id, ident_id: ident._id, ident_label: ident.label, admin }
+}
+
+/** What in a deployment's list of admins names every username */
+export const EveryUsername = '*'
+
+/**
+ * Whether `admins`, a deployment's list of admins (its `TRIQUET_ADMINS`), names the username
+ * `label`: usernames parted by commas or spaces, or `*` for every username. Unset or blank names
+ * nobody. A local backend sets `*` unless told otherwise (`scripts/convex_dev`); production names
+ * its admins outright.
+ *
+ * @example Actor.namesAdmin('mrflip', 'mrflip')            // => true
+ * @example Actor.namesAdmin('mrflip, ada_l', 'ada_l')      // => true
+ * @example Actor.namesAdmin('mrflip', 'mrflip_two')        // => false
+ * @example Actor.namesAdmin('*', 'anyone_at_all')          // => true
+ * @example Actor.namesAdmin(undefined, 'mrflip')           // => false
+ */
+export function namesAdmin(admins: string | undefined, label: string): boolean {
+  const named = new Set((admins ?? '').split(/[\s,]+/).filter((each) => each !== ''))
+  return named.has(EveryUsername) || named.has(label)
 }
 
 /**
@@ -47,16 +69,14 @@ export function isAnonymous(actor: ActorT): actor is AnonymousActorT {
 
 /**
  * Whether `actor` is an admin: one who looks after what belongs to no hunt, the library of widgets
- * every hunt shares. This is the one place admin standing is decided; every policy that turns on
- * it asks here (`Approve.mayChangeLibrary`), so that when who is an admin is settled, only this
- * changes. Until then it approves everyone: anyone who has asserted a username is an admin.
+ * every hunt shares. Every policy that turns on it asks here (`Approve.mayChangeLibrary`). Who is
+ * an admin is the deployment's to say (`namesAdmin`, over its `TRIQUET_ADMINS`), decided on the
+ * server as it builds the actor, and carried on it to the browser, whose offers follow it.
  *
- * @param _actor - Who is asking, having asserted a username. Not read yet: every one of them is an admin.
- *
- * @example Actor.isAdmin(actor)  // => true, for now, for every ident
+ * @example Actor.isAdmin(actor)  // => true, for a username the deployment names an admin
  */
-export function isAdmin(_actor: IdentActorT): boolean {
-  return true
+export function isAdmin(actor: IdentActorT): boolean {
+  return actor.admin
 }
 
 /** An actor's place on one hunt: a smith or reviewer there, by its hunting, or a stranger to it */

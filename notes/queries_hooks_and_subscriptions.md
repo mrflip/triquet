@@ -106,8 +106,8 @@ questions it lists), a fetch of the whole thing can stand in until the watches h
 that is an overlay in the screen hook, and the wide query function is never watched as well.
 
 **Measure before moving a line.** The cost that binds is database I/O per change and bytes per
-browser per change, both of which the phase 4 harness reports (`whiteboard/convex_yay-progress.md`,
-*Measurements*). A boundary moved without a before-and-after number is a guess.
+browser per change, both of which the phase 4 measurements report
+(`notes/decisions/20260928-database-decisions.md`, *Measured*). A boundary moved without a before-and-after number is a guess.
 
 ## Small rules that follow
 

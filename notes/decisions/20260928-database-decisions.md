@@ -1,7 +1,8 @@
 # Storage and hosting: what we want, and what could give it to us
 
-**Status (2026-09-28): settled on Convex**, pending the Coach's word on the verdict below. The
-decision is `decisions/2026-09-convex.md`; this note is its reasoning. It began (2026-09-27) as
+**Status (2026-09-28): settled on Convex**, pending the Coach's word on the verdict below. This
+note is the decision and its reasoning, and holds the hosting rule that follows from it
+(*Client-first*). It began (2026-09-27) as
 the review of what we would miss by leaving Jazz v2 for something more conventional, and of which
 conventional things were in the running; Convex won on paper, the app moved to it, and *Verdict*
 re-scores it from experience.
@@ -23,8 +24,8 @@ they bite hardest.
   plus an ORM plus a client cache, Express), a second deploy cycle, or even minor
   schema-transduction mismatches between the layers.
 * **Mostly client-only.** Vercel for deploys, previews and hosting, but the code stays a short
-  distance from running off S3 with a couple of edge workers. (`decisions/2026-09-client-first.md`
-  is the current form of this.)
+  distance from running off S3 with a couple of edge workers. (*Client-first*, below, is the
+  current form of this.)
 * **Multiplayer, or at least real-time collaborative, at the field level.** Toggle a checkbox and
   collaborators see it more or less immediately. Developing a quiz together, or solving a puzzle
   as a team, would be a major feature. Offline mode and Yjs-style shared text boxes are
@@ -44,8 +45,7 @@ they bite hardest.
 
 ## What Jazz taught us
 
-The detail is in `decisions/2026-09-jazz.md` (*Learned in the move*) and
-`notes/prior-work/jazz-migration.md`. What matters for this review:
+What matters for this review:
 
 * **What Jazz gives that nothing conventional does:** true local-first. A silent, no-login
   account on first visit; the app works with the network off; the rows live in the browser and
@@ -161,7 +161,7 @@ tax. Listed for completeness, not favoured.
 
 ## Verdict (2026-09-28)
 
-**Keep Convex.** The app has run on it since phase 2 of `whiteboard/convex_yay-plan.md`; every
+**Keep Convex.** The app has run on it since phase 2 of the move; every
 test's intent carried over; nothing needed a heroic workaround. Measured on a local backend and then
 in the cloud (*Appendix*, *Measured*, *Measured in the cloud*).
 
@@ -223,7 +223,7 @@ is a query of its own, so a text edit costs about 3 KiB and the session's mix ab
 
 **Recommendations**, in order:
 
-1. Convert the trial to the decision (done in `decisions/2026-09-convex.md`, pending the Coach).
+1. Convert the trial to the decision (done, pending the Coach).
 2. Carry on with the playtesting thread (phases 5 to 7 of the plan), then the identity plan.
 3. When the cloud lands (phase 3b), re-measure; add an optimistic `move_question` first if a
    reorder passes about 150 ms, reusing `Rank`'s pure functions so its effect is not spelled
@@ -232,7 +232,33 @@ is a query of its own, so a text edit costs about 3 KiB and the session's mix ab
 4. ~~Cheaper reads, when bandwidth matters~~: done the same day. Each action reads what it
    needs, and each question is its own query.
 5. Memoize the grid's formulas by question: on a large quiz the recompute on every redelivery,
-   not the network, is most of the wait (about 70 ms of 200 at 60 questions).
+   not the network, is most of the wait (about 70 ms of 200 at 60 questions). Since October
+   2026 the work is `Runner.runQuiz` (`src/lib/formulary/runner.ts`), and its shape is W
+   widgetings by Q questions: each `jsonata` cell evaluates its input formula and then its
+   formula, each `aibot` cell its input formula, and each widgeting copies every question's bag
+   entry once to add its widgeted, so later widgetings see it. Run order makes a widgeting depend
+   on everything before it, so a cache keyed by question alone is not enough: the key is the
+   question's own fields plus whatever its input formula read, which is what the deferred
+   staleness digest (`notes/decisions/2026-10-widgets.md`) computes anyway.
+
+## Client-first (Sept 2026)
+
+The hosting rule that follows from the choice above. The app is written for the browser: static
+hosting plus stateless functions, and the database. Pages prerender at build, so the shell paints
+before the data arrives; user data never renders on a server, and the browser reads it from the
+database directly. We take charge of no server of our own until a clear, strong reason arrives.
+
+**Named exceptions.** Adding another needs a Coach.
+
+* **The ask route** (`src/app/api/ask/route.ts`), the one named server function: it holds the
+  model's key on the author's behalf, the worked example of a secret we must hold for the user.
+  Stateless; its browser side is `src/lib/ask/port.ts`.
+* **The Convex deployment**: a server, but not ours. Its functions live in `convex/`, deployed
+  with the build. `e2e/client-first.spec.ts` holds the app to needing nothing else.
+
+**Why Vercel, then.** Provisioning, previews, deploys and environment management, not compute:
+static hosting with a function beside it. `notes/stack.md`, *Application framework*, states the
+rule as the stack lives by it.
 
 ## Where this leaned (2026-09-27)
 
@@ -249,11 +275,10 @@ back without the first two; Supabase gives back neither without PowerSync.
 
 ## Open with a Coach
 
-* **The verdict above**, and with it `decisions/2026-09-convex.md`.
+* **The verdict above**.
 * Answered by the move: multiplayer is now (Convex gives it by default); the ask route stays a
   stateless Vercel function until identity says otherwise; "user data never renders on a server"
-  holds. Identity is the plan after the playtesting thread (`decisions/2026-09-convex.md`,
-  *Identity*).
+  holds. Identity is the plan after the playtesting thread.
 
 Facts checked 2026-09-27, and liable to drift: Zero 1.0 ([InfoQ](https://www.infoq.com/news/2026/06/zero-version-1/)),
 Convex's free tier ([limits](https://docs.convex.dev/production/state/limits)), Supabase's free tier

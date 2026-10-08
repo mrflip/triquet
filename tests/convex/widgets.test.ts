@@ -6,7 +6,7 @@ import { Widget } from '../../src/models/widget'
 import { affirmsOf, callerOf, identified, openTester, refusedAs, seedHunt, signedIn } from '../support/convex'
 import { classicHunt } from '../support/layouts'
 
-/** Nobody is an admin, as `Actor.isAdmin` would say once it is given a real rule */
+/** Nobody is an admin, as `Actor.isAdmin` says on a deployment that names none */
 function nobodyIsAdmin(): void {
   vi.spyOn(Actor, 'isAdmin').mockReturnValue(false)
 }
@@ -116,7 +116,7 @@ describe("widgets.usage", () => {
 })
 
 describe("widgets.perform", () => {
-  it("changes the library for anyone with a username, while every one is an admin: a smith, a reviewer, a stranger to every hunt", async () => {
+  it("changes the library for anyone with a username where every one is an admin (`TRIQUET_ADMINS` `*`): a smith, a reviewer, a stranger to every hunt", async () => {
     const tt = openTester()
     const { actOnLibrary, join, read } = await seedHunt(tt, classicHunt())
     const reviewer = await join('bob_reviews', 'reviewer')

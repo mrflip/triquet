@@ -3,7 +3,7 @@ import type { Auth } from 'convex/server'
 import { zCustomMutation, zCustomQuery } from 'convex-helpers/server/zod4'
 import type * as Z from 'zod'
 import type { Id } from './_generated/dataModel'
-import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
+import { env, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
 import * as Actor from '../src/lib/actor'
 import * as Approve from '../src/lib/approve'
 import { refusingInvalid } from '../src/lib/refusals'
@@ -26,8 +26,8 @@ const NoSession: AskerT = Object.freeze({ actor: Actor.anonymous, user_id: null 
 
 /**
  * Who is asking: the session the request's token names, if Convex Auth still holds it; its user;
- * and the ident that user asserted last. A token outliving its session (signed out, or the
- * backend emptied) is no session. One round of reads, made once per request by the builders
+ * and the ident that user asserted last, while it still holds it (`identFor`). A token outliving
+ * its session (signed out, or the backend emptied) is no session. One round of reads, made once per request by the builders
  * below; a builder layered over them calls this rather than reading identity a second way.
  *
  * @param ctx - A query's or mutation's context.
@@ -40,7 +40,7 @@ export async function askerOf(ctx: { auth: Auth, db: Reader }): Promise<AskerT> 
   if (user_id === null || session_id === null) { return NoSession }
   const [session, ident] = await Promise.all([ctx.db.get('authSessions', session_id), identFor(ctx.db, user_id)])
   if (session === null) { return NoSession }
-  return { user_id, actor: ident ? Actor.asIdent(user_id, ident) : Actor.anonymous }
+  return { user_id, actor: ident ? Actor.asIdent(user_id, ident, Actor.namesAdmin(env.TRIQUET_ADMINS, ident.label)) : Actor.anonymous }
 }
 
 /**

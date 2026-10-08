@@ -266,6 +266,21 @@ describe('idents.performAccount: new_hunt', () => {
     expect(await refusedAs(makeHunt(tt, 'one_too_many'))).to.eq('huntsFull')
   })
 
+  it("refuses one hunt more than the maker's org may hold, and makes the next org's", async () => {
+    const tt = openTester()
+    const [alice, bob] = [await identified(tt, 'alice_smiths'), await identified(tt, 'bob_smiths')]
+    await tt.run(async (ctx) => {
+      const labels = Array.from({ length: PA.HuntsPerOrg.max }, (_unused, idx) => `hunt_${String(idx)}`)
+      for (const label of labels) {
+        await ctx.db.insert('hunts', { label, orglabel: 'alice_smiths', title: '', branch: 'main' })
+      }
+    })
+    expect(await refusedAs(makeHunt(tt, 'one_too_many', alice))).to.eq('orgFull')
+    await makeHunt(tt, 'one_too_many', bob)
+    const hunts = await allOf(tt, 'hunts')
+    expect(hunts.filter(({ label }) => label === 'one_too_many').map(({ orglabel }) => orglabel)).to.deep.eq(['bob_smiths'])
+  })
+
   it('writes the whole hunt in one go: a realm for it, and its quiz in the realm', async () => {
     const tt = openTester()
     await makeHunt(tt, 'loud_heron')

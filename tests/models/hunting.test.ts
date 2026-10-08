@@ -39,7 +39,7 @@ describe('Hunting.modeFor', () => {
 describe('Hunting.mayOpen', () => {
   const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
   const hunt_id = 'k17ah9c4r1hm0z5y1ad0bbn7wn7fn9x1' as Id<'hunts'>
-  const Alice = Actor.asIdent(user_id, { _id: 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>, label: 'alice_smiths' })
+  const Alice = Actor.asIdent(user_id, { _id: 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>, label: 'alice_smiths' }, true)
   const ClaimsAs = {
     smith:     Actor.claimsOn(Alice, hunt_id, { role: 'smith' }),
     reviewer:  Actor.claimsOn(Alice, hunt_id, { role: 'reviewer' }),

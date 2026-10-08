@@ -105,7 +105,7 @@ function unshowableSources(held: Held): string[] {
 /** Whether `source` names a question's field or view, or one of `widgetings` that runs for each question */
 function isShowable(source: string, widgetings: readonly Doc<'widgetings'>[]): boolean {
   const named = sourceOf(source)
-  if (named.kind === 'widgeting') { return widgetings.some((widgeting) => widgeting.label === named.label && (widgeting.tier ?? 'question') === 'question') }
+  if (named.kind === 'widgeting') { return widgetings.some((widgeting) => widgeting.label === named.label && widgeting.tier === 'question') }
   if (named.kind === 'view') { return source === `${QuestionWidgetLabel}.${named.view}` }
   return source === `${QuestionWidgetLabel}.${named.field}`
 }

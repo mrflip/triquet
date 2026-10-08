@@ -6,7 +6,7 @@ import { HuntingValidators } from '../../src/models/hunting'
 import { Ident } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
 import type { AccountActionT } from '../../src/models/actions'
-import { censusOf, huntInOrg, huntingsFor, huntsOf, identForLabel } from '../reading'
+import { censusOf, huntInOrg, huntingsFor, huntsCountedInOrg, huntsOf, identForLabel } from '../reading'
 import { arrangeCategories, rebranchHunt, relabelHunt, retitleHunt } from './hunt_actions'
 import { insertHunt, type Writer } from './quiz_writing'
 
@@ -76,18 +76,34 @@ export async function retitleIdent(db: Writer, actor: Actor.ActorT, title: strin
 /**
  * Make a fresh hunt under `label`: one realm, `home`, holding one blank quiz of the same label,
  * with the ident `actor` is as its smith, and its org (`orglabel`). An actor who has asserted no
- * username is refused, since a hunt nobody is on is a hunt nobody can open. A label some hunt of
- * their org already answers to (`huntInOrg`) is refused, as a quiz's is: the caller has already
- * put it in an address. So is one hunt more than the app may hold.
+ * username is refused, since a hunt nobody is on is a hunt nobody can open. So is one hunt more
+ * than their org may hold (`PA.HuntsPerOrg`), so no one username takes up the app's room; and
+ * whatever `makeHuntFor` refuses.
  *
  * @returns The hunt's row id.
- * @throws A refusal (`notIdentified`, `labelTaken`, `huntsFull`); nothing is written.
+ * @throws A refusal (`notIdentified`, `orgFull`, `labelTaken`, `huntsFull`); nothing is written.
  */
 export async function newHunt(db: Writer, actor: Actor.ActorT, label: string): Promise<Id<'hunts'>> {
   if (Actor.isAnonymous(actor)) { refuse('notIdentified') }
-  const [hunts, ident] = await Promise.all([huntsOf(db), db.get('idents', actor.ident_id)])
+  const ident = await db.get('idents', actor.ident_id)
   if (! ident) { refuse('notIdentified') }
-  if (await huntInOrg(db, ident.label, label)) { refuse('labelTaken') }
+  if (await huntsCountedInOrg(db, ident.label) >= PA.HuntsPerOrg.max) { refuse('orgFull') }
+  return await makeHuntFor(db, ident, label)
+}
+
+/**
+ * Make a fresh hunt under `label` for `ident`, as `newHunt` does, however many hunts its org
+ * already holds: for the deployment's admin alone (`testing:makeHunt`, by which the e2e suite makes
+ * a whole run's hunts, under one ident per worker). A label some hunt of the org already answers to
+ * (`huntInOrg`) is refused, as a quiz's is: the caller has already put it in an address. So is one
+ * hunt more than the app may hold.
+ *
+ * @returns The hunt's row id.
+ * @throws A refusal (`labelTaken`, `huntsFull`); nothing is written.
+ */
+export async function makeHuntFor(db: Writer, ident: Doc<'idents'>, label: string): Promise<Id<'hunts'>> {
+  const [hunts, taken] = await Promise.all([huntsOf(db), huntInOrg(db, ident.label, label)])
+  if (taken) { refuse('labelTaken') }
   if (hunts.length >= PA.HuntsInApp.max) { refuse('huntsFull') }
   const hunt_id = await insertHunt(db, label, ident.label)
   await db.insert('huntings', HuntingValidators.row({ hunt_id, ident_id: ident._id, ident_label: ident.label, ident_title: ident.title, role: 'smith' }))
