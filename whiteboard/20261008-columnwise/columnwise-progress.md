@@ -9,8 +9,8 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | Thread | Label | Status |
 |---|---|---|
 | 1 | design note and vocabulary | landed #191 (docs only, no review) |
-| 2 | entry families | underway |
-| 3a | columns widen (Serial Deploy) | underway |
+| 2 | entry families | in review |
+| 3a | columns widen (Serial Deploy) | in review |
 | 4 | removal and commit model | landed #192 |
 | 3b | column expression authoring | pending |
 | 7 | `liquidize` formulary | pending |

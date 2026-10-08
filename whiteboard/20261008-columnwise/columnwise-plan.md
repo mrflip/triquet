@@ -252,6 +252,9 @@ panel listing its columns' foldables; *+ New column…* gaining "a new entry…"
 an admin, "a new widget…", pairing widgeting and column (`planWidgetingEdit`); the column and
 widgeting dialogs retired, every field committing as it is made. The widget editor stays behind
 its door, untouched, as does the library modal and the toolbar's door. Depends on: 2, 3b, 4.
+*Orchestrator, from thread 2:* ~~the params editor~~ is pulled forward: `EntryParamsFields`, one
+component whose fields each commit as they are left, sits in the widgeting dialog and the widget
+editor; 5a lifts it into the folded line rather than building it.
 *Orchestrator, from thread 4:* reuse `columnsShowing` for the widgeting panel's columns; and take
 thread 4's two review leftovers: a typed but unconfirmed label is dropped silently (mark it
 unsaved), and the quiz label draft goes stale if the quiz is relabelled elsewhere while open.
