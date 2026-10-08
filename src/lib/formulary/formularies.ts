@@ -14,6 +14,12 @@ export type Refresh = 'live' | 'click'
 export type Store = 'append' | 'upsert'
 
 /**
+ * What a widgeting's folded line holds, the few fields its panel shows while folded: an entry's
+ * params, or its widget's formula. The full panel is the same line with more rows beneath it.
+ */
+export type Folded = 'params' | 'formula'
+
+/**
  * What a widget's input formula came to over one bag: what the widget reads; nothing, meaning
  * "do not run"; or a failure. A failure that `stops` would fail the same way for every other
  * question, so the rest of its widgeting is not worked out again.
@@ -51,6 +57,8 @@ type FormularyFacts = {
   readonly refresh:      Refresh | null
   /** How a widgeted is kept; null for one never kept */
   readonly store:        Store | null
+  /** What its widgeting's folded line holds; null for one with nothing to fold to */
+  readonly folded:       Folded | null
   /** The validator for this formulary's `config` */
   readonly config:       Z.ZodType
   /** Whether the widget is well-formed: null when it is, else one sentence for the author */

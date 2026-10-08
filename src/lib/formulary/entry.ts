@@ -48,6 +48,8 @@ export class EntryFormulary {
   /** Typed, so neither worked out nor asked */
   static readonly refresh = null
   static readonly store = 'upsert'
+  /** Its widgeting folds to its family's params: what its cells may hold */
+  static readonly folded = 'params'
   static readonly config = WidgetValidators.entryConfig
 
   /**

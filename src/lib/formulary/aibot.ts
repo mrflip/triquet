@@ -34,6 +34,8 @@ export class AibotFormulary {
   static readonly defaultInput = AibotDefaultInput
   static readonly refresh = 'click'
   static readonly store = 'append'
+  /** A prompt does not fold: its widgeting's panel opens on the widget's door */
+  static readonly folded = null
   static readonly config = WidgetValidators.aibotConfig
 
   /**

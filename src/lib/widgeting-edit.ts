@@ -4,7 +4,8 @@ import * as Formularies from './formulary/formularies'
 import { RefusalNotices } from './notices'
 import * as UU from './useful'
 import * as Reporting from './vv/reporting'
-import { Column, plainOf } from '../models/column'
+import { Column, namesFor, plainOf } from '../models/column'
+import { AddedColumnWidthPx } from '../models/layout'
 import { DefaultTier, ReservedWidgetingLabels, Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../models/widgeting'
 import type { Formularykind, WidgetT } from '../models/widget'
 import { Quiz, type QuizT } from '../models/quiz'
@@ -115,6 +116,24 @@ function newColumnFor(quiz: QuizT, label: string, width_px: number): HuntActionD
   const column = Column.fill({ label: columnLabel, title: Labelmaker.titleize(label), source: label, width_px })
   const before = quiz.columns.findIndex((each) => plainOf(each).source === 'alt_text')
   return before === -1 ? { kind: 'add_column', column } : { kind: 'add_column', column, onto_idx: before }
+}
+
+/**
+ * The action adding a column that shows `source` (a ref in the plain grammar), at the end of the
+ * grid: titled and labelled after what it shows, its label growing `_2`, `_3` while another
+ * column has it, at the width a new column takes. The author changes the rest in its row, as it is
+ * made.
+ *
+ * @param quiz - The quiz the column is added to.
+ * @param source - What it shows.
+ * @returns The `add_column` action.
+ *
+ * @example newColumnShowing(quiz, 'notes')  // => { kind: 'add_column', column: { label: 'notes', title: 'Notes', source: 'notes', width_px: 180 } }; `notes_2` beside another
+ */
+export function newColumnShowing(quiz: Pick<QuizT, 'columns'>, source: string): Extract<HuntActionDNA, { kind: 'add_column' }> {
+  const named = namesFor(source)
+  const label = Labelmaker.firstFree(named.label, new Set(quiz.columns.map((column) => column.label)))
+  return { kind: 'add_column', column: Column.fill({ label, title: named.title, source, width_px: AddedColumnWidthPx }) }
 }
 
 /** Revising only what changed in an existing widgeting */

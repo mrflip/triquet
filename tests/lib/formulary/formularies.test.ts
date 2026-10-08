@@ -28,4 +28,8 @@ describe('formularyFor', () => {
   it('says how each keeps its widgeteds: not at all, appended, or upserted', () => {
     expect(Object.values(Formularies).map((formulary) => formulary.store)).to.deep.eq([null, 'append', 'upsert'])
   })
+
+  it("says what each widgeting's folded line holds: a formula, nothing for a prompt, an entry's params", () => {
+    expect(Object.values(Formularies).map((formulary) => formulary.folded)).to.deep.eq(['formula', null, 'params'])
+  })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { anyOpenIn, unfoldIn } from '../../src/components/use-folds'
+import { anyOpenIn, openedIn, unfoldIn } from '../../src/components/use-folds'
 
 describe("unfoldIn", () => {
   it("opens the item, leaving the rest folded", () => {
@@ -32,5 +32,25 @@ describe("anyOpenIn", () => {
   ]
   it.each(AnyOpenTestCases)('%j => %s: %s', ([folded, itemkeys], expected) => {
     expect(anyOpenIn(new Set(folded), itemkeys)).to.eq(expected)
+  })
+})
+
+describe("openedIn", () => {
+  it("opens an item, beside those open", () => {
+    expect([...openedIn(new Set(['notes']), 'hint', true)]).to.deep.equal(['notes', 'hint'])
+  })
+  it("folds an item, leaving the rest open", () => {
+    expect([...openedIn(new Set(['notes', 'hint']), 'notes', false)]).to.deep.equal(['hint'])
+  })
+  it("hands back the very same set when the item already was as asked, so nothing re-renders", () => {
+    const opened = new Set(['notes'])
+    expect(openedIn(opened, 'notes', true)).to.equal(opened)
+    expect(openedIn(opened, 'hint', false)).to.equal(opened)
+  })
+  it("never changes the set it was given", () => {
+    const opened = new Set(['notes'])
+    openedIn(opened, 'hint', true)
+    openedIn(opened, 'notes', false)
+    expect([...opened]).to.deep.equal(['notes'])
   })
 })

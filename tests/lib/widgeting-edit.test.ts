@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { EstimatesColumnWidthPx, NewColumnWidthPx, planWidgetingEdit, runOrderIdxOf, type WidgetingEdit } from '../../src/lib/widgeting-edit'
+import { EstimatesColumnWidthPx, NewColumnWidthPx, newColumnShowing, planWidgetingEdit, runOrderIdxOf, type WidgetingEdit } from '../../src/lib/widgeting-edit'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
 import { Widgeting, type WidgetingT } from '../../src/models/widgeting'
-import { defaultLayout } from '../../src/models/layout'
+import { AddedColumnWidthPx, defaultLayout } from '../../src/models/layout'
 import { classicLayout } from '../support/layouts'
 import { SeedWidgets } from '../../src/models/seeds'
 import type { HuntActionDNA } from '../../src/models/actions'
@@ -249,5 +249,22 @@ describe("runOrderIdxOf", () => {
 
   it("lands among the entries' rest wherever they are, the entries themselves never counted", () => {
     expect(runOrderIdxOf([...remark, ...listOf('guess')], isEntry, 'guess', 0)).to.eq(1)
+  })
+})
+
+describe("newColumnShowing", () => {
+  it("adds a column at the end, titled and labelled after what it shows, as wide as a new column is", () => {
+    const action = newColumnShowing({ columns: [] }, 'notes')
+    expect(action).to.deep.eq({ kind: 'add_column', column: { label: 'notes', title: 'Notes', source: 'notes', width_px: AddedColumnWidthPx } })
+  })
+
+  it("grows the label while another column has it", () => {
+    const held = newColumnShowing({ columns: [] }, 'notes').column
+    expect(newColumnShowing({ columns: [held] }, 'notes').column.label).to.eq('notes_2')
+  })
+
+  it("names a widgeting's column after the widgeting", () => {
+    const { column } = newColumnShowing(quiz, 'hint_full')
+    expect([column.label, column.title, column.source]).to.deep.eq(['hint_full_2', 'Hint Full', 'hint_full'])
   })
 })

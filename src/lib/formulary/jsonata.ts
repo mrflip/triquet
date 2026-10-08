@@ -27,6 +27,8 @@ export class JsonataFormulary {
   static readonly defaultInput = JsonataDefaultInput
   static readonly refresh = 'live'
   static readonly store = null
+  /** Its widgeting folds to the widget's formula, one line */
+  static readonly folded = 'formula'
   static readonly config = WidgetValidators.jsonataConfig
 
   /**
