@@ -265,7 +265,8 @@ words above.
     making a field safe for one place where markdown's structure is fragile. It quotes a
     question's own hint after `...OR ELSE...`, where the LL Export shows the chained-to question's
     after `...BUT NOT...`.
-* **templateable** (`templated` in the code until the columnwise sprint's thread 3a renames it) --
+* **templateable** (`quizzes.templateable`, set by `set_templateable`; a quiz written before the
+  columnwise sprint held it as `templated`, which the importer still reads) --
   the sources a quiz nominates for templating, whose own stored text is a template, named as a
   column's ref names them: one of its questions' own fields that hold markdown (`clueing`, `hint`,
   `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per source, never
@@ -438,7 +439,7 @@ that makes it.
 * **formula** (a column's) -- JSONata over the thing the ref picked, as the bag holds it: a field
   itself, or a widgeting's whole widgeted (`$.value.guess`, `$.masie`). Absent is **identity**: a
   field itself, a widgeted's `value`. Worked out only on an `ok` widgeted (`missing` and `errored`
-  pass through), never in the run order, and read by nothing else; combining two things is a
+  pass through, but for an empty category-estimate cell, whose parts the bag carries), never in the run order, and read by nothing else; combining two things is a
   widgeting. Sorts read what it came to. An entry's cell is typed into only while the formula is
   identity and there is no template.
 * **template** (a column's) -- Liquid making text of the value the formula came to, filled in over

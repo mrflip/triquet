@@ -153,7 +153,9 @@ The formula's own outcome reads as a `jsonata` widgeted's does: a value is `ok`,
    picked, never the bag, so combining two things is a widgeting, mechanically.
 2. **It runs only on an `ok` widgeted**: `missing` and `errored` pass through, so the dash and
    the badge keep working and nobody writes `$.status = 'ok' ? …`. A field, and a top-level
-   word, has no status and is always worked on.
+   word, has no status and is always worked on. *Thread 3a:* a `missing` widgeted the bag carries
+   parts beside is worked on too: an empty category-estimate cell reads as one estimate of no
+   category in particular, and its part columns showed 53% for it before October 2026.
 3. **An entry cell is editable only while the formula is identity and there is no template.** A
    rounded number has no inverse to type into. The pills likewise. Identity skips evaluation, so
    the common case costs nothing.
