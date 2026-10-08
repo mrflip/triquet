@@ -130,7 +130,7 @@ test('the gear un-archives a question back to the grid, and deletes another at o
   await manageDialog(page).getByRole('button', { name: 'Un-archive apple' }).click()
   await manageDialog(page).getByRole('button', { name: 'Delete cherry' }).click()
   await expect(archivedList(page)).toHaveCount(0)
-  await manageDialog(page).getByRole('button', { name: 'Cancel' }).click()
+  await manageDialog(page).getByRole('button', { name: 'Done' }).click()
 
   await expect.poll(() => titlesShown(page, 2)).toEqual(['apple', 'banana'])
   await reloadOnceSaved(page)

@@ -175,9 +175,9 @@ export async function actDangerously(page: Page, actname: string, label: string)
   await confirming.getByRole('button', { name: actname }).click()
 }
 
-/** Close the gear's dialog without applying anything */
+/** Close the gear's dialog, whose every change is kept as it is made */
 export async function closeManage(page: Page): Promise<void> {
-  await manageDialog(page).getByRole('button', { name: 'Cancel' }).click()
+  await manageDialog(page).getByRole('button', { name: 'Done' }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 }
 

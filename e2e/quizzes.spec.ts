@@ -107,7 +107,7 @@ test('a smith relabels the hunt, and the address follows', async ({ page }) => {
   await waitUntilSaved(page)
   await openManage(page)
   await manageDialog(page).getByRole('textbox', { name: 'Hunt label' }).fill('Renamed Hunt')
-  await manageDialog(page).getByRole('button', { name: 'Relabel' }).click()
+  await manageDialog(page).getByRole('button', { name: 'Relabel hunt' }).click()
   await expect(page).toHaveURL(/\/~[a-z0-9_]+\/renamed_hunt\//)
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Which region?')
 })

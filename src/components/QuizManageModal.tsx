@@ -59,6 +59,10 @@ export type QuizManageModalProps = {
  * a quick way to open any other quiz in the realm by name, the hunt's title and label, the quiz's
  * archived questions, each to un-archive or delete, and, fenced off at the foot, deleting the quiz
  * -- or, when it is the hunt's last, the quiz and its hunt.
+ *
+ * Every change here is kept as it is made, so there is nothing to apply or cancel: *Done* only
+ * closes it. A label, which other things name, waits for its own *Relabel* button, as the hunt's
+ * title and label wait for theirs.
  */
 export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt, onDeleteQuestion }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(quiz.label)
@@ -104,7 +108,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
     onClose()
   }
 
-  const onApply = () => {
+  const onRelabelQuiz = () => {
     const cleaned = Labelmaker.normalize(draft)
     if (cleaned === '') { setIssue('Enter a label.'); return }
     if (Labelmaker.isReserved(cleaned)) { setIssue(AppNotices.labelReserved); return }
@@ -131,15 +135,19 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
       {/* One scrolling region for the whole dialog: each section is as tall as what it holds. */}
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
-          <TextField
-            label="Label"
-            value={draft}
-            size="small"
-            disabled={! offers.reviseQuiz}
-            error={issue !== null}
-            helperText={issue ?? "Used in this page's web address."}
-            onChange={(event) => { setDraft(event.target.value); setIssue(null) }}
-          />
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+            <TextField
+              label="Label"
+              value={draft}
+              size="small"
+              disabled={! offers.reviseQuiz}
+              error={issue !== null}
+              helperText={issue ?? "Used in this page's web address."}
+              onChange={(event) => { setDraft(event.target.value); setIssue(null) }}
+              sx={{ flex: 1 }}
+            />
+            <Button variant="outlined" aria-label="Relabel quiz" onClick={onRelabelQuiz} disabled={! offers.reviseQuiz || Labelmaker.normalize(draft) === quizLabel}>Relabel</Button>
+          </Stack>
 
           <section>
             <Typography variant="h6" component="h3">Columns</Typography>
@@ -208,7 +216,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
                   onChange={(event) => { setHuntLabelDraft(event.target.value); setHuntLabelIssue(null) }}
                   sx={{ flex: 1 }}
                 />
-                <Button variant="outlined" onClick={onRelabelHuntClick} disabled={Labelmaker.normalize(huntLabelDraft) === huntLabel}>Relabel</Button>
+                <Button variant="outlined" aria-label="Relabel hunt" onClick={onRelabelHuntClick} disabled={Labelmaker.normalize(huntLabelDraft) === huntLabel}>Relabel</Button>
               </Stack>
             </Stack>
             <p className={styles.microcopy}>
@@ -246,8 +254,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={onApply} variant="contained" disabled={! offers.reviseQuiz}>Apply</Button>
+        <Button onClick={onClose} variant="contained">Done</Button>
       </DialogActions>
     </Dialog>
   )

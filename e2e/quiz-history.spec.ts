@@ -235,7 +235,7 @@ test('an edit commits only the files it changed, its message naming the quiz, an
 test('a relabelled quiz\'s files move, and the real git follows them', async ({ page }) => {
   await openManage(page)
   await page.getByLabel('Label', { exact: true }).fill('princes')
-  await page.getByRole('button', { name: 'Apply' }).click()
+  await page.getByRole('button', { name: 'Relabel quiz' }).click()
   // The address follows the relabel once it has landed.
   await expect(page).toHaveURL(/\/princes\/!edit$/)
 
@@ -275,7 +275,7 @@ test('a deletion is committed on either side, and tagged', async ({ page }) => {
   await page.getByRole('dialog').getByRole('button', { name: 'Archive' }).click()
   await openManage(page)
   await manageDialog(page).getByRole('button', { name: 'Delete hamlet' }).click()
-  await manageDialog(page).getByRole('button', { name: 'Cancel' }).click()
+  await manageDialog(page).getByRole('button', { name: 'Done' }).click()
 
   await expect.poll(() => gitSays(page, 'tag', '--list')).toMatch(new RegExp(String.raw`^main_${quizLabelOf(page)}_delete_\d{14}z$`))
 })
