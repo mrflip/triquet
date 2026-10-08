@@ -45,14 +45,16 @@ export type ValuedBag = TemplateBag & { value: unknown }
 
 /**
  * A template filled in: `markdown` is what it came to, or, when it could not be filled, the
- * template as typed, with `issue` saying why. Either way `markdown` is ready for the parser.
+ * template as typed, with `issue` saying why and `failkind` what kind of failure it was (a limit
+ * stopping it, `limit`, among them). Either way `markdown` is ready for the parser.
  */
 export type FilledT = {
   markdown: string
   issue:    string | null
+  failkind: Liquidry.RenderFailkind | null
 }
 
-export { FillBudget, FilledMax, ShapedMax } from './liquidry'
+export { FillBudget, FilledMax, RenderMs, ShapedMax, clockNow } from './liquidry'
 
 /** A filter of the app's: a value, as it would fill in, shaped */
 export type HelperT = Liquidry.ShaperT
@@ -103,20 +105,23 @@ const Renderer = Liquidry.rendererFor({ fillingOf, shapers: Helpers, filters: { 
  *
  * Nothing is escaped or cleaned: a string fills in as it is, a number or a yes-or-no as its text,
  * a widgeted (`{{ qn.my_column }}`) as its value's text (nothing, when it has none), and anything
- * else as its JSON. A key the bag lacks fills in as nothing. Never throws.
+ * else as its JSON. A key the bag lacks fills in as nothing. Never throws. Stopped past
+ * `Liquidry.RenderMs`, or at `deadline` when that is sooner.
  *
  * @param template - A field's text, as typed, or a template.
  * @param bag - What it reads (`bagOf`), or any plain JSON object: only its own keys are read.
+ * @param deadline - A `clockNow()` reading by which it must be filled in; none but `RenderMs` when absent.
  * @returns Markdown, for the parser and then the sanitizer.
  *
- * @example fill('By {{ qn.author }}', bag)                         // => { markdown: 'By Ada', issue: null }
- * @example fill('{{ qn.size }} words', bag)                        // => { markdown: '30 words', issue: null }   (a widgeted's value)
- * @example fill('{% for qn in qns %}{{ qn.title }} {% endfor %}', bag)  // => { markdown: 'One Two ', issue: null }
- * @example fill('{% if qn.hint %}', bag)                            // => { markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1' }
+ * @example fill('By {{ qn.author }}', bag)                         // => { markdown: 'By Ada', issue: null, failkind: null }
+ * @example fill('{{ qn.size }} words', bag)                        // => { markdown: '30 words', issue: null, failkind: null }   (a widgeted's value)
+ * @example fill('{% for qn in qns %}{{ qn.title }} {% endfor %}', bag)  // => { markdown: 'One Two ', issue: null, failkind: null }
+ * @example fill('{% if qn.hint %}', bag)                            // => { markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1', failkind: 'syntax' }
+ * @example fill('{% for x in qns %}{% endfor %}', bag, clockNow()).failkind  // => 'limit'
  */
-export function fill(template: string, bag: TemplateBag | Readonly<Record<string, unknown>>): FilledT {
-  const { text, issue } = Renderer.render(template, bag)
-  return { markdown: text, issue }
+export function fill(template: string, bag: TemplateBag | Readonly<Record<string, unknown>>, deadline?: number): FilledT {
+  const { text, issue, failkind } = Renderer.render(template, bag, deadline)
+  return { markdown: text, issue, failkind }
 }
 
 /**

@@ -30,6 +30,8 @@ export class JsonataFormulary {
   /** Its widgeting folds to the widget's formula, one line */
   static readonly folded = 'formula'
   static readonly config = WidgetValidators.jsonataConfig
+  /** No bound on a whole column: each formula has its own timebox (`Formulas.TimeboxMs`) */
+  static readonly columnMs = null
 
   /**
    * The validator of a widgeting's params: any few settings, by name, which reach the bag as

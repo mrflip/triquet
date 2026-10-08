@@ -80,7 +80,10 @@ type FormulaFacts = {
 export type LiveFormulary = FormularyFacts & FormulaFacts & {
   readonly refresh: 'live'
   readonly store:   null
-  run: (widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: WidgetingT | null, bag: QuizBag) => LiveRun
+  /** How long one widgeting's whole column may take to work out, in milliseconds; null for no bound beyond each cell's own */
+  readonly columnMs: number | null
+  /** What it comes to for one question, worked out by `deadline` (a `Templating.clockNow()` reading) when it is given one */
+  run: (widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: WidgetingT | null, bag: QuizBag, deadline?: number) => LiveRun
 }
 
 /** A formulary whose widgeteds are asked for from the cell, and appended to its history */

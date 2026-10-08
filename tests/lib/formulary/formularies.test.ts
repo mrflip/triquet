@@ -33,6 +33,13 @@ describe('formularyFor', () => {
   })
 })
 
+describe('columnMs', () => {
+  it("bounds a template's whole column, and leaves a formula's to each formula's own timebox", () => {
+    expect(JsonataFormulary.columnMs).to.be.null
+    expect(LiquidizeFormulary.columnMs).to.eq(250)
+  })
+})
+
 describe('paramsOf', () => {
   const numberEntry = Widget.fill({ label: 'figure', formulary: 'entry', config: { entry_kind: 'number' } })
   const shoutWidget = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })

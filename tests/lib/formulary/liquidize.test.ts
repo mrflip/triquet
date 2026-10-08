@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import * as Runner from '../../../src/lib/formulary/runner'
 import { LiquidizeFormulary } from '../../../src/lib/formulary/liquidize'
+import * as Templating from '../../../src/lib/templating'
 import { Question, type QuestionT } from '../../../src/models/question'
 import { Quiz } from '../../../src/models/quiz'
 import { Widget, type WidgetT } from '../../../src/models/widget'
@@ -46,6 +47,7 @@ const runOn = (params: Record<string, JsonT>, question: QuestionT = leon) => Liq
 describe('LiquidizeFormulary', () => {
   it('reports the facts of a template filled in on render', () => {
     expect([LiquidizeFormulary.kind, LiquidizeFormulary.defaultInput, LiquidizeFormulary.refresh, LiquidizeFormulary.store]).to.deep.eq(['liquidize', '$', 'live', null])
+    expect(LiquidizeFormulary.columnMs).to.eq(250)
     expect(LiquidizeFormulary.config.safeParse({}).success).to.be.true
     expect(LiquidizeFormulary.config.safeParse({ model_tier: 'quick' }).success).to.be.false
   })
@@ -200,9 +202,24 @@ describe('LiquidizeFormulary', () => {
       expect(LiquidizeFormulary.run({ formula: '{{ title }}?', input_formula: "{ 'title': qn.title }" }, null, bagFor(leon)).widgeted).to.deep.eq(Widgeted.ok('Leon?'))
     })
 
-    it('stops a runaway template in its own cell', () => {
+    it('stops a runaway template, and with it the rest of its column', () => {
       const deep = '{% for aa in (1..1000) %}{% for bb in (1..1000) %}x{% endfor %}{% endfor %}'
-      expect(runOn({ template: deep }).status).to.eq('errored')
+      const ran = LiquidizeFormulary.run(blurb, blurbing({ template: deep }), bagFor(leon))
+      expect(ran.widgeted.status).to.eq('errored')
+      expect(ran.stops).to.be.true
+    })
+
+    it("stops at its column's deadline, and with it the rest of its column", () => {
+      const ran = LiquidizeFormulary.run(blurb, null, bagFor(leon), Templating.clockNow() - 1)
+      expect(ran).to.deep.eq({ widgeted: failed('The template: This template takes too long to fill in: a loop inside a loop, perhaps.'), stops: true })
+    })
+
+    it('fills in as ever before its deadline', () => {
+      expect(LiquidizeFormulary.run(blurb, null, bagFor(leon), Templating.clockNow() + 60_000)).to.deep.eq({ widgeted: Widgeted.ok('Q: Leon'), stops: false })
+    })
+
+    it('does not stop its column for a template that does not read, which may differ question by question', () => {
+      expect(LiquidizeFormulary.run(blurb, blurbing({ template_from: { ref: 'shout' } }), { ...bagFor(leon), qn: { ...bagFor(leon).qn, shout: Widgeted.ok('{% if x %}') } }).stops).to.be.false
     })
   })
 
@@ -244,5 +261,51 @@ describe('a quiz run with a liquidize widgeting', () => {
 
   it('runs once for the whole quiz, over every question', () => {
     expect(Runner.quizWidgetedOf(ran, 'roster')).to.deep.eq(Widgeted.ok('Leon Ivan '))
+  })
+
+  it("keeps on past a question whose template read from the bag does not read", () => {
+    const broken = { ...leon, notes: '{% if qn.hint %}' }
+    const fine = { ...ivan, notes: '*{{ qn.title }}*' }
+    const mixed = runOf({ ...quiz, questions: [broken, fine], widgetings: [blurbing({ template_from: { ref: 'notes' } })] }, library)
+    expect(Runner.widgetedOf(mixed, 'blurbing', broken._id).status).to.eq('errored')
+    expect(Runner.widgetedOf(mixed, 'blurbing', fine._id)).to.deep.eq(Widgeted.ok('*Ivan*'))
+  })
+})
+
+/** A clock that moves a hundredth of a millisecond each time it is read, so a fill's time is how often it is asked */
+function ticking() {
+  let tick = 0
+  return vi.spyOn(performance, 'now').mockImplementation(() => { tick += 0.01; return tick })
+}
+
+describe('a column of templates, held to one budget of time', () => {
+  const many: QuestionT[] = Array.from({ length: 300 }, (_unused, idx) => ({ ...Question.blank(), label: `q_${String(idx)}`, qnum: String(idx + 1), title: `T${String(idx)}` }))
+  const looping = blurbing({ template: '{% for aa in (1..100) %}{% endfor %}{{ qn.title }}' })
+
+  it("stops every question after the fill that ran out its column's time, each reading the same failure", () => {
+    const clock = ticking()
+    try {
+      const ran = runOf({ ...Quiz.blank('Many'), questions: many, widgetings: [looping] }, library)
+      const cells = many.map((question) => Runner.widgetedOf(ran, 'blurbing', question._id))
+      const firstStopped = cells.findIndex((cell) => cell.status === 'errored')
+      expect(cells[0]).to.deep.eq(Widgeted.ok('T0'))
+      expect(firstStopped).to.be.above(0)
+      expect(cells.slice(0, firstStopped).every((cell) => cell.status === 'ok')).to.be.true
+      expect(cells.slice(firstStopped).every((cell) => cell === cells[firstStopped])).to.be.true
+      expect(cells[firstStopped]).to.deep.eq(failed('The template: This template takes too long to fill in: a loop inside a loop, perhaps.'))
+    } finally {
+      clock.mockRestore()
+    }
+  })
+
+  it('gives each column its own time', () => {
+    const clock = ticking()
+    try {
+      const twice = [looping, Widgeting.fill({ label: 'blurbing_2', widget_label: 'blurb', params: looping.params })]
+      const ran = runOf({ ...Quiz.blank('Many'), questions: many, widgetings: twice }, library)
+      expect(Runner.widgetedOf(ran, 'blurbing_2', present(many[0])._id)).to.deep.eq(Widgeted.ok('T0'))
+    } finally {
+      clock.mockRestore()
+    }
   })
 })

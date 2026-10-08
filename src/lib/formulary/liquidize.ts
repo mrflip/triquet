@@ -23,6 +23,13 @@ export type TemplateOutcome =
 type Picked = { thing: unknown, widgeted: boolean }
 
 /**
+ * How long one column of templates may take, all told: a quarter of a second. A 300-question
+ * column of ordinary templates fills in well inside it (each takes a fraction of a millisecond),
+ * and it is a quarter of the second Convex gives a mutation, which a sort runs the quiz in.
+ */
+const ColumnMs = 250
+
+/**
  * The formulary of a Liquid template, filled in on every render and stored nowhere: a `jsonata`
  * widget's twin with the other engine. Its input formula comes to the object the template is
  * filled in over (the whole bag, `$`, by default), so `{{ qn.title }}` reads as a formula's
@@ -35,6 +42,8 @@ type Picked = { thing: unknown, widgeted: boolean }
  * templateable source's text also takes, under its budgets and own-keys reading.
  *
  * Nothing here throws. A template that will not read costs its own cell, with Liquid's sentence.
+ * One stopped by a limit (too long, too much) stops its column: every later question reads the
+ * same failure, as a formula that will not stop does. A column has `columnMs` for all its fills.
  */
 // A class of statics with no instances, as every formulary is.
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
@@ -45,6 +54,12 @@ export class LiquidizeFormulary {
   static readonly refresh = 'live'
   static readonly store = null
   static readonly config = WidgetValidators.liquidizeConfig
+  /**
+   * How long one widgeting's whole column may take to fill in, all its questions told, in
+   * milliseconds: a template filled for every question must not add up to a page that hangs, or
+   * to a server sort past its mutation's time. A column past it is stopped where it stands.
+   */
+  static readonly columnMs = ColumnMs
 
   /**
    * The validator of a widgeting's params: a `template` of its own, or a `template_from` the bag,
@@ -152,25 +167,27 @@ export class LiquidizeFormulary {
    * What the widget comes to for the question `bag` is for: its template filled in over its
    * input. Text is `ok`; a fill of nothing but blanks, an input of nothing, or a template read
    * from nothing, is `missing`; a template that will not read or fill, or an input that fails,
-   * is `errored`, saying why.
+   * is `errored`, saying why. A fill stopped by a limit, its own or the column's `deadline`, stops
+   * the rest of its column.
    *
    * @param widget - Its template and its input formula.
    * @param widgeting - The widgeting working it, whose params may give the template; null for none.
    * @param bag - The question's bag, as the widgeting sees it.
+   * @param deadline - A `Templating.clockNow()` reading by which its column must be filled in; none but each fill's own limit when absent.
    * @returns The widgeted, and whether it should stop the rest of its column.
    *
    * @example LiquidizeFormulary.run({ formula: 'Q: {{ qn.title }}', input_formula: '$' }, null, bag).widgeted  // => { status: 'ok', value: 'Q: Leon', err: null }
    * @example LiquidizeFormulary.run({ formula: '{{ qn.hint }}', input_formula: '$' }, null, bag).widgeted     // => { status: 'missing', value: null, err: null }   (no hint)
    */
-  static run(widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: Pick<WidgetingT, 'params'> | null, bag: QuizBag): LiveRun {
+  static run(widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: Pick<WidgetingT, 'params'> | null, bag: QuizBag, deadline?: number): LiveRun {
     const input = this.input(widget, bag)
     if (input.status === 'missing') { return { widgeted: Widgeted.missing, stops: false } }
     if (input.status === 'errored') { return { widgeted: failed(input.message), stops: input.stops } }
     const template = this.templateOf(widget, widgeting, bag)
     if (template.status === 'missing') { return { widgeted: Widgeted.missing, stops: false } }
     if (template.status === 'errored') { return { widgeted: failed(template.message), stops: template.stops } }
-    const filled = Templating.fill(template.template, input.input as Readonly<Record<string, unknown>>)
-    if (filled.issue !== null) { return { widgeted: failed(`The template: ${filled.issue}`), stops: false } }
+    const filled = Templating.fill(template.template, input.input as Readonly<Record<string, unknown>>, deadline)
+    if (filled.issue !== null) { return { widgeted: failed(`The template: ${filled.issue}`), stops: filled.failkind === 'limit' } }
     return { widgeted: filled.markdown.trim() === '' ? Widgeted.missing : Widgeted.ok(filled.markdown), stops: false }
   }
 

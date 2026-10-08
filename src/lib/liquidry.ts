@@ -10,14 +10,27 @@ import { Context, Liquid, LiquidError, Tag, toValueSync, type Emitter, type Liqu
  * value as false, as JavaScript does (`jsTruthy`); refuses a filter it does not know; and refuses
  * to include another template, as the template is read. LiquidJS calls a function it finds in its
  * scope, so a scope holds only data. A render is stopped, deterministically, past the pieces and
- * characters it may write and the characters its shaping filters may be handed; Liquid's own limits
- * on time, allocation and length stand behind those.
+ * characters it may write and the characters its shaping filters may be handed; past its time
+ * (`RenderMs`, or a sooner deadline its caller hands it), on a clock that moves inside a Convex
+ * mutation; and past Liquid's own limits on allocation and length. A failure says which it was
+ * (`RenderFailkind`): a template that will not read, one that failed as it ran, or one stopped by
+ * a limit, which a caller filling many may take as a reason to stop the rest.
  */
 
-/** A template rendered: `text` is what it came to, or, when it could not be rendered, the template as typed, with `issue` saying why */
+/**
+ * How a render failed: the template does not read (`syntax`), it failed as it ran (`runtime`), or
+ * it was stopped by a limit on its time, its pieces, its characters or its allocation (`limit`).
+ */
+export type RenderFailkind = 'syntax' | 'runtime' | 'limit'
+
+/**
+ * A template rendered: `text` is what it came to, or, when it could not be rendered, the template
+ * as typed, with `issue` saying why and `failkind` what kind of failure it was
+ */
 export type RenderedT = {
-  text:  string
-  issue: string | null
+  text:     string
+  issue:    string | null
+  failkind: RenderFailkind | null
 }
 
 /**
@@ -43,11 +56,31 @@ export const FilledMax = 100_000
 export const ShapedMax = 1_000_000
 
 /**
- * Liquid's own limits, behind the counts above: the longest a template may be, the longest one
- * render may take (milliseconds), and the most it may allocate. Each stops what the counts cannot
- * see: a loop that writes nothing, a range of a hundred million numbers.
+ * The longest one render may take, in milliseconds, unless its caller hands it a sooner deadline.
+ * It stops what the counts cannot see: a loop inside a loop that writes nothing.
  */
-const LiquidLimits = { parseLimit: 100_000, renderLimit: 1000, memoryLimit: 10_000_000 } as const
+export const RenderMs = 1000
+
+/**
+ * Liquid's own limits, behind the counts above: the longest a template may be, and the most one
+ * render may allocate (a range of a hundred million numbers). Its own limit on time reads a clock
+ * that stands still inside a Convex mutation (`Date.now()`, as it finds no `global.performance`
+ * there), so the time is ours (`RenderMs`).
+ */
+const LiquidLimits = { parseLimit: 100_000, memoryLimit: 10_000_000 } as const
+
+/** Said when a render is stopped for taking longer than it may */
+const OverTime = 'This template takes too long to fill in: a loop inside a loop, perhaps.'
+
+/**
+ * The clock a render's time is read on, in milliseconds: one that moves inside a Convex mutation,
+ * where `Date.now()` stands still.
+ *
+ * @example const deadline = clockNow() + 250
+ */
+export function clockNow(): number {
+  return performance.now()
+}
 
 /** Said when a render is stopped for writing more than `FillBudget` pieces */
 const OverBudget = 'This template reads too much: a list inside a list inside a list, perhaps.'
@@ -81,9 +114,10 @@ export type RendererSpecT = {
 export type RendererT = {
   /**
    * `template` rendered over `scope`, or the template as typed with what is wrong with it. Never
-   * throws. A key the scope lacks fills in as nothing.
+   * throws. A key the scope lacks fills in as nothing. Stopped at `deadline` (a `clockNow()`
+   * reading) when that comes before `RenderMs` from now.
    */
-  render:    (template: string, scope: object) => RenderedT
+  render:    (template: string, scope: object, deadline?: number) => RenderedT
   /** What is wrong with `template`, or null when it reads: what only rendering finds is `render`'s to say */
   issueOf:   (template: string) => string | null
   /** The names `template` reads from its scope at the top level, each once, in the order first read; none when it does not read */
@@ -158,16 +192,22 @@ export function rendererFor(spec: RendererSpecT): RendererT {
   for (const name of ['include', 'render', 'layout']) { engine.registerTag(name, RefusedTag) }
 
   return {
-    render(template, scope) {
+    render(template, scope, deadline = Infinity) {
       const budget: Budget = { left: FillBudget, charsLeft: FilledMax, shapingLeft: ShapedMax }
+      let parsed: ReturnType<typeof engine.parse>
       try {
-        const parsed = engine.parse(template)
+        parsed = engine.parse(template)
+      } catch (err) {
+        return { text: template, issue: issueMessageOf(err), failkind: 'syntax' }
+      }
+      try {
         const context = new Context(scope, engine.options, { sync: true, globals: { [BudgetKey]: budget } }, { liquid: engine })
+        clocked(context, Math.min(deadline, clockNow() + RenderMs))
         const emitter = new CountingEmitter(budget, spec.fillingOf)
         toValueSync(engine.renderer.renderTemplates(parsed, context, emitter))
-        return { text: emitter.buffer, issue: null }
+        return { text: emitter.buffer, issue: null, failkind: null }
       } catch (err) {
-        return { text: template, issue: issueMessageOf(err) }
+        return { text: template, issue: issueMessageOf(err), failkind: isLimit(err) ? 'limit' : 'runtime' }
       }
     },
     issueOf(template) {
@@ -188,8 +228,33 @@ export function rendererFor(spec: RendererSpecT): RendererT {
   }
 }
 
+/**
+ * `context` held to `deadline` on our clock (`clockNow`): LiquidJS asks its render limit at every
+ * piece of the template it renders, a loop's body each time round included, so a loop that writes
+ * nothing is stopped there too.
+ */
+function clocked(context: Context, deadline: number): void {
+  // Liquid's own check reads a clock that stands still inside a Convex mutation; this one moves.
+  context.renderLimit.check = () => {
+    if (clockNow() >= deadline) { throw new Stopped(OverTime) }
+  }
+}
+
+/** A budget of ours that stopped a render, however deep in Liquid's own errors it was thrown */
+function stoppedIn(err: unknown): Stopped | null {
+  if (err instanceof Stopped) { return err }
+  return err instanceof LiquidError && err.originalError instanceof Stopped ? err.originalError : null
+}
+
+/** Whether a render was stopped by a limit: one of ours, or Liquid's own on allocation */
+function isLimit(err: unknown): boolean {
+  if (stoppedIn(err) !== null) { return true }
+  return err instanceof Error && err.message.includes(' limit exceeded')
+}
+
 /** What a template's failure says: Liquid's message, with where it stopped reading; or, for a budget of ours, ours alone; never a stack */
 function issueMessageOf(err: unknown): string {
-  if (err instanceof LiquidError && err.originalError instanceof Stopped) { return err.originalError.message }
+  const stopped = stoppedIn(err)
+  if (stopped !== null) { return stopped.message }
   return err instanceof Error ? err.message : 'This does not read as a template'
 }
