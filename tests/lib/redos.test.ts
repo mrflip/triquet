@@ -61,7 +61,7 @@ describe('Redos.firstRefusalOf', () => {
 
   it("gives a check no more than the budget has left, though one check alone may take longer", () => {
     const beg = performance.now()
-    expect(Redos.firstRefusalOf([regexOf(String.raw`^(a+)\1$`)], 50)).to.contain('took too long to check for safety')
+    expect(Redos.firstRefusalOf([regexOf(String.raw`^(a+)\1$`)], 10)).to.contain('took too long to check for safety')
     expect(performance.now() - beg).to.be.below(Redos.CheckMs)
   })
 
