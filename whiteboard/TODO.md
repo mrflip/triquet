@@ -256,6 +256,14 @@ Built: columns lead, each widgeting a panel folded to its line, the dialogs reti
 * **A new widget written from the folding editor's doors is not told the widgeting it is for**
   (`NewWidgetDoor`): the widgeting is made after the widget, labelled as it. The widget editor's
   preview and advice prompt therefore name no widgeting there; *Edit the widget…* in a panel does.
+* **A header can be put back over a typed one** (review): `retitledPatch` reads the column as last
+  loaded, so a ref or formula picked within a round trip of a title's blur can send the default
+  header over the title just typed. The fix is Convex optimistic updates on the quiz's dispatch
+  (`use-hunt`), which would also make the switches and checkboxes turn at once.
+* **A refused widgeting relabel still retitles its column** (review): `planWidgetingEdit` sends the
+  relabel and the column's retitle as separate actions, so a relabel the server refuses (a race on
+  the label) leaves the column headed after a label it never took. One action carrying both, or the
+  retitle done in the reducer beside the relabel, would hold them together.
 * **A column's header follows what it shows only while it is the default one** (`retitledPatch`);
   a column label never follows a relabel. If authors want the label to follow too, it is the same
   rule one field over, but a column label is named by the quiz's sort memory.

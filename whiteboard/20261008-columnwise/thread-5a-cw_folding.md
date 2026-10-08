@@ -1,6 +1,6 @@
 # Thread 5a: Folding editors, columns leading (2026-10-08)
 
-Branch `20261008-cw_folding`, PR filed at landing; see the report. Stacked on #197's top.
+Branch `20261008-cw_folding`, PR filed at landing; see the report. Stacked on the spine's top at landing (thread 6's #198 among it).
 Suites: `pnpm justify` green; on lane 2 the touched specs green (widgets, entries, quiz-entries,
 prompts, grid, sheets, importing, estimates, quizzes); a full run on the lane, 274 passed and four
 failed under load that pass alone (`panels.spec.ts:140`, `:207`; `routing.spec.ts:605`, `:680`),
@@ -82,6 +82,17 @@ change, no new dependency.
     hides it (`ColumnMoreFields`' `beside`) is the one found at a narrow width: a spec folds the
     panel first (`foldBy` in `e2e/support.ts`).
   - The advice and preview of a widget written through a door are told no widgeting (TODO).
+
+* **Review** (`fixed`): `c31d2b3` (folded params stop showing what was sent once the held params
+  move elsewhere; `pendingShown` exported and tested) and `298de82` (`ExplicitField` drops what was
+  typed once what is held moves off it). Left, minor:
+  1. `retitledPatch` reads the column as last loaded: a pick landing within a round trip of a
+     title's blur can put the default header back over the typed one. The fix is Convex optimistic
+     updates on the quiz's dispatch (TODO).
+  2. A widgeting's relabel and its column's retitle are separate mutations, so a relabel the
+     server refuses still retitles the column (TODO).
+  3. `ExplicitField` gives way to a relabel made elsewhere while the author is typing, as
+     designed (`explicitShown`); recorded only.
 
 * **For later threads**:
   - **5b**: the *Widgets* panel's open state is `WidgetingPanel` (context `WidgetingPanelContext`:
