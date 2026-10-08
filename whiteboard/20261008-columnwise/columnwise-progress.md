@@ -15,7 +15,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 3b | column expression authoring | landed #197 |
 | 7 | `liquidize` formulary | rework (review flagged; Coach ruled: stop + column budget, per-formulary allowlist) |
 | 6 | free regex (optional) | landed #198 |
-| 5a | folding editors | in review |
+| 5a | folding editors | landing (review fixed) |
 | 5b | run order in both places, row preview | pending |
 | 8 | seeds pass (optional) | underway |
 | 3c | columns tighten (last) | pending |
