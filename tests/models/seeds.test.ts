@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import * as Runner from '../../src/lib/formulary/runner'
 import { mintId } from '../../src/lib/ids'
+import * as Labelmaker from '../../src/lib/labelmaker'
 import { classicLayout } from '../support/layouts'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { DefaultWidgetings, SeedWidgets } from '../../src/models/seeds'
-import { Widget, type WidgetT } from '../../src/models/widget'
-import { Widgeting } from '../../src/models/widgeting'
+import { EntryFamilyVals, Widget, type WidgetT } from '../../src/models/widget'
+import { ReservedWidgetingLabels, Widgeting } from '../../src/models/widgeting'
 import { Widgeted, type JsonT, type StoredWidgetedT, type WidgetedHistoryT, type WidgetedT } from '../../src/models/widgeted'
 import { runOf } from '../support/runs'
 
@@ -36,8 +37,19 @@ function seed(label: string): WidgetT {
 }
 
 describe('SeedWidgets', () => {
-  it("is eighteen widgets, per the doc", () => {
-    expect(SeedWidgets).to.have.lengthOf(18)
+  it("is twenty-two widgets, per the doc", () => {
+    expect(SeedWidgets).to.have.lengthOf(22)
+  })
+
+  it("holds an entry of each family, the category estimates among them, and no preset of text", () => {
+    const entries = SeedWidgets.flatMap((widget) => (widget.formulary === 'entry' ? [[widget.label, widget.config.entry_kind]] : []))
+    expect(entries).to.deep.eq([['categories', 'estimates'], ['memo', 'text'], ['figure', 'number'], ['yes_no', 'boolean'], ['choice', 'enum']])
+    expect(entries.map(([, entry_kind]) => entry_kind)).to.have.members([...EntryFamilyVals])
+  })
+
+  it("labels none of them a word every label is kept from, nor one a widgeting of it could not take", () => {
+    expect(SeedWidgets.filter((widget) => Labelmaker.isReserved(widget.label)).map((widget) => widget.label)).to.deep.eq([])
+    expect(SeedWidgets.filter((widget) => ReservedWidgetingLabels.includes(widget.label)).map((widget) => widget.label)).to.deep.eq([])
   })
 
   it("holds the category-estimate entry, whose description names the parts a column can show", () => {

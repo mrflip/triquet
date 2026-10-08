@@ -82,7 +82,7 @@ export class EntryFormulary {
     const defaults = defaultsOf(widget)
     return EntryParamsOf[entry_kind].check((context) => {
       const issues = entryParamsIssues(entry_kind, { ...defaults, ...context.value })
-      for (const issue of issues) { context.issues.push({ code: 'custom', input: context.value, ...issue }) }
+      for (const issue of issues) { context.issues.push({ code: 'custom', ...issue }) }
     })
   }
 

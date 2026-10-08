@@ -197,12 +197,50 @@ const CategoryDataDNA: WidgetDNA = {
 }
 
 /**
+ * One entry per family the cells offer: what an author picks to type into a column of their own,
+ * its constraints said by the widgeting (a number's bounds, a text's pattern, a choice's options).
+ * Each label is a word an author might use, and none of the families' own names, which every
+ * label is kept from.
+ */
+const FamilySeedDNAs: readonly WidgetDNA[] = [
+  {
+    label:       'memo',
+    title:       'Text',
+    description: 'Text typed into each cell: a note, markdown welcome; or one line, held to a pattern (a label, a web address) if the widgeting says so.',
+    formulary:   'entry',
+    config:      { entry_kind: 'text' },
+  },
+  {
+    label:       'figure',
+    title:       'Number',
+    description: 'A number typed into each cell, between bounds and whole if the widgeting says so.',
+    formulary:   'entry',
+    config:      { entry_kind: 'number' },
+  },
+  {
+    label:       'yes_no',
+    title:       'Yes or no',
+    description: 'A checkbox in each cell: ticked, unticked, or not yet said.',
+    formulary:   'entry',
+    config:      { entry_kind: 'boolean' },
+  },
+  {
+    label:       'choice',
+    title:       'Choice',
+    description: 'One of a list of options, picked in each cell: the widgeting says what the options are.',
+    formulary:   'entry',
+    config:      { entry_kind: 'enum' },
+  },
+]
+
+/**
  * The library's seeds: the three prompts, the eight sums, five small text calculations, the
- * BUT NOT ishes, and the category-estimate entry. Eighteen, in the order the library lists them.
+ * BUT NOT ishes, the category-estimate entry, and an entry of each other family. Twenty-two, in
+ * the order the library lists them.
  *
  * @example SeedWidgets.find((widget) => widget.label === 'numnum_hint')?.formulary  // => 'aibot'
  */
-export const SeedWidgets: readonly WidgetT[] = [...AibotSeedDNAs, ButnotIshesDNA, ...SumSeedDNAs, ...TextSeedDNAs, CategoryDataDNA].map((dna) => Widget.fill(dna))
+export const SeedWidgets: readonly WidgetT[] = [...AibotSeedDNAs, ButnotIshesDNA, ...SumSeedDNAs, ...TextSeedDNAs, CategoryDataDNA, ...FamilySeedDNAs].map((dna) => Widget.fill(dna))
 
 /**
  * The widgetings a quiz is given when its columns name any of them, in run order, each labelled

@@ -113,7 +113,7 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titlei
   // An entry widget's config: its kind, and the defaults its widgetings' params overlay.
   const entryConfigOf = <KT extends EntryKind, ST extends Z.core.$ZodLooseShape>(entry_kind: KT, params: Z.ZodObject<ST>) => (
     obj({ entry_kind: lit(entry_kind), ...params.shape }).strict()
-      .check((context) => { for (const issue of entryParamsIssues(entry_kind, context.value)) { context.issues.push({ code: 'custom', input: context.value, ...issue }) } })
+      .check((context) => { for (const issue of entryParamsIssues(entry_kind, context.value)) { context.issues.push({ code: 'custom', ...issue }) } })
   )
   const entryConfig = discrim('entry_kind', [
     entryConfigOf('text', textParams),
@@ -277,8 +277,8 @@ export const EntryKindOncePerQuiz: Readonly<Record<EntryKind, boolean>> = {
   estimates: false,
 }
 
-/** One thing wrong with an entry's params taken together, and which of them to say it of */
-type ParamsIssue = { path: string[], message: string }
+/** One thing wrong with an entry's params taken together: which of them to say it of, what it holds, and what is wrong */
+type ParamsIssue = { path: string[], input: unknown, message: string }
 
 /**
  * What is wrong with an entry's params taken together, rather than one by one: a `number`'s
@@ -290,16 +290,16 @@ type ParamsIssue = { path: string[], message: string }
  * @param params - The params in force, or a widget's defaults.
  * @returns Each issue, said of the param the author would change; empty when they agree.
  *
- * @example entryParamsIssues('number', { min: 10, max: 1 })  // => [{ path: ['max'], message: 'should be no less than the least, «10»' }]
+ * @example entryParamsIssues('number', { min: 10, max: 1 })  // => [{ path: ['max'], input: 1, message: 'should be no less than the least, «10»' }]
  */
 export function entryParamsIssues(entry_kind: EntryKind, params: Record<string, unknown>): ParamsIssue[] {
   switch (EntryFamilyOf[entry_kind]) {
   case 'number': {
     const { min, max } = params
-    return typeof min === 'number' && typeof max === 'number' && min > max ? [{ path: ['max'], message: `should be no less than the least, «${String(min)}»` }] : []
+    return typeof min === 'number' && typeof max === 'number' && min > max ? [{ path: ['max'], input: max, message: `should be no less than the least, «${String(min)}»` }] : []
   }
   case 'text': {
-    return params.pattern !== undefined && params.lines === 'many' ? [{ path: ['lines'], message: 'should be one: a pattern holds a cell to one line' }] : []
+    return params.pattern !== undefined && params.lines === 'many' ? [{ path: ['lines'], input: params.lines, message: 'should be one: a pattern holds a cell to one line' }] : []
   }
   default: { return [] }
   }

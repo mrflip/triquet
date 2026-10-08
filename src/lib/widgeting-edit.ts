@@ -1,6 +1,9 @@
 import * as Labelmaker from './labelmaker'
 import * as Estimates from './estimates'
+import * as Formularies from './formulary/formularies'
 import { RefusalNotices } from './notices'
+import * as UU from './useful'
+import * as Reporting from './vv/reporting'
 import { Column, plainOf } from '../models/column'
 import { DefaultTier, ReservedWidgetingLabels, Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../models/widgeting'
 import type { Formularykind, WidgetT } from '../models/widget'
@@ -27,6 +30,8 @@ export type WidgetingEdit = {
   widgetLabel: string
   /** Which level a new one runs at, for each question unless said; an existing one keeps its own */
   tier?:       WidgetingTier
+  /** What it hands its widget: an entry's constraints, say. Absent, an existing one keeps its own and a new one says none */
+  params?:     WidgetingT['params']
 }
 
 /** What applying a widgeting edit comes to: the actions to dispatch, or what to tell the author is wrong, and whether it is the label */
@@ -37,7 +42,8 @@ export type WidgetingPlan =
 /**
  * The actions that applying `edit` of a widgeting comes to, or the reason it cannot be.
  *
- * An existing widgeting is revised only where it changed. A new one works a widget the library
+ * An existing widgeting is revised only where it changed. Its params are held to the widget it
+ * works (`Formularies.paramsOf`), as the server holds them. A new one works a widget the library
  * holds and can run at its tier (`Widgeting.runsAt`), and is labelled as its widget is unless the
  * author says otherwise, growing `_2`, `_3` while that is taken or reserved (for one run once for
  * the whole quiz, by the quiz's own fields too). One for each question brings a column to show it,
@@ -59,20 +65,43 @@ export function planWidgetingEdit(edit: Readonly<WidgetingEdit>, library: readon
   const tier = edit.widgeting?.tier ?? edit.tier ?? DefaultTier
   if (widget && edit.widgeting === null && ! Widgeting.runsAt(widget, tier)) { return refused(RefusalNotices.tierUnoffered) }
   const siblings = new Set(quiz.widgetings.filter((other) => other.label !== edit.widgeting?.label).map((other) => other.label))
-  const reserved = tier === 'quiz' ? Quiz.bagKeys : []
-  const typed = Labelmaker.normalize(edit.label)
-  const label = typed === '' ? Labelmaker.firstFree(edit.widgetLabel, new Set([...siblings, ...ReservedWidgetingLabels, ...reserved])) : typed
+  const label = labelOf(edit, siblings, tier)
   if (siblings.has(label)) { return refused('Another widgeting in this quiz already has that label.', true) }
   if (tier === 'quiz' && ! Quiz.mayLabelQuizTier(label)) { return refused('The quiz itself already answers to that name in a formula.', true) }
-  const checked = WidgetingValidators.widgeting.safeParse({ widget_label: edit.widgetLabel, label, description: edit.description, params: edit.widgeting?.params ?? {}, tier })
+  const checked = WidgetingValidators.widgeting.safeParse({ widget_label: edit.widgetLabel, label, description: edit.description, params: edit.params ?? edit.widgeting?.params ?? {}, tier })
   if (! checked.success) {
     const [first] = checked.error.issues
     return refused(first?.message ?? 'That widgeting will not do.', first?.path[0] === 'label')
   }
+  const paramsIssue = widget ? paramsIssueOf(widget, edit.widgeting, checked.data.params) : null
+  if (paramsIssue !== null) { return refused(paramsIssue) }
   if (edit.widgeting !== null) { return { ok: true, actions: editWidgetingActions(edit.widgeting, checked.data) } }
   if (tier === 'quiz') { return { ok: true, actions: [{ kind: 'add_widgeting', widgeting: checked.data }] } }
   const width_px = widget && Estimates.isEstimating(widget) ? EstimatesColumnWidthPx : NewColumnWidthPx[widget?.formulary ?? 'jsonata']
   return { ok: true, actions: [{ kind: 'add_widgeting', widgeting: checked.data }, newColumnFor(quiz, checked.data.label, width_px)] }
+}
+
+/**
+ * The label a widgeting edit asks for: what was typed, tidied into a label; or, typed blank, its
+ * widget's, growing `_2`, `_3` while a sibling, the questions or (for one run once for the whole
+ * quiz) the quiz's own fields have it.
+ */
+function labelOf(edit: Readonly<WidgetingEdit>, siblings: ReadonlySet<string>, tier: WidgetingTier): string {
+  const typed = Labelmaker.normalize(edit.label)
+  if (typed !== '') { return typed }
+  const reserved = tier === 'quiz' ? Quiz.bagKeys : []
+  return Labelmaker.firstFree(edit.widgetLabel, new Set([...siblings, ...ReservedWidgetingLabels, ...reserved]))
+}
+
+/**
+ * What is wrong with `params` for a widgeting of `widget`, or null when nothing is. Params are
+ * held to the widget only where they are written, as the server holds them: an existing
+ * widgeting's own stand until they change.
+ */
+function paramsIssueOf(widget: WidgetT, held: WidgetingT | null, params: WidgetingT['params']): string | null {
+  if (held !== null && UU.jsonify(params) === UU.jsonify(held.params)) { return null }
+  const checked = Formularies.paramsOf(widget).safeParse(params)
+  return checked.success ? null : `Its params will not do: ${Reporting.explain(checked.error)}`
 }
 
 /** A refusal; `labelIssue` when it is the widgeting's label that will not do */
@@ -93,6 +122,31 @@ function editWidgetingActions(held: WidgetingT, next: WidgetingT): HuntActionDNA
   const patch: WidgetingPatch = {
     ...(held.label !== next.label && { label: next.label }),
     ...(held.description !== next.description && { description: next.description }),
+    ...(UU.jsonify(held.params) !== UU.jsonify(next.params) && { params: next.params }),
   }
   return Object.keys(patch).length === 0 ? [] : [{ kind: 'edit_widgeting', label: held.label, patch }]
+}
+
+/**
+ * Where a widgeting dropped in the run-order list lands in the quiz's whole run order, for
+ * `move_widgeting`. The list shows the entries at its head, where nothing is dragged, and the rest
+ * below them as placed: a drop at `onto_idx` of the rest, counted as they stand once the dragged
+ * one is lifted, lands just before the one now there, or just after the last of them. The entries'
+ * own places among the rest are left as they were, since they run first wherever they are.
+ *
+ * @param widgetings - The quiz's widgetings, in position order.
+ * @param isEntry - Whether a widgeting is an entry's, one of those not dragged.
+ * @param label - The widgeting dropped.
+ * @param onto_idx - Where among the rest it was dropped.
+ * @returns Its index in the whole run order, counted once it is lifted.
+ *
+ * @example runOrderIdxOf([remark, guess, shout], isEntry, 'shout', 0)  // => 1
+ */
+export function runOrderIdxOf(widgetings: readonly WidgetingT[], isEntry: (widgeting: WidgetingT) => boolean, label: string, onto_idx: number): number {
+  const lifted = widgetings.filter((widgeting) => widgeting.label !== label)
+  const rest = lifted.filter((widgeting) => ! isEntry(widgeting))
+  const before = rest[onto_idx]
+  if (before) { return lifted.indexOf(before) }
+  const last = rest.at(-1)
+  return last ? lifted.indexOf(last) + 1 : lifted.length
 }

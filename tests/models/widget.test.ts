@@ -228,13 +228,13 @@ describe('Widget.flavorOf', () => {
 describe('entryParamsIssues', () => {
   const Cases: [Parameters<typeof entryParamsIssues>, ReturnType<typeof entryParamsIssues>, string][] = [
     // regular usage:
-    [['number', { min: 10, max: 1 }],              [{ path: ['max'], message: 'should be no less than the least, «10»' }],  'a least above a most, per the doc example'],
+    [['number', { min: 10, max: 1 }],              [{ path: ['max'], input: 1, message: 'should be no less than the least, «10»' }], 'a least above a most, per the doc example'],
     [['number', { min: 1, max: 1 }],               [],                                                                        'a least that is the most: one value'],
     [['number', { min: 1 }],                       [],                                                                        'a least with no most'],
-    [['text', { pattern: 'url', lines: 'many' }],  [{ path: ['lines'], message: 'should be one: a pattern holds a cell to one line' }], 'a pattern on many lines'],
+    [['text', { pattern: 'url', lines: 'many' }],  [{ path: ['lines'], input: 'many', message: 'should be one: a pattern holds a cell to one line' }], 'a pattern on many lines'],
     [['text', { pattern: 'url', lines: 'one' }],   [],                                                                        'a pattern on one line'],
     [['text', { lines: 'many' }],                  [],                                                                        'many lines with no pattern'],
-    [['labelish', { pattern: 'label', lines: 'many' }], [{ path: ['lines'], message: 'should be one: a pattern holds a cell to one line' }], 'a preset of text, as text'],
+    [['labelish', { pattern: 'label', lines: 'many' }], [{ path: ['lines'], input: 'many', message: 'should be one: a pattern holds a cell to one line' }], 'a preset of text, as text'],
     // trivial cases:
     [['enum', { options: ['a'] }],                 [],                                                                        'a family with nothing to hold together'],
     [['number', {}],                               [],                                                                        'no params at all'],

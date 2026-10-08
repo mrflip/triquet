@@ -785,7 +785,8 @@ describe('older exports', () => {
   it("still imports the library's export of widgets in a list, and of widgets keyed by scope under `widgets`", () => {
     for (const filename of ['library-2026-10-04.json', 'library-2026-10-05.json']) {
       const outcome = Importing.libraryImported(SeedWidgets, olderExport(filename))
-      expect(outcome.log.map((entry) => entry.outcome), filename).to.deep.eq([...SeedWidgets.map(() => 'kept'), 'added'])
+      // The export holds the seeds as they were then, before the entry families were seeded.
+      expect(outcome.log.map((entry) => entry.outcome), filename).to.deep.eq([...SeedWidgets.slice(0, 18).map(() => 'kept'), 'added'])
       expect(outcome.widgets?.map((widget) => widget.label), filename).to.deep.eq(['remark'])
     }
   })
