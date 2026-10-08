@@ -114,11 +114,12 @@ export type ColumnRowPatch = Omit<Partial<Z.output<typeof ColumnValidators.row>>
 
 /**
  * Revise a column's row, writing its source and formula in the plain grammar: a source in the
- * grammar before October 2026, held or given, is written as it reads now (`plainOf`). A formula,
- * template or readout of null is taken off.
+ * grammar before October 2026, held or given, is written as it reads now (`plainOf`), the held
+ * row read so before the patch goes over it, as the browser saw it. A formula, template or
+ * readout of null is taken off.
  */
 export async function updateColumn(db: Writer, held: Doc<'columns'>, patch: ColumnRowPatch): Promise<void> {
-  const merged = { ..._.omit(held, SystemFields), ...patch }
+  const merged = { ..._.omit(held, SystemFields), ...plainOf(held), ...patch }
   const fields = _.omitBy(merged, (val: unknown) => val === null || val === undefined) as Z.input<typeof ColumnValidators.row>
   const next = ColumnValidators.row({ ...fields, ...plainOf({ source: merged.source, formula: merged.formula ?? undefined }) })
   const taken = Object.fromEntries(Object.keys(held).filter((key) => ! key.startsWith('_') && ! Object.hasOwn(next, key)).map((key) => [key, undefined]))
