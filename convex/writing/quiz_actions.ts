@@ -308,15 +308,15 @@ export async function enterQuizWidgeted(db: Writer, open: OpenQuizT, entered: Qu
 }
 
 /**
- * What was typed into a cell of `widgeting`, held to its entry widget's kind; null for a cell
- * emptied. A widgeting whose widget is not an entry is refused.
+ * What was typed into a cell of `widgeting`, held to its entry widget's kind and the params in
+ * force; null for a cell emptied. A widgeting whose widget is not an entry is refused.
  *
- * @throws A refusal (`notEntered`), or a Zod error when the value is not of the entry's kind.
+ * @throws A refusal (`notEntered`), or a Zod error when the value is not of the entry's kind or breaks its params.
  */
 async function enteredValueOf(db: Writer, widgeting: Doc<'widgetings'>, value: WidgetedEnteringT['value']): Promise<EntryValueT | null> {
   const widget = await widgetForLabel(db, widgeting.widget_label)
   if (widget?.formulary !== 'entry') { refuse('notEntered') }
-  return value === null ? null : EntryFormulary.valueOf(widget).parse(value)
+  return value === null ? null : EntryFormulary.valueOf(widget, widgeting).parse(value)
 }
 
 /**
@@ -379,10 +379,11 @@ async function archiveStarters(db: Writer, rows: readonly Doc<'questions'>[]): P
 }
 
 /**
- * Type what an import carries into the quiz's entry cells, each value held to its entry's kind: a
- * value is upserted, a null empties the cell. A label naming no entry widgeting of the quiz that
- * runs for each question (one whose adding was refused, say) is passed over, as an import passes
- * over what it cannot place.
+ * Type what an import carries into the quiz's entry cells, each value held to its entry's kind
+ * (`EntryFormulary.kindValueOf`), not its params, since an export is a promise and a constraint
+ * bites only on the next edit of a cell: a value is upserted, a null empties the cell. A label
+ * naming no entry widgeting of the quiz that runs for each question (one whose adding was
+ * refused, say) is passed over, as an import passes over what it cannot place.
  */
 async function enterImported(db: Writer, { hunt_id, quiz_id }: LayoutPlace, imported: readonly ImportedQuestionT[], idFor: ReadonlyMap<string, Id<'questions'>>): Promise<void> {
   if (imported.every(({ entered }) => _.isEmpty(entered))) { return }
@@ -398,7 +399,7 @@ async function enterImported(db: Writer, { hunt_id, quiz_id }: LayoutPlace, impo
     return question_id && entry ? [{ question_id, entry, value }] : []
   }))
   for (const { question_id, entry, value } of cells) {
-    await upsertWidgeted(db, { _id: question_id, hunt_id, quiz_id }, entry.widgeting._id, value === null ? null : EntryFormulary.valueOf(entry.widget).parse(value))
+    await upsertWidgeted(db, { _id: question_id, hunt_id, quiz_id }, entry.widgeting._id, value === null ? null : EntryFormulary.kindValueOf(entry.widget).parse(value))
   }
 }
 

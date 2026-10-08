@@ -149,7 +149,8 @@ describe('WidgetedValidators.entered', () => {
     [[{ category: 'tv', difficulty: 'hard' }, { category: 'art' }],   true,  "a question's category estimates"],
     [[{ category: 'tv' }, { category: 'tv' }],                        false, 'estimates naming one category twice'],
     [{ category: 'tv' },                                              false, 'an object that is no list of estimates'],
-    [true,                                                            false, 'a boolean'],
+    [true,                                                            true,  'a yes or no'],
+    [[true],                                                          false, 'a list that is no list of estimates'],
   ]
   for (const [value, ok, describes] of Values) {
     it(`${ok ? 'takes' : 'refuses'} ${describes}`, () => {

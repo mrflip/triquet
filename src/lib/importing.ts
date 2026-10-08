@@ -13,6 +13,7 @@ import { CategoriesDescription, CategoriesWidgetLabel, categoryDataLabelsFor, re
 import { CategoryDataLabel, SeedWidgets } from '../models/seeds'
 import { QuizValidators, isTemplatableField, templateableFrom, type QuizT, type Sortkey } from '../models/quiz'
 import { EntryFormulary } from './formulary/entry'
+import * as Formularies from './formulary/formularies'
 import { Widget, WidgetValidators, type EntryValueT, type EntryWidgetT, type WidgetT } from '../models/widget'
 import { WidgetingValidators, type WidgetingT } from '../models/widgeting'
 
@@ -449,19 +450,22 @@ function widgetingSummary(log: readonly WidgetingLogEntry[]): string {
 
 /**
  * The pasted widgetings merged into the quiz's by label: the actions to send, and a line for each.
- * Only what changes is sent.
+ * Only what changes is sent. One whose params its widget does not take is skipped, saying why.
  */
 function widgetingsMerged(quiz: QuizT, pasted: readonly unknown[], library: readonly WidgetT[]): { actions: HuntActionDNA[], log: WidgetingLogEntry[] } {
-  const inLibrary = new Set(library.map((widget) => widget.label))
+  const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
   const heldFor = new Map(quiz.widgetings.map((widgeting) => [widgeting.label, widgeting]))
   const merged = pasted.map((raw): { action: HuntActionDNA | null, entry: WidgetingLogEntry } => {
     const parsed = WidgetingValidators.widgeting.safeParse(raw)
     const shownLabel = typeof (raw as { label?: unknown } | null)?.label === 'string' ? (raw as { label: string }).label : ''
     if (! parsed.success) { return skippedAs(shownLabel, reasonOf(parsed.error)) }
-    const widgeting = parsed.data
+    const widget = widgetFor.get(parsed.data.widget_label)
+    const params = widget ? Formularies.paramsOf(widget).safeParse(parsed.data.params) : null
+    if (params && ! params.success) { return skippedAs(parsed.data.label, `its params will not do for ${parsed.data.widget_label}: ${Reporting.explain(params.error)}`) }
+    const widgeting = params ? { ...parsed.data, params: params.data } : parsed.data
     const held = heldFor.get(widgeting.label)
     if (held) { return revisedFrom(held, widgeting) }
-    if (! inLibrary.has(widgeting.widget_label)) { return skippedAs(widgeting.label, `the library holds no widget called "${widgeting.widget_label}"`) }
+    if (! widget) { return skippedAs(widgeting.label, `the library holds no widget called "${widgeting.widget_label}"`) }
     return { action: { kind: 'add_widgeting', widgeting }, entry: { label: widgeting.label, outcome: 'added', reason: null } }
   })
   return { actions: merged.flatMap(({ action }) => (action ? [action] : [])), log: merged.map(({ entry }) => entry) }
@@ -522,7 +526,7 @@ function enteredFrom(bag: Record<string, unknown>, entries: ReadonlyMap<string, 
     const pasted = pastedEntryOf(bag[label])
     if (! pasted.ok) { issues.push({ fieldpath: label, message: pasted.message, code: 'entry_unreadable' }); continue }
     if (pasted.value === null) { entered[label] = null; continue }
-    const checked = EntryFormulary.valueOf(widget).safeParse(pasted.value)
+    const checked = EntryFormulary.kindValueOf(widget).safeParse(pasted.value)
     if (checked.success) {
       entered[label] = checked.data
     } else {

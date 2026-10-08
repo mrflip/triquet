@@ -59,8 +59,10 @@ type FormularyFacts = {
   input:  (widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag) => InputOutcome
 }
 
-/** What a formulary with a formula answers besides: the help it offers in writing one */
+/** What a formulary with a formula answers besides: the help it offers in writing one, and the params its widgetings may hand on */
 type FormulaFacts = {
+  /** The validator for a widgeting's `params`: any few settings, for its formulas to read in the bag */
+  paramsOf: () => Z.ZodType
   /** The meta-prompt an author copies out to get help writing this widget's formula */
   advice: (widget: WidgetT, widgeting: AdviceSubject | null, sample: QuizBag | null) => string
 }
@@ -86,8 +88,10 @@ export type AskedFormulary = FormularyFacts & FormulaFacts & {
 export type TypedFormulary = FormularyFacts & {
   readonly refresh: null
   readonly store:   'upsert'
-  /** The validator of what one of the widget's cells may hold */
-  valueOf: (widget: Pick<EntryWidgetT, 'config'>) => Z.ZodType<EntryValueT>
+  /** The validator for a widgeting's `params`, given the widget it works: the one source a params editor is drawn from */
+  paramsOf: (widget: Pick<EntryWidgetT, 'config'>) => Z.ZodObject
+  /** The validator of what one of the widget's cells may hold, by the params in force for the widgeting working it */
+  valueOf: (widget: Pick<EntryWidgetT, 'config'>, widgeting: Pick<WidgetingT, 'params'>) => Z.ZodType<EntryValueT>
 }
 
 /** One generic runner behind a widget: code, never a row */
@@ -99,6 +103,21 @@ export const Formularies = {
   aibot:   AibotFormulary,
   entry:   EntryFormulary,
 } as const satisfies Record<Formularykind, Formulary>
+
+/**
+ * The validator for the params of a widgeting of `widget`: an entry's family's, held together
+ * with the widget's defaults; the open record of a formulary whose widgets read params from the bag.
+ *
+ * @param widget - Any widget of the library.
+ * @returns The validator.
+ *
+ * @example paramsOf(numberEntry).safeParse({ min: 'one' }).success  // => false
+ * @example paramsOf(shoutWidget).safeParse({ loud: true }).success  // => true
+ */
+export function paramsOf(widget: WidgetT): Z.ZodType<WidgetingT['params']> {
+  // Every family's params are a few JSON settings by name, as a widgeting's row holds them.
+  return (widget.formulary === 'entry' ? EntryFormulary.paramsOf(widget) : Formularies[widget.formulary].paramsOf()) as Z.ZodType<WidgetingT['params']>
+}
 
 /**
  * The formulary that works `widget`.

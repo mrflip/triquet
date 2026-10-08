@@ -20,6 +20,7 @@ import { Question } from '../../src/models/question'
 import type { HuntActionDNA } from '../../src/models/actions'
 import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
 import type { EstimatesDNA } from '../../src/models/estimate'
+import type { EntryConfigT } from '../../src/models/widget'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
 import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seeded, type Seen, type Session, type Tester } from '../support/convex'
@@ -82,6 +83,12 @@ async function putEntryToWork(seeded: Pick<Seeded, 'act' | 'actOnLibrary'>, labe
   await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: label, label } })
 }
 
+/** Put an entry widget configured as `config` into the library, labelled `label`, and to work in `seeded`'s open quiz under the same label, saying `params` of its own */
+async function putFamilyToWork(seeded: Pick<Seeded, 'act' | 'actOnLibrary'>, label: string, config: EntryConfigT, params: Record<string, JsonT> = {}): Promise<void> {
+  await seeded.actOnLibrary({ kind: 'add_widget', widget: { label, formulary: 'entry', config } })
+  await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: label, label, params } })
+}
+
 /** Put an entry widget of `entry_kind` into the library, labelled `label`, and to work in `seeded`'s open quiz under the same label, once for the whole quiz */
 async function putQuizEntryToWork(seeded: Pick<Seeded, 'act' | 'actOnLibrary'>, label: string, entry_kind: 'text' | 'number' = 'text'): Promise<void> {
   await seeded.actOnLibrary({ kind: 'add_widget', widget: { label, formulary: 'entry', config: { entry_kind } } })
@@ -100,7 +107,7 @@ async function quizValuesIn(tt: Tester): Promise<string[]> {
 }
 
 /** Typing `value` into `question_id`'s cell of the entry widgeting `widgeting_label`, as the cell commits it on blur */
-function entering(question_id: string, widgeting_label: string, value: string | number | EstimatesDNA | null): HuntActionDNA {
+function entering(question_id: string, widgeting_label: string, value: string | number | boolean | EstimatesDNA | null): HuntActionDNA {
   return { kind: 'enter_widgeted', entered: { question_id, widgeting_label, value } }
 }
 
@@ -753,6 +760,29 @@ describe("hunts.perform", () => {
       await refusalOf(act(entering(id, 'remark', 3)))
       const blank = ' '.repeat(3)
       await refusalOf(act(entering(id, 'remark', blank)))
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("holds what was typed to the params in force: the widget's defaults, overlaid by its widgeting's own", async () => {
+      const { act, actOnLibrary, read, id } = await withEntries()
+      await putFamilyToWork({ act, actOnLibrary }, 'grade', { entry_kind: 'number', min: 1, max: 10, integer: true }, { max: 5 })
+      const ante = await read()
+      for (const refused of [0, 6, 2.5]) { await refusalOf(act(entering(id, 'grade', refused))) }
+      expect(await read()).to.deep.eq(ante)
+      await act(entering(id, 'grade', 5))
+      expect(cellOf(await read(), 'grade')?.newest.value).to.eq(5)
+    })
+
+    it("keeps a yes or no, and one of a choice's options, and refuses what is none of them", async () => {
+      const { act, actOnLibrary, read, id } = await withEntries()
+      await putFamilyToWork({ act, actOnLibrary }, 'checked', { entry_kind: 'boolean' })
+      await putFamilyToWork({ act, actOnLibrary }, 'stage', { entry_kind: 'enum' }, { options: ['draft', 'final'] })
+      await act(entering(id, 'checked', false))
+      await act(entering(id, 'stage', 'final'))
+      const ante = await read()
+      expect([cellOf(ante, 'checked')?.newest.value, cellOf(ante, 'stage')?.newest.value]).to.deep.eq([false, 'final'])
+      await refusalOf(act(entering(id, 'checked', 'yes')))
+      await refusalOf(act(entering(id, 'stage', 'Final')))
       expect(await read()).to.deep.eq(ante)
     })
 
@@ -1500,6 +1530,14 @@ describe("hunts.perform", () => {
       const ante = await read()
       await refusalOf(act({ kind: 'import_questions', questions: [{ label: firstOf(ante).label, patch: { clueing: 'Imported' }, entered: { points: 'three' } }] }))
       expect(await read()).to.deep.eq(ante)
+    })
+
+    it("holds a value to its entry's kind and not its params: an export is a promise, and a constraint bites on the next edit", async () => {
+      const seeded = await seed(huntOf(['1', 'a']))
+      const { act, read } = seeded
+      await putFamilyToWork(seeded, 'grade', { entry_kind: 'number', max: 10 })
+      await act({ kind: 'import_questions', questions: [{ label: firstOf(await read()).label, patch: {}, entered: { grade: 11 } }] })
+      expect(firstOf(await read()).stored.grade?.ok?.value).to.eq(11)
     })
 
     it("revises the question answering to each label, adds one under a label none answers to, and deletes nothing", async () => {

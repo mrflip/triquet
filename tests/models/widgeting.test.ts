@@ -109,6 +109,9 @@ describe('Widgeting.runsAt', () => {
     [{ formulary: 'jsonata', config: {} },                                                     'quiz',     true,  'a formula runs once for the whole quiz'],
     [{ formulary: 'entry', config: { entry_kind: 'text' } },                                   'quiz',     true,  'a text entry runs once for the whole quiz'],
     [{ formulary: 'entry', config: { entry_kind: 'number' } },                                 'quiz',     true,  'a number entry runs once for the whole quiz'],
+    [{ formulary: 'entry', config: { entry_kind: 'boolean' } },                                'quiz',     true,  'a yes-or-no entry runs once for the whole quiz'],
+    [{ formulary: 'entry', config: { entry_kind: 'enum' } },                                   'quiz',     true,  'a choice entry runs once for the whole quiz'],
+    [{ formulary: 'entry', config: { entry_kind: 'titleish' } },                               'quiz',     true,  'a preset of text runs once for the whole quiz, as text does'],
     // refused at the quiz's level:
     [{ formulary: 'aibot', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 9 } }, 'quiz', false, 'a model asked from a cell has no cell at the quiz\'s level'],
     [{ formulary: 'entry', config: { entry_kind: 'estimates' } },                              'quiz',     false, 'a question\'s category estimates are no value of the quiz'],

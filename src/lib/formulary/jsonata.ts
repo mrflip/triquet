@@ -4,7 +4,7 @@ import { advicePrompt, type AdviceSpec } from './advice'
 import { inputSchema, outputSchema } from '../../models/quiz-bag'
 import { Widgeted, type JsonT, type WidgetedT } from '../../models/widgeted'
 import { JsonataDefaultInput, WidgetValidators, type WidgetT } from '../../models/widget'
-import type { WidgetingT } from '../../models/widgeting'
+import { WidgetingValidators, type WidgetingT } from '../../models/widgeting'
 import type { AdviceSubject, InputOutcome, LiveRun } from './formularies'
 import type { QuizBag } from './runner'
 
@@ -28,6 +28,16 @@ export class JsonataFormulary {
   static readonly refresh = 'live'
   static readonly store = null
   static readonly config = WidgetValidators.jsonataConfig
+
+  /**
+   * The validator of a widgeting's params: any few settings, by name, which reach the bag as
+   * `params` for the formula to read.
+   *
+   * @example JsonataFormulary.paramsOf().safeParse({ size: 3 }).success  // => true
+   */
+  static paramsOf(): typeof WidgetingValidators.params {
+    return WidgetingValidators.params
+  }
 
   /**
    * Whether the widget's formula and input formula both read: null when they do, else a

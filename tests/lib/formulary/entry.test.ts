@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { EntryFormulary } from '../../../src/lib/formulary/entry'
-import { Widget, WidgetValidators } from '../../../src/models/widget'
+import * as Formularies from '../../../src/lib/formulary/formularies'
+import { Widget, WidgetValidators, type EntryKind } from '../../../src/models/widget'
 
-const entryOf = (entry_kind: 'text' | 'number' | 'labelish' | 'titleish' | 'estimates') => Widget.fill({ label: 'remark', formulary: 'entry', config: { entry_kind } })
+/** An entry widget of `entry_kind`, its config holding `defaults` beside its kind */
+const entryOf = (entry_kind: EntryKind, defaults: Record<string, unknown> = {}) => Widget.fill({ label: 'remark', formulary: 'entry', config: { entry_kind, ...defaults } })
+
+/** A widgeting saying `params` of its own */
+const saying = (params: Record<string, unknown> = {}) => ({ params: params as Record<string, never> })
 
 describe('EntryFormulary', () => {
   it('reads nothing, is never worked out or asked, and upserts what is typed', () => {
@@ -21,27 +26,164 @@ describe('EntryFormulary', () => {
     expect(EntryFormulary.input()).to.deep.eq({ status: 'missing' })
   })
 
+  describe('paramsOf', () => {
+    it("refuses a widgeting's params that put a least above its widget's most, and any param of another family, per the doc examples", () => {
+      expect(EntryFormulary.paramsOf({ config: { entry_kind: 'number', min: 1 } }).safeParse({ max: 0 }).success).to.be.false
+      expect(EntryFormulary.paramsOf({ config: { entry_kind: 'boolean' } }).safeParse({ min: 1 }).success).to.be.false
+    })
+
+    it("takes its family's params, each alone or none", () => {
+      expect(EntryFormulary.paramsOf(entryOf('number')).parse({ min: 0, integer: true })).to.deep.eq({ min: 0, integer: true })
+      expect(EntryFormulary.paramsOf(entryOf('text')).parse({ pattern: 'url' })).to.deep.eq({ pattern: 'url' })
+      expect(EntryFormulary.paramsOf(entryOf('enum')).parse({ options: ['easy', 'hard'] })).to.deep.eq({ options: ['easy', 'hard'] })
+      expect(EntryFormulary.paramsOf(entryOf('boolean')).parse({})).to.deep.eq({})
+    })
+
+    it("says what is wrong of the param to change", () => {
+      const paramsValidator = EntryFormulary.paramsOf(entryOf('number', { min: 5 }))
+      const checked = paramsValidator.safeParse({ max: 1 })
+      expect(checked.error?.issues.map((issue) => [issue.path, issue.message])).to.deep.eq([[['max'], 'should be no less than the least, «5»']])
+    })
+
+    it("is the shape a params editor draws its fields from", () => {
+      const { shape } = EntryFormulary.paramsOf(entryOf('number'))
+      expect(Object.keys(shape)).to.deep.eq(['min', 'max', 'integer'])
+    })
+  })
+
+  describe('inForce', () => {
+    it("overlays the widget's defaults with the widgeting's own, key by key, per the doc example", () => {
+      expect(EntryFormulary.inForce({ config: { entry_kind: 'number', min: 1, max: 10 } }, { params: { max: 5 } })).to.deep.eq({ family: 'number', params: { min: 1, max: 5 } })
+    })
+
+    it("puts a preset of text beneath everything, per the doc example", () => {
+      expect(EntryFormulary.inForce({ config: { entry_kind: 'labelish' } }, { params: {} })).to.deep.eq({ family: 'text', params: { pattern: 'label', lines: 'one' } })
+      expect(EntryFormulary.inForce(entryOf('titleish'), saying())).to.deep.eq({ family: 'text', params: { pattern: 'oneline', lines: 'one', max_length: 82 } })
+    })
+
+    it("reads a widgeting's params written before they were held to its family as saying nothing", () => {
+      expect(EntryFormulary.inForce(entryOf('number', { max: 10 }), saying({ strict: true }))).to.deep.eq({ family: 'number', params: { max: 10 } })
+    })
+
+    it("is each family's own, with no params for one that takes none", () => {
+      expect(EntryFormulary.inForce(entryOf('boolean'), saying())).to.deep.eq({ family: 'boolean', params: {} })
+      expect(EntryFormulary.inForce(entryOf('estimates'), saying())).to.deep.eq({ family: 'estimates', params: {} })
+    })
+  })
+
   describe('valueOf', () => {
-    it("holds a cell to its widget's kind, per the doc example", () => {
-      expect(EntryFormulary.valueOf(entryOf('labelish')).parse('quiet_otter')).to.eq('quiet_otter')
+    it("holds a cell to its widget's kind and the params in force, per the doc examples", () => {
+      expect(EntryFormulary.valueOf({ config: { entry_kind: 'labelish' } }, { params: {} }).parse('quiet_otter')).to.eq('quiet_otter')
+      expect(EntryFormulary.valueOf({ config: { entry_kind: 'number' } }, { params: { max: 10 } }).safeParse(11).success).to.be.false
     })
 
-    it('takes text for text, a number for a number, and a title for a title', () => {
-      expect(EntryFormulary.valueOf(entryOf('text')).parse(' Ask Flip. ')).to.eq('Ask Flip.')
-      expect(EntryFormulary.valueOf(entryOf('number')).parse(-1.5)).to.eq(-1.5)
-      expect(EntryFormulary.valueOf(entryOf('titleish')).parse('The Otter')).to.eq('The Otter')
+    const Taken: [EntryKind, Record<string, unknown>, unknown, unknown, string][] = [
+      // text:
+      ['text',      {},                                  '  *Ask* Flip.\nThen ask again.  ', '*Ask* Flip.\nThen ask again.', 'prose for a text entry, trimmed, markdown and newlines and all'],
+      ['text',      { max_length: 5 },                   'Five!',                            'Five!',                        'text as long as it may be'],
+      ['text',      { pattern: 'url' },                  'https://example.com',              'https://example.com',          'a web address for one held to the url pattern'],
+      ['text',      { pattern: 'label' },                'position',                         'position',                     'a reserved word for one held to the label pattern: a value, not a name in any namespace'],
+      ['labelish',  {},                                  'quiet_otter',                      'quiet_otter',                  'a label for a label entry'],
+      ['titleish',  {},                                  ' The Quiet Otter ',                'The Quiet Otter',              'one line for a title entry, trimmed'],
+      // number:
+      ['number',    {},                                  -2.5,                               -2.5,                           'any finite number for a number entry, below nought and fractions included'],
+      ['number',    { min: 1, max: 10, integer: true },  10,                                 10,                             'a whole number at its most'],
+      ['number',    { min: 1, max: 10 },                 1,                                  1,                              'a number at its least'],
+      // boolean:
+      ['boolean',   {},                                  false,                              false,                          'no for a yes-or-no entry'],
+      ['boolean',   {},                                  true,                               true,                           'yes for a yes-or-no entry'],
+      // enum:
+      ['enum',      { options: ['easy', 'hard'] },       'hard',                             'hard',                         'one of the options for a choice entry'],
+      // estimates:
+      ['estimates', {},                                  [{ category: 'tv' }],               [{ category: 'tv', difficulty: 'medium' }], "a question's category estimates, each difficulty medium unless said"],
+    ]
+    for (const [entry_kind, params, val, expected, describes] of Taken) {
+      it(`takes ${describes}`, () => {
+        expect(EntryFormulary.valueOf(entryOf(entry_kind), saying(params)).parse(val)).to.deep.eq(expected)
+      })
+    }
+
+    const Refused: [EntryKind, Record<string, unknown>, unknown, string][] = [
+      // text:
+      ['text',      {},                                  ' '.repeat(3),                  'blank text, which is an emptied cell rather than a value'],
+      ['text',      {},                                  'x'.repeat(3601),               'text past 3600 characters'],
+      ['text',      {},                                  'a\u{7}b',                      'text with a control character'],
+      ['text',      {},                                  3,                              'a number in a text entry'],
+      ['text',      { max_length: 5 },                   'Six!!!',                       'text past its most characters'],
+      ['text',      { lines: 'one' },                    'two\nlines',                   'two lines where one is asked for'],
+      ['text',      { pattern: 'oneline' },              'two\nlines',                   'two lines for one held to a pattern'],
+      ['text',      { pattern: 'url' },                  'example.com',                  'an address with no scheme for one held to the url pattern'],
+      ['text',      { pattern: 'label' },                'Quiet Otter',                  'what is not a label for one held to the label pattern'],
+      ['labelish',  {},                                  'Quiet Otter',                  'a label that is not one'],
+      ['titleish',  {},                                  'x'.repeat(83),                 'a title past 82 characters'],
+      ['titleish',  {},                                  'two\nlines',                   'a title of two lines'],
+      ['titleish',  {},                                  '',                             'an empty title, which is an emptied cell'],
+      // number:
+      ['number',    {},                                  '3',                            'text in a number entry'],
+      ['number',    {},                                  Infinity,                       'a number without end'],
+      ['number',    { min: 1 },                          0,                              'a number below its least'],
+      ['number',    { max: 10 },                         10.5,                           'a number above its most'],
+      ['number',    { integer: true },                   2.5,                            'a fraction for a whole-number entry'],
+      // boolean:
+      ['boolean',   {},                                  'yes',                          'text for a yes-or-no entry'],
+      ['boolean',   {},                                  0,                              'a number for a yes-or-no entry'],
+      // enum:
+      ['enum',      { options: ['easy', 'hard'] },       'medium',                       'what is none of the options'],
+      ['enum',      { options: ['easy', 'hard'] },       'Easy',                         'an option in another case'],
+      ['enum',      {},                                  'easy',                         'anything at all for one with no options yet'],
+      // estimates:
+      ['estimates', {},                                  [],                                                            'no estimates at all, which is an emptied cell'],
+      ['estimates', {},                                  [{ category: 'tv' }, { category: 'tv', difficulty: 'hard' }], 'one category estimated twice'],
+      ['estimates', {},                                  [{ category: 'cooking' }],                                    'a category there is not'],
+      ['estimates', {},                                  'tv',                                                         'text in a category-estimate entry'],
+    ]
+    for (const [entry_kind, params, val, describes] of Refused) {
+      it(`refuses ${describes}`, () => {
+        expect(EntryFormulary.valueOf(entryOf(entry_kind), saying(params)).safeParse(val).success).to.be.false
+      })
+    }
+
+    it("says why it refuses, in a sentence of its own", () => {
+      const checked = EntryFormulary.valueOf(entryOf('enum'), saying()).safeParse('easy')
+      expect(checked.error?.issues[0]?.message).to.eq('has no options to be one of: give the widgeting some')
     })
 
-    it("takes a question's category estimates for a category-estimate entry", () => {
-      expect(EntryFormulary.valueOf(entryOf('estimates')).parse([{ category: 'tv' }])).to.deep.eq([{ category: 'tv', difficulty: 'medium' }])
-      expect(EntryFormulary.valueOf(entryOf('estimates')).safeParse([{ category: 'tv' }, { category: 'tv' }]).success).to.be.false
-      expect(EntryFormulary.valueOf(entryOf('text')).safeParse([{ category: 'tv' }]).success).to.be.false
+    it("holds a cell to the widget's defaults where the widgeting says nothing", () => {
+      expect(EntryFormulary.valueOf(entryOf('number', { max: 10 }), saying()).safeParse(11).success).to.be.false
+      expect(EntryFormulary.valueOf(entryOf('number', { max: 10 }), saying({ max: 20 })).safeParse(11).success).to.be.true
+    })
+  })
+
+  describe('kindValueOf', () => {
+    it("holds a pasted value to its kind and not its params, per the doc examples", () => {
+      expect(EntryFormulary.kindValueOf({ config: { entry_kind: 'number', max: 10 } }).safeParse(11).success).to.be.true
+      expect(EntryFormulary.kindValueOf({ config: { entry_kind: 'labelish' } }).safeParse('Quiet Otter').success).to.be.false
     })
 
-    it("refuses what its widget's kind does not take", () => {
-      expect(EntryFormulary.valueOf(entryOf('number')).safeParse('3').success).to.be.false
-      expect(EntryFormulary.valueOf(entryOf('labelish')).safeParse('Quiet Otter').success).to.be.false
-      expect(EntryFormulary.valueOf(entryOf('text')).safeParse(3).success).to.be.false
+    it("takes any option for a choice entry, and refuses what no option could be", () => {
+      expect(EntryFormulary.kindValueOf(entryOf('enum', { options: ['easy'] })).parse('medium')).to.eq('medium')
+      expect(EntryFormulary.kindValueOf(entryOf('enum')).safeParse('two\nlines').success).to.be.false
     })
+
+    it("refuses a value of another kind", () => {
+      expect(EntryFormulary.kindValueOf(entryOf('boolean')).safeParse('yes').success).to.be.false
+      expect(EntryFormulary.kindValueOf(entryOf('text')).safeParse(3).success).to.be.false
+    })
+  })
+
+  describe('isOneLine', () => {
+    it("is true where a text entry says one line, or a pattern holds it to one, per the doc examples", () => {
+      expect(EntryFormulary.isOneLine({ pattern: 'url' })).to.be.true
+      expect(EntryFormulary.isOneLine({})).to.be.false
+      expect(EntryFormulary.isOneLine({ lines: 'one' })).to.be.true
+      expect(EntryFormulary.isOneLine({ lines: 'many' })).to.be.false
+    })
+  })
+})
+
+describe('Formularies.paramsOf', () => {
+  it("is an entry's family's validator, and the open record of a formula's or a prompt's, per the doc examples", () => {
+    expect(Formularies.paramsOf(entryOf('number')).safeParse({ min: 'one' }).success).to.be.false
+    expect(Formularies.paramsOf(Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })).safeParse({ loud: true }).success).to.be.true
   })
 })

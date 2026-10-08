@@ -77,7 +77,7 @@ type ByWidgeting<VT> = ReadonlyMap<string, ReadonlyMap<string, VT>>
 
 /** A quiz, run: every widgeting's widgeted for every question, or for the quiz, and what its runs were worked out from */
 export type QuizRun = {
-  /** Its widgetings, in run order: their positions, the two tiers mixed as the author placed them */
+  /** Its widgetings, in run order (`inRunOrder`): every entry first, then the rest by their positions, the two tiers mixed as the author placed them */
   steps:     readonly RunStep[]
   /** Every question widgeting's widgeted, for every question */
   widgeteds: ByWidgeting<WidgetedT>
@@ -108,9 +108,9 @@ export type StatusCounts = Record<WidgetedStatus, number>
 const GoneMessage = (widget_label: string) => `There is no widget called "${widget_label}" any more`
 
 /**
- * A quiz run: each widgeting in run order (its position, whichever tier it runs at), each worked
- * out for every question, or projected from what was stored, with the widgeteds of those before
- * it in its bag. A widgeting for the whole quiz is worked out once, over a bag for no question
+ * A quiz run: each widgeting in run order (`inRunOrder`: every entry first, then the rest by its
+ * position, whichever tier it runs at), each worked out for every question, or projected from
+ * what was stored, with the widgeteds of those before it in its bag. A widgeting for the whole quiz is worked out once, over a bag for no question
  * (`qn` empty) whose questions stand as the widgetings before it left them, and its widgeted
  * joins every later bag's quiz, as `quiz.<label>`; a question widgeting reads every one before it.
  *
@@ -126,7 +126,7 @@ const GoneMessage = (widget_label: string) => `There is no widget called "${widg
 export function runQuiz(source: RunSource): QuizRun {
   const { quiz } = source
   const frame = frameOf(quiz, source.place)
-  const { steps } = source
+  const steps = inRunOrder(source.steps)
   const widgeteds = new Map<string, ReadonlyMap<string, WidgetedT>>()
   const quizWidgeteds = new Map<string, WidgetedT>()
   const inputs = new Map<string, ReadonlyMap<string, InputOutcome>>()
@@ -152,6 +152,31 @@ export function runQuiz(source: RunSource): QuizRun {
     qns = withWidgeteds(qns, label, column.widgeteds, cellParts)
   }
   return { steps, widgeteds, quizWidgeteds, inputs, qnsAt, qnsAfter: qns, quizAt, frame: { ...frame, quiz: quizNow } }
+}
+
+/**
+ * Steps in the order they run: every entry first, of either tier, and then the rest as placed.
+ * An entry reads nothing, so nothing it could read is ever missed by running it early, and every
+ * formula and prompt after it reads what was typed. The order among the entries is theirs as
+ * placed, and harmless. A step whose widget is gone is not known to be an entry, and keeps its place.
+ *
+ * @param steps - Widgetings, or anything carrying one with its widget, in position order.
+ * @returns The same, entries first.
+ *
+ * @example inRunOrder([guess, remark]).map((step) => step.widgeting.label)  // => ['remark', 'guess']
+ */
+export function inRunOrder<ST extends Pick<RunStep, 'widget'>>(steps: readonly ST[]): ST[] {
+  return [...steps.filter((step) => isEntryStep(step)), ...steps.filter((step) => ! isEntryStep(step))]
+}
+
+/**
+ * Whether a step is an entry's, which runs ahead of every other and is never placed among them.
+ *
+ * @example isEntryStep({ widget: remarkEntry })  // => true
+ * @example isEntryStep({ widget: null })         // => false
+ */
+export function isEntryStep(step: Pick<RunStep, 'widget'>): boolean {
+  return step.widget?.formulary === 'entry'
 }
 
 /**

@@ -417,6 +417,15 @@ describe('importInto', () => {
       expect(outcome.widgetingActions).to.deep.eq([])
     })
 
+    it("adds an entry's widgeting with the params its family takes, and skips one with params it does not, saying why", () => {
+      const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'points', label: 'graded', params: { min: 1, max: 10 } }, { widget_label: 'points', label: 'chosen', params: { options: ['a'] } }], EntryLibrary)
+      expect(outcome.widgetingActions).to.deep.eq([
+        { kind: 'add_widgeting', widgeting: { widget_label: 'points', label: 'graded', description: '', params: { min: 1, max: 10 }, tier: 'question' } },
+      ])
+      expect(outcome.widgetingLog.map((entry) => [entry.label, entry.outcome])).to.deep.eq([['graded', 'added'], ['chosen', 'skipped']])
+      expect(outcome.widgetingLog[1]?.reason).to.match(/^its params will not do for points: .*options/)
+    })
+
     it("refuses one under a word the tool keeps for its own use, saying which word", () => {
       const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'answer_reversed', label: 'total' }, { widget_label: 'answer_reversed', label: 'status' }])
       expect(outcome.widgetingActions).to.deep.eq([])
@@ -463,6 +472,11 @@ describe('importInto', () => {
     it("types a value under an entry's label into its cell, read as the export writes it or bare", () => {
       const outcome = read(enteredQuiz(), [{ label: 'leon', remark: { status: 'ok', value: 'Ask Flip.' }, points: 3 }])
       expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Ask Flip.', points: 3 })
+    })
+
+    it("holds what a question carries to its entry's kind and not its widgeting's params, which bite on the next edit", () => {
+      const quiz = { ...enteredQuiz(), widgetings: enteredQuiz().widgetings.map((widgeting) => (widgeting.label === 'points' ? { ...widgeting, params: { max: 10 } } : widgeting)) }
+      expect(enteredFor(read(quiz, [{ label: 'leon', points: 11 }]), 'leon')).to.deep.eq({ points: 11 })
     })
 
     it("empties a cell for nothing: null, an empty text, or a missing cell as the export writes it", () => {

@@ -9,7 +9,7 @@ import * as PA from '../lib/vv/patterns'
 import { ColumnStageFieldnames, ColumnValidators, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals } from './column'
 import { ArchivedField, PlaceField, Question, RankField, SecondaryField, VizField } from './question'
 import { StalenessFieldnames, WidgetedValidators } from './widgeted'
-import type { WidgetT } from './widget'
+import { EntryKindOncePerQuiz, type WidgetT } from './widget'
 
 /**
  * The keys at the top of every bag a formula reads (`QuizBagValidators.quizBag`, which is held to
@@ -106,7 +106,7 @@ export const WidgetingValidators = Validator(({ obj, rec, oneof, label, labelsha
   })
     .describe('One widgeting as the database holds it.')
 
-  return { widgetingLabel, tier, widgeting, widgetingPatch, row }
+  return { widgetingLabel, params, tier, widgeting, widgetingPatch, row }
 })
 
 export type WidgetingDNA   = Z.input<typeof WidgetingValidators.widgeting>
@@ -131,15 +131,17 @@ export class Widgeting implements WidgetingT {
 
   /**
    * Whether a widgeting of `widget` may run at `tier`. Every widget runs for each question; once for
-   * the whole quiz, only a formula (`jsonata`) and an entry of one value (not a question's category
-   * estimates). A model asked from a cell has no cell to be asked from at the quiz's level.
+   * the whole quiz, only a formula (`jsonata`) and an entry of a family that holds one value the
+   * quiz can have (`EntryKindOncePerQuiz`: any but a question's category estimates). A model asked
+   * from a cell has no cell to be asked from at the quiz's level.
    *
-   * @example Widgeting.runsAt({ formulary: 'aibot', config: aibotConfig }, 'quiz')          // => false
-   * @example Widgeting.runsAt({ formulary: 'entry', config: { entry_kind: 'text' } }, 'quiz')  // => true
+   * @example Widgeting.runsAt({ formulary: 'aibot', config: aibotConfig }, 'quiz')             // => false
+   * @example Widgeting.runsAt({ formulary: 'entry', config: { entry_kind: 'text' } }, 'quiz')     // => true
+   * @example Widgeting.runsAt({ formulary: 'entry', config: { entry_kind: 'boolean' } }, 'quiz')  // => true
    */
   static runsAt(widget: Pick<WidgetT, 'formulary' | 'config'>, tier: WidgetingTier): boolean {
     if (tier === 'question' || widget.formulary === 'jsonata') { return true }
-    return widget.formulary === 'entry' && 'entry_kind' in widget.config && widget.config.entry_kind !== 'estimates'
+    return widget.formulary === 'entry' && 'entry_kind' in widget.config && EntryKindOncePerQuiz[widget.config.entry_kind]
   }
 
   /**

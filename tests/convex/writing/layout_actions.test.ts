@@ -578,6 +578,44 @@ async function withQuizWide(): Promise<Seeded> {
   return seeded
 }
 
+/** A standard hunt whose library holds a number entry, `grade`, of 1 to 10 */
+async function withGrade(): Promise<Seeded> {
+  const seeded = await seed()
+  await seeded.actOnLibrary({ kind: 'add_widget', widget: { label: 'grade', formulary: 'entry', config: { entry_kind: 'number', min: 1, max: 10 } } })
+  return seeded
+}
+
+/** The params of the open quiz's widgeting labelled `label` */
+const paramsOf = (seen: Seen, label: string) => quizOf(seen).widgetings.find((widgeting) => widgeting.label === label)?.params
+
+describe("a widgeting's params", () => {
+  it("are kept when they fit the family of the widget it works, and the widget's defaults beneath them", async () => {
+    const { act, read } = await withGrade()
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'grade', label: 'grade', params: { max: 5, integer: true } } })
+    expect(paramsOf(await read(), 'grade')).to.deep.eq({ max: 5, integer: true })
+    await act({ kind: 'edit_widgeting', label: 'grade', patch: { params: { min: 2 } } })
+    expect(paramsOf(await read(), 'grade')).to.deep.eq({ min: 2 })
+  })
+
+  it("are refused, writing nothing, when the family does not take them, or they do not fit the widget's defaults", async () => {
+    const seeded = await withGrade()
+    const ante = await seeded.read()
+    await expect(seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'grade', label: 'grade', params: { options: ['a'] } } })).rejects.toThrow()
+    await expect(seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'grade', label: 'grade', params: { max: 0 } } })).rejects.toThrow(/no less than the least/)
+    expect(await seeded.read()).to.deep.eq(ante)
+    await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'grade', label: 'grade' } })
+    const held = await seeded.read()
+    await expect(seeded.act({ kind: 'edit_widgeting', label: 'grade', patch: { params: { integer: 'yes' } } })).rejects.toThrow()
+    expect(await seeded.read()).to.deep.eq(held)
+  })
+
+  it("are any few settings for a formula's widgeting, as ever", async () => {
+    const { act, read } = await seed()
+    await act({ kind: 'add_widgeting', widgeting: { ...Backward, params: { size: 3 } } })
+    expect(paramsOf(await read(), 'backward')).to.deep.eq({ size: 3 })
+  })
+})
+
 describe("widgetings run once for the whole quiz", () => {
   it("puts a new one at the end of the run order, where it reads every widgeting before it", async () => {
     const { tt, read } = await withQuizWide()

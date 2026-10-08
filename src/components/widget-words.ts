@@ -12,8 +12,10 @@ export const FormularyWords: Readonly<Record<Formularykind, { noun: string, grou
 
 /** How each kind of entry is spoken of on screen: what its cells take */
 export const EntryKindWords: Readonly<Record<EntryKind, string>> = {
-  text:      'Text: a note, markdown welcome',
-  number:    'A number',
+  text:      'Text: a note, markdown welcome, or one line held to a pattern',
+  number:    'A number, between bounds if you like',
+  boolean:   'Yes or no: a checkbox',
+  enum:      'A choice: one of a list of options',
   labelish:  'A label: lowercase letters, digits and single underscores',
   titleish:  'A title: one line',
   estimates: "Category estimates: the subject categories a question draws on, each at a difficulty, and Masie, Artie and Poppy's chances at it",

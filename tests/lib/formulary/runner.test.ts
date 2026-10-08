@@ -347,7 +347,8 @@ describe('the widgetings run once for the whole quiz', () => {
     jsonataWidget('remark_count', "$count(qns[remark.status = 'ok'])"),
     jsonataWidget('early_count', "$count(qns[remark.status = 'ok'])"),
   ]
-  // In position order: early_count and playtesters for the quiz, remark and thanked for each question, remark_count for the quiz.
+  // In position order: early_count and playtesters for the quiz, remark and thanked for each question, remark_count for the quiz;
+  // in run order, the two entries (playtesters, remark) first.
   const quiz: QuizT = {
     ...Quiz.blank('Tiers'),
     questions: [first, second],
@@ -366,9 +367,15 @@ describe('the widgetings run once for the whole quiz', () => {
     expect(Runner.widgetedOf(run, 'thanked', second._id)).to.deep.eq(Widgeted.ok('Thanks, Ada and Grace'))
   })
 
-  it('read no question widgeting placed after them, and every one placed before', () => {
-    expect(Runner.quizWidgetedOf(run, 'early_count')).to.deep.eq(Widgeted.ok(0))
+  it('read every entry, wherever it was placed, since every entry runs first', () => {
+    expect(Runner.quizWidgetedOf(run, 'early_count')).to.deep.eq(Widgeted.ok(1))
     expect(Runner.quizWidgetedOf(run, 'remark_count')).to.deep.eq(Widgeted.ok(1))
+  })
+
+  it('read no question widgeting placed after them, but for the entries, and every one placed before', () => {
+    const counting = runOf({ ...quiz, widgetings: [tiered('thanked_count', 'thanked_count'), ...quiz.widgetings] }, [...library, jsonataWidget('thanked_count', "$count(qns[thanked.status = 'ok'])")])
+    expect(Runner.quizWidgetedOf(counting, 'thanked_count')).to.deep.eq(Widgeted.ok(0))
+    expect(Runner.quizWidgetedOf(counting, 'remark_count')).to.deep.eq(Widgeted.ok(1))
   })
 
   it('run in position order, the tiers mixed: one for the whole quiz reads the questions as they stand at its place, and those after it read it', () => {
@@ -409,7 +416,7 @@ describe('the widgetings run once for the whole quiz', () => {
   })
 
   it("leave the frame's quiz as it stands once every widgeting has run, and each bag's quiz as it stood when that one ran", () => {
-    expect(run.frame.quiz).to.deep.include({ playtesters: Widgeted.ok('Ada and Grace'), remark_count: Widgeted.ok(1), early_count: Widgeted.ok(0) })
+    expect(run.frame.quiz).to.deep.include({ playtesters: Widgeted.ok('Ada and Grace'), remark_count: Widgeted.ok(1), early_count: Widgeted.ok(1) })
     expect(run.quizAt.get('playtesters')).to.not.have.property('playtesters')
     expect(run.quizAt.get('thanked')).to.have.property('playtesters')
   })
@@ -465,8 +472,7 @@ describe('the category-estimate widgetings', () => {
 
   it('have no parts for any other widgeting to give', () => {
     expect(Runner.widgetedOf(run, 'remark', placed._id)).to.deep.eq(Widgeted.missing)
-    const [bagged] = Runner.bagsAt(run, { label: 'remark', params: {} }).get(placed._id)?.qns ?? []
-    expect(bagged?.loved).to.deep.eq(Widgeted.ok('Artie'))
+    expect(run.qnsAfter[0]?.loved).to.deep.eq(Widgeted.ok('Artie'))
   })
 
   it('follow the wheel: whoever sits beside a category knows it best', () => {
@@ -657,5 +663,36 @@ describe('placeOf', () => {
     const wheel = Wheel.placed(Wheel.placed(Wheel.defaultWheel(), 'theater', 0), 'tv', 'pool')
     const { order } = Runner.placeOf({ label: 'deep_lake', title: '', wheel }, { label: 'home', title: '' })
     expect([order[0], order[12], order[15], order.length]).to.deep.eq(['theater', 'math_econ', 'tv', 24])
+  })
+})
+
+/** A step working `widget` under `label`, or a widget the library no longer holds */
+const stepOf = (label: string, widget: WidgetT | null) => ({ widgeting: Widgeting.fill({ widget_label: widget?.label ?? 'gone', label }), widget })
+
+/** The labels of `steps`, in order */
+const labelsOf = (steps: readonly { widgeting: WidgetingT }[]) => steps.map((step) => step.widgeting.label)
+
+describe('inRunOrder', () => {
+  const remark = stepOf('remark', Widget.fill({ label: 'remarks', formulary: 'entry', config: { entry_kind: 'text' } }))
+  const tally = stepOf('tally', Widget.fill({ label: 'tallies', formulary: 'entry', config: { entry_kind: 'number' } }))
+  const guess = stepOf('guess', jsonataWidget('guesses', '1'))
+  const shout = stepOf('shout', jsonataWidget('shouts', '2'))
+  const gone = stepOf('gone', null)
+
+  it("puts every entry first, per the doc example", () => {
+    expect(labelsOf(Runner.inRunOrder([guess, remark]))).to.deep.eq(['remark', 'guess'])
+  })
+
+  it("keeps the entries among themselves, and the rest, as placed, a widgeting whose widget is gone among the rest", () => {
+    expect(labelsOf(Runner.inRunOrder([shout, tally, gone, guess, remark]))).to.deep.eq(['tally', 'remark', 'shout', 'gone', 'guess'])
+  })
+
+  it("leaves steps with no entry among them as they are, and none as none", () => {
+    expect(labelsOf(Runner.inRunOrder([shout, guess]))).to.deep.eq(['shout', 'guess'])
+    expect(Runner.inRunOrder([])).to.deep.eq([])
+  })
+
+  it("tells an entry's step from any other, per the doc examples", () => {
+    expect([remark, guess, gone].map((step) => Runner.isEntryStep(step))).to.deep.eq([true, false, false])
   })
 })
