@@ -13,7 +13,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
 | 3b | column expression authoring | landing (review clean) |
-| 7 | `liquidize` formulary | underway |
+| 7 | `liquidize` formulary | in review |
 | 6 | free regex (optional) | underway |
 | 5a | folding editors | pending |
 | 5b | run order in both places, row preview | pending |
