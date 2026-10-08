@@ -54,6 +54,8 @@ describe("paramsGist", () => {
     [{ family: 'text', params: { pattern: 'url', max_length: 200 } },   "A web address, at most 200 characters.",         'a text held to a pattern and a length'],
     [{ family: 'text', params: { lines: 'one' } },                      "One line.",                                      'a text of one line'],
     [{ family: 'text', params: { max_length: 9 } },                     "At most 9 characters.",                          'a text of a length alone'],
+    [{ family: 'text', params: { regex: { source: '^[A-Z]{3}$', flags: '' } } }, "Matching /^[A-Z]{3}$/.",            'a text held to its own regular expression'],
+    [{ family: 'text', params: { pattern: 'oneline', regex: { source: 'otter', flags: 'i' }, max_length: 40 } }, "One line of anything, matching /otter/i, at most 40 characters.", 'a text held to a named pattern, its own regular expression and a length'],
     [{ family: 'enum', params: { options: ['easy', 'hard'] } },         "One of: easy, hard.",                            'a choice of its options'],
     [{ family: 'enum', params: {} },                                    "No options yet: give its widgeting some.",       'a choice with nothing to choose'],
     // nothing to say:

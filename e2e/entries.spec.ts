@@ -143,6 +143,49 @@ test.describe('the seeded families', () => {
     await expect(box).toHaveValue('7')
   })
 
+  test('a text entry held to its own regular expression refuses what does not match, saying why, and keeps what does', async ({ page }) => {
+    await setParams(page, 'memo', async (settings) => {
+      const regex = settings.getByRole('textbox', { name: 'Regular expression' })
+      await regex.fill('^[A-Z]{3}$')
+      await regex.blur()
+      await settings.getByRole('button', { name: 'Ignore case' }).click()
+      await expect(settings.getByRole('button', { name: 'Ignore case' })).toHaveAttribute('aria-pressed', 'true')
+    })
+    const box = entryBox(page, 0, 'Memo')
+    await box.fill('abcd')
+    await leaveBox(page)
+    await expect(page.getByRole('alert').filter({ hasText: AppNotices.changeNotKept })).toContainText("Memo: «'abcd'» should match «/^[A-Z]{3}$/i»")
+    await box.fill('aBc')
+    await leaveBox(page)
+    await reloadOnceSaved(page)
+    await expect(box).toHaveValue('aBc')
+  })
+
+  test('a regular expression that could take too long to match is refused beside its field, and by the server', async ({ page }) => {
+    await openManage(page)
+    await manageDialog(page).getByRole('button', { name: 'Edit widgeting memo' }).click()
+    const editor = page.getByRole('dialog', { name: 'Widgeting: memo' })
+    const regex = editor.getByRole('group', { name: 'Settings' }).getByRole('textbox', { name: 'Regular expression' })
+    await regex.fill('^(a+)+$')
+    await regex.blur()
+    await expect(editor).toContainText('Could take far too long to match some texts (twice as long for each character more), around «')
+    await editor.getByRole('button', { name: 'Apply' }).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'The pattern «/^(a+)+$/» could take far too long' })).toBeVisible()
+  })
+
+  test('a regular expression that will not compile is said so beside its field, kept as typed, and not applied', async ({ page }) => {
+    await openManage(page)
+    await manageDialog(page).getByRole('button', { name: 'Edit widgeting memo' }).click()
+    const editor = page.getByRole('dialog', { name: 'Widgeting: memo' })
+    const regex = editor.getByRole('group', { name: 'Settings' }).getByRole('textbox', { name: 'Regular expression' })
+    await regex.fill('(a')
+    await regex.blur()
+    await expect(regex).toHaveValue('(a')
+    await expect(editor).toContainText('will not compile: Unterminated group')
+    await editor.getByRole('button', { name: 'Apply' }).click()
+    await expect(editor.getByRole('alert')).toContainText('Its params will not do')
+  })
+
   test('the entries head the run order, run first wherever they were placed, and are never dragged', async ({ page }) => {
     await addWidgeting(page, 'clueing_full')
     await openManage(page)

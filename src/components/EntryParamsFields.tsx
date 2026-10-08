@@ -4,9 +4,11 @@ import { Checkbox, FormControlLabel, Stack, TextField } from '@mui/material'
 import type * as Z from 'zod'
 import _ from 'es-toolkit/compat'
 import { NumberField } from './cells/fields'
+import { RegexField } from './RegexField'
 import { useDraft } from './use-draft'
 import { ParamWords, TextLinesWords, TextPatternWords } from './widget-words'
 import * as Reporting from '../lib/vv/reporting'
+import type { RegexT } from '../lib/regexes'
 import { EntryParamsOf, TextLinesVals, TextPatternVals, type EntryKind } from '../models/widget'
 import type { JsonT } from '../models/widgeted'
 import styles from './workbench.module.css'
@@ -28,7 +30,7 @@ export type EntryParamsFieldsProps = {
 /**
  * An entry's params, one field for each its family takes, in the order its validator names them
  * (`EntryParamsOf`): a number's least, most and whether it is whole; a text's most characters,
- * pattern and lines; a choice's options. Each field commits as it is left or picked, and says
+ * pattern, regular expression and lines; a choice's options. Each field commits as it is left or picked, and says
  * what is wrong with it beside itself, in the validator's own sentence. A field left empty says
  * nothing, and what is beneath it shows through.
  */
@@ -111,6 +113,14 @@ function ParamField({ paramname, said, beneath, help, issue, disabled, onPut }: 
       </TextField>
     )
   }
+  case 'regex': {
+    return (
+      <RegexField
+        label={label} committed={regexOf(said)} beneath={regexOf(beneath)} helperText={helperText} error={issue !== null} disabled={disabled}
+        onCommit={(regex) => { onPut(regex ?? undefined) }}
+      />
+    )
+  }
   case 'options': {
     return <OptionsField label={label} said={said} beneath={beneath} helperText={helperText} issue={issue} disabled={disabled} onPut={onPut} />
   }
@@ -139,6 +149,16 @@ function OptionsField({ label, said, beneath, helperText, issue, disabled, onPut
       onChange={(event) => { onChange(event.target.value) }} onBlur={onBlur}
     />
   )
+}
+
+/**
+ * A regular expression as params hold one, or null for anything else: as typed, whether or not it
+ * will do, so the field keeps showing what the form's sentence is said of.
+ */
+function regexOf(said: unknown): RegexT | null {
+  if (! _.isPlainObject(said)) { return null }
+  const { source, flags } = said as Record<string, unknown>
+  return typeof source === 'string' ? { source, flags: typeof flags === 'string' ? flags : '' } : null
 }
 
 /** A list of options as the box shows them, one a line; nothing for anything else */

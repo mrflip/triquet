@@ -1,5 +1,6 @@
 import _ from 'es-toolkit/compat'
 import type { EntryInForceT } from '../lib/formulary/entry'
+import * as Regexes from '../lib/regexes'
 import type { StatusCounts } from '../lib/formulary/runner'
 import type { WidgetUsageT } from '../lib/rows'
 import type { EntryKind, EnumParamsT, Formularykind, NumberParamsT, TextLines, TextParamsT, TextPattern } from '../models/widget'
@@ -30,6 +31,7 @@ export const ParamWords: Readonly<Record<string, string>> = {
   integer:    'Whole numbers only',
   max_length: 'Most characters',
   pattern:    'Pattern',
+  regex:      'Regular expression',
   lines:      'Lines',
   options:    'Options, one per line',
 }
@@ -53,6 +55,7 @@ export const TextLinesWords: Readonly<Record<TextLines, string>> = {
  *
  * @example paramsGist({ family: 'number', params: { min: 1, max: 10, integer: true } })  // => 'Whole numbers from 1 to 10.'
  * @example paramsGist({ family: 'text', params: { pattern: 'url', max_length: 200 } })   // => 'A web address, at most 200 characters.'
+ * @example paramsGist({ family: 'text', params: { regex: { source: '^[A-Z]{3}$', flags: '' } } })  // => 'Matching /^[A-Z]{3}$/.'
  * @example paramsGist({ family: 'enum', params: { options: ['easy', 'hard'] } })          // => 'One of: easy, hard.'
  * @example paramsGist({ family: 'text', params: {} })                                      // => ''
  */
@@ -74,12 +77,13 @@ function numberGist({ min, max, integer }: NumberParamsT): string {
   return integer === true ? `${noun}.` : ''
 }
 
-/** A text entry's params in a sentence: its pattern or its lines, and its length */
-function textGist({ pattern, lines, max_length }: TextParamsT): string {
+/** A text entry's params in a sentence: its pattern or its lines, its regular expression, and its length */
+function textGist({ pattern, regex, lines, max_length }: TextParamsT): string {
   const linesSaid = lines === undefined ? null : TextLinesWords[lines]
   const shape = pattern === undefined ? linesSaid : TextPatternWords[pattern]
+  const matching = regex === undefined ? null : `matching ${Regexes.shown(regex)}`
   const most = max_length === undefined ? null : `at most ${String(max_length)} characters`
-  const said = [shape, most].filter((part) => part !== null)
+  const said = [shape, matching, most].filter((part) => part !== null)
   return said.length === 0 ? '' : `${_.upperFirst(said.join(', '))}.`
 }
 
