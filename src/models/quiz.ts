@@ -48,7 +48,7 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
     .describe('What the recap note says after the questions. Always templated. Kept trimmed.')
 
   const recap_template = longnote.min(1)
-    .describe('The recap note\'s own template, for a quiz given one: markdown with mustache, filled in over the recap bag (the template bag, with the recap head and tail filled in and the questions played, each with values shaped for where markdown\'s structure is fragile) and then written in bbjank. Absent, the quiz follows the default recap template. Kept trimmed.')
+    .describe('The recap note\'s own template, for a quiz given one: markdown with Liquid, filled in over the recap bag (the template bag, with the recap head and tail filled in) and then written in bbjank. Absent, the quiz follows the default recap template. Kept trimmed.')
 
   const templatedSource = union([zod.templateLiteral([`${QuestionWidgetLabel}.`, oneof(TemplatableFieldVals)]), WidgetingValidators.widgetingLabel])
     .describe('One source a quiz templates, named as a column names what it shows: `question.<field>` for a question\'s own field, or a widgeting\'s label.')

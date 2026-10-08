@@ -223,34 +223,27 @@ words above.
   Recap column), and a formula reads it as `qn.recap`. The Recap panel writes the whole note in
   bbjank (`lib/recap.ts`).
   - **recap template** (`recap_template`) -- how the whole note is laid out: markdown with
-    mustache, the quiz's own or, when it has none (the field is absent for good, never backfilled),
+    Liquid, the quiz's own or, when it has none (the field is absent for good, never backfilled),
     the **default recap template** (`Recap.DefaultTemplate`). Filled in once over the recap bag,
-    then written in bbjank once, whole: mustache, then markdown, then the bbjank writer, last.
+    then written in bbjank once, whole: Liquid, then markdown, then the bbjank writer, last.
     Emptying its box puts the quiz back on the default.
   - **recap bag** -- what the recap template reads: the template bag, its questions' templated
-    texts filled in (so `{{clueing}}` inside `{{#qns}}` is a templated clueing filled in; a column's
-    own copy of the questions, a formula's work, holds them as typed), `recap_head` and
-    `recap_tail` (each filled in first, over that bag), and **played**: the questions the recap covers (no
-    archived, no alternates, none never written into), in rank order, each as `qns` holds a
-    question, its templated fields filled in, plus `number` (its place, from 1), `pct` (the
-    `correct_pct` column's value, on one line; blank without one), and its own fields
-    **pre-shaped**, each made safe for one place where markdown's structure is fragile, and keyed
-    by field (`clueing`, `hint`, `full_answer`, `notes`, `recap`): `quoted.<field>` (after a `> `
-    the template opened: every later line opens `> `), `oneline.<field>` (on one line), and
-    `below.<field>` (safe on the line after another: a first line of `---` is set apart, so it
-    never makes a heading). **The default recap template reads none of these**: only the template
-    bag (`{{#qns}}`, which holds no archived question, each question's own fields and columns by
-    label, `{{rank}}` for its number, a section on `rank` to skip the unnumbered and an inverted
-    one on `secondary` to skip the alternates), `recap_head` and `recap_tail`, plain
-    mustache and the template helpers (which shape as these do), so every line it writes is one an author can see and change; `played` and the
-    pre-shaped values stay in the bag for an author's own template. It quotes a question's own hint
-    after `...OR ELSE...`, where the LL Export shows the chained-to question's after `...BUT NOT...`.
+    texts filled in (so `{{ qn.clueing }}` in a loop over `qns` is a templated clueing filled in; a
+    column's own copy of the questions, a formula's work, holds them as typed), and `recap_head`
+    and `recap_tail` (each filled in first, over that bag). **The default recap template** reads
+    only these, Liquid and the app's filters, so every line it writes is one an author can see and
+    change: `qns | in_order` for the questions **played** (those with a Q# in Q# order, then any
+    other holding a clueing; no archived, no alternates), each with its `number` (its place, from
+    1), its own fields and columns by label, and the filters `quote`, `oneline` and `apart`, each
+    making a field safe for one place where markdown's structure is fragile. It quotes a
+    question's own hint after `...OR ELSE...`, where the LL Export shows the chained-to question's
+    after `...BUT NOT...`.
 * **templated** -- the sources a quiz nominates for templating, named as a column names what it
   shows: `question.<field>` for one of its questions' own fields that hold markdown (`clueing`,
   `hint`, `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per
-  source, never per column. A templated text is **filled in** (`Templating.fill`, mustache) over
+  source, never per column. A templated text is **filled in** (`Templating.fill`, Liquid) over
   the **template bag** -- the formula's bag less `params` and `widgeting_label`, every question
-  carrying every widgeting's widgeted, so `{{qn.photo}}` is that column's value, and its questions
+  carrying every widgeting's widgeted, so `{{ qn.photo }}` is that column's value, and its questions
   told apart: `qns` holds those a screen shows (the alternates among them), `quiz.questions` every
   one, the archived too -- before the
   markdown parser reads it, and the sanitizer reads what that makes, last. Shown filled in on the

@@ -63,7 +63,7 @@ see the boards agree.
 
 ## The order things happen in
 
-Mustache fills a template first (escaping off), then the indent rule, then the parse, then the
+Liquid fills a template first (escaping off), then the indent rule, then the parse, then the
 writer, and the sanitizer last. On screen that is `react-markdown`, then `rehype-sanitize` under
 `Markdown.Allowlist` (the one allowlist; widen it there and nowhere else). In bbjank the writer is
 the sanitizer: it writes only the node types it knows, and only to the addresses it allows.

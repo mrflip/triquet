@@ -8,7 +8,7 @@ security expert who knows what questions to ask.
 ## Of Interest
 
 * 2026-10-07: we allow the results of external bot calls (an `aibot` column's answer) to enter the
-  column => mustache => markdown => sanitizer => HTML pipeline, and the bbjank one beside it,
+  column => Liquid => markdown => sanitizer => HTML pipeline, and the bbjank one beside it,
   wherever a field template or the recap template names that column (`src/lib/templating.ts`).
 * 2026-10-08: an image in a formula's or a bot's column reaches a template as a link: `![` is
   written `&#33;[` in the template's bag (`Templating.bagOf`). An image whose `![` the template's
@@ -19,3 +19,9 @@ security expert who knows what questions to ask.
   `*` makes every username an admin, which `scripts/convex_dev` sets on every local backend.
 * The first user to claim a username becomes that user: an ident nobody holds goes to the first
   session to assert it (`claimFor`, `convex/writing/account_actions.ts`).
+* 2026-10-08: field and recap templates are LiquidJS, written by any smith of a quiz and run in
+  every smith's browser. LiquidJS calls a function it finds as an own property of what it reads;
+  the template bag is built only from JSON (stored rows, and formula results with functions
+  stripped by `Formulas.plainJson`), and a test holds a formula that comes to a function to that.
+  Runaway templates stop on the app's counted budgets, behind LiquidJS's own time and allocation
+  limits, which have had bypasses before (CVE-2026-44645).
