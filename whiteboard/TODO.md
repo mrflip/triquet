@@ -268,6 +268,23 @@ Built: columns lead, each widgeting a panel folded to its line, the dialogs reti
   a column label never follows a relabel. If authors want the label to follow too, it is the same
   rule one field over, but a column label is named by the quiz's sort memory.
 
+## From columnwise sprint, thread 7: the liquidize formulary
+
+Built: `LiquidizeFormulary` (`src/lib/formulary/liquidize.ts`), its params, the seeded `blurb`. Left:
+
+* **The recap as a quiz-tier `liquidize`.** The recap's template, head and tail (`src/lib/recap.ts`,
+  the Recap panel) are Liquid filled over the quiz's own bag; a `liquidize` widgeting of the `quiz`
+  tier over `qns` is the same thing at a place in the run order, so the recap becomes a fold rather
+  than a feature: a seeded widget whose template is `DefaultTemplate`, its widgeting the quiz's
+  recap, the panel showing `quiz.<label>`. What differs and must be settled first: the recap reads
+  the *template* bag (archived questions out of `qns`, templateable sources filled, images linked),
+  a `liquidize` the *formula* bag at its place; and the recap's budget (`FilledMax`) is per note.
+* **A template read from a bot's whole reply needs a formula**: `template_from: { ref: 'dumdum' }`
+  alone reads the reply's object and says it is no text. A preset beside the formula box
+  (`$.value.<key>` for each key the last reply held) would save the typing.
+* **The widget editor previews the widget's own template**, never a widgeting's own or one read
+  from the bag; the grid shows those.
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and

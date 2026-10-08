@@ -40,3 +40,10 @@ security expert who knows what questions to ask.
   every smith's browser, under the same budgets and own-keys reading as a field template. A
   computed value (`jsonata`, `aibot`, `liquidize`) reaches markdown with its images made links,
   through a column's template or its markdown readout alike.
+* 2026-10-08 (columnwise sprint, thread 7): a `liquidize` widgeting's template (`src/lib/formulary/
+  liquidize.ts`) is written by any smith of the quiz (its params) or an admin (its widget), and runs
+  wherever the quiz is run: in every smith's browser, and on the server, inside the Convex mutation
+  that sorts a quiz by a column (`sortQuestions`), so a template read from a bot's reply
+  (`template_from`) is model output filled in as Liquid in a mutation too. Its input is the formula
+  bag itself, or what its input formula made, through `Formulas.plainJson`; a test holds a function
+  in the input to that.

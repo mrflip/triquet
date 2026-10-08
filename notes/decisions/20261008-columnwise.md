@@ -98,8 +98,11 @@ A `jsonata` widget's twin with Liquid. `src/lib/formulary/liquidize.ts`, `Liquid
 * **Where the template comes from**: the widget's `formula`, a static template, is the admin's
   default. The widgeting's params may hold a `template` of its own, or a `template_from` of
   `{ ref, formula }`, whose text is read from the bag: `ref` a plain key in the column's grammar
-  (§4), `formula` JSONata over what it names, `$` by default, coming to a string. At most one of
-  the two; either overrides the widget's. `paramsOf` reports the validator.
+  (§4), `formula` JSONata over what it names, coming to a string. At most one of the two; either
+  overrides the widget's. `paramsOf` reports the validator. *Thread 7:* the pair reads as a
+  column's ref and formula do: an absent formula is identity (a field itself, a widgeting's
+  `value`), not `$`, which for a widgeting is the whole widgeted; and a `missing` or `errored`
+  widgeting passes the formula by, so a bot not yet asked makes the template `missing`.
 * **Output is always a string**, markdown by convention: a column showing it defaults to the
   markdown readout and sorts as text. An empty fill is `missing`; a template that will not parse,
   or a `template_from` that comes to no string, is `errored`, with Liquid's own sentence as
