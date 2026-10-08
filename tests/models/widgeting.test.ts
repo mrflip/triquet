@@ -7,8 +7,28 @@ const QuizId = 'k57a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 const HuntId = 'k67a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 
 describe('ReservedWidgetingLabels', () => {
-  it("is every name a question already answers to: its exposed fields, its label's override, its rank and viz flags, its place, viz and stamps in a jsonball, its views, and the questions themselves", () => {
-    expect(ReservedWidgetingLabels).to.deep.eq([...Question.exposed, 'rank', 'archived', 'secondary', 'position', 'viz', 'created_at', 'updated_at', 'butnot', 'question'])
+  it("is every name a question already answers to: its exposed fields, its rank and viz flags, its place, viz and stamps in a jsonball, its views, the questions themselves, its place in a recap and its label's override", () => {
+    expect(ReservedWidgetingLabels.slice(0, Question.exposed.length + 11)).to.deep.eq([...Question.exposed, 'rank', 'archived', 'secondary', 'position', 'viz', 'created_at', 'updated_at', 'butnot', 'question', 'number', 'forced_label'])
+  })
+
+  const Groups: [readonly string[], string][] = [
+    [['hunt', 'realm', 'quiz', 'qns', 'qn', 'qn_label', 'quiz_label', 'params', 'widgeting_label'],  "the bag's top-level keys"],
+    [['status', 'value', 'err', 'message', 'result_meta', 'digest', 'stale'],                           "a widgeted's keys, and the two of its staleness"],
+    [['source', 'formula', 'template', 'readout', 'collapsed', 'width_px', 'align'],                    "a column's fields, the stages it may say among them"],
+    [['masie', 'artie', 'poppy', 'estimates', 'average'],                                               "a category-estimate widgeted's keys"],
+  ]
+  for (const [words, describes] of Groups) {
+    it(`holds ${describes}`, () => {
+      expect(ReservedWidgetingLabels).to.include.members([...words])
+    })
+  }
+
+  it("leaves categories free, which the library's category-estimate widget and its widgetings are labelled", () => {
+    expect(ReservedWidgetingLabels).not.to.include('categories')
+  })
+
+  it("names each word once", () => {
+    expect(new Set(ReservedWidgetingLabels).size).to.eq(ReservedWidgetingLabels.length)
   })
 
   it("leaves butnot_ishes free, now that it is a widgeting rather than a view", () => {
@@ -51,10 +71,11 @@ describe('Widgeting.fill', () => {
     })
   }
 
-  it("says which labels are reserved when it refuses one", () => {
+  it("says why it refuses a reserved label, of the label refused", () => {
     const result = WidgetingValidators.widgeting.safeParse({ widget_label: 'dumdum', label: 'notes' })
     expect(result.success).to.be.false
-    expect(result.error?.issues[0]?.message).to.match(/should not be any of .*notes.*which the questions already use/)
+    expect(result.error?.issues[0]?.message).to.eq('is a name a question, its cells or the bag already answer to: add to it, as my_label or label_2')
+    expect(result.error?.issues[0]?.input).to.eq('notes')
   })
 
   it("lets a widgeting work a widget whose own label is reserved for widgetings", () => {
@@ -65,7 +86,7 @@ describe('Widgeting.fill', () => {
     [{ label: 'Dum Dum' },                                'a label that is not one'],
     [{ widget_label: 'A B' },                             'a widget label that is not one'],
     [{ description: 'x'.repeat(3601) },                   'a description past 3600 characters'],
-    [{ params: { Tries: 2 } },                            'a param named other than by a label'],
+    [{ params: { Tries: 2 } },                            'a param named other than in the shape of a label'],
     [{ params: { blob: 'x'.repeat(4000) } },              'params whose JSON runs past 4000 characters'],
     [{ tier: 'realm' },                                   'a tier that is neither a question nor a quiz'],
   ]

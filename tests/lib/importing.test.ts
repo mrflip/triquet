@@ -417,6 +417,16 @@ describe('importInto', () => {
       expect(outcome.widgetingActions).to.deep.eq([])
     })
 
+    it("refuses one under a word the tool keeps for its own use, saying which word", () => {
+      const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'answer_reversed', label: 'total' }, { widget_label: 'answer_reversed', label: 'status' }])
+      expect(outcome.widgetingActions).to.deep.eq([])
+      expect(outcome.widgetingLog.map((entry) => entry.reason)).to.deep.eq([
+        "label «'total'» is a word the tool keeps for its own use, or ends in _id as a pointer does: add to it, as my_label or label_2",
+        "label «'status'» is a name a question, its cells or the bag already answer to: add to it, as my_label or label_2",
+      ])
+      expect(outcome.ok).to.be.false
+    })
+
     it("removes none: a widgeting the paste leaves out is not in what is sent", () => {
       const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'answer_reversed', label: 'answer_reversed' }])
       expect(outcome.widgetingActions.map((action) => action.kind)).to.deep.eq(['add_widgeting'])
@@ -576,6 +586,11 @@ describe('importInto: columns', () => {
   it("skips a column that does not validate, naming it", () => {
     const outcome = withColumns(laidOut(['title', 'title', 100]), { wide: { position: 0, title: 'Wide', source: 'notes', width_px: 9000 } })
     expect(outcome.columnLog.map((entry) => [entry.label, entry.outcome])).to.deep.eq([['wide', 'skipped']])
+  })
+
+  it("refuses a column under a word the tool keeps for its own use, saying which word", () => {
+    const outcome = withColumns(laidOut(['title', 'question.title', 100]), { order: { position: 0, title: 'Order', source: 'question.qnum', width_px: 60 } })
+    expect(outcome.columnLog).to.deep.include({ label: 'order', outcome: 'skipped', reason: "label «'order'» is a word the tool keeps for its own use, or ends in _id as a pointer does: add to it, as my_label or label_2" })
   })
 
   it("leaves the columns alone for a paste holding none: the questions alone, a bare list, an export from before columns were", () => {

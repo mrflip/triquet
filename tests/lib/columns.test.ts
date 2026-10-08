@@ -14,9 +14,9 @@ const layout = classicLayout()
 const widgetings = [
   Widgeting.fill({ label: 'dumdum', widget_label: 'dumdum' }),
   Widgeting.fill({ label: 'numnum_hint', widget_label: 'numnum_hint' }),
-  Widgeting.fill({ label: 'total', widget_label: 'clueing_full' }),
+  Widgeting.fill({ label: 'grand_total', widget_label: 'clueing_full' }),
 ]
-const columnOf = (source: string, width_px = 100, label = 'col') => Column.fill({ label, title: 'Col', source, width_px })
+const columnOf = (source: string, width_px = 100, label = 'tally') => Column.fill({ label, title: 'Col', source, width_px })
 
 /** A cell whose newest row, and newest `ok` row, both hold `value` */
 function answered(value: JsonT): WidgetedHistoryT {
@@ -35,7 +35,7 @@ describe('resolve', () => {
     expect(resolve('clueing', widgetings)).to.deep.eq({ kind: 'field', field: 'clueing' })
     expect(resolve('butnot', widgetings)).to.deep.eq({ kind: 'view', view: 'butnot' })
     expect(resolve('rank', widgetings)).to.deep.eq({ kind: 'key', key: 'rank' })
-    expect(resolve('total', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[2] })
+    expect(resolve('grand_total', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[2] })
     expect(resolve('numnum_hint', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[1] })
   })
 
@@ -47,15 +47,15 @@ describe('resolve', () => {
   })
 
   it('finds a widgeting at the tier its ref names, and nothing at the other', () => {
-    const playtesters = Widgeting.fill({ label: 'playtesters', widget_label: 'names', tier: 'quiz' })
+    const playtesters = Widgeting.fill({ label: 'playtesters', widget_label: 'name_list', tier: 'quiz' })
     expect(resolve('quiz.playtesters', [playtesters])).to.deep.eq({ kind: 'widgeting', widgeting: playtesters })
     expect(resolve('playtesters', [playtesters])).to.be.null
-    expect(resolve('quiz.total', widgetings)).to.be.null
+    expect(resolve('quiz.grand_total', widgetings)).to.be.null
   })
 
   it('reads the grammar before October 2026: a field by its prefix, a part as its widgeting', () => {
     expect(resolve('question.clueing', widgetings)).to.deep.eq({ kind: 'field', field: 'clueing' })
-    expect(resolve('total.masie', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[2] })
+    expect(resolve('grand_total.masie', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[2] })
     expect(resolve('gone.masie', widgetings)).to.be.null
   })
 
@@ -74,16 +74,16 @@ describe('columnsShowing', () => {
     widgetings,
     columns: [
       columnOf('question.title', 100, 'title'),
-      columnOf('total', 78, 'total'),
+      columnOf('grand_total', 78, 'grand_total'),
       columnOf('dumdum', 160, 'guess'),
-      columnOf('total.masie', 78, 'total_masie'),
+      columnOf('grand_total.masie', 78, 'grand_total_masie'),
       columnOf('gone', 78, 'gone'),
     ],
   }
   const labelsShowing = (label: string) => columnsShowing(quiz, label).map((column) => column.label)
 
   it("finds every column showing a widgeting, whole or a part of it, in the quiz's order", () => {
-    expect(labelsShowing('total')).to.deep.eq(['total', 'total_masie'])
+    expect(labelsShowing('grand_total')).to.deep.eq(['grand_total', 'grand_total_masie'])
     expect(labelsShowing('dumdum')).to.deep.eq(['guess'])
   })
 
@@ -101,14 +101,14 @@ describe('widgetingRemovalRefusal', () => {
   const quiz = {
     widgetings,
     columns: [
-      Column.fill({ label: 'total', title: 'Total', source: 'total', width_px: 78 }),
-      Column.fill({ label: 'total_masie', title: '', source: 'total.masie', width_px: 78 }),
+      Column.fill({ label: 'grand_total', title: 'Total', source: 'grand_total', width_px: 78 }),
+      Column.fill({ label: 'grand_total_masie', title: '', source: 'grand_total.masie', width_px: 78 }),
       Column.fill({ label: 'guess', title: 'Guess', source: 'dumdum', width_px: 160 }),
     ],
   }
 
   it('names each column that holds the widgeting back, by its title or, untitled, its label', () => {
-    expect(widgetingRemovalRefusal(quiz, 'total')).to.eq('The columns “Total” and “total_masie” still show that widgeting — remove them first.')
+    expect(widgetingRemovalRefusal(quiz, 'grand_total')).to.eq('The columns “Total” and “grand_total_masie” still show that widgeting — remove them first.')
     expect(widgetingRemovalRefusal(quiz, 'dumdum')).to.eq('The column “Guess” still shows that widgeting — remove the column first.')
   })
 
@@ -126,9 +126,9 @@ describe('specFor', () => {
     ['butnot',       180,   'plain',    false,    'the chained hint is prose'],
     ['numnum_hint',           170,   'plain',    true,     'a number spotter\'s widgeting orders the quiz, its header along the row'],
     ['dumdum',                160,   'plain',    true,     'a guess is a widgeting like any other'],
-    ['total',                 78,    'vertical', true,     'a narrow widgeting column turns its header on its side'],
-    ['total',                 100,   'vertical', true,     'a widgeting column a hundred wide is still narrow'],
-    ['total',                 180,   'plain',    true,     'a wide widgeting column lays it along the row'],
+    ['grand_total',                 78,    'vertical', true,     'a narrow widgeting column turns its header on its side'],
+    ['grand_total',                 100,   'vertical', true,     'a widgeting column a hundred wide is still narrow'],
+    ['grand_total',                 180,   'plain',    true,     'a wide widgeting column lays it along the row'],
     ['title',        60,    'plain',    true,     'a narrow field column keeps its header along the row'],
   ]
   for (const [source, width, headkind, isSortable, blurb] of Cases) {
@@ -139,9 +139,9 @@ describe('specFor', () => {
   }
 
   it('carries the formula, and reads a part before October 2026 as the formula picking it', () => {
-    expect(specOf('total', '$.value * 2').formula).to.eq('$.value * 2')
-    expect(specOf('total.masie')).to.deep.include({ source: { kind: 'widgeting', widgeting: widgetings[2] }, formula: '$.masie' })
-    expect(specOf('total').formula).to.be.null
+    expect(specOf('grand_total', '$.value * 2').formula).to.eq('$.value * 2')
+    expect(specOf('grand_total.masie')).to.deep.include({ source: { kind: 'widgeting', widgeting: widgetings[2] }, formula: '$.masie' })
+    expect(specOf('grand_total').formula).to.be.null
   })
 
   it('orders the quiz by what a formula works out, but never by a word the same in every row', () => {
@@ -165,7 +165,7 @@ describe('specFor', () => {
   })
 
   it('carries the column\'s alignment, Q# centered when it says none, and none for any other column that says none', () => {
-    expect([aligned('title', 'right'), aligned('qnum'), aligned('qnum', 'left'), aligned('title'), aligned('total')])
+    expect([aligned('title', 'right'), aligned('qnum'), aligned('qnum', 'left'), aligned('title'), aligned('grand_total')])
       .to.deep.eq(['right', 'center', 'left', null, null])
   })
 })
@@ -177,9 +177,9 @@ describe('alignOf and headAlignOf', () => {
     ['qnum',     60,    'right',    'right',   'right',     'Q# set right is right'],
     ['title',    160,   undefined,  null,      'left',      'a field says nothing, its header to the left'],
     ['title',    60,    undefined,  null,      'left',      'a narrow field keeps its header along the row, to the left'],
-    ['total',             78,    undefined,  null,      'right',     'a narrow widgeting turns its header, to the right over its numbers'],
-    ['total',             180,   undefined,  null,      'left',      'a wide widgeting lays its header along the row, to the left'],
-    ['total',             78,    'center',   'center',  'center',    'a turned header follows its column'],
+    ['grand_total',             78,    undefined,  null,      'right',     'a narrow widgeting turns its header, to the right over its numbers'],
+    ['grand_total',             180,   undefined,  null,      'left',      'a wide widgeting lays its header along the row, to the left'],
+    ['grand_total',             78,    'center',   'center',  'center',    'a turned header follows its column'],
     ['clueing',  330,   'left',     'left',    'left',      'a column set left says so, though left is where it sat'],
   ]
   for (const [source, width, align, aligned, headAligned, blurb] of Cases) {
@@ -205,7 +205,7 @@ describe('specsFor and gridWidthPx', () => {
 
   it('leaves out a column that shows nothing, rather than failing', () => {
     const quiz = { widgetings: [], columns: [columnOf('title'), columnOf('nowhere', 100, 'lost')] }
-    expect(specsFor(quiz).map((spec) => spec.colkey)).to.deep.eq(['col'])
+    expect(specsFor(quiz).map((spec) => spec.colkey)).to.deep.eq(['tally'])
   })
 
   it('adds the widths up with the grip, so the grid can insist on them', () => {
@@ -219,7 +219,7 @@ describe('specsFor and gridWidthPx', () => {
 
 describe('qnumSortkeyOf', () => {
   it('names the column showing Q#, wherever it is and whatever it is called', () => {
-    expect(qnumSortkeyOf({ columns: [columnOf('title'), columnOf('qnum', 60, 'number')] })).to.eq('column:number')
+    expect(qnumSortkeyOf({ columns: [columnOf('title'), columnOf('qnum', 60, 'q_number')] })).to.eq('column:q_number')
   })
 
   it('is null for a quiz that shows no Q#, or shows it only through a formula', () => {
@@ -228,7 +228,7 @@ describe('qnumSortkeyOf', () => {
   })
 
   it('names a Q# column written before October 2026', () => {
-    expect(qnumSortkeyOf({ columns: [columnOf('question.qnum', 60, 'number')] })).to.eq('column:number')
+    expect(qnumSortkeyOf({ columns: [columnOf('question.qnum', 60, 'q_number')] })).to.eq('column:q_number')
   })
 })
 
@@ -236,12 +236,12 @@ describe('shownOf', () => {
   const placed = { ...Question.blank(), title: 'Leon', qnum: '2', stored: { cats: answered([{ category: 'art', difficulty: 'easy' }]) } }
   const blank = { ...Question.blank(), title: 'Nantes', qnum: '1' }
   const cats = Widgeting.fill({ label: 'cats', widget_label: 'estimating' })
-  const playtesters = Widgeting.fill({ label: 'playtesters', widget_label: 'names', tier: 'quiz' })
+  const playtesters = Widgeting.fill({ label: 'playtesters', widget_label: 'name_list', tier: 'quiz' })
   const shouted = Widgeting.fill({ label: 'shouted', widget_label: 'shout' })
-  const remark = Widgeting.fill({ label: 'remark', widget_label: 'names' })
+  const remark = Widgeting.fill({ label: 'remark', widget_label: 'name_list' })
   const library = [
     Widget.fill({ label: 'estimating', formulary: 'entry', config: { entry_kind: 'estimates' } }),
-    Widget.fill({ label: 'names', formulary: 'entry', config: { entry_kind: 'text' } }),
+    Widget.fill({ label: 'name_list', formulary: 'entry', config: { entry_kind: 'text' } }),
     Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$error("no")' }),
   ]
   const quiz = { ...Quiz.blank('Shown'), questions: [placed, blank], widgetings: [cats, playtesters, shouted, remark], stored: { playtesters: answered('Ada and Grace') } }

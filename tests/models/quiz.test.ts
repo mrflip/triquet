@@ -71,6 +71,18 @@ describe('Quiz.fill', () => {
     expect(() => Quiz.fill({ _id: quiz_id, columns })).to.throw(Z.ZodError)
   })
 
+  const ReservedHeld: [object, string][] = [
+    [{ widgetings: [{ widget_label: 'answer_letter_count', label: 'total' }] },                    'a widgeting under a word every label is kept from'],
+    [{ widgetings: [{ widget_label: 'answer_letter_count', label: 'status' }] },                   'a widgeting under a word only widgetings are kept from'],
+    [{ columns: [{ label: 'order', title: 'Order', source: 'question.qnum', width_px: 60 }] },    'a column under a word every label is kept from'],
+    [{ questions: [{ ...Question.blank(), label: 'name' }] },                                     'a question under a word every label is kept from'],
+  ]
+  for (const [overrides, describes] of ReservedHeld) {
+    it(`refuses a quiz already holding ${describes}`, () => {
+      expect(() => Quiz.fill({ _id: quiz_id, ...overrides })).to.throw(Z.ZodError)
+    })
+  }
+
   it('names the offending field when a chain dangles', () => {
     const question = Question.blank()
     const outcome = QuizValidators.quiz.safeParse({ _id: quiz_id, questions: [{ ...question, chains_to: mintId() }] })
@@ -213,7 +225,7 @@ describe('Quiz.mayLabelQuizTier', () => {
 })
 
 describe('Quiz.fill, with widgetings run once for the whole quiz', () => {
-  const playtesters = { widget_label: 'names', label: 'playtesters', tier: 'quiz' as const }
+  const playtesters = { widget_label: 'name_list', label: 'playtesters', tier: 'quiz' as const }
 
   it('takes one, and what the quiz stored for it', () => {
     const stored = { playtesters: { newest: { status: 'ok' as const, value: 'Ada', message: null, result_meta: {}, _creationTime: 1 }, ok: null } }

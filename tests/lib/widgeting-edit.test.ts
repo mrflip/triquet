@@ -164,11 +164,11 @@ describe("planWidgetingEdit, on a locked quiz", () => {
 })
 
 describe("planWidgetingEdit, a new widgeting run once for the whole quiz", () => {
-  const withNames = [...library, Widget.fill({ label: 'names', formulary: 'entry', config: { entry_kind: 'text' } })]
+  const withNames = [...library, Widget.fill({ label: 'name_list', formulary: 'entry', config: { entry_kind: 'text' } })]
 
   it("adds it at its tier, and brings no column: it has no cell for any question", () => {
-    expect(actionsOf(ofHeld('names', { label: 'playtesters', tier: 'quiz' }), quiz, withNames)).to.deep.eq([
-      { kind: 'add_widgeting', widgeting: { widget_label: 'names', label: 'playtesters', description: '', params: {}, tier: 'quiz' } },
+    expect(actionsOf(ofHeld('name_list', { label: 'playtesters', tier: 'quiz' }), quiz, withNames)).to.deep.eq([
+      { kind: 'add_widgeting', widgeting: { widget_label: 'name_list', label: 'playtesters', description: '', params: {}, tier: 'quiz' } },
     ])
   })
 
@@ -179,14 +179,14 @@ describe("planWidgetingEdit, a new widgeting run once for the whole quiz", () =>
   })
 
   it("refuses a name the quiz itself answers to, and steps a defaulted label past one", () => {
-    expect(planWidgetingEdit(ofHeld('names', { label: 'smiths_note', tier: 'quiz' }), withNames, quiz)).to.deep.include({ ok: false, labelIssue: 'The quiz itself already answers to that name in a formula.' })
+    expect(planWidgetingEdit(ofHeld('name_list', { label: 'smiths_note', tier: 'quiz' }), withNames, quiz)).to.deep.include({ ok: false, labelIssue: 'The quiz itself already answers to that name in a formula.' })
     const smithsNote = [...library, Widget.fill({ label: 'smiths_note', formulary: 'entry', config: { entry_kind: 'text' } })]
     expect(actionsOf(ofHeld('smiths_note', { tier: 'quiz' }), quiz, smithsNote)[0]).to.deep.include({ widgeting: { widget_label: 'smiths_note', label: 'smiths_note_2', description: '', params: {}, tier: 'quiz' } })
   })
 
   it("keeps an existing widgeting's own tier, whatever the editor was opened for", () => {
-    const quizWide = { ...quiz, widgetings: [{ widget_label: 'names', label: 'playtesters', description: '', params: {}, tier: 'quiz' as const }, ...quiz.widgetings] }
+    const quizWide = { ...quiz, widgetings: [{ widget_label: 'name_list', label: 'playtesters', description: '', params: {}, tier: 'quiz' as const }, ...quiz.widgetings] }
     const held = present(quizWide.widgetings[0])
-    expect(actionsOf({ widgeting: held, label: 'testers', description: '', widgetLabel: 'names', tier: 'question' }, quizWide, withNames)).to.deep.eq([{ kind: 'edit_widgeting', label: 'playtesters', patch: { label: 'testers' } }])
+    expect(actionsOf({ widgeting: held, label: 'testers', description: '', widgetLabel: 'name_list', tier: 'question' }, quizWide, withNames)).to.deep.eq([{ kind: 'edit_widgeting', label: 'playtesters', patch: { label: 'testers' } }])
   })
 })

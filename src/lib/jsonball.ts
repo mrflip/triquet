@@ -39,6 +39,9 @@ export type JsonballT = Record<string, unknown>
  */
 export const PositionField = 'position'
 
+/** What an export made while a label could be overridden carries as the override: the label a quiz or a question answered to then */
+export const ForcedLabelField = 'forced_label'
+
 /** The hunt's own fields, which sit at the root of the merged hunt: its title as shown, and its stamps as a person reads them */
 export type HuntBodyT = Pick<HuntT, 'label' | 'title' | 'branch'> & IsoStampsT
 

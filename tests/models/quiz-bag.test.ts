@@ -3,7 +3,7 @@ import * as Runner from '../../src/lib/formulary/runner'
 import { QuizBagValidators, inputSchema, outputSchema } from '../../src/models/quiz-bag'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
-import { Widgeting } from '../../src/models/widgeting'
+import { QuizBagKeys, Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
 import { runOf } from '../support/runs'
 import { classicLayout } from '../support/layouts'
@@ -12,6 +12,12 @@ import type { WidgetedHistoryT } from '../../src/models/widgeted'
 const IshesRow = { status: 'ok' as const, value: { items: [{ text: '300', value: 300, kind: 'numeral' }] }, message: null, result_meta: {}, _creationTime: 1 }
 const Ishes: WidgetedHistoryT = { newest: IshesRow, ok: IshesRow }
 const GuessRow = { status: 'ok' as const, value: { guess: 'Leon', explanation: 'A first instinct.' }, message: null, result_meta: {}, _creationTime: 1 }
+
+describe('QuizBagValidators.quizBag', () => {
+  it("has the top-level keys QuizBagKeys names, which the widgetings' reserved labels are drawn from", () => {
+    expect(Object.keys(QuizBagValidators.quizBag.shape)).to.have.members([...QuizBagKeys])
+  })
+})
 
 describe('the bags formulas are actually given', () => {
   const target = { ...Question.blank(), qnum: '2', title: 'The film', label: 'the_film', stored: { numnum_hint: Ishes } }
@@ -45,9 +51,9 @@ describe('the bags formulas are actually given', () => {
   it("satisfy the schema for a widgeting run once for the whole quiz: no question, and the quiz's own widgeteds on the quiz", () => {
     const quizWide = {
       ...quiz,
-      widgetings: [Widgeting.fill({ widget_label: 'playtesters', label: 'playtesters', tier: 'quiz' }), ...quiz.widgetings, Widgeting.fill({ widget_label: 'question_count', label: 'total', tier: 'quiz' })],
+      widgetings: [Widgeting.fill({ widget_label: 'playtesters', label: 'playtesters', tier: 'quiz' }), ...quiz.widgetings, Widgeting.fill({ widget_label: 'question_count', label: 'grand_total', tier: 'quiz' })],
     }
-    const bag = present(Runner.bagsAt(runOf(quizWide), { label: 'total', params: {} }).get(question._id))
+    const bag = present(Runner.bagsAt(runOf(quizWide), { label: 'grand_total', params: {} }).get(question._id))
     expect([bag.qn, bag.qn_label]).to.deep.eq([{}, ''])
     expect(bag.quiz.playtesters).to.deep.include({ status: 'errored' })
     expect(QuizBagValidators.quizBag.safeParse(bag).success).to.be.true

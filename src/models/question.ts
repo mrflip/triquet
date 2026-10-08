@@ -15,6 +15,9 @@ export const ArchivedField = 'archived'
 /** What a question carries in the bag beside its exposed fields: whether it is an alternate, its viz `secondary` */
 export const SecondaryField = 'secondary'
 
+/** What a played question carries in a recap's bag beside the rest: its place there, counting from 1 */
+export const PlaceField = 'number'
+
 /**
  * How a question is shown (its **viz**): `normal`, as every question starts; `secondary`, an
  * alternate, shown as one and sorted after its peers; or `archived`, put away from every screen

@@ -29,8 +29,10 @@ describe('reservedOf', () => {
     expect(PA.reservedOf(['rank', 'title']).rule('rank')).to.be.false
   })
 
-  it("names every refused word in its advice", () => {
-    expect(Reserved.msg).to.eq('should not be any of rank, title, question, which the questions already use')
+  it("says its advice of the word refused, which a report puts in front of it, however long the list", () => {
+    expect(Reserved.msg).to.eq('is a name already in use beside it')
+    expect(PA.reservedOf(['rank']).msg).to.eq('is a name already in use beside it')
+    expect(PA.reservedOf(['rank'], 'is taken').msg).to.eq('is taken')
   })
 
   it("refuses nothing when no word is reserved, the empty string included", () => {
@@ -51,6 +53,15 @@ const UnreservedCases: [string, boolean, string][] = [
   ["null",          false,  'a word read as no value is refused'],
   ["com7",          false,  'a name Windows will not give a file is refused'],
   ["new",           false,  'a word an address might one day hold is refused'],
+  ["boolean",       false,  'the name of a type is refused'],
+  ["enum",          false,  'the name of an entry family is refused, so no seeded entry takes one'],
+  ["liquid",        false,  'an engine a text may be worked by is refused'],
+  ["formula",       false,  'what an engine works is refused'],
+  ["total",         false,  'what a sheet calls a reduction is refused'],
+  ["and",           false,  'a word a JSONata path cannot say is refused'],
+  ["missing",       false,  'a word for how a value stands is refused'],
+  ["order",         false,  'a part of the grid is refused'],
+  ["name",          false,  'what a lookup mistakes for the thing itself is refused'],
   ["dumdum",        true,   'a word on no list is allowed'],
   // the pointer suffix:
   ["quiz_id",       false,  'a label ending in _id is refused, as a pointer to a row'],
@@ -64,6 +75,8 @@ const UnreservedCases: [string, boolean, string][] = [
   ["quizzical",     true,   'a reserved word run on is another word'],
   ["com10",         true,   'only one digit makes a device name'],
   ["categories",    true,   'the category-estimate widget\'s label is allowed: production holds widgetings under it'],
+  ["clueing_sum",   true,   'a reduction said of what is another word'],
+  ["root_beer",     true,   'a word of the self group run on is another word'],
   ["title",         true,   'a question\'s own fields are reserved only where they would be shadowed, among widgetings'],
   ["home",          true,   'the label every hunt\'s first realm takes is allowed'],
   ["main",          true,   'the branch every hunt starts on is allowed'],
@@ -95,8 +108,10 @@ describe('ReservedLabels', () => {
     expect(new Set(PA.ReservedLabels).size).to.eq(PA.ReservedLabels.length)
   })
 
-  it("is every group's words, in turn", () => {
-    expect(PA.ReservedLabels).to.deep.eq(Object.values(PA.ReservedLabelGroups).flat())
+  it("is every group's words, in turn, a word two groups hold named once", () => {
+    expect(PA.ReservedLabels).to.deep.eq([...new Set(Object.values(PA.ReservedLabelGroups).flat())])
+    expect(PA.ReservedLabelGroups.types).to.include('object')
+    expect(PA.ReservedLabelGroups.self).to.include('object')
     expect(PA.ReservedLabelGroups.devices).to.include.members(['con', 'nul', 'com0', 'com9', 'lpt0', 'lpt9'])
     expect(PA.ReservedLabelGroups.pointers).to.include.members(['huntid', 'huntids', 'quizid', 'quizids'])
   })
@@ -220,5 +235,35 @@ describe('every regex here', () => {
   it(String.raw`reads alike to RE2: no lookaround, no backreference, no \s`, () => {
     const unportable = regexes.filter(([, re]) => /\(\?<?[=!]|\\[1-9]|\\k<|\\s/.test(re.source)).map(([exportname]) => exportname)
     expect(unportable).to.deep.eq([])
+  })
+})
+
+const WeburlCases: [string, boolean, string][] = [
+  // regular usage:
+  ["https://example.com",                 true,   'an https address'],
+  ["http://example.com/a/b?c=d#e",        true,   'an http address with a path, a query and a fragment'],  // eslint-disable-line unicorn/prefer-https -- the plain scheme is what this case is about
+  ["HTTPS://EXAMPLE.COM",                 true,   'the scheme in capitals'],
+  // refused:
+  ["example.com",                         false,  'an address with no scheme'],
+  ["ftp://example.com",                   false,  'a scheme other than http or https'],
+  ["https://",                            false,  'a scheme with no host'],
+  ["https:///path",                       false,  'a path with no host before it'],
+  ["https://example.com/a b",             false,  'a space in the address'],
+  ["javascript:alert(1)",                 false,  'a script'],
+  // trivial cases:
+  ["",                                    false,  'an empty string'],
+]
+
+describe('Weburl', () => {
+  for (const [url, allowed, describes] of WeburlCases) {
+    it(`${allowed ? 'takes' : 'refuses'} ${describes}`, () => {
+      expect(PA.Weburl.re.test(url)).to.eq(allowed)
+    })
+  }
+
+  it("takes a long run of address in time linear in its length", () => {
+    const started = performance.now()
+    expect(PA.Weburl.re.test(`https://${'a'.repeat(50_000)} `)).to.be.false
+    expect(performance.now() - started).to.be.lessThan(100)
   })
 })

@@ -1,22 +1,53 @@
 import * as Z from 'zod'
+import _ from 'es-toolkit/compat'
 import { Validator } from '../lib/validator'
-import { PositionField } from '../lib/jsonball'
+import { ForcedLabelField, PositionField } from '../lib/jsonball'
 import * as Labelmaker from '../lib/labelmaker'
 import { StampFieldnames } from '../lib/stamps'
 import * as UU from '../lib/useful'
 import * as PA from '../lib/vv/patterns'
-import { QuestionViewVals, QuestionWidgetLabel } from './column'
-import { ArchivedField, Question, RankField, SecondaryField, VizField } from './question'
+import { ColumnStageFieldnames, ColumnValidators, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals } from './column'
+import { ArchivedField, PlaceField, Question, RankField, SecondaryField, VizField } from './question'
+import { StalenessFieldnames, WidgetedValidators } from './widgeted'
 import type { WidgetT } from './widget'
 
 /**
- * The labels no widgeting may take, because a question already answers to each in the bag, in a
- * column's source or in an export: its exposed fields, its rank and its viz flags (archived,
- * secondary), its place, viz and stamps in a jsonball, the views of it, and the questions themselves.
+ * The keys at the top of every bag a formula reads (`QuizBagValidators.quizBag`, which is held to
+ * this list): where the quiz sits, its questions, the one being worked out, and the running
+ * widgeting's own. Written here rather than read from the bag's validator, which is built on the
+ * quiz's and so on the widgeting's.
  */
-export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, RankField, ArchivedField, SecondaryField, PositionField, VizField, ...StampFieldnames, ...QuestionViewVals, QuestionWidgetLabel]
+export const QuizBagKeys = ['hunt', 'realm', 'categories', 'quiz', 'qns', 'qn', 'qn_label', 'quiz_label', 'params', 'widgeting_label'] as const
 
-const Reserved = PA.reservedOf(ReservedWidgetingLabels)
+/** Every key a widgeted holds, as the bag has it under `qn.<label>` or as its row stores it, and the two it is to carry for its staleness */
+const WidgetedKeys: readonly string[] = [
+  ...WidgetedValidators.widgeted.options.flatMap((option) => Object.keys(option.shape)),
+  ...Object.keys(WidgetedValidators.stored.shape).filter((key) => ! key.startsWith('_')),
+  ...StalenessFieldnames,
+]
+
+/**
+ * The labels no widgeting may take, because something already answers to each beside it, in the
+ * bag, in a column or in an export, grouped by what:
+ *
+ * * **a question's own**: its exposed fields, its rank and its viz flags (archived, secondary),
+ *   its place, viz and stamps in a jsonball, the views of it, the questions themselves, its
+ *   place in a recap (`number`), and the label an older export overrode it with (`forced_label`);
+ * * **the bag's top level** (`QuizBagKeys`), but for `categories`, which the library's
+ *   category-estimate widget is labelled, and so every widgeting of it;
+ * * **a widgeted's keys**, so `qn.status` never sits beside `qn.foo.status`;
+ * * **a column's fields**, so an export's columns and a bag never read alike;
+ * * **a category-estimate widgeted's keys**: each persona's chance, the list and their average.
+ */
+export const ReservedWidgetingLabels: readonly string[] = _.uniq([
+  ...Question.exposed, RankField, ArchivedField, SecondaryField, PositionField, VizField, ...StampFieldnames, ...QuestionViewVals, QuestionWidgetLabel, PlaceField, ForcedLabelField,
+  ...QuizBagKeys.filter((key) => key !== 'categories'),
+  ...WidgetedKeys,
+  ...Object.keys(ColumnValidators.column.shape), ...ColumnStageFieldnames,
+  ...WidgetingPartVals,
+])
+
+const Reserved = PA.reservedOf(ReservedWidgetingLabels, 'is a name a question, its cells or the bag already answer to: add to it, as my_label or label_2')
 
 /**
  * Which level a widgeting runs at (its **tier**): `question`, once for each question, as every
@@ -28,7 +59,7 @@ export type WidgetingTier = typeof WidgetingTierVals[number]
 /** The tier every widgeting runs at unless made to run once per quiz */
 export const DefaultTier: WidgetingTier = 'question'
 
-export const WidgetingValidators = Validator(({ obj, rec, oneof, label, noteish, zod, uint, stamps, zid }) => {
+export const WidgetingValidators = Validator(({ obj, rec, oneof, label, labelshape, noteish, zod, uint, stamps, zid }) => {
   // Each field is named once, bare, then defaulted in the widgeting and made optional in its patch.
   const widgetingLabel = label.refine((val) => Reserved.rule(val), Reserved.msg)
     .describe('What the widgeting is called within its quiz, unique there and none of the names a question already answers to. Columns, the bag and exports name it by this.')
@@ -36,9 +67,10 @@ export const WidgetingValidators = Validator(({ obj, rec, oneof, label, noteish,
     .describe('Which widget of the library it works, by label: labels are fixed once made, so exports round-trip with no id to translate.')
   const description = noteish
     .describe('What this widgeting is for in this quiz, in the author\'s words.')
-  const params = rec(label, zod.json())
+  // A param is named by its widget's formulary, never by an author, so no word is reserved from it: an entry's `min`, say.
+  const params = rec(labelshape, zod.json())
     .refine((val) => UU.jsonify(val).length <= PA.ParamsJson.max, PA.ParamsJson.msg)
-    .describe('What it hands its widget beyond the bag, by name; reaches the bag as `params`. Unused by every widget so far.')
+    .describe('What it hands its widget beyond the bag, by name, held to its widget\'s formulary where a widgeting is written (`paramsOf`): an entry\'s constraints, say. Reaches the bag as `params`.')
   const tier = oneof(WidgetingTierVals)
     .describe('Which level it runs at: `question`, once for each question; or `quiz`, once for the quiz as a whole. Fixed once it is made, as the widget it works is.')
 

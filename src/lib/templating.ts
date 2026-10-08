@@ -6,7 +6,7 @@ import * as Shaping from './shaping'
 import type { QuizBag, QuizRun } from './formulary/runner'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
 import { TemplatableFieldVals, isTemplatableField, type QuizT } from '../models/quiz'
-import { ArchivedField, RankField, SecondaryField, type QuestionT } from '../models/question'
+import { ArchivedField, PlaceField, RankField, SecondaryField, type QuestionT } from '../models/question'
 import type { Formularykind, WidgetT } from '../models/widget'
 
 /**
@@ -87,7 +87,7 @@ export function inOrder(qns: unknown): Record<string, unknown>[] {
   const played = qns.filter((qn): qn is Record<string, unknown> => EST.isPlainObject(qn) && qn[SecondaryField] !== true && qn[ArchivedField] !== true)
   const ranked = EST.sortBy(played.filter((qn) => typeof qn[RankField] === 'number'), [(qn) => qn[RankField] as number])
   const unranked = played.filter((qn) => typeof qn[RankField] !== 'number' && typeof qn.clueing === 'string' && qn.clueing.trim() !== '')
-  return [...ranked, ...unranked].map((qn, idx) => ({ ...qn, number: idx + 1 }))
+  return [...ranked, ...unranked].map((qn, idx) => ({ ...qn, [PlaceField]: idx + 1 }))
 }
 
 /** The language every field and recap template is read and filled in with: Liquid, with the app's filters, a value filling in as `fillingOf` says */

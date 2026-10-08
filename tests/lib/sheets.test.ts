@@ -57,9 +57,9 @@ describe('pasteSafe', () => {
 
 describe('cellTextOf', () => {
   const question = Question.blank()
-  const run = runHolding({ questions: [question] }, { col: { [question._id]: Widgeted.ok('x') } })
-  const widgeting = Widgeting.fill({ label: 'col', widget_label: 'whatever' })
-  const textFor = (widgeted: WidgetedT) => Sheets.cellTextOf({ source: { kind: 'widgeting', widgeting }, formula: null }, { question, target: null, run: runHolding({ questions: [question] }, { col: { [question._id]: widgeted } }), templateable: [] })
+  const run = runHolding({ questions: [question] }, { tally: { [question._id]: Widgeted.ok('x') } })
+  const widgeting = Widgeting.fill({ label: 'tally', widget_label: 'whatever' })
+  const textFor = (widgeted: WidgetedT) => Sheets.cellTextOf({ source: { kind: 'widgeting', widgeting }, formula: null }, { question, target: null, run: runHolding({ questions: [question] }, { tally: { [question._id]: widgeted } }), templateable: [] })
 
   const Cases: [WidgetedT, string, string][] = [
     // widgeted                                                     text                          blurb

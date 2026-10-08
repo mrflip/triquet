@@ -4,6 +4,13 @@ import * as UU from '../lib/useful'
 import * as PA from '../lib/vv/patterns'
 import { EstimateValidators } from './estimate'
 
+/**
+ * The two keys a widgeted is to carry to say whether its value is current: the digest of what it
+ * was worked out from, and whether that has changed since. Named here, with the widgeted, so no
+ * widgeting takes one of them (`ReservedWidgetingLabels`).
+ */
+export const StalenessFieldnames = ['digest', 'stale'] as const
+
 /** Any JSON value: what a widgeted's `value` may be */
 export type JsonT = Z.core.util.JSONType
 

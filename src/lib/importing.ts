@@ -5,6 +5,7 @@ import * as Jsonball from './jsonball'
 import * as Labelmaker from './labelmaker'
 import * as Recap from './recap'
 import * as UU from './useful'
+import * as Reporting from './vv/reporting'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
 import { ColumnValidators, plainOf, widgetingLabelOf, type ColumnPatch, type ColumnT } from '../models/column'
@@ -391,7 +392,7 @@ function columnsRead(pasted: readonly unknown[], showable: ReadonlySet<string>):
     const parsed = ColumnValidators.column.safeParse(raw)
     if (! parsed.success) {
       const shownLabel = typeof (raw as { label?: unknown } | null)?.label === 'string' ? (raw as { label: string }).label : ''
-      log.push({ label: shownLabel, outcome: 'skipped', reason: parsed.error.issues[0]?.message ?? 'not a column this tool can read' })
+      log.push({ label: shownLabel, outcome: 'skipped', reason: reasonOf(parsed.error) })
       continue
     }
     const column = parsed.data
@@ -456,7 +457,7 @@ function widgetingsMerged(quiz: QuizT, pasted: readonly unknown[], library: read
   const merged = pasted.map((raw): { action: HuntActionDNA | null, entry: WidgetingLogEntry } => {
     const parsed = WidgetingValidators.widgeting.safeParse(raw)
     const shownLabel = typeof (raw as { label?: unknown } | null)?.label === 'string' ? (raw as { label: string }).label : ''
-    if (! parsed.success) { return skippedAs(shownLabel, parsed.error.issues[0]?.message ?? 'not a widgeting this tool can read') }
+    if (! parsed.success) { return skippedAs(shownLabel, reasonOf(parsed.error)) }
     const widgeting = parsed.data
     const held = heldFor.get(widgeting.label)
     if (held) { return revisedFrom(held, widgeting) }
@@ -691,6 +692,14 @@ function noteChainLoss(log: ImportLogEntry[], label: string) {
   })
 }
 
+/**
+ * Why a pasted widgeting, column or widget will not do, in a sentence that names what was wrong
+ * and where: `label «total» is a word the tool keeps for its own use, ...`.
+ */
+function reasonOf(err: Z.ZodError): string {
+  return Reporting.explain(err)
+}
+
 /** Every validation issue, with the field path, what was wrong, and the code */
 function issuesOf(err: Z.ZodError): ImportIssue[] {
   return err.issues.map((issue) => ({
@@ -748,7 +757,7 @@ export function libraryImported(library: readonly WidgetT[], pasted: string): Li
   const read = listed.map((each): { widget: WidgetT | null, entry: LibraryLogEntry } => {
     const parsed = WidgetValidators.widget.safeParse(each)
     const shownLabel = typeof (each as { label?: unknown } | null)?.label === 'string' ? (each as { label: string }).label : ''
-    if (! parsed.success) { return { widget: null, entry: { label: shownLabel, outcome: 'skipped', reason: parsed.error.issues[0]?.message ?? 'not a widget this tool can read' } } }
+    if (! parsed.success) { return { widget: null, entry: { label: shownLabel, outcome: 'skipped', reason: reasonOf(parsed.error) } } }
     const widget = parsed.data
     const held = heldFor.get(widget.label)
     if (! held) { return { widget, entry: { label: widget.label, outcome: 'added', reason: null } } }

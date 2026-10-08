@@ -65,10 +65,10 @@ describe("a quiz as the browser assembles it from quizzes.open and questions.ope
   })
 
   it("sends a smith what the quiz's own entries hold, and a reviewer none of it, as a question's stored widgeteds are sent", async () => {
-    const playtesters = Widgeting.fill({ widget_label: 'names', label: 'playtesters', tier: 'quiz' })
+    const playtesters = Widgeting.fill({ widget_label: 'name_list', label: 'playtesters', tier: 'quiz' })
     const { quiz_id, ...reading } = await holding(huntHolding([{ ...Quiz.blank(), widgetings: [playtesters] }]))
     await reading.tt.run(async (ctx) => {
-      await ctx.db.insert('widgets', WidgetValidators.row({ scope: 'pub', label: 'names', title: '', description: '', formulary: 'entry', formula: '', input_formula: '', config: { entry_kind: 'text' }, position: 99 }))
+      await ctx.db.insert('widgets', WidgetValidators.row({ scope: 'pub', label: 'name_list', title: '', description: '', formulary: 'entry', formula: '', input_formula: '', config: { entry_kind: 'text' }, position: 99 }))
       const [widgeting] = await widgetingsOf(ctx.db, quiz_id)
       const quiz = present(await ctx.db.get('quizzes', quiz_id))
       await ctx.db.insert('quiz_widgeteds', WidgetedValidators.quizRow({ hunt_id: quiz.hunt_id, quiz_id, widgeting_id: present(widgeting)._id, status: 'ok', value: 'Ada and Grace', message: null, result_meta: {} }))
