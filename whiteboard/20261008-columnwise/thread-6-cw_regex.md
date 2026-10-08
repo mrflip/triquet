@@ -90,6 +90,19 @@ so a **full** e2e run at landing. Additive to the schema: `params` is open JSON 
   - **5a**: `RegexField` lifts with `EntryParamsFields`; `regexOf` in it reads a pattern as typed,
     valid or not, so the field keeps showing what its sentence is said of.
 
+* **Review** (`clean`, no fixes): five minor findings, left as they stand.
+  1. A `regex` key already in production params, written before this deploy, would never be
+     checked. **A deploy check for the Coach** (also the PR's `Before deploying:` line): query
+     production for widgetings whose `params` hold `regex`, and widgets whose `config` does; expect
+     none.
+  2. `Redos`'s `refusalFor` falls through to `undefined` for a status recheck does not name (its
+     types allow none).
+  3. The lazy-load guard in `redos.test.ts` misses an import spread over several lines, and one
+     reaching `lib/redos` through another module.
+  4. The `Regexes.compiled` memo never shrinks (bounded by the patterns a session meets).
+  5. **For 5b**: a preview that tests cells against draft params would run a pattern not yet
+     checked by recheck; hold the preview to stored params, or ask `Redos` first.
+
 * **For the Coach**:
   - recheck is listed under **Use** per your ruling, with the reason and the tradeoff to revisit.
   - A refused pattern is refused outright, `unknown` included: a pattern recheck cannot settle in
