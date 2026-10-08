@@ -107,6 +107,13 @@ A `jsonata` widget's twin with Liquid. `src/lib/formulary/liquidize.ts`, `Liquid
   markdown readout and sorts as text. An empty fill is `missing`; a template that will not parse,
   or a `template_from` that comes to no string, is `errored`, with Liquid's own sentence as
   `Templating.fill` returns it.
+* **Budgeted by the column** (*the Coach, on thread 7's review*): a fill stopped by a limit (its
+  time, `Liquidry.RenderMs`; our counted budgets; Liquid's allocation limit) stops its column,
+  every later question reading the same failure, as a `jsonata` timeout does; and the whole column
+  has one budget of time for all its fills (`LiquidizeFormulary.columnMs`, 250 ms), so many
+  medium-slow fills cannot add up to the same harm. Time is read on `performance.now()`, which
+  moves inside a Convex mutation where `Date.now()` stands still. A template that will not read
+  costs only its own cell: one read from the bag differs question by question.
 * **One fill path.** Through `Templating.fill`, shared with the templateable nomination (§5),
   which is "liquidize this source over the finished bag, in place". Whether the nomination is
   rebuilt internally as a `liquidize` is the worker's call; it is not a row change.

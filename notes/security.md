@@ -46,4 +46,9 @@ security expert who knows what questions to ask.
   that sorts a quiz by a column (`sortQuestions`), so a template read from a bot's reply
   (`template_from`) is model output filled in as Liquid in a mutation too. Its input is the formula
   bag itself, or what its input formula made, through `Formulas.plainJson`; a test holds a function
-  in the input to that.
+  in the input to that. Each fill is stopped past `Liquidry.RenderMs` and each column past
+  `LiquidizeFormulary.columnMs`, on `performance.now()`: LiquidJS's own time limit reads
+  `Date.now()` inside Convex (it finds no `global.performance` there), which stands still through a
+  mutation, so it never fired on the server (probed on a local backend, 2026-10-08). JSONata's
+  timebox (`Formulas.evaluate`) reads `Date.now()` too, and so stops a long formula on the server
+  only by its depth guard.

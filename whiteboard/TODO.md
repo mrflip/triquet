@@ -284,6 +284,11 @@ Built: `LiquidizeFormulary` (`src/lib/formulary/liquidize.ts`), its params, the 
   (`$.value.<key>` for each key the last reply held) would save the typing.
 * **The widget editor previews the widget's own template**, never a widgeting's own or one read
   from the bag; the grid shows those.
+* **JSONata's timebox reads a clock that stands still on the server.** `Formulas.evaluate` times a
+  formula with `Date.now()`, which does not move inside a Convex mutation (thread 7 probed it), so a
+  formula column run by `sortQuestions` is stopped only by its depth guard, never by
+  `TimeboxMs`. `Liquidry.clockNow` (`performance.now()`) moves there; one line to use it. And a
+  whole column of formulas has no budget of its own, as a column of templates now does.
 
 ## Git refs
 
