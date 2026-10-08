@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: threads 1, 4, 3a merged (#191-#193); 2 (#196) and 3b (#197) landed; 6 landing, 7 in rework, 5a in review.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1, 4, 3a merged (#191-#193); 2 (#196), 3b (#197), 6 (#198) landed; 7 in rework, 5a in review, 8 underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -282,6 +282,9 @@ list alone, tier marks kept; both dispatch `move_widgeting`. The one-question ro
 column editor: a pulldown of the quiz's question labels (through `use-preview-bag`'s picker, quiz
 select dropped), beneath it that question's `QuestionRow` drawn from `specsFor` and the quiz's run,
 read-only, grip, checkbox and ask handlers off. Depends on: 5a.
+*Orchestrator, from thread 6's review:* the preview draws from **stored** params only, never a
+draft's: a draft `regex` has not passed recheck. *From 5a:* *+ New widgeting…* and *+ New quiz
+widgeting…* (an inline catalogue now) need a home when the section becomes *Run order*.
 
 ### 6. Free regex patterns (optional)
 

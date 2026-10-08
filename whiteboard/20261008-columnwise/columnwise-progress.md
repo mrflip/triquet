@@ -14,13 +14,13 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 4 | removal and commit model | landed #192 |
 | 3b | column expression authoring | landed #197 |
 | 7 | `liquidize` formulary | rework (review flagged; Coach ruled: stop + column budget, per-formulary allowlist) |
-| 6 | free regex (optional) | landing (review clean; full e2e) |
+| 6 | free regex (optional) | landed #198 |
 | 5a | folding editors | in review |
 | 5b | run order in both places, row preview | pending |
-| 8 | seeds pass (optional) | pending |
+| 8 | seeds pass (optional) | underway |
 | 3c | columns tighten (last) | pending |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). Next asked-for full run: the eighth landing.
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). Next asked-for full run: the eighth landing.
 
 ## What the threads have taught
 
@@ -165,6 +165,27 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   that sort) before it collapses** (the Coach's call; a timer is a tripwire); `bagOver` links
   images in `{{ qn.<computed> }}` even in the sheet; `textedOf`'s key joins with `\n`; a collapsed
   column in the card layout cannot be restored from its hidden head (columns editor only).
+
+### From thread 6 (free regex, #198)
+
+* **The `regex` param** of a `text` entry: `{ source, flags }` beside the named `pattern` (a cell
+  must match both); one line, at most 200 characters, compiling, flags from `imsu` in order.
+* **recheck** runs in Convex's default runtime through its pure build's `checkSync`
+  (`recheck/lib/browser.js`); `performance.now()` moves inside a mutation, `Date.now()` does not.
+  `src/lib/redos.ts` is its only importer (200 ms a pattern, 500 ms a change; `vulnerable`, every
+  `unknown`, out-of-budget all refused). `convex/writing/regex_vetting.ts` (`refuseRiskyRegexes`)
+  runs in `addWidgeting`, `editWidgeting`, `addWidget`, `editWidget`, `importWidgets`; a pattern
+  the row already holds is not re-checked. A stored pattern is compiled once
+  (`src/lib/regexes.ts`) and handed to Zod in `EntryFormulary.valueOf`.
+* **`RegexField.tsx`**, a field any form can use; recheck reaches the browser only by `import()`
+  (its own 2.8 MB chunk), checked on recheck's worker. The planner does not ask recheck (it is
+  synchronous); the server makes the final call. `pnpm-workspace.yaml` ignores recheck's JVM jar
+  and native binaries.
+* *Review:* `clean`. Left, minor: a `regex` written by a direct call before the deploy is never
+  checked (**the PR's "Before deploying:" query**); an unexpected status refuses with a garbled
+  sentence; the lazy-load guard misses multi-line imports; the compiled memo never shrinks;
+  **5b: a preview testing cells against draft params would run an unchecked pattern: preview from
+  stored params only.**
 
 ### From thread 2's review (flagged, ruled)
 
