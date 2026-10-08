@@ -6,6 +6,7 @@ import _ from 'es-toolkit/compat'
 import { NumberField } from './cells/fields'
 import { useDraft } from './use-draft'
 import { ParamWords, TextLinesWords, TextPatternWords } from './widget-words'
+import * as Reporting from '../lib/vv/reporting'
 import { EntryParamsOf, TextLinesVals, TextPatternVals, type EntryKind } from '../models/widget'
 import type { JsonT } from '../models/widgeted'
 import styles from './workbench.module.css'
@@ -35,7 +36,7 @@ export function EntryParamsFields({ entry_kind, params, inherited, validator, di
   const { shape } = EntryParamsOf[entry_kind]
   const paramnames = Object.keys(shape)
   if (paramnames.length === 0) { return <p className={styles.microcopy}>This kind of entry takes no settings.</p> }
-  const checked = validator.safeParse(params)
+  const checked = validator.safeParse(params, { error: Reporting.customError })
   const issueOf = (paramname: string) => (checked.success ? null : checked.error.issues.find((issue) => issue.path[0] === paramname)?.message ?? null)
   const put = (paramname: string, val: JsonT | undefined) => { onChange(_.omitBy({ ...params, [paramname]: val }, _.isUndefined) as Record<string, JsonT>) }
   return (

@@ -35,7 +35,8 @@ export function useEntering(widget: Pick<EntryWidgetT, 'config'>, widgeting: Pic
   const validator = useMemo(() => EntryFormulary.valueOf(widget, widgeting), [widget, widgeting])
   const enter = (value: EntryValueT | null) => {
     if (value === null) { onEnter(null); return }
-    const checked = validator.safeParse(value)
+    // The browser installs no error map, so the parse says its sentences in the words the server would.
+    const checked = validator.safeParse(value, { error: Reporting.customError })
     if (checked.success) { onEnter(checked.data); return }
     raise({ headline: AppNotices.changeNotKept, notice: `${label}: ${Reporting.explain(checked.error)}`, request_id: null })
   }

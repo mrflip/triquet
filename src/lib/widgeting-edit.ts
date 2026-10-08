@@ -100,7 +100,7 @@ function labelOf(edit: Readonly<WidgetingEdit>, siblings: ReadonlySet<string>, t
  */
 function paramsIssueOf(widget: WidgetT, held: WidgetingT | null, params: WidgetingT['params']): string | null {
   if (held !== null && UU.jsonify(params) === UU.jsonify(held.params)) { return null }
-  const checked = Formularies.paramsOf(widget).safeParse(params)
+  const checked = Formularies.paramsOf(widget).safeParse(params, { error: Reporting.customError })
   return checked.success ? null : `Its params will not do: ${Reporting.explain(checked.error)}`
 }
 

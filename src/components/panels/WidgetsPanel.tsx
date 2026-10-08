@@ -129,7 +129,7 @@ function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>)
         {widget?.formulary === 'entry' && (
           <>
             {widget.description === '' ? null : <p className={styles.microcopy}>The widget: {widget.description}</p>}
-            <p className={styles.microcopy}>{widgeting.tier === 'quiz' ? 'Typed into the Quiz entries panel, one value for the whole quiz.' : 'Typed into its cells, one value per question.'} {EntryKindWords[widget.config.entry_kind]}. {paramsGist(EntryFormulary.inForce(widget, widgeting))}</p>
+            <p className={styles.microcopy}>{widgeting.tier === 'quiz' ? 'Typed into the Quiz entries panel, one value for the whole quiz.' : 'Typed into its cells, one value per question.'} {_.compact([`${EntryKindWords[widget.config.entry_kind]}.`, paramsGist(EntryFormulary.inForce(widget, widgeting))]).join(' ')}</p>
           </>
         )}
         {widget && widget.formulary !== 'entry' && (
