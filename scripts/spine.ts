@@ -12,6 +12,7 @@
  *   node scripts/spine.ts e2e-log                           the e2e log, summarised
  *   node scripts/spine.ts proof [--skip-e2e <reason>]       where the branch's e2e proof stands, as a bid would take it
  *   node scripts/spine.ts land                              the bid: a proved branch caught up, typechecked and tested, folded in and pushed, under one hold
+ *   node scripts/spine.ts land --into <branch>              the bid, folded into the top's own branch rather than stacked on it: more commits for a PR already filed
  *   node scripts/spine.ts sweep                             the main checkout's whiteboard/, human/ and notes/, committed onto the top
  *   node scripts/spine.ts restack                           the spine, replayed onto origin/main if origin has moved, and pushed
  *   node scripts/spine.ts top                               the top's branch
@@ -208,7 +209,7 @@ export const SpecCorners: readonly CornerRule[] = [
   { corner: 'the way in and the addresses', specs: RoutingSpecs,                             paths: ['src/app/(synced)/page.tsx', 'src/app/(synced)/h/', 'src/components/IdentGate.tsx', 'src/components/HuntEditModal.tsx', 'src/components/NotOnHunt.tsx', 'src/components/QuizNotFound.tsx'] },
 ]
 
-const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [--touched | <playwright args>] | e2e-log | proof [--skip-e2e <reason>] | land [--skip-e2e <reason>] | sweep | restack | top'
+const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [--touched | <playwright args>] | e2e-log | proof [--skip-e2e <reason>] | land [--skip-e2e <reason>] [--into <branch>] | sweep | restack | top'
 
 /** A stop that needs the agent or the Coach: its message says what happened and what to do */
 export class SpineStop extends Error {}
@@ -1267,29 +1268,57 @@ export function skippingE2e(branch: string, changed: readonly string[], reason: 
  * moved onto another lockfile installs its packages first (`installedSince`). The hold released,
  * it pushes the branch. Any stop leaves the spine as it was.
  *
+ * Given `into`, the top's own branch, the bid adds its commits to that branch instead of stacking a
+ * branch of its own: the main checkout's branch fast-forwards onto them, the worktree's branch is
+ * deleted, and `into` is pushed, so the PR already filed for it carries them (`refuseInto`, `foldInto`).
+ *
  * @returns Lines saying what landed, on what.
  */
-export function land(cwd: string, skipE2e?: string): string[] {
+export function land(cwd: string, skipE2e?: string, into?: string): string[] {
   const { root, main, commondir } = checkoutAt(cwd)
   const branch = worktreeBranch(root, main, 'Landing')
-  // Read before the hold too, so a bid with no proof is refused without queueing for it.
+  // Read before the hold too, so a bid with no proof, or into a branch that cannot take it, is refused without queueing for it.
   const proofBefore = proofOf(root, main, branch, skipE2e)
+  if (into !== undefined) { refuseInto(into, topOf(main), branch) }
   const checks = process.env.TRIQUET_LAND_CHECKS ?? LandChecks
   const { top, notes, proof } = withSpineHeld(commondir, `landing ${branch}`, () => {
     refuseBusy(main)
     const said = [...restack(main), ...sweptNotes(sweep(main))]
     const stood = topOf(main)
+    if (into !== undefined) { refuseInto(into, stood, branch) }
     const before = git(root, 'rev-parse', 'HEAD')
     const rebased = caughtUp(root, branch, stood)
     if (rebased) { said.push(`The top had moved: rebased onto ${stood.branch} at ${stood.sha.slice(0, 8)}.`, ...installedSince(root, before)) }
     const proven = rebased ? proofAfresh(root, branch, stood, skipE2e) : proofBefore
     if (! passes(root, checks)) { throw new SpineStop(`Typecheck or the tests failed on ${branch}, on ${stood.branch}: repair, commit, justify, and bid again. The spine is untouched.`) }
     refuseBusy(main)
-    foldIn(root, main, branch)
+    if (into === undefined) {
+      foldIn(root, main, branch)
+    } else {
+      foldInto(root, main, branch, into)
+    }
     said.push(...mainInstalledSince(main, stood.sha))
     return { top: stood, notes: said, proof: proven }
   })
+  if (into !== undefined) {
+    return [...notes, ...pushed(main, into), ...proof, `Landed ${branch} into ${into}, the top, and deleted ${branch}: ${into}'s PR carries its commits now. Add what they bring to that PR's description, then remove this worktree.`]
+  }
   return [...notes, ...pushed(main, branch), ...proof, `Landed ${branch} on ${top.branch}: the main checkout stands on it now. File its PR (${stackingOn(top)}), then remove this worktree.`]
+}
+
+/**
+ * Refuses a bid into `into` unless it is the top's own branch: a landed branch, which the bid's
+ * commits can follow without disturbing any other. A branch lower on the spine would need every
+ * branch above it replayed and pushed again, which is the Coach's call.
+ */
+function refuseInto(into: string, top: Top, branch: string): void {
+  if (into === 'main') { throw new SpineStop('--into names a landed branch, never main: nothing lands on main but the Coach\'s merges.') }
+  if (into === top.branch) { return }
+  throw new SpineStop([
+    `${into} is not the top of the spine (${top.branch} is), so ${branch} cannot land into it; nothing landed.`,
+    'Only the top takes more commits without replaying the branches above it. Land as a branch of its own',
+    'instead (`pnpm land`), its PR stacked on the top, or ask the Coach.',
+  ].join(' '))
 }
 
 /**
@@ -1325,6 +1354,23 @@ function foldIn(root: string, main: string, branch: string): void {
   }
 }
 
+/**
+ * Fast-forwards the main checkout's branch `into`, the top, onto `branch`, which the bid has just
+ * rebased onto it, freeing `branch` from the worktree first; then deletes `branch`, whose commits
+ * `into` holds now. A refusal puts the worktree back and stops.
+ */
+function foldInto(root: string, main: string, branch: string, into: string): void {
+  git(root, 'switch', '--quiet', '--detach')
+  try {
+    git(main, 'merge', '--quiet', '--ff-only', branch)
+  } catch (err) {
+    git(root, 'switch', '--quiet', branch)
+    throw new SpineStop(`The main checkout would not move ${into} onto ${branch}, so nothing landed: the Coach's uncommitted edits stand in the way. Tell them which.\n${(err as Error).message}`)
+  }
+  // Forced only past git's check against an upstream origin never had: into stands on branch's tip.
+  git(main, 'branch', '--quiet', '--delete', '--force', branch)
+}
+
 /** Pushes `branch`, which origin has never had or has only as this branch's earlier push; a failure is reported, the landing stands */
 function pushed(main: string, branch: string): string[] {
   const remote = `refs/remotes/origin/${branch}`
@@ -1341,6 +1387,21 @@ function pushed(main: string, branch: string): string[] {
 export function skipE2eOf(args: readonly string[]): string | undefined {
   try {
     return parseArgs({ args: [...args], options: { 'skip-e2e': { type: 'string' } }, allowPositionals: false }).values['skip-e2e']
+  } catch {
+    throw new SpineStop(Usage)
+  }
+}
+
+/**
+ * What `land` was given: the reason to go without an e2e proof (`--skip-e2e`), and the branch to
+ * land into rather than on (`--into`), each undefined when it is not there.
+ *
+ * @example landOptionsOf(['--into', '20261008-alpha'])  // => { skipE2e: undefined, into: '20261008-alpha' }
+ */
+export function landOptionsOf(args: readonly string[]): { skipE2e?: string, into?: string } {
+  try {
+    const { values } = parseArgs({ args: [...args], options: { 'skip-e2e': { type: 'string' }, into: { type: 'string' } }, allowPositionals: false })
+    return { skipE2e: values['skip-e2e'], into: values.into }
   } catch {
     throw new SpineStop(Usage)
   }
@@ -1375,7 +1436,8 @@ async function main(args: readonly string[]): Promise<string[]> {
     return e2eProofOf(root, standingOf(root, mainroot), skipE2eOf(rest))
   }
   case 'land': {
-    return land(cwd, skipE2eOf(rest))
+    const { skipE2e, into } = landOptionsOf(rest)
+    return land(cwd, skipE2e, into)
   }
   case 'sweep': {
     const { main: mainroot, commondir } = checkoutAt(cwd)

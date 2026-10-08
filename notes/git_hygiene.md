@@ -348,6 +348,18 @@ config:
 git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push
 ```
 
+### Adding to a PR already filed
+
+More commits for a PR whose branch has landed: cut a worktree as for any thread
+(`pnpm worktree <label>`), commit, prove as usual, and bid with `pnpm land --into <branch>`. The
+bid folds your commits into that branch rather than stacking one of your own: it fast-forwards,
+is pushed, and its PR carries them. Your working branch is deleted. Add what they bring to the
+PR's description, then remove the worktree.
+
+Only the top of the spine takes this: a branch with others landed above it would need them all
+replayed and pushed again, so the bid refuses, and the commits land as a PR of their own, stacked
+on the top, unless the Coach says otherwise.
+
 ### Cleaning up
 
 Once the PR is filed: `pnpm worktree --remove`, from the worktree. It refuses while anything is

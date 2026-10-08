@@ -207,7 +207,8 @@ Work goes in **threads**: one line of work, one branch, one PR, one worktree. (A
    if a conflict needs a judgment about which behaviour wins, discuss (by finishing and offering to rewind, or by `git rebase --abort`ing on large problems).
 4. **File the PR** against `main` with `gh pr create`, unless *significant* questions hang: then ask
    in chat first. Add smaller open questions in the description -- but make sure they *also* appear in the proper place (`human/`, whiteboard, chat) as usual. Write "stacked on #N" for the branch you landed on.
-   **Never merge a PR or enable auto-merge**. Then `pnpm worktree --remove`.
+   **Never merge a PR or enable auto-merge**. Then `pnpm worktree --remove`. More commits for a PR
+   already filed land with `pnpm land --into <its branch>` (`git_hygiene`, *Adding to a PR already filed*).
 
 - Force-push only with an explicit lease, `--force-with-lease=<branch>:<sha>`. Never plain `--force`.
 - Never stash, commit, discard or overwrite anything uncommitted in the main checkout but the swept `whiteboard/`, `human/` and `notes/`: it is the Coach's.
