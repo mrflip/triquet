@@ -12,15 +12,15 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 2 | entry families | landed #196 (the spine restarted: #191-#193 merged) |
 | 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
-| 3b | column expression authoring | landing (review clean) |
+| 3b | column expression authoring | landed #197 |
 | 7 | `liquidize` formulary | in review |
 | 6 | free regex (optional) | underway |
-| 5a | folding editors | pending |
+| 5a | folding editors | underway |
 | 5b | run order in both places, row preview | pending |
 | 8 | seeds pass (optional) | pending |
 | 3c | columns tighten (last) | pending |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more).
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). Next asked-for full run: the eighth landing.
 
 ## What the threads have taught
 
@@ -138,6 +138,33 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   lists a hunt under a new word by id; a widget's defaults can clash with a widgeting's params.
 * **For the deploy (the Coach):** before, the hard grep gate (`human/20261008-cw_families.md`);
   after, `seeding:seedWidgets`.
+
+### From thread 3b (column expression authoring, #197)
+
+* **Stages** (`src/lib/columns.ts`): `ColumnSpec` carries `template`, `readout`, `collapsed`;
+  `drawnOf` is the formula's value (`shownOf`) then the template through `Templating.fill` with
+  `value`; `templatedTextOf` the sheet's text; `readoutOf` the readout in effect (own, else
+  `markdown` with a template, else null); **`isTypedInto` / `isDrawnByEditor` hold the
+  editability rule** (thread 2's checkbox and select go through `EntryCell`, so it covers them).
+  Sorts read the formula's value; the sheet carries the template's text.
+* **The menu** (`src/lib/column-menu.ts`): `refChoicesOf` (grouped refs); `presetsFor` over
+  **`PresetSources`, the list thread 8 extends**.
+* **Generic fields**: `FormulaField.tsx` (MUI Autocomplete over presets), `TemplateField.tsx`;
+  each commits on blur, emptying removes the field, each says its sentence. **Column fields**
+  (`ColumnFields.tsx`): `ColumnRefField`, the four stage fields and `ColumnStagesFields`, each
+  `{ column, locked, onCommit(patch) }`, no dialog state: **5a lifts them**, and moves the row's
+  local fold into `use-folds`.
+* Libraries weighed for the fields: CodeMirror and Monaco (heavy, *Discuss*),
+  `react-simple-code-editor` (a highlighter by hand); MUI only.
+* Grid: a double-click on a head collapses (20px, turned header, empty cells, width kept);
+  `DrawnReadout` (plain, markdown, code, label) for read-only cells. Importer carries a pasted
+  column's stages onto a held one, and takes them off when absent (recorded).
+* Decisions: a template runs only on `ok`; a readout applies only to read-only cells; images in
+  values a person did not type are linked under markdown; a ref change keeps formula and template.
+* *Review:* `clean`, no fixes. Left, minor: **a double-click on a sortable head sorts (and saves
+  that sort) before it collapses** (the Coach's call; a timer is a tripwire); `bagOver` links
+  images in `{{ qn.<computed> }}` even in the sheet; `textedOf`'s key joins with `\n`; a collapsed
+  column in the card layout cannot be restored from its hidden head (columns editor only).
 
 ### From thread 2's review (flagged, ruled)
 

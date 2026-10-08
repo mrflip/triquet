@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: threads 1, 4, 3a merged (#191-#193); 2 landed (#196); 3b, 6, 7 underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1, 4, 3a merged (#191-#193); 2 (#196) and 3b (#197) landed; 6, 7, 5a underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -382,3 +382,9 @@ thread (last, the top of the series).
   what it finds before deploying; no change to the read paths. Thread 2's PR says `Before merging:`.
 * **3a's open calls** (minor): the empty-estimates-cell rule (`27bf8b3`); *Category Data* vs
   *Categories* as a new estimates column's header.
+* **3b's open call** (minor): a double-click on a sortable column head sorts once (and saves the
+  sort) before it collapses; holding the sort back needs a timer, a views tripwire. And a
+  collapsed column in the card layout (below 640px) is restored only from the columns editor.
+* **7's open call** (minor): `liquidize`'s `template_from` with no formula reads as a column with
+  no formula does (the field itself, a widgeting's `value`), not `$`; the record's §3 amended.
+* **After the deploy:** `seeding:seedWidgets` (thread 2's four families and thread 7's `blurb`).
