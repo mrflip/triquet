@@ -210,6 +210,14 @@ One menu for every column: every question field and view, every `question` widge
   formula box.
 * **The parts are expression presets**: `$.masie`, `$.average`, `$.estimates`. The parts stay on
   the widgeted in the bag, where formulas read them (`Estimates.partsOf`).
+* **The seeded sums that reshape one widgeted are presets too** (thread 8): beside a widgeting of
+  `numnum_clueing`, `numnum_hint` or `butnot_ishes`, by the widget's label, the column offers the
+  two sums (`SeedPresets` in `src/models/seeds.ts`), naming the column as the seeded sum
+  (`hint_full`, *Hint Full Sum*). A seed knows its own reply's shape, so this is the one place a
+  bot's result is offered presets. The sums reading two things or another question (`butnot_*`,
+  `clueing_plus_*`) stay widgets, and **the four reshaping sums stay seeded too**: a sum's cell
+  re-asks its spotter on a double-click, which a formula'd column (read-only) does not, and a quiz
+  laid out before the library (`seeding:seedWidgets`) is given them.
 * Build the fields as components thread 5a can lift into the folding editor, not as dialog state.
 
 **The builtin fields stay** (ruled): a label, an answer and a Q# are worth special machinery. The

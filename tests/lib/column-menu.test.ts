@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as ColumnMenu from '../../src/lib/column-menu'
 import { resolve } from '../../src/lib/columns'
+import { SeedPresets, SeedWidgets } from '../../src/models/seeds'
 import { Widget, type WidgetT } from '../../src/models/widget'
 import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
@@ -88,5 +89,41 @@ describe('presetsFor and subjectOf', () => {
     const labels = (presets: readonly ColumnMenu.FormulaPreset[]) => presets.filter(({ formula }) => formula === '$.label')
     expect(labels(offered)).to.have.lengthOf(2)
     expect(labels(ColumnMenu.presetsFor(hunt))).to.have.lengthOf(1)
+  })
+})
+
+describe("the seeds' presets", () => {
+  /** Widgetings of three seeds, the hint's number spotter under a label of its own */
+  const spotters = [Widgeting.fill({ label: 'numnum_clueing', widget_label: 'numnum_clueing' }), Widgeting.fill({ label: 'hint_ishes', widget_label: 'numnum_hint' }), Widgeting.fill({ label: 'dumdum', widget_label: 'dumdum' })]
+
+  /** What the ref `source` picks among the spotters above, with `known` for the library */
+  function seededSubject(source: string, known: readonly WidgetT[] = SeedWidgets): ColumnMenu.PresetSubject {
+    return ColumnMenu.subjectOf(present(resolve(source, spotters)), known)
+  }
+
+  /** What the seeds offer beside the ref `source`, among the spotters above, with the seeded library */
+  function seededFor(source: string, known: readonly WidgetT[] = SeedWidgets): ColumnMenu.FormulaPreset[] {
+    return ColumnMenu.presetsFor(seededSubject(source, known))
+  }
+
+  it("offers a number spotter's two sums, by its widget, whatever the widgeting is called", () => {
+    expect(seededFor('numnum_clueing')).to.deep.eq(SeedPresets.get('numnum_clueing'))
+    expect(seededFor('hint_ishes')).to.deep.eq(SeedPresets.get('numnum_hint'))
+  })
+
+  it('offers nothing beside a seeded widget no preset reshapes, nor beside a spotter the library lacks', () => {
+    expect(seededFor('dumdum')).to.deep.eq([])
+    expect(seededFor('numnum_clueing', [])).to.deep.eq([])
+  })
+
+  it("names a column taking a sum as the classic sum column, and any other column as namesFor does", () => {
+    const offered = seededFor('hint_ishes')
+    const [full, numeral] = offered.map(({ formula }) => formula)
+    expect(ColumnMenu.namesOf('hint_ishes', present(full), offered)).to.deep.eq({ label: 'hint_full', title: 'Hint Full Sum' })
+    expect(ColumnMenu.namesOf('hint_ishes', present(numeral), offered)).to.deep.eq({ label: 'hint_numeral', title: 'Hint Numeral Sum' })
+    expect(ColumnMenu.namesOf('hint_ishes', '$.value.items', offered)).to.deep.eq({ label: 'hint_ishes', title: 'Hint Ishes' })
+    expect(ColumnMenu.namesOf('hint_ishes', null, offered)).to.deep.eq({ label: 'hint_ishes', title: 'Hint Ishes' })
+    const parts = ColumnMenu.presetsFor(subjectFor('category_data'))
+    expect(ColumnMenu.namesOf('category_data', '$.masie', parts)).to.deep.eq({ label: 'category_data_masie', title: 'Masie' })
   })
 })

@@ -84,6 +84,9 @@ const AibotSeedDNAs: readonly WidgetDNA[] = [
 /** The sum, rounded halves upward, of the spans a number spotter's widgeted found; `kind` narrows them */
 const SumOf = (widgeted: string, kind = ''): string => `$floor($sum($append([0], ${widgeted}.value.items${kind}.value)) + 0.5)`
 
+/** What narrows a number spotter's spans to those written in digits */
+const NumeralOnly = "[kind = 'numeral']"
+
 /** The number spotter's widgeted for the hint of the question this one chains to */
 const ButnotHint = '(qns[label = $$.qn.chains_to]).numnum_hint'
 
@@ -101,7 +104,7 @@ const SumSeedDNAs: readonly WidgetDNA[] = [
     label:       'clueing_numeral',
     description: 'The spans in the clueing that are written in digits, added up.',
     formulary:   'jsonata',
-    formula:     `qn.numnum_clueing.status = 'ok' ? ${SumOf('qn.numnum_clueing', "[kind = 'numeral']")}`,
+    formula:     `qn.numnum_clueing.status = 'ok' ? ${SumOf('qn.numnum_clueing', NumeralOnly)}`,
   },
   {
     label:       'hint_full',
@@ -113,7 +116,7 @@ const SumSeedDNAs: readonly WidgetDNA[] = [
     label:       'hint_numeral',
     description: 'The spans in this question\'s own hint that are written in digits, added up.',
     formulary:   'jsonata',
-    formula:     `qn.numnum_hint.status = 'ok' ? ${SumOf('qn.numnum_hint', "[kind = 'numeral']")}`,
+    formula:     `qn.numnum_hint.status = 'ok' ? ${SumOf('qn.numnum_hint', NumeralOnly)}`,
   },
   {
     label:       'butnot_full',
@@ -125,7 +128,7 @@ const SumSeedDNAs: readonly WidgetDNA[] = [
     label:       'butnot_numeral',
     description: 'The spans written in digits in the hint of the question this one chains to, added up.',
     formulary:   'jsonata',
-    formula:     `(\n  $hint := ${ButnotHint};\n  $hint.status = 'ok' ? ${SumOf('$hint', "[kind = 'numeral']")}\n)`,
+    formula:     `(\n  $hint := ${ButnotHint};\n  $hint.status = 'ok' ? ${SumOf('$hint', NumeralOnly)}\n)`,
   },
   {
     label:       'clueing_plus_rank',
@@ -183,6 +186,43 @@ const ButnotIshesDNA: WidgetDNA = {
   formulary:   'jsonata',
   formula:     `${ButnotHint}.value`,
 }
+
+/** A formula a column is offered beside a ref, reshaping what it picks; as the column menu's presets are shaped */
+export type SeedPreset = {
+  formula: string
+  /** What it works out, in a few words */
+  title:   string
+  /** The label and header a column taking it is given when the author gives neither */
+  names:   { label: string, title: string }
+}
+
+/**
+ * The sums of a number spotter's spans, as formulas a column showing the spotter works on its
+ * widgeted (`$`): what the seeded `<stem>_full` and `<stem>_numeral` widgets work out, without a
+ * widgeting of their own, the column named as theirs are. A column's formula works only on an
+ * `ok` widgeted, so these need no guard: an unasked or failed spotter shows as itself, not as nought.
+ */
+function spotterSums(stem: string, heading: string): readonly SeedPreset[] {
+  return [
+    { formula: SumOf('$'), title: 'Every number-like span, added up', names: { label: `${stem}_full`, title: `${heading} Full Sum` } },
+    { formula: SumOf('$', NumeralOnly), title: 'The spans written in digits, added up', names: { label: `${stem}_numeral`, title: `${heading} Numeral Sum` } },
+  ]
+}
+
+/**
+ * The formulas offered to a column showing a widgeting of a seeded widget, by the widget's label:
+ * the sums, for both number spotters and for the BUT NOT ishes, which hold a spotter's reply. A
+ * sum reading two things, or another question (`butnot_*`, `clueing_plus_*`), stays a widget.
+ *
+ * @example SeedPresets.get('numnum_hint')?.map(({ formula }) => formula)
+ *   // => ["$floor($sum($append([0], $.value.items.value)) + 0.5)", "$floor($sum($append([0], $.value.items[kind = 'numeral'].value)) + 0.5)"]
+ * @example SeedPresets.get('numnum_hint')?.[0]?.names  // => { label: 'hint_full', title: 'Hint Full Sum' }
+ */
+export const SeedPresets: ReadonlyMap<string, readonly SeedPreset[]> = new Map([
+  ['numnum_clueing', spotterSums('clueing', 'Clueing')],
+  ['numnum_hint', spotterSums('hint', 'Hint')],
+  ['butnot_ishes', spotterSums('butnot', 'BUT NOT')],
+])
 
 /** The label of the seeded category-estimate entry, and so of the widgeting a quiz first works it under */
 export const CategoryDataLabel = 'category_data'

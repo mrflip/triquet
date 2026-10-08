@@ -456,9 +456,10 @@ that makes it.
   cell typed into (a field, an entry, a bot's asked cell, while the column is identity with no
   template) is drawn by its own box, whatever the readout says.
 * **preset** (a column's) -- a formula a column's panel offers beside a ref for what it picks:
-  an estimates entry's parts (`$.masie`), the field names of a word whose schema is known
-  (`$.title` of `quiz`, each question's of `qns`). `ColumnMenu.PresetSources` lists where they
-  come from.
+  an estimates entry's parts (`$.masie`), a seeded widget's reshapes (a number spotter's two
+  sums, `SeedPresets`), the field names of a word whose schema is known (`$.title` of `quiz`, each
+  question's of `qns`). `ColumnMenu.PresetSources` lists where they come from. A preset may carry
+  the names a column taking it is given (`ColumnMenu.namesOf`).
 * **collapsed** -- a column folded to the width of its turned header by a double-click on its
   head, its cells empty and its `width_px` kept for the double-click that restores it. Its head
   sorts nothing while collapsed. The TSV is unchanged by it.
