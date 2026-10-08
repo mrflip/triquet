@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: thread 1 landed (#191); threads 2, 3a, 4 underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1 (#191) and 4 (#192) landed; 2 and 3a underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -252,6 +252,9 @@ panel listing its columns' foldables; *+ New column…* gaining "a new entry…"
 an admin, "a new widget…", pairing widgeting and column (`planWidgetingEdit`); the column and
 widgeting dialogs retired, every field committing as it is made. The widget editor stays behind
 its door, untouched, as does the library modal and the toolbar's door. Depends on: 2, 3b, 4.
+*Orchestrator, from thread 4:* reuse `columnsShowing` for the widgeting panel's columns; and take
+thread 4's two review leftovers: a typed but unconfirmed label is dropped silently (mark it
+unsaved), and the quiz label draft goes stale if the quiz is relabelled elsewhere while open.
 **Look-ahead:** 5b puts this same panel component as the *Widgets* panel's open state.
 
 ### 5b. The run order in both places, and the row preview

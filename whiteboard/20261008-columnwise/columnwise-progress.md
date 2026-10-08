@@ -11,7 +11,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 1 | design note and vocabulary | landed #191 (docs only, no review) |
 | 2 | entry families | underway |
 | 3a | columns widen (Serial Deploy) | underway |
-| 4 | removal and commit model | landing (review clean) |
+| 4 | removal and commit model | landed #192 |
 | 3b | column expression authoring | pending |
 | 7 | `liquidize` formulary | pending |
 | 6 | free regex (optional) | pending |
@@ -20,7 +20,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 8 | seeds pass (optional) | pending |
 | 3c | columns tighten (last) | pending |
 
-Full e2e runs carried by: (none yet).
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone).
 
 ## What the threads have taught
 
@@ -60,3 +60,18 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   `categories`.
 * A nominated `aibot` widgeting is not filled today (`filledQnOf` fills only a string value); model
   output reaches a template through a `jsonata` string over a reply, or thread 7's `template_from`.
+
+### From thread 4 (removal and commit model, #192)
+
+* **`columnsShowing(quiz, label)`** (`src/lib/columns.ts`) finds the columns showing a widgeting
+  through `resolve`, counting `kind: 'widgeting'`. 3a: if a plain-key ref to a widgeting (or
+  `quiz.<label>`) gets another kind, carry `columnsShowing` along. 5a: reuse it for the widgeting
+  panel's list of columns. `widgetingRemovalRefusal` is the one sentence, server and editor.
+* `delete_widgeting` refuses (kind `widgetingShown`) rather than cascading; `deleteColumns` was
+  folded into `deleteColumn`. The manage dialog: *Relabel quiz* beside the label, *Done* alone at
+  the foot; the hunt's button is *Relabel hunt* (an `aria-label`). `closeManage` in
+  `e2e/support.ts` clicks Done.
+* *Review:* `clean`, no fixes. Left for 5a, both minor: *Done* drops a label typed but not
+  relabelled (the Coach may want an unsaved mark); the quiz label draft is set once from
+  `quiz.label`, so a relabel elsewhere while the dialog is open would be undone by a click on
+  *Relabel*. 5a rebuilds these editors and takes both.
