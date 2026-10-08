@@ -5,15 +5,18 @@ import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, 
 import _ from 'es-toolkit/compat'
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { ConfirmRemove } from './ConfirmRemove'
+import { EntryParamsFields } from './EntryParamsFields'
 import { SortableList } from './SortableList'
 import { WidgetEditor } from './WidgetEditor'
 import { FormularyWords } from './widget-words'
-import { planWidgetingEdit } from '../lib/widgeting-edit'
+import { planWidgetingEdit, runOrderIdxOf } from '../lib/widgeting-edit'
 import { widgetingRemovalRefusal } from '../lib/columns'
+import { EntryFormulary } from '../lib/formulary/entry'
 import { formularyFor } from '../lib/formulary/formularies'
-import { FormularykindVals, Widget, type WidgetT } from '../models/widget'
+import { FormularykindVals, Widget, type EntryWidgetT, type WidgetT } from '../models/widget'
 import { Widgeting, type WidgetingT, type WidgetingTier } from '../models/widgeting'
 import type { QuizT } from '../models/quiz'
+import type { JsonT } from '../models/widgeted'
 import type { ShallowHuntT } from '../lib/rows'
 import type { HuntActionDNA, LibraryActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
@@ -44,9 +47,11 @@ const TierMarks: Readonly<Record<WidgetingTier, string>> = {
 
 /**
  * A quiz's widgetings -- the widgets of the library it puts to work -- listed in run order, both
- * tiers in one list, each marked with its tier: dragged into a new order by their handles, each
- * with a gear that opens it in the widgeting editor, and a door to put another to work for each
- * question or once for the whole quiz. Each reads what those above it came to, whichever tier.
+ * tiers in one list, each marked with its tier: the entries at its head, which run first wherever
+ * they are and so are never dragged; below them the rest, dragged into a new order by their
+ * handles. Each has a gear that opens it in the widgeting editor, and there is a door to put
+ * another to work for each question or once for the whole quiz. Each reads what those above it
+ * came to, whichever tier.
  */
 export function WidgetingsEditor({ hunt, quiz, library, revisable, changeable, dispatch, changeLibrary, onEditLibrary }: Readonly<WidgetingsEditorProps>) {
   const [editing, setEditing] = useState<Editing>(null)
@@ -54,27 +59,33 @@ export function WidgetingsEditor({ hunt, quiz, library, revisable, changeable, d
   // The tier of the widgeting whose editor is open, the one it runs at or the one a new one will; null when none is open.
   const editingTier: WidgetingTier | null = edited?.tier ?? (editing?.kind === 'new' ? editing.tier : null)
   const close = () => { setEditing(null) }
+  const isEntry = (widgeting: WidgetingT) => library.find((each) => each.label === widgeting.widget_label)?.formulary === 'entry'
+  const entries = quiz.widgetings.filter((widgeting) => isEntry(widgeting))
+  const rest = quiz.widgetings.filter((widgeting) => ! isEntry(widgeting))
+  const rowOf = (widgeting: WidgetingT, handle: React.ReactNode) => (
+    <WidgetingRow widgeting={widgeting} library={library} handle={handle} onEdit={() => { setEditing({ kind: 'widgeting', label: widgeting.label }) }} />
+  )
 
   return (
     <Stack spacing={1}>
       {quiz.widgetings.length === 0 && <p className={styles.microcopy}>This quiz puts no widgets to work yet.</p>}
+      {entries.length === 0 ? null : (
+        <div role="list" aria-label="Entries">
+          {entries.map((widgeting) => (
+            <Box key={widgeting.label} role="listitem" sx={{ py: 0.5 }}>
+              {rowOf(widgeting, <Box component="span" className={styles.grip} sx={{ visibility: 'hidden' }} aria-hidden>⠿</Box>)}
+            </Box>
+          ))}
+          <p className={styles.microcopy}>Entries are typed, and read nothing, so they run first, ahead of everything below.</p>
+        </div>
+      )}
       <SortableList
         label="Widgetings"
-        items={quiz.widgetings}
+        items={rest}
         keyOf={(widgeting) => widgeting.label}
         disabled={! revisable}
-        onMove={(label, onto_idx) => { dispatch({ kind: 'move_widgeting', label, onto_idx }) }}
-        renderRow={(widgeting, handle) => (
-          <Stack direction="row" spacing={1} role="group" aria-label={`Widgeting ${widgeting.label}`} sx={{ alignItems: 'center' }}>
-            {handle}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <strong>{widgeting.label}</strong> <span className={styles.microcopy}>{widgetingNote(widgeting, library)}</span>
-              {widgeting.description === '' ? null : <div className={styles.microcopy}>{widgeting.description}</div>}
-            </Box>
-            <Chip size="small" variant="outlined" label={TierMarks[widgeting.tier]} />
-            <IconButton size="small" aria-label={`Edit widgeting ${widgeting.label}`} onClick={() => { setEditing({ kind: 'widgeting', label: widgeting.label }) }}>⚙</IconButton>
-          </Stack>
-        )}
+        onMove={(label, onto_idx) => { dispatch({ kind: 'move_widgeting', label, onto_idx: runOrderIdxOf(quiz.widgetings, isEntry, label, onto_idx) }) }}
+        renderRow={rowOf}
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
         <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setEditing({ kind: 'new', tier: 'question' }) }}>+ New widgeting…</Button>
@@ -84,6 +95,29 @@ export function WidgetingsEditor({ hunt, quiz, library, revisable, changeable, d
       {editingTier !== null && (
         <WidgetingDialog key={edited?.label ?? `new ${editingTier}`} hunt={hunt} quiz={quiz} tier={editingTier} library={library} widgeting={edited} revisable={revisable} changeable={changeable} dispatch={dispatch} changeLibrary={changeLibrary} onClose={close} />
       )}
+    </Stack>
+  )
+}
+
+type WidgetingRowProps = {
+  widgeting: WidgetingT
+  library:   readonly WidgetT[]
+  /** The handle to drag it by, or a blank in its place for an entry, which is never dragged */
+  handle:    React.ReactNode
+  onEdit:    () => void
+}
+
+/** One widgeting in the run order: its label, what it works, its description, its tier and its gear */
+function WidgetingRow({ widgeting, library, handle, onEdit }: Readonly<WidgetingRowProps>) {
+  return (
+    <Stack direction="row" spacing={1} role="group" aria-label={`Widgeting ${widgeting.label}`} sx={{ alignItems: 'center' }}>
+      {handle}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <strong>{widgeting.label}</strong> <span className={styles.microcopy}>{widgetingNote(widgeting, library)}</span>
+        {widgeting.description === '' ? null : <div className={styles.microcopy}>{widgeting.description}</div>}
+      </Box>
+      <Chip size="small" variant="outlined" label={TierMarks[widgeting.tier]} />
+      <IconButton size="small" aria-label={`Edit widgeting ${widgeting.label}`} onClick={onEdit}>⚙</IconButton>
     </Stack>
   )
 }
@@ -129,8 +163,9 @@ type WidgetEditing = 'new' | 'held' | null
 
 /**
  * The widgeting editor: one widgeting of the quiz, as this quiz has it -- the widget it works,
- * picked from the library, and its own label and description. Its place in the run order is the
- * list's, dragged by its handle.
+ * picked from the library, its own label and description, and for an entry what its cells may
+ * hold (its params, `EntryParamsFields`). Its place in the run order is the list's, dragged by
+ * its handle.
  *
  * The widget itself is the library's, so it is never edited here: a door opens the widget editor,
  * to write a new widget for this widgeting to work, or to revise the one it works, which changes
@@ -141,6 +176,7 @@ function WidgetingDialog({ hunt, quiz, tier, library, widgeting, revisable, chan
   const [label, setLabel] = useState(widgeting?.label ?? '')
   const [description, setDescription] = useState(widgeting?.description ?? '')
   const [widgetLabel, setWidgetLabel] = useState(widgeting?.widget_label ?? '')
+  const [params, setParams] = useState<Record<string, JsonT>>(widgeting?.params ?? {})
   // A widget just written for this widgeting, until the library's watch brings it back.
   const [made, setMade] = useState<WidgetT | null>(null)
   const [widgetEditing, setWidgetEditing] = useState<WidgetEditing>(null)
@@ -155,7 +191,7 @@ function WidgetingDialog({ hunt, quiz, tier, library, widgeting, revisable, chan
   const offered = widgeting === null ? known.filter((each) => Widgeting.runsAt(each, runsAt)) : known
 
   const onApply = () => {
-    const plan = planWidgetingEdit({ widgeting, label, description, widgetLabel, tier: runsAt }, known, quiz)
+    const plan = planWidgetingEdit({ widgeting, label, description, widgetLabel, tier: runsAt, params }, known, quiz)
     if (! plan.ok) { setIssue(plan.issue); setLabelIssue(plan.labelIssue); return }
     for (const action of plan.actions) { dispatch(action) }
     onClose()
@@ -170,7 +206,7 @@ function WidgetingDialog({ hunt, quiz, tier, library, widgeting, revisable, chan
             <WidgetPicker
               library={offered} widget={widget} disabled={fixed}
               gone={widgeting !== null && widget === null ? widgeting.widget_label : null}
-              onPick={(picked) => { setWidgetLabel(picked); setIssue(null) }}
+              onPick={(picked) => { setWidgetLabel(picked); setParams({}); setIssue(null) }}
             />
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
               {changeable && widgeting === null && <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setWidgetEditing('new') }}>New widget…</Button>}
@@ -186,6 +222,7 @@ function WidgetingDialog({ hunt, quiz, tier, library, widgeting, revisable, chan
               size="small" label="Widgeting description" value={description} disabled={! revisable}
               helperText="What this widgeting is for in this quiz." onChange={(event) => { setDescription(event.target.value) }}
             />
+            {widget?.formulary === 'entry' && <EntryParams widget={widget} params={params} disabled={! revisable} onChange={(next) => { setParams(next); setIssue(null) }} />}
             {issue !== null && issue !== labelIssue && <p className={styles.microcopy} role="alert">{issue}</p>}
           </Stack>
         </DialogContent>
@@ -215,13 +252,32 @@ function WidgetingDialog({ hunt, quiz, tier, library, widgeting, revisable, chan
           widgeting={{ label: label || widgetLabel, description }}
           dispatch={changeLibrary}
           onClose={() => { setWidgetEditing(null) }}
-          onMade={(fresh) => { setMade(fresh); setWidgetLabel(fresh.label); setIssue(null) }}
+          onMade={(fresh) => { setMade(fresh); setWidgetLabel(fresh.label); setParams({}); setIssue(null) }}
           onRemoved={(gone) => {
             if (made?.label === gone) { setMade(null) }
             if (widgeting === null && widgetLabel === gone) { setWidgetLabel('') }
           }}
         />
       )}
+    </>
+  )
+}
+
+type EntryParamsProps = {
+  widget:   EntryWidgetT
+  params:   Record<string, JsonT>
+  disabled: boolean
+  onChange: (params: Record<string, JsonT>) => void
+}
+
+/** What a widgeting of an entry says of its cells: its family's params, the widget's defaults showing through where it says nothing */
+function EntryParams({ widget, params, disabled, onChange }: Readonly<EntryParamsProps>) {
+  const { entry_kind, ...defaults } = widget.config
+  return (
+    <>
+      <Divider />
+      <div className={styles.microcopy}>What its cells may hold, in this quiz. A change bites on the next edit of each cell: what they hold already stays.</div>
+      <EntryParamsFields entry_kind={entry_kind} params={params} inherited={defaults} validator={EntryFormulary.paramsOf(widget)} disabled={disabled} onChange={onChange} />
     </>
   )
 }

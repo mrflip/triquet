@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { EntryKindWords, FormularyWords, StatusWords, statusLine, statusPhrases, usageLine } from '../../src/components/widget-words'
-import { EntryKindVals, FormularykindVals } from '../../src/models/widget'
+import { EntryKindWords, FormularyWords, ParamWords, StatusWords, TextLinesWords, TextPatternWords, paramsGist, statusLine, statusPhrases, usageLine } from '../../src/components/widget-words'
+import { EntryKindVals, EntryParamsOf, FormularykindVals, TextLinesVals, TextPatternVals } from '../../src/models/widget'
+import type { EntryInForceT } from '../../src/lib/formulary/entry'
 import { WidgetedStatusVals } from '../../src/models/widgeted'
 import type { StatusCounts } from '../../src/lib/formulary/runner'
 import type { WidgetUsageT } from '../../src/lib/rows'
@@ -32,6 +33,40 @@ describe("EntryKindWords", () => {
   it("speaks of every kind of entry", () => {
     expect(Object.keys(EntryKindWords)).to.have.members([...EntryKindVals])
   })
+})
+
+describe("ParamWords, TextPatternWords and TextLinesWords", () => {
+  it("name every param any family takes, and every pattern and number of lines", () => {
+    const paramnames = new Set(Object.values(EntryParamsOf).flatMap((validator) => Object.keys(validator.shape)))
+    expect(Object.keys(ParamWords)).to.have.members([...paramnames])
+    expect(Object.keys(TextPatternWords)).to.have.members([...TextPatternVals])
+    expect(Object.keys(TextLinesWords)).to.have.members([...TextLinesVals])
+  })
+})
+
+describe("paramsGist", () => {
+  const Cases: [EntryInForceT, string, string][] = [
+    // regular usage, the doc examples among them:
+    [{ family: 'number', params: { min: 1, max: 10, integer: true } },  "Whole numbers from 1 to 10.",                    'a number between bounds, whole'],
+    [{ family: 'number', params: { min: 0 } },                          "Numbers from 0 up.",                             'a number with a least alone'],
+    [{ family: 'number', params: { max: 5 } },                          "Numbers up to 5.",                               'a number with a most alone'],
+    [{ family: 'number', params: { integer: true } },                   "Whole numbers.",                                 'a whole number, unbounded'],
+    [{ family: 'text', params: { pattern: 'url', max_length: 200 } },   "A web address, at most 200 characters.",         'a text held to a pattern and a length'],
+    [{ family: 'text', params: { lines: 'one' } },                      "One line.",                                      'a text of one line'],
+    [{ family: 'text', params: { max_length: 9 } },                     "At most 9 characters.",                          'a text of a length alone'],
+    [{ family: 'enum', params: { options: ['easy', 'hard'] } },         "One of: easy, hard.",                            'a choice of its options'],
+    [{ family: 'enum', params: {} },                                    "No options yet: give its widgeting some.",       'a choice with nothing to choose'],
+    // nothing to say:
+    [{ family: 'text', params: {} },                                    "",                                               'a text that says nothing'],
+    [{ family: 'number', params: {} },                                  "",                                               'a number that says nothing'],
+    [{ family: 'boolean', params: {} },                                 "",                                               'a yes or no, which takes no params'],
+    [{ family: 'estimates', params: {} },                               "",                                               'category estimates, which take no params'],
+  ]
+  for (const [cell, expected, describes] of Cases) {
+    it(describes, () => {
+      expect(paramsGist(cell)).to.eq(expected)
+    })
+  }
 })
 
 describe("statusLine", () => {

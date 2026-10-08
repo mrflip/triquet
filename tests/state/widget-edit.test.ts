@@ -89,10 +89,25 @@ describe("planWidgetEdit", () => {
     })
   })
 
-  it("revises an entry's description alone", () => {
+  it("revises an entry's description, its config going as it was", () => {
     expect(planWidgetEdit({ ...draftOf(Points), description: 'Out of ten.' }, [...library, Points])).to.deep.eq({
-      ok: true, actions: [{ kind: 'edit_widget', label: 'points', patch: { description: 'Out of ten.' } }],
+      ok: true, actions: [{ kind: 'edit_widget', label: 'points', patch: { description: 'Out of ten.', config: { entry_kind: 'number' } } }],
     })
+  })
+
+  it("revises the params an entry's widgetings start from, its kind kept", () => {
+    expect(planWidgetEdit({ ...points, config: { entry_kind: 'number', min: 1, max: 10 } }, [...library, Points])).to.deep.eq({
+      ok: true, actions: [{ kind: 'edit_widget', label: 'points', patch: { description: '', config: { entry_kind: 'number', min: 1, max: 10 } } }],
+    })
+  })
+
+  it("refuses default params its family does not take, or that do not agree", () => {
+    expect(planWidgetEdit({ ...points, config: { entry_kind: 'number', min: 10, max: 1 } }, [...library, Points]).ok).to.be.false
+    expect(planWidgetEdit({ ...points, config: { entry_kind: 'number', options: ['a'] } as never }, [...library, Points]).ok).to.be.false
+  })
+
+  it("sends nothing for an entry unchanged", () => {
+    expect(planWidgetEdit(draftOf(Points), [...library, Points])).to.deep.eq({ ok: true, actions: [] })
   })
 
   it("refuses another kind for an entry the library holds, saying it is fixed", () => {

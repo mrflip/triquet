@@ -171,6 +171,27 @@ describe('EntryFormulary', () => {
     })
   })
 
+  describe('lengthMaxOf', () => {
+    it("is what the params say, or what the pattern allows, or prose's, per the doc examples", () => {
+      expect(EntryFormulary.lengthMaxOf({ pattern: 'label' })).to.eq(40)
+      expect(EntryFormulary.lengthMaxOf({ pattern: 'label', max_length: 12 })).to.eq(12)
+      expect(EntryFormulary.lengthMaxOf({})).to.eq(3600)
+    })
+
+    it("is never past what the pattern allows, whatever the params say", () => {
+      expect(EntryFormulary.lengthMaxOf({ pattern: 'label', max_length: 300 })).to.eq(40)
+      expect(EntryFormulary.lengthMaxOf({ pattern: 'url' })).to.eq(2000)
+    })
+  })
+
+  describe('tidyFor', () => {
+    it("makes a label of what was typed for one held to the label pattern, and trims any other, per the doc examples", () => {
+      expect(EntryFormulary.tidyFor({ pattern: 'label' })('Quiet Otter!')).to.eq('quiet_otter')
+      expect(EntryFormulary.tidyFor({ pattern: 'url' })(' https://a.b ')).to.eq('https://a.b')
+      expect(EntryFormulary.tidyFor({ lines: 'one' })('  The Otter ')).to.eq('The Otter')
+    })
+  })
+
   describe('isOneLine', () => {
     it("is true where a text entry says one line, or a pattern holds it to one, per the doc examples", () => {
       expect(EntryFormulary.isOneLine({ pattern: 'url' })).to.be.true

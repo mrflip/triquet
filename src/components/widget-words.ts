@@ -1,6 +1,8 @@
+import _ from 'es-toolkit/compat'
+import type { EntryInForceT } from '../lib/formulary/entry'
 import type { StatusCounts } from '../lib/formulary/runner'
 import type { WidgetUsageT } from '../lib/rows'
-import type { EntryKind, Formularykind } from '../models/widget'
+import type { EntryKind, EnumParamsT, Formularykind, NumberParamsT, TextLines, TextParamsT, TextPattern } from '../models/widget'
 import { WidgetedStatusVals, type WidgetedStatus } from '../models/widgeted'
 
 /** How each formulary is spoken of on screen: one of its widgets, several, and what one does */
@@ -19,6 +21,71 @@ export const EntryKindWords: Readonly<Record<EntryKind, string>> = {
   labelish:  'A label: lowercase letters, digits and single underscores',
   titleish:  'A title: one line',
   estimates: "Category estimates: the subject categories a question draws on, each at a difficulty, and Masie, Artie and Poppy's chances at it",
+}
+
+/** How each of an entry's params is named beside its field */
+export const ParamWords: Readonly<Record<string, string>> = {
+  min:        'Least',
+  max:        'Most',
+  integer:    'Whole numbers only',
+  max_length: 'Most characters',
+  pattern:    'Pattern',
+  lines:      'Lines',
+  options:    'Options, one per line',
+}
+
+/** How each named pattern of a text entry reads in its select */
+export const TextPatternWords: Readonly<Record<TextPattern, string>> = {
+  label:   'A label: lowercase letters, digits and single underscores',
+  oneline: 'One line of anything',
+  url:     'A web address',
+}
+
+/** How each number of lines a text entry takes reads in its select */
+export const TextLinesWords: Readonly<Record<TextLines, string>> = {
+  one:  'One line',
+  many: 'Many lines, markdown welcome',
+}
+
+/**
+ * What an entry's cells may hold by the params in force, in a sentence; empty when they say
+ * nothing beyond the family.
+ *
+ * @example paramsGist({ family: 'number', params: { min: 1, max: 10, integer: true } })  // => 'Whole numbers from 1 to 10.'
+ * @example paramsGist({ family: 'text', params: { pattern: 'url', max_length: 200 } })   // => 'A web address, at most 200 characters.'
+ * @example paramsGist({ family: 'enum', params: { options: ['easy', 'hard'] } })          // => 'One of: easy, hard.'
+ * @example paramsGist({ family: 'text', params: {} })                                      // => ''
+ */
+export function paramsGist(cell: EntryInForceT): string {
+  switch (cell.family) {
+  case 'number': { return numberGist(cell.params) }
+  case 'text':   { return textGist(cell.params) }
+  case 'enum':   { return enumGist(cell.params) }
+  default:       { return '' }
+  }
+}
+
+/** A number entry's params in a sentence: whole or not, and its bounds */
+function numberGist({ min, max, integer }: NumberParamsT): string {
+  const noun = integer === true ? 'Whole numbers' : 'Numbers'
+  if (min !== undefined && max !== undefined) { return `${noun} from ${String(min)} to ${String(max)}.` }
+  if (min !== undefined) { return `${noun} from ${String(min)} up.` }
+  if (max !== undefined) { return `${noun} up to ${String(max)}.` }
+  return integer === true ? `${noun}.` : ''
+}
+
+/** A text entry's params in a sentence: its pattern or its lines, and its length */
+function textGist({ pattern, lines, max_length }: TextParamsT): string {
+  const linesSaid = lines === undefined ? null : TextLinesWords[lines]
+  const shape = pattern === undefined ? linesSaid : TextPatternWords[pattern]
+  const most = max_length === undefined ? null : `at most ${String(max_length)} characters`
+  const said = [shape, most].filter((part) => part !== null)
+  return said.length === 0 ? '' : `${_.upperFirst(said.join(', '))}.`
+}
+
+/** A choice entry's params in a sentence: its options */
+function enumGist({ options = [] }: EnumParamsT): string {
+  return options.length === 0 ? 'No options yet: give its widgeting some.' : `One of: ${options.join(', ')}.`
 }
 
 /**

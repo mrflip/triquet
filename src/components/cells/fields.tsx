@@ -1,7 +1,7 @@
 'use client'
 
 import { useLayoutEffect, useRef, useState } from 'react'
-import { TextField } from '@mui/material'
+import { Checkbox, FormControlLabel, NativeSelect, TextField } from '@mui/material'
 import clsx from 'clsx'
 import { NumericFormat, type NumberFormatValues, type SourceInfo } from 'react-number-format'
 import { useDraft } from '../use-draft'
@@ -100,6 +100,8 @@ export type StretchFieldProps = FieldProps & TemplatedFieldProps & {
   heightPx: number
   /** Always shown as typed, never rendered: Alt Text is read aloud as written */
   plain?:   boolean
+  /** The most characters that may be typed */
+  maxLength?: number
 }
 
 /**
@@ -107,7 +109,7 @@ export type StretchFieldProps = FieldProps & TemplatedFieldProps & {
  * but never allowed to decide that height. Long notes must not stretch the row. Until it is
  * typed into it shows its markdown rendered (filled in first, when templated), unless it is `plain`.
  */
-export function StretchField({ committed, onCommit, locked, placeholder, label, heightPx, plain = false, bag = null }: Readonly<StretchFieldProps>) {
+export function StretchField({ committed, onCommit, locked, placeholder, label, heightPx, plain = false, maxLength, bag = null }: Readonly<StretchFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
   const face = useFace(plain ? '' : draft, bag, label)
   return (
@@ -119,6 +121,7 @@ export function StretchField({ committed, onCommit, locked, placeholder, label, 
         aria-invalid={face.issue !== null || undefined}
         placeholder={placeholder}
         readOnly={locked}
+        maxLength={maxLength}
         value={draft}
         onChange={(event) => { onChange(event.target.value) }}
         onBlur={onBlur}
@@ -178,6 +181,10 @@ export type NumberFieldProps = Omit<FieldProps, 'committed' | 'onCommit'> & {
   max?:       number
   /** The grid's own borderless box, rather than a labelled MUI text field */
   bare?:      boolean
+  /** What a labelled box says beneath itself: what it is for, or what is wrong with it */
+  helperText?: string
+  /** Whether what a labelled box holds is refused, as its helper text says */
+  error?:     boolean
 }
 
 /**
@@ -186,7 +193,7 @@ export type NumberFieldProps = Omit<FieldProps, 'committed' | 'onCommit'> & {
  * taken, and what was typed is tidied on exit into the number it means (`2.50` becomes `2.5`, and
  * a lone `.` nothing).
  */
-export function NumberField({ committed, onCommit, locked, placeholder, label, fractional, signed = false, max, bare = false }: Readonly<NumberFieldProps>) {
+export function NumberField({ committed, onCommit, locked, placeholder, label, fractional, signed = false, max, bare = false, helperText, error = false }: Readonly<NumberFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(
     committed === null ? '' : String(committed),
     (typed) => { onCommit(typed === '' ? null : Number(typed)) },
@@ -209,5 +216,76 @@ export function NumberField({ committed, onCommit, locked, placeholder, label, f
     return <NumericFormat {...numeric} className={clsx(styles.field, styles.fieldNumber)} inputMode={inputMode} aria-label={label} readOnly={locked} />
   }
   // The label stays up in the outline, so an empty box reads as a box and not as a prompt inside one.
-  return <NumericFormat {...numeric} customInput={TextField} label={label} size="small" fullWidth slotProps={{ htmlInput: { inputMode, readOnly: locked }, inputLabel: { shrink: true } }} />
+  return <NumericFormat {...numeric} customInput={TextField} label={label} size="small" fullWidth helperText={helperText} error={error} slotProps={{ htmlInput: { inputMode, readOnly: locked }, inputLabel: { shrink: true } }} />
+}
+
+export type TruthFieldProps = {
+  /** Yes, no, or null while nothing has been said */
+  committed: boolean | null
+  /** Told what a click made it: yes, no, or null again */
+  onCommit:  (truth: boolean | null) => void
+  locked:    boolean
+  label:     string
+  /** The grid's own checkbox, named for a screen reader alone, rather than one with its words beside it */
+  bare?:     boolean
+}
+
+/** What a click on a yes-or-no box makes of what it held: not yet said, then yes, then no, then not yet said again */
+const NextTruth: ReadonlyMap<boolean | null, boolean | null> = new Map([[null, true], [true, false], [false, null]])
+
+/**
+ * A yes or no, as a checkbox committed as it is clicked: ticked for yes, empty for no, and a dash
+ * while nothing has been said, which a click past no comes back to, so a box can be emptied.
+ */
+export function TruthField({ committed, onCommit, locked, label, bare = false }: Readonly<TruthFieldProps>) {
+  const box = (
+    <Checkbox
+      size="small" sx={bare ? { p: 0.25 } : undefined} checked={committed === true} indeterminate={committed === null} disabled={locked}
+      slotProps={{ input: { 'aria-label': label, 'aria-checked': committed ?? 'mixed' } }}
+      onChange={() => { onCommit(NextTruth.get(committed) ?? null) }}
+    />
+  )
+  return bare ? box : <FormControlLabel control={box} label={label} />
+}
+
+export type ChoiceFieldProps = {
+  /** The option held, or null while none is */
+  committed: string | null
+  /** What may be picked, in the order offered */
+  options:   readonly string[]
+  /** Told the option picked, or null when the blank was */
+  onCommit:  (choice: string | null) => void
+  locked:    boolean
+  label:     string
+  /** The grid's own borderless select, rather than a labelled MUI text field */
+  bare?:     boolean
+}
+
+/** What a choice's blank is shown as: nothing picked yet */
+const NoChoice = '—'
+
+/**
+ * One of a list of options, as the browser's own select, committed as it is picked; its blank
+ * empties it. An option held that the list no longer offers is still shown, as itself, until
+ * another is picked, so nothing typed is lost to a revised list.
+ */
+export function ChoiceField({ committed, options, onCommit, locked, label, bare = false }: Readonly<ChoiceFieldProps>) {
+  const offered = committed === null || options.includes(committed) ? options : [...options, committed]
+  const choices = [<option key="" value="">{NoChoice}</option>, ...offered.map((option) => <option key={option} value={option}>{option}</option>)]
+  const onChange = (event: React.ChangeEvent<{ value: string }>) => { onCommit(event.target.value === '' ? null : event.target.value) }
+  if (bare) {
+    return (
+      <NativeSelect disableUnderline value={committed ?? ''} disabled={locked} onChange={onChange} sx={{ width: '100%', font: 'inherit' }} inputProps={{ 'aria-label': label, className: styles.field }}>
+        {choices}
+      </NativeSelect>
+    )
+  }
+  return (
+    <TextField
+      select label={label} size="small" fullWidth value={committed ?? ''} disabled={locked} onChange={onChange}
+      slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+    >
+      {choices}
+    </TextField>
+  )
 }

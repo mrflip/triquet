@@ -1,5 +1,6 @@
 import type * as Z from 'zod'
 import _ from 'es-toolkit/compat'
+import * as Labelmaker from '../labelmaker'
 import { ValidatorKit } from '../validator'
 import * as PA from '../vv/patterns'
 import { EstimateValidators } from '../../models/estimate'
@@ -153,6 +154,30 @@ export class EntryFormulary {
   }
 
   /**
+   * The most characters a `text` entry's cell takes: what its params say, or failing that what its
+   * pattern allows, or prose's.
+   *
+   * @example EntryFormulary.lengthMaxOf({ pattern: 'label' })                  // => 40
+   * @example EntryFormulary.lengthMaxOf({ pattern: 'label', max_length: 12 })  // => 12
+   * @example EntryFormulary.lengthMaxOf({})                                    // => 3600
+   */
+  static lengthMaxOf(params: TextParamsT): number {
+    const pattern = params.pattern === undefined ? null : TextPatterns[params.pattern]
+    return Math.min(params.max_length ?? PA.Textish.max, pattern?.max ?? PA.Textish.max)
+  }
+
+  /**
+   * How a one-line `text` entry's box tidies what was typed as it is left: into a label, for one
+   * held to the label pattern; trimmed, for any other.
+   *
+   * @example EntryFormulary.tidyFor({ pattern: 'label' })('Quiet Otter!')  // => 'quiet_otter'
+   * @example EntryFormulary.tidyFor({ pattern: 'url' })(' https://a.b ')    // => 'https://a.b'
+   */
+  static tidyFor(params: TextParamsT): (typed: string) => string {
+    return params.pattern === 'label' ? (typed) => Labelmaker.normalize(typed) : (typed) => typed.trim()
+  }
+
+  /**
    * Whether a `text` entry's cell takes one line: when it says so, or a pattern holds it to one.
    *
    * @example EntryFormulary.isOneLine({ pattern: 'url' })  // => true
@@ -172,7 +197,7 @@ function defaultsOf(widget: EntryWidgetish): Record<string, unknown> {
 function textValueOf(params: TextParamsT): Z.ZodType<string> {
   const pattern = params.pattern === undefined ? null : TextPatterns[params.pattern]
   const oneLine = EntryFormulary.isOneLine(params) ? noteish.regex(PA.Stringish.re, PA.Stringish.msg) : noteish
-  const bounded = oneLine.min(Math.max(1, pattern?.min ?? 1)).max(Math.min(params.max_length ?? PA.Textish.max, pattern?.max ?? PA.Textish.max))
+  const bounded = oneLine.min(pattern?.min ?? 1).max(EntryFormulary.lengthMaxOf(params))
   return pattern === null ? bounded : bounded.regex(pattern.re, pattern.msg)
 }
 
