@@ -48,6 +48,8 @@ export type ExplicitShown = { draft: string, unsaved: boolean }
 export function ExplicitField({ label, committed, act, actLabel, helperText, disabled, tidy = String, onCommit }: Readonly<ExplicitFieldProps>) {
   const [typed, setTyped] = useState<ExplicitTyped | null>(null)
   const [issue, setIssue] = useState<string | null>(null)
+  // Once what is held moves off what the typing began over, what was typed is done with: what is held coming back round to it does not revive it.
+  if (typed !== null && typed.base !== committed) { setTyped(null) }
   const { draft, unsaved } = explicitShown(typed, committed, tidy)
   const onAct = () => {
     const problem = onCommit(tidy(draft))
