@@ -16,11 +16,11 @@ import { WidgetValidators } from './widget'
 import { WidgetedValidators } from './widgeted'
 import { WidgetingValidators } from './widgeting'
 
-/** The actions that revise a quiz's widgetings and columns, and which of its sources it templates */
+/** The actions that revise a quiz's widgetings and columns, and which of its sources it nominates as templateable */
 export const LayoutActionKindVals = [
   'add_widgeting', 'edit_widgeting', 'delete_widgeting', 'move_widgeting',
   'add_column', 'edit_column', 'delete_column', 'move_column',
-  'set_templated',
+  'set_templateable',
 ] as const
 
 /** The actions that revise the quiz on screen and its questions */
@@ -59,7 +59,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('edit_column'),       label, patch: ColumnValidators.columnPatch }),
     obj({ kind: lit('delete_column'),     label }),
     obj({ kind: lit('move_column'),       label, onto_idx: uint }),
-    obj({ kind: lit('set_templated'),     templated: QuizValidators.templated }),
+    obj({ kind: lit('set_templateable'),  templateable: QuizValidators.templateable }),
   ] as const
 
   const huntAction = discrim('kind', [

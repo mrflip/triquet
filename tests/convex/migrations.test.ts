@@ -2,10 +2,13 @@ import migrationsTest from '@convex-dev/migrations/test'
 import { getFunctionName } from 'convex/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { internal } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 import * as Migrations from '../../convex/migrations'
 import { StampedTables, type StampedTablename } from '../../convex/stamping'
 import { Hunt } from '../../src/models/hunt'
 import { openOf, openTester, seedHunt, type Tester } from '../support/convex'
+import { expectSound } from '../support/soundness'
+import { CategoriesDescription } from '../../src/models/before-october'
 import { present } from '../support/present'
 
 // The backfills run as the migrations component runs them, in batches handed to the scheduler, so
@@ -149,5 +152,95 @@ describe("migrations.outstanding", () => {
     expect(failed?.name).to.eq('migrations:backfillHuntStamps')
     expect(failed?.error).to.be.a('string').and.not.eq('')
     expect(outstanding).to.have.length(Migrations.Backfills.length)
+  })
+})
+
+/**
+ * A hunt whose quiz is as the grammar before October 2026 wrote it: the library's
+ * category-estimate entry labelled `categories`, worked as `categories` and `categories_2`; a
+ * column of each, one showing a part; a column of a question field by its prefix; and the quiz
+ * nominating, as `templated`, a field by its prefix and a widgeting.
+ */
+async function oldQuiz(tt: Tester) {
+  const held = await seedHunt(tt, Hunt.blank('spring_hunt'), { smith: 'pat_smiths' })
+  const { quiz_id, hunt_id } = held.open
+  await tt.run(async (ctx) => {
+    const widget = present(await ctx.db.query('widgets').withIndex('by_scope_and_label', (cvx) => cvx.eq('scope', 'pub').eq('label', 'category_data')).first())
+    await ctx.db.patch('widgets', widget._id, { label: 'categories', description: CategoriesDescription })
+    await ctx.db.patch('quizzes', quiz_id, { templateable: undefined, templated: ['question.clueing', 'categories'] })
+    for (const [position, label] of ['categories', 'categories_2'].entries()) {
+      await ctx.db.insert('widgetings', { hunt_id, quiz_id, widget_label: 'categories', label, description: '', params: {}, tier: 'question', position })
+    }
+    const columns = await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).collect()
+    for (const column of columns) { await ctx.db.delete('columns', column._id) }
+    for (const [position, [label, source]] of [['title', 'question.title'], ['cats', 'categories'], ['masie', 'categories_2.masie']].entries()) {
+      await ctx.db.insert('columns', { hunt_id, quiz_id, label: String(label), title: String(label), source: String(source), width_px: 100, position })
+    }
+  })
+  return held
+}
+
+/** The quiz's layout and nomination, and the library's category-estimate entries, as the rows hold them */
+async function rowsOf(tt: Tester, quiz_id: Id<'quizzes'>) {
+  return await tt.run(async (ctx) => {
+    const quiz = present(await ctx.db.get('quizzes', quiz_id))
+    const widgetings = await ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).collect()
+    const columns = await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).collect()
+    const library = await ctx.db.query('widgets').collect()
+    const widgets = library.filter((widget) => widget.label.startsWith('categor'))
+    return {
+      templated:    quiz.templated ?? null,
+      templateable: quiz.templateable ?? null,
+      widgetings:   widgetings.map((row) => [row.label, row.widget_label]),
+      columns:      columns.map((row) => [row.label, row.source, row.formula ?? null]),
+      widgets:      widgets.map((row) => [row.label, row.description.includes('qn.category_data.masie')]),
+    }
+  })
+}
+
+describe("the columnwise backfills", () => {
+  const Columnwise = ['backfillCategoryDataWidget', 'backfillCategoryDataWidgetings', 'backfillPlainColumnSources', 'backfillQuizTemplateables']
+
+  it("relabel the category-estimate entry and its widgetings, write each source plain and each nomination as `templateable`", async () => {
+    const { tt } = deployment()
+    const { open } = await oldQuiz(tt)
+    for (const fn of Columnwise) { await migrate(tt, `migrations:${fn}`) }
+    expect(await rowsOf(tt, open.quiz_id)).to.deep.eq({
+      templated:    null,
+      templateable: ['clueing', 'category_data'],
+      widgetings:   [['category_data', 'category_data'], ['category_data_2', 'category_data']],
+      columns:      [['title', 'title', null], ['cats', 'category_data', null], ['masie', 'category_data_2', '$.masie']],
+      widgets:      [['category_data', true]],
+    })
+    await expectSound(tt)
+  })
+
+  it("take the old entry away where the seeds have already made `category_data` beside it", async () => {
+    const { tt } = deployment()
+    const { open } = await oldQuiz(tt)
+    await tt.mutation(internal.seeding.seedWidgets, {})
+    for (const fn of Columnwise) { await migrate(tt, `migrations:${fn}`) }
+    const rows = await rowsOf(tt, open.quiz_id)
+    expect([rows.widgets, rows.widgetings]).to.deep.eq([[['category_data', true]], [['category_data', 'category_data'], ['category_data_2', 'category_data']]])
+  })
+
+  it("leave rows written as they are now alone, so that a quiz made since changes nothing", async () => {
+    const { tt } = deployment()
+    const { open } = await seedHunt(tt, Hunt.blank('spring_hunt'), { smith: 'pat_smiths' })
+    const before = await rowsOf(tt, open.quiz_id)
+    for (const fn of Columnwise) { await migrate(tt, `migrations:${fn}`) }
+    expect(await rowsOf(tt, open.quiz_id)).to.deep.eq(before)
+  })
+
+  it("relabel a widgeting onto the first free label where the quiz already holds `category_data`", async () => {
+    const { tt } = deployment()
+    const { open } = await oldQuiz(tt)
+    await tt.run(async (ctx) => {
+      await ctx.db.insert('widgetings', { hunt_id: open.hunt_id, quiz_id: open.quiz_id, widget_label: 'dumdum', label: 'category_data', description: '', params: {}, tier: 'question', position: 2 })
+    })
+    for (const fn of Columnwise) { await migrate(tt, `migrations:${fn}`) }
+    const rows = await rowsOf(tt, open.quiz_id)
+    expect(rows.widgetings).to.deep.eq([['category_data_3', 'category_data'], ['category_data_2', 'category_data'], ['category_data', 'dumdum']])
+    expect(rows.columns[1]).to.deep.eq(['cats', 'category_data_3', null])
   })
 })

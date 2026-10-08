@@ -72,7 +72,6 @@ export const RefusalNotices = {
   columnGone:       'That column is no longer in this quiz.',
   labelTaken:       'That label is already taken here — choose another.',
   sourceUnshowable: "That column would show a widgeting this quiz doesn't have.",
-  partUnoffered:    'Only a category-estimate entry has parts for a column to show.',
   untemplatable:    "That would template a widgeting this quiz doesn't have.",
   widgetInUse:      'A widgeting still works this widget — remove the widgeting first.',
   widgetingShown:   'A column still shows that widgeting — remove the column first.',

@@ -69,11 +69,11 @@ export type WidgetingBodyT = Omit<WidgetingT, 'label'> & { position: number }
 export type ColumnBodyT = Omit<ColumnT, 'label'> & { position: number }
 
 /**
- * One quiz, by its label: its own fields (its recap's head, tail and template, what it templates and
+ * One quiz, by its label: its own fields (its recap's head, tail and template, what it nominates as templateable and
  * its sort memory among them), its stamps, and its questions, widgetings and columns, each keyed by label;
  * and, when it has any widgetings run once for the whole quiz, what each came to, by its label.
  */
-export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'recap_head' | 'recap_tail' | 'templated' | 'locked' | 'last_sortkey'> & IsoStampsT & {
+export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'recap_head' | 'recap_tail' | 'templateable' | 'locked' | 'last_sortkey'> & IsoStampsT & {
   /** Its recap template; null for a quiz that follows the default, so an import of it puts the quiz it lands on back on the default */
   recap_template: string | null
   questions:  Record<string, QuestionBodyT>
@@ -176,13 +176,15 @@ export const PastedValidators = Validator(({ obj, arr, rec, union, str, unk, lab
     recap_head:   unk.optional(),
     recap_tail:   unk.optional(),
     recap_template: unk.optional(),
-    templated:    unk.optional(),
+    templateable: unk.optional(),
+    templated:    unk.optional()
+      .describe('What a quiz nominated as templateable, as an export before October 2026 named it: read as `templateable` is, in the grammar before October 2026.'),
     last_sortkey: unk.optional(),
     questions:    collection.default([]),
     widgetings:   collection.default([]),
     columns:      collection.optional(),
   })
-    .describe('One quiz as a paste holds it: its label and title, which pick it out of several; its smith\'s note, Q1 preamble, recap head, tail and template, what it templates and its sort memory, each read by Import against its own rule; and its questions, widgetings and columns, in a list or keyed by label. Its lock is not read: it says how far someone else\'s draft had come, not what it holds. An export made while a label could be overridden carries the override as `forced_label`, the label it answered to then.')
+    .describe('One quiz as a paste holds it: its label and title, which pick it out of several; its smith\'s note, Q1 preamble, recap head, tail and template, what it nominates as templateable and its sort memory, each read by Import against its own rule; and its questions, widgetings and columns, in a list or keyed by label. Its lock is not read: it says how far someone else\'s draft had come, not what it holds. An export made while a label could be overridden carries the override as `forced_label`, the label it answered to then.')
 
   const ball = obj({ quizzes: rec(str, rec(str, quiz)) })
     .describe('Quizzes by realm and label, as a quiz\'s ball holds one, and a merged hunt every one: what Raw Export emits.')
@@ -213,7 +215,7 @@ export type PastedQuizT = {
   label:      string | null
   /** Its title, or null when the paste gives none */
   title:      string | null
-  /** Its own fields beside its title, as pasted, each only when the paste holds it: its smith's note, its Q1 preamble, its recap's head and tail, what it templates, its sort memory */
+  /** Its own fields beside its title, as pasted, each only when the paste holds it: its smith's note, its Q1 preamble, its recap's head and tail, what it nominates as templateable (`templated` in an export from before October 2026), its sort memory */
   fields:     Partial<Record<PastedFieldname, unknown>>
   /** Its questions in order, each as pasted, read one by one; each from a keyed collection carries its key as its `label` */
   questions:  unknown[]
@@ -224,7 +226,7 @@ export type PastedQuizT = {
 }
 
 /** A quiz's own fields, beside its title, that a paste may carry */
-export const PastedFieldnames = ['smiths_note', 'q1_preamble', 'recap_head', 'recap_tail', 'recap_template', 'templated', 'last_sortkey'] as const
+export const PastedFieldnames = ['smiths_note', 'q1_preamble', 'recap_head', 'recap_tail', 'recap_template', 'templateable', 'templated', 'last_sortkey'] as const
 export type PastedFieldname = typeof PastedFieldnames[number]
 
 /** What a paste holds, as far as a quiz's Import reads it: the quizzes it holds, and the shape it was read as */

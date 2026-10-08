@@ -10,7 +10,6 @@ import { Quiz, type QuizT } from '../../models/quiz'
 import { Realm, type RealmT } from '../../models/realm'
 import { Widgeted, type JsonT, type StoredWidgetedT, type WidgetedErrT, type WidgetedHistoryT, type WidgetedStatus, type WidgetedT } from '../../models/widgeted'
 import { Category, type CategoryLabel, type WheelT } from '../../models/category'
-import type { WidgetingPart } from '../../models/column'
 import type { WidgetT } from '../../models/widget'
 import type { WidgetingT } from '../../models/widgeting'
 
@@ -84,8 +83,6 @@ export type QuizRun = {
   widgeteds: ByWidgeting<WidgetedT>
   /** Every widgeting for the whole quiz, and what it came to, by its label */
   quizWidgeteds: ReadonlyMap<string, WidgetedT>
-  /** For each category-estimate widgeting, what each question's estimates come to; null for a cell that failed */
-  parts:     ByWidgeting<Estimates.EstimatePartsT | null>
   /** For each widgeting asked from the cell, what each question's ask would be put */
   inputs:    ByWidgeting<InputOutcome>
   /** The questions as each widgeting's bag holds them, by its label */
@@ -132,7 +129,6 @@ export function runQuiz(source: RunSource): QuizRun {
   const { steps } = source
   const widgeteds = new Map<string, ReadonlyMap<string, WidgetedT>>()
   const quizWidgeteds = new Map<string, WidgetedT>()
-  const parts = new Map<string, ReadonlyMap<string, Estimates.EstimatePartsT | null>>()
   const inputs = new Map<string, ReadonlyMap<string, InputOutcome>>()
   const qnsAt = new Map<string, readonly Record<string, unknown>[]>()
   const quizAt = new Map<string, Record<string, unknown>>()
@@ -153,10 +149,9 @@ export function runQuiz(source: RunSource): QuizRun {
     widgeteds.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.widgeteds[idx] ?? Widgeted.missing])))
     if (column.inputs) { inputs.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.inputs?.[idx] ?? { status: 'missing' }]))) }
     const cellParts = Estimates.isEstimating(step.widget) ? column.widgeteds.map((widgeted) => Estimates.partsOf(frame.order, widgeted)) : null
-    if (cellParts) { parts.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, cellParts[idx] ?? null]))) }
     qns = withWidgeteds(qns, label, column.widgeteds, cellParts)
   }
-  return { steps, widgeteds, quizWidgeteds, parts, inputs, qnsAt, qnsAfter: qns, quizAt, frame: { ...frame, quiz: quizNow } }
+  return { steps, widgeteds, quizWidgeteds, inputs, qnsAt, qnsAfter: qns, quizAt, frame: { ...frame, quiz: quizNow } }
 }
 
 /**
@@ -201,26 +196,17 @@ export function isQuizWide(run: QuizRun, label: string): boolean {
 }
 
 /**
- * One question's widgeted for one widgeting, or for one part of it, or `missing` when the run has
- * no such cell (a widgeting for the whole quiz has none for any question). A part of a category-estimate widgeting is `ok` with its value, whether or not
- * anything was typed (an empty cell draws on no category in particular), and fails as the cell
- * does; a part of any other widgeting is `missing`.
+ * One question's widgeted for one widgeting, or `missing` when the run has no such cell (a
+ * widgeting for the whole quiz has none for any question).
  *
  * @param run - The quiz, run.
  * @param label - The widgeting's label.
  * @param question_id - The question's id.
- * @param part - One part of what the widgeting came to, or null for the whole of it.
  *
  * @example widgetedOf(run, 'numnum_clueing', question._id).status    // => 'ok'
- * @example widgetedOf(run, 'categories', question._id, 'masie')      // => { status: 'ok', value: 0.525, err: null }
  */
-export function widgetedOf(run: QuizRun, label: string, question_id: string, part: WidgetingPart | null = null): WidgetedT {
-  const widgeted = run.widgeteds.get(label)?.get(question_id) ?? Widgeted.missing
-  if (part === null) { return widgeted }
-  const cells = run.parts.get(label)
-  if (! cells) { return Widgeted.missing }
-  const parts = cells.get(question_id)
-  return parts ? Widgeted.ok(parts[part]) : widgeted
+export function widgetedOf(run: QuizRun, label: string, question_id: string): WidgetedT {
+  return run.widgeteds.get(label)?.get(question_id) ?? Widgeted.missing
 }
 
 /**

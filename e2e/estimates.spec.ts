@@ -1,19 +1,19 @@
 import type { Page } from '@playwright/test'
 import { cellOf, closeManage, expect, manageDialog, openManage, openPanel, reloadOnceSaved, test } from './support'
 
-/** The list of categories of the pill numbered `nth` (from 1) in the Categories cell of the row at `rowIdx` */
+/** The list of categories of the pill numbered `nth` (from 1) in the Category Data cell of the row at `rowIdx` */
 function categoryList(page: Page, rowIdx: number, nth: number) {
-  return cellOf(page, rowIdx, 'Categories').getByRole('combobox', { name: `Categories, ${String(nth)}: category` })
+  return cellOf(page, rowIdx, 'Category Data').getByRole('combobox', { name: `Category Data, ${String(nth)}: category` })
 }
 
-/** The difficulty face of the pill numbered `nth` in the Categories cell of the row at `rowIdx`: its name ends with the difficulty */
+/** The difficulty face of the pill numbered `nth` in the Category Data cell of the row at `rowIdx`: its name ends with the difficulty */
 function difficultyFace(page: Page, rowIdx: number, nth: number) {
-  return cellOf(page, rowIdx, 'Categories').getByRole('button', { name: `Categories, ${String(nth)}: difficulty` })
+  return cellOf(page, rowIdx, 'Category Data').getByRole('button', { name: `Category Data, ${String(nth)}: difficulty` })
 }
 
-/** The "+" of the Categories cell of the row at `rowIdx` */
+/** The "+" of the Category Data cell of the row at `rowIdx` */
 function addButton(page: Page, rowIdx: number) {
-  return cellOf(page, rowIdx, 'Categories').getByRole('button', { name: 'Categories: add a category' })
+  return cellOf(page, rowIdx, 'Category Data').getByRole('button', { name: 'Category Data: add a category' })
 }
 
 /** Open `list` and pick the choice named `choice` */
@@ -23,25 +23,25 @@ async function pick(page: Page, list: ReturnType<typeof categoryList>, choice: s
   await expect(page.getByRole('listbox')).toHaveCount(0)
 }
 
-/** Through the columns editor, a column showing the part `part` of the widgeting `categories`, and close the gear's dialog */
+/** Through the columns editor, a column showing the part `part` of the widgeting `category_data`, by the formula picking it, and close the gear's dialog */
 async function addPartColumn(page: Page, part: string, title: string) {
   await openManage(page)
   await page.getByRole('button', { name: '+ New column…' }).click()
   const editor = page.getByRole('dialog', { name: /^New column/ })
   await editor.getByRole('combobox', { name: 'Shows' }).click()
-  await page.getByRole('option', { name: new RegExp(String.raw`^categories\.${part} `) }).click()
+  await page.getByRole('option', { name: new RegExp(String.raw`^category_data, \$\.${part} `) }).click()
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toHaveCount(0)
   await expect(manageDialog(page).getByRole('group', { name: `Column ${title}`, exact: true })).toBeVisible()
   await closeManage(page)
 }
 
-test.use({ layout: { widgetings: ['categories'] } })
+test.use({ layout: { widgetings: ['category_data'] } })
 
 test('a category estimate is pills, each picked from a list, kept as they are picked', { tag: '@smoke' }, async ({ page }) => {
   // A question nobody has placed shows one blank pill, and no "+" while it is blank.
   await expect(categoryList(page, 0, 1)).toHaveText('(blank)')
-  await expect(difficultyFace(page, 0, 1)).toHaveAccessibleName('Categories, 1: difficulty, medium')
+  await expect(difficultyFace(page, 0, 1)).toHaveAccessibleName('Category Data, 1: difficulty, medium')
   await expect(addButton(page, 0)).toHaveCount(0)
 
   // The difficulty is a face, which a click moves on round the three.
@@ -49,7 +49,7 @@ test('a category estimate is pills, each picked from a list, kept as they are pi
   await expect(face).toHaveText('🤔')
   await face.click()
   await expect(face).toHaveText('😈')
-  await expect(face).toHaveAccessibleName('Categories, 1: difficulty, hard')
+  await expect(face).toHaveAccessibleName('Category Data, 1: difficulty, hard')
   await face.click()
   await expect(face).toHaveText('🍰')
   await face.click()
@@ -73,7 +73,7 @@ test('a category estimate is pills, each picked from a list, kept as they are pi
   await expect(choices.last()).toHaveText('(remove)')
   await choices.filter({ hasText: /^TV$/ }).click()
   await difficultyFace(page, 0, 2).click()
-  await expect(difficultyFace(page, 0, 2)).toHaveAccessibleName('Categories, 2: difficulty, hard')
+  await expect(difficultyFace(page, 0, 2)).toHaveAccessibleName('Category Data, 2: difficulty, hard')
 
   await reloadOnceSaved(page)
   await expect(categoryList(page, 0, 1)).toHaveText('Art')
@@ -90,7 +90,7 @@ test('a category estimate is pills, each picked from a list, kept as they are pi
   await page.getByRole('listbox').getByRole('option', { name: '(blank)' }).click()
   await reloadOnceSaved(page)
   await expect(categoryList(page, 0, 1)).toHaveText('(blank)')
-  await expect(difficultyFace(page, 0, 1)).toHaveAccessibleName('Categories, 1: difficulty, hard')
+  await expect(difficultyFace(page, 0, 1)).toHaveAccessibleName('Category Data, 1: difficulty, hard')
 })
 
 test("columns can show Masie's chance and the personas' average, worked out from the pills", async ({ page }) => {
@@ -109,7 +109,7 @@ test("columns can show Masie's chance and the personas' average, worked out from
 
 test("the category spread counts the questions round the wheel, smoothed beside them, and its chart widens with the panel", async ({ page }) => {
   const panel = await openPanel(page, 'Category spread')
-  await expect(panel).toContainText('0 questions placed, from the estimates under categories.')
+  await expect(panel).toContainText('0 questions placed, from the estimates under category_data.')
   await pick(page, categoryList(page, 0, 1), 'Art')
   await pick(page, categoryList(page, 1, 1), 'Art')
   await addButton(page, 1).click()

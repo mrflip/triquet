@@ -27,8 +27,8 @@ export type QuestionTableProps = {
   specs:        ColumnSpec[]
   /** The quiz, run: what each widgeting came to for each question */
   run:          QuizRun
-  /** The sources the quiz templates: their boxes show them filled in */
-  templated:    readonly string[]
+  /** The sources the quiz nominates as templateable: their boxes show them filled in */
+  templateable: readonly string[]
   locked:       boolean
   /** Grips are offered only while the quiz is in Q# order */
   gripShown:    boolean
@@ -72,7 +72,7 @@ const CardLayoutQuery = '(max-width:640px)'
  * later starts open. It holds this as its own state, so its owner keys it by the quiz. As cards,
  * below 640px, every question shows in full: the corner is not there to unfold them.
  */
-export function QuestionTable({ questions, specs, run, templated, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onViz, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onEnter, onMove }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, run, templateable, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onViz, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onEnter, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   const shown = useMemo(() => Question.unarchived(questions), [questions])
   const checkedCount = shown.filter((question) => isChecked(question._id)).length
@@ -161,7 +161,7 @@ export function QuestionTable({ questions, specs, run, templated, locked, gripSh
               onChain={(chains_to) => { onChain(question._id, chains_to) }}
               specs={specs}
               run={run}
-              templated={templated}
+              templateable={templateable}
               asking={(widgeting_label) => asking(question._id, widgeting_label)}
               unavailableNotice={unavailableNotice}
               onAsk={(widgeting_label) => { onAsk(question._id, widgeting_label) }}

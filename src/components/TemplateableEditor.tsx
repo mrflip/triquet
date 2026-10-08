@@ -6,7 +6,7 @@ import type { HuntActionDNA } from '../models/actions'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 
-export type TemplatedEditorProps = {
+export type TemplateableEditorProps = {
   quiz:      QuizT
   /** The library's widgets, which say which of the quiz's widgetings are typed into as text */
   library:   readonly WidgetT[]
@@ -16,20 +16,20 @@ export type TemplatedEditorProps = {
 }
 
 /**
- * Which of the quiz's sources are templated: a checkbox for each of its questions' markdown
+ * Which of the quiz's sources are templateable, their own text a template: a checkbox for each of its questions' markdown
  * fields and each text entry (`Templating.templatableSources`). Each tick sends the whole list
  * again, in the order offered.
  */
-export function TemplatedEditor({ quiz, library, revisable, dispatch }: Readonly<TemplatedEditorProps>) {
+export function TemplateableEditor({ quiz, library, revisable, dispatch }: Readonly<TemplateableEditorProps>) {
   const offered = Templating.templatableSources(quiz, library)
   const nominate = (source: string, on: boolean) => {
-    const templated = offered
+    const templateable = offered
       .map((each) => each.source)
       .filter((each) => (each === source ? on : Templating.templates(quiz, each)))
-    dispatch({ kind: 'set_templated', templated })
+    dispatch({ kind: 'set_templateable', templateable })
   }
   return (
-    <FormGroup row role="group" aria-label="Templated sources">
+    <FormGroup row role="group" aria-label="Templateable sources">
       {offered.map(({ source, title }) => (
         <FormControlLabel
           key={source}

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addColumns, expect, exportedQuizzes, grid, newQuiz, openPanel, openQuiz, preparedExport, showTab, test, waitUntilSaved } from './support'
+import { addColumns, cellOf, closeManage, expect, exportedQuizzes, grid, manageDialog, newQuiz, openManage, openPanel, openQuiz, preparedExport, showTab, test, waitUntilSaved } from './support'
 
 /** The Import box, its tab brought to the front */
 async function importBox(page: Page) {
@@ -111,6 +111,35 @@ test("a pasted quiz brings its title, smith's note and columns along, laying the
   await expect(grid(page).getByRole('columnheader', { name: 'Clue', exact: true })).toBeVisible()
   await expect(grid(page).getByRole('columnheader', { name: 'Hint', exact: true })).toBeHidden()
   await expect(grid(page).getByRole('columnheader')).toHaveCount(3)
+})
+
+test("a pasted column worked by a formula shows what the formula came to, read-only, and the sheet carries it", async ({ page }) => {
+  await runImport(page, {
+    questions: { [await labelAt(page, 0)]: { position: 0 } },
+    columns:   {
+      clueing: { position: 0, title: 'Clueing', source: 'clueing', width_px: 300 },
+      shout:   { position: 1, title: 'Shout', source: 'clueing', formula: '$uppercase($)', width_px: 200 },
+    },
+  })
+  await expect(cellOf(page, 0, 'Shout')).toHaveText('WHICH REGION?')
+  await expect(cellOf(page, 0, 'Shout').getByRole('textbox')).toHaveCount(0)
+  const sheet = await showTab(page, 'Spreadsheet')
+  await expect(sheet.getByRole('textbox', { name: 'Copy for Sheets' })).toHaveValue(/\tWHICH REGION\?/)
+})
+
+test("an export from before October 2026 reads as it did: its category estimates under `category_data`, a part of them by the formula picking it", async ({ page }) => {
+  await runImport(page, {
+    widgetings: { categories: { position: 0, widget_label: 'categories' } },
+    questions:  { [await labelAt(page, 0)]: { position: 0, categories: { status: 'ok', value: [{ category: 'art', difficulty: 'easy' }] } } },
+    columns:    {
+      clueing: { position: 0, title: 'Clueing', source: 'question.clueing', width_px: 300 },
+      masie:   { position: 1, title: 'Masie', source: 'categories.masie', width_px: 80 },
+    },
+  })
+  await expect(cellOf(page, 0, 'Masie')).toHaveText('69%')
+  await openManage(page)
+  await expect(manageDialog(page).getByRole('group', { name: 'Column Masie', exact: true }).getByRole('combobox', { name: 'Shows' })).toHaveText(/^category_data, \$\.masie/)
+  await closeManage(page)
 })
 
 test("a hunt pasted into a quiz matching none of its quizzes makes the quiz of its first quiz's label, and is read there", async ({ page }) => {

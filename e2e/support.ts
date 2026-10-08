@@ -1,7 +1,7 @@
 import { test as base, expect, type Browser, type BrowserContext, type BrowserContextOptions, type Locator, type Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import type * as Routes from '../src/lib/routes'
-import { QuestionSourceTitles, type QuestionField, type QuestionView } from '../src/models/column'
+import { RefTitles, type QuestionField, type QuestionView } from '../src/models/column'
 import * as Z from 'zod'
 import { runAsAdmin } from './admin'
 
@@ -239,10 +239,10 @@ export async function addColumns(page: Page, fields: readonly (QuestionField | Q
     await page.getByRole('button', { name: '+ New column…' }).click()
     const editor = page.getByRole('dialog', { name: /^New column/ })
     await editor.getByRole('combobox', { name: 'Shows' }).click()
-    await page.getByRole('option', { name: new RegExp(String.raw`^question\.${field} `) }).click()
+    await page.getByRole('option', { name: new RegExp(`^${field} `) }).click()
     await editor.getByRole('button', { name: 'Apply' }).click()
     await expect(editor).toHaveCount(0)
-    await expect(manageDialog(page).getByRole('group', { name: `Column ${QuestionSourceTitles[field]}`, exact: true })).toBeVisible()
+    await expect(manageDialog(page).getByRole('group', { name: `Column ${RefTitles[field]}`, exact: true })).toBeVisible()
   }
   await closeManage(page)
 }

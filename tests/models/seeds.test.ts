@@ -41,8 +41,8 @@ describe('SeedWidgets', () => {
   })
 
   it("holds the category-estimate entry, whose description names the parts a column can show", () => {
-    expect(seed('categories').config).to.deep.eq({ entry_kind: 'estimates' })
-    expect(seed('categories').description).to.contain('qn.categories.masie')
+    expect(seed('category_data').config).to.deep.eq({ entry_kind: 'estimates' })
+    expect(seed('category_data').description).to.contain('qn.category_data.masie')
   })
 
   it("is each a valid widget, unchanged by filling it again", () => {

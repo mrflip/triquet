@@ -4,7 +4,7 @@ import { mintId } from '../lib/ids'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 import { Question, QuestionValidators, type QuestionT } from './question'
-import { ColumnValidators, QuestionWidgetLabel, sourceOf, widgetingLabelOf, type ColumnSortkey, type ColumnT } from './column'
+import { ColumnValidators, beforeOctoberOf, refOf, type ColumnSortkey, type ColumnT } from './column'
 import { WidgetedValidators, type WidgetedHistoryT } from './widgeted'
 import { WidgetingValidators, type WidgetingT } from './widgeting'
 
@@ -24,8 +24,8 @@ export const DefaultQ1Preamble = 'Important: Read the smith\'s note before you p
 export const TemplatableFieldVals = ['clueing', 'hint', 'full_answer', 'notes', 'recap'] as const
 export type TemplatableField = typeof TemplatableFieldVals[number]
 
-/** The most sources a quiz may nominate for templating: every templatable field, and every widgeting */
-const TemplatedMax = TemplatableFieldVals.length + PA.WidgetingsPerQuiz.max
+/** The most sources a quiz may nominate as templateable: every templatable field, and every widgeting */
+const TemplateableMax = TemplatableFieldVals.length + PA.WidgetingsPerQuiz.max
 
 export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod, titleish, noteish, longnote, label, bool, stamps, timestamp, zid, treeid }) => {
   const columnSortkey = zod.templateLiteral(['column:', label])
@@ -50,11 +50,11 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
   const recap_template = longnote.min(1)
     .describe('The recap note\'s own template, for a quiz given one: markdown with Liquid, filled in over the recap bag (the template bag, with the recap head and tail filled in) and then written in bbjank. Absent, the quiz follows the default recap template. Kept trimmed.')
 
-  const templatedSource = union([zod.templateLiteral([`${QuestionWidgetLabel}.`, oneof(TemplatableFieldVals)]), WidgetingValidators.widgetingLabel])
-    .describe('One source a quiz templates, named as a column names what it shows: `question.<field>` for a question\'s own field, or a widgeting\'s label.')
-  const templated = arr(templatedSource).max(TemplatedMax)
+  const templateableSource = union([oneof(TemplatableFieldVals), WidgetingValidators.widgetingLabel])
+    .describe('One source a quiz nominates as templateable, named as a column\'s ref names it: one of its questions\' fields that hold markdown (`clueing`), or a widgeting\'s label.')
+  const templateable = arr(templateableSource).max(TemplateableMax)
     .refine((sources) => new Set(sources).size === sources.length, 'should name each source once')
-    .describe('The sources the quiz nominates for templating, its own fields and its widgetings, each named once: their text is filled in as a template over the quiz\'s bag before it is shown or exported. Nominated per quiz and per source, not per column: every column and export of a source treats it alike.')
+    .describe('The sources the quiz nominates as templateable, its questions\' fields and its widgetings, each named once: their own text is a template, filled in over the quiz\'s finished bag before it is shown or exported. Nominated per quiz and per source, not per column: every column and export of a source treats it alike.')
 
   const quiz = obj({
     _id:             treeid,
@@ -66,7 +66,7 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
     recap_head:      recap_head.default(''),
     recap_tail:      recap_tail.default(''),
     recap_template:  recap_template.optional(),
-    templated:       templated.default([]),
+    templateable:    templateable.default([]),
     questions:       arr(QuestionValidators.question).max(PA.QuestionsPerQuiz.max).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left. At most 999.'),
     widgetings:      arr(WidgetingValidators.widgeting).max(PA.WidgetingsPerQuiz.max).default([])
@@ -100,7 +100,7 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
     recap_head,
     recap_tail,
     recap_template:  recap_template.optional(),
-    templated,
+    templateable,
     locked:          bool,
     last_sortkey:    sortkey.nullable(),
     row_ordering:    arr(zid('questions')).max(PA.QuestionsPerQuiz.max)
@@ -109,7 +109,7 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
   })
     .describe('One quiz as the database holds it: its own fields, with its questions, widgetings and columns in rows of their own.')
 
-  return { sortkey, smiths_note, q1_preamble, recap_head, recap_tail, recap_template, templatedSource, templated, quiz, row }
+  return { sortkey, smiths_note, q1_preamble, recap_head, recap_tail, recap_template, templateableSource, templateable, quiz, row }
 })
 
 /** One thing wrong with a quiz, and where */
@@ -129,13 +129,15 @@ function repeatIssues<TT>(items: readonly TT[], listkey: string, keyOf: (item: T
 /**
  * Everything that is only wrong relative to a quiz's own siblings: two questions with one id, a
  * chain that dangles, two widgetings or two columns with one label, a column showing a widgeting
- * that is not there or runs once for the whole quiz, a widgeting templated that is not there or
- * runs for the whole quiz, a widgeting for the whole quiz under a name the quiz itself already
- * answers to in the bag.
+ * that is not there at the tier its ref names, a templateable widgeting that is not there or runs
+ * for the whole quiz, a widgeting for the whole quiz under a name the quiz itself already answers
+ * to in the bag.
  */
-function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgetings' | 'columns' | 'templated'>): Issue[] {
+function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgetings' | 'columns' | 'templateable'>): Issue[] {
   const questionIds = new Set(quiz.questions.map((question) => question._id))
-  const widgetingLabels = new Set(quiz.widgetings.filter((widgeting) => widgeting.tier === 'question').map((widgeting) => widgeting.label))
+  const labelsAt = (tier: string) => new Set(quiz.widgetings.filter((widgeting) => widgeting.tier === tier).map((widgeting) => widgeting.label))
+  const widgetingLabels = labelsAt('question')
+  const quizWideLabels = labelsAt('quiz')
   const quizTierIssues = quiz.widgetings.flatMap((widgeting, idx): Issue[] => (
     widgeting.tier === 'quiz' && isQuizReserved(widgeting.label)
       ? [{ input: widgeting.label, path: ['widgetings', idx, 'label'], message: 'A widgeting for the whole quiz cannot take a name the quiz already answers to' }]
@@ -148,26 +150,42 @@ function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgetings' | 'columns
     return questionIds.has(question.chains_to) ? [] : [{ input: question.chains_to, path, message: 'Chain target is not a question in this quiz' }]
   })
   const sourceIssues = quiz.columns.flatMap((column, idx): Issue[] => {
-    const source = sourceOf(column.source)
-    return source.kind === 'widgeting' && ! widgetingLabels.has(source.label)
-      ? [{ input: column.source, path: ['columns', idx, 'source'], message: 'A column shows a widgeting this quiz does not have for each question' }]
-      : []
+    const ref = refOf(column.source)
+    if (ref.kind !== 'widgeting') { return [] }
+    const [held, message] = ref.tier === 'quiz'
+      ? [quizWideLabels, 'A column shows a widgeting this quiz does not have for the whole quiz']
+      : [widgetingLabels, 'A column shows a widgeting this quiz does not have for each question']
+    return held.has(ref.label) ? [] : [{ input: column.source, path: ['columns', idx, 'source'], message }]
   })
-  const templatedIssues = quiz.templated.flatMap((source, idx): Issue[] => {
-    const widgetingLabel = widgetingLabelOf(source)
-    return widgetingLabel !== null && ! widgetingLabels.has(widgetingLabel)
-      ? [{ input: source, path: ['templated', idx], message: 'The quiz templates a widgeting it does not have for each question' }]
-      : []
-  })
+  const templateableIssues = quiz.templateable.flatMap((source, idx): Issue[] => (
+    isTemplatableField(source) || widgetingLabels.has(source)
+      ? []
+      : [{ input: source, path: ['templateable', idx], message: 'The quiz nominates as templateable a widgeting it does not have for each question' }]
+  ))
   return [
     ...repeatIssues(quiz.questions, 'questions', (question) => question._id, '_id', 'Two questions in one quiz share an id'),
     ...repeatIssues(quiz.widgetings, 'widgetings', (widgeting) => widgeting.label, 'label', 'Two widgetings in one quiz share a label'),
     ...repeatIssues(quiz.columns, 'columns', (column) => column.label, 'label', 'Two columns in one quiz share a label'),
     ...sourceIssues,
-    ...templatedIssues,
+    ...templateableIssues,
     ...quizTierIssues,
     ...chainIssues,
   ]
+}
+
+/** Whether `source` names one of a question's own fields that a quiz may nominate as templateable */
+export function isTemplatableField(source: string): source is TemplatableField {
+  return (TemplatableFieldVals as readonly string[]).includes(source)
+}
+
+/**
+ * What a quiz nominated as templateable, read from its `templated` in the grammar before October
+ * 2026: a question's field named `question.<field>` by its name, a widgeting's label as it is.
+ *
+ * @example templateableFrom(['question.clueing', 'author'])  // => ['clueing', 'author']
+ */
+export function templateableFrom(templated: readonly string[]): string[] {
+  return templated.map((source) => beforeOctoberOf(source)?.source ?? source)
 }
 
 /** Whether `label` is one the quiz itself answers to in the bag (`Quiz.bagKeys`), which a widgeting for the whole quiz, put beside them, cannot take */
@@ -189,7 +207,7 @@ export class Quiz implements QuizT {
   declare recap_head:      string
   declare recap_tail:      string
   declare recap_template?: string
-  declare templated:       string[]
+  declare templateable:    string[]
   declare questions:       QuestionT[]
   declare widgetings:      WidgetingT[]
   declare columns:         ColumnT[]
@@ -204,7 +222,7 @@ export class Quiz implements QuizT {
    * smith's note, and its title. Not the id; not the questions, widgetings and columns, which
    * are exposed on their own; not the LL export's preamble, nor the recap's head, tail and
    * template, which are templated over the bag rather than read from it; and not the housekeeping -- lock,
-   * remembered sort, which sources are templated.
+   * remembered sort, which sources are templateable.
    */
   static readonly exposed = ['label', 'smiths_note', 'title'] as const
 
@@ -284,7 +302,7 @@ export class Quiz implements QuizT {
   static blankRow({ hunt_id, realm_id }: Pick<QuizRowT, 'hunt_id' | 'realm_id'>, title = '', label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuizRowT {
     return QuizValidators.row({
       hunt_id, realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, smiths_note: '', q1_preamble: DefaultQ1Preamble,
-      recap_head: '', recap_tail: '', templated: [], locked: false, last_sortkey: null, row_ordering: [],
+      recap_head: '', recap_tail: '', templateable: [], locked: false, last_sortkey: null, row_ordering: [],
     })
   }
 }

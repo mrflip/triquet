@@ -22,7 +22,7 @@ function typed(value: JsonT): WidgetedHistoryT {
 }
 
 /** How a column reads a question, in a quiz whose widgetings came to nothing */
-const readerFor = (sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgetings'>) => Sortings.sortValueFor(sortkey, quiz, runHolding(quiz, {}))
+const readerFor = (sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgetings'>) => Sortings.sortValueFor(sortkey, { ...quiz, templateable: [] }, runHolding(quiz, {}))
 
 const answers = (questions: QuestionT[]) => questions.map((question) => question.title)
 
@@ -101,6 +101,7 @@ const sizedQuiz = (questions: QuestionT[]) => ({
   questions,
   widgetings: [Widgeting.fill({ label: 'size', widget_label: 'size' })],
   columns: [Column.fill({ label: 'size', title: 'Size', source: 'size', width_px: 78 })],
+  templateable: [],
 })
 
 describe('sortValueFor', () => {
@@ -195,17 +196,20 @@ describe('sortValueFor', () => {
     }
   })
 
-  it("reads a column showing a persona's chance as that chance, worked out from the estimates typed", () => {
+  it("reads a column showing a persona's chance as that chance, worked out from the estimates typed, a cell nobody typed into having nothing to say", () => {
     const [art, math, blank] = questionsOf(['1', 'art'], ['2', 'math'], ['3', 'blank']).map((question) => present(question))
     const questions = [
       { ...present(art), stored: { cats: typed([{ category: 'art', difficulty: 'medium' }]) } },
       { ...present(math), stored: { cats: typed([{ category: 'math_econ', difficulty: 'medium' }]) } },
       present(blank),
     ]
-    const quiz = { ...Quiz.blank(), questions, widgetings: [Widgeting.fill({ label: 'cats', widget_label: 'categories' })], columns: [Column.fill({ label: 'masie', title: 'Masie', source: 'cats.masie', width_px: 60 })] }
+    const quiz = { ...Quiz.blank(), questions, widgetings: [Widgeting.fill({ label: 'cats', widget_label: 'categories' })], columns: [Column.fill({ label: 'masie', title: 'Masie', source: 'cats', formula: '$.masie', width_px: 60 })] }
     const run = runOf(quiz, [Widget.fill({ label: 'categories', formulary: 'entry', config: { entry_kind: 'estimates' } })])
     const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:masie', quiz, run), true)
-    expect(answers(sorted)).to.deep.eq(['math', 'blank', 'art'])
+    expect(answers(sorted)).to.deep.eq(['math', 'art', 'blank'])
+    const before = { ...quiz, columns: [Column.fill({ label: 'masie', title: 'Masie', source: 'cats.masie', width_px: 60 })] }
+    const sortedBefore = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:masie', before, run), true)
+    expect(answers(sortedBefore)).to.deep.eq(['math', 'art', 'blank'])
   })
 
   it('reads a column showing a widgeting the quiz does not have as having nothing to say', () => {

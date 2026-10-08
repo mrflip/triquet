@@ -184,11 +184,14 @@ const ButnotIshesDNA: WidgetDNA = {
   formula:     `${ButnotHint}.value`,
 }
 
+/** The label of the seeded category-estimate entry, and so of the widgeting a quiz first works it under */
+export const CategoryDataLabel = 'category_data'
+
 /** The category-estimate entry: which subject categories a question draws on, and what that makes of Masie, Artie and Poppy's chances */
-const CategoriesDNA: WidgetDNA = {
-  label:       'categories',
+const CategoryDataDNA: WidgetDNA = {
+  label:       CategoryDataLabel,
   title:       'Categories',
-  description: "Which subject categories a question draws on, each at a difficulty: a pill for each. Columns can show the list, or Masie's, Artie's and Poppy's chances at the question and their average, read against the hunt's wheel (`categories.masie` and the like); a formula reads them as `qn.categories.masie`.",
+  description: "Which subject categories a question draws on, each at a difficulty: a pill for each. A column can show the list, or by a formula Masie's, Artie's and Poppy's chances at the question and their average, read against the hunt's wheel (`$.masie` and the like); another formula reads them as `qn.category_data.masie`.",
   formulary:   'entry',
   config:      { entry_kind: 'estimates' },
 }
@@ -199,7 +202,7 @@ const CategoriesDNA: WidgetDNA = {
  *
  * @example SeedWidgets.find((widget) => widget.label === 'numnum_hint')?.formulary  // => 'aibot'
  */
-export const SeedWidgets: readonly WidgetT[] = [...AibotSeedDNAs, ButnotIshesDNA, ...SumSeedDNAs, ...TextSeedDNAs, CategoriesDNA].map((dna) => Widget.fill(dna))
+export const SeedWidgets: readonly WidgetT[] = [...AibotSeedDNAs, ButnotIshesDNA, ...SumSeedDNAs, ...TextSeedDNAs, CategoryDataDNA].map((dna) => Widget.fill(dna))
 
 /**
  * The widgetings a quiz is given when its columns name any of them, in run order, each labelled

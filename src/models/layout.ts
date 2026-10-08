@@ -1,4 +1,4 @@
-import { Column, QuestionSourceTitles, QuestionWidgetLabel, type ColumnT, type QuestionField } from './column'
+import { Column, RefTitles, type ColumnT, type QuestionField } from './column'
 import type { WidgetingT } from './widgeting'
 
 /** A quiz's widgetings and columns: what it works out, and how it lays that out */
@@ -33,6 +33,6 @@ const StarterColumns: readonly (readonly [QuestionField, number])[] = [
  * @example defaultLayout().widgetings  // => []
  */
 export function defaultLayout(): Layout {
-  const columns = StarterColumns.map(([field, width_px]) => Column.fill({ label: field, title: QuestionSourceTitles[field], source: `${QuestionWidgetLabel}.${field}`, width_px }))
+  const columns = StarterColumns.map(([field, width_px]) => Column.fill({ label: field, title: RefTitles[field], source: field, width_px }))
   return { widgetings: [], columns }
 }

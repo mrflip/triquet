@@ -15,7 +15,7 @@ describe('defaultLayout', () => {
   })
 
   it("shows each column's question field under that field's own label", () => {
-    expect(layout.columns.map((column) => column.source)).to.deep.eq(layout.columns.map((column) => `question.${column.label}`))
+    expect(layout.columns.map((column) => column.source)).to.deep.eq(layout.columns.map((column) => column.label))
   })
 
   it("leaves the hint, the chain, the BUT NOT and the alt text, which every question still holds, to be opted into", () => {

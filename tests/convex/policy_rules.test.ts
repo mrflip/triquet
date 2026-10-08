@@ -25,7 +25,7 @@ async function stocked(tt: Tester, label: string, smith: string): Promise<{ seed
   const hunt = { ...huntHolding([{ ...Quiz.blank(), widgetings, questions: [{ ...Question.blank(), label: 'aa' }] }]), label }
   const seeded = await seedHunt(tt, hunt, { smith })
   const { hunt_id, realm_id, quiz_id } = seeded.open
-  await seeded.act({ kind: 'add_column', column: { label: 'qnum', title: 'Qnum', source: 'question.qnum', width_px: 80 } })
+  await seeded.act({ kind: 'add_column', column: { label: 'qnum', title: 'Qnum', source: 'qnum', width_px: 80 } })
   await seeded.act({ kind: 'open_review', quiz_id })
   const question_id = await tt.run(async (ctx) => present(await ctx.db.query('questions').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id)).first())._id)
   await seeded.act({ kind: 'set_reviewing', quiz_id, question_id, patch: { keep_it: true } })

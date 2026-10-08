@@ -1073,7 +1073,7 @@ describe("hunts.perform", () => {
       const { act, tt, open } = await seed(huntTitled(['one', 'two']), 0)
       const elsewhere = await tt.run(async (ctx) => {
         const realm_id = await ctx.db.insert('realms', { hunt_id: open.hunt_id, label: 'away', title: '', position: 1 })
-        return await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id, title: '', label: 'far_quiz', smiths_note: '', q1_preamble: '', recap_head: '', recap_tail: '', templated: [], locked: false, last_sortkey: null, row_ordering: [] })
+        return await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id, title: '', label: 'far_quiz', smiths_note: '', q1_preamble: '', recap_head: '', recap_tail: '', templateable: [], locked: false, last_sortkey: null, row_ordering: [] })
       })
       await expectRefusal(act({ kind: 'delete_quiz', quiz_id: elsewhere }), 'notInRealm')
       expect(await tt.run(async (ctx) => await ctx.db.get('quizzes', elsewhere))).to.not.be.null
@@ -1596,7 +1596,7 @@ async function crowded(tablename: 'questions' | 'widgetings' | 'columns', qty: n
       } else if (tablename === 'widgetings') {
         await ctx.db.insert('widgetings', { hunt_id: seeded.open.hunt_id, quiz_id, position, widget_label: 'dumdum', label: `w_${String(position)}`, description: '', params: {}, tier: 'question' })
       } else {
-        await ctx.db.insert('columns', { hunt_id: seeded.open.hunt_id, quiz_id, position, label: `c_${String(position)}`, title: '', source: 'question.title', width_px: 80 })
+        await ctx.db.insert('columns', { hunt_id: seeded.open.hunt_id, quiz_id, position, label: `c_${String(position)}`, title: '', source: 'title', width_px: 80 })
       }
     }
   })
@@ -1625,7 +1625,7 @@ describe("hunts.perform, at the caps", () => {
 
   it("refuses a column more than a quiz may hold", async () => {
     const { act, tt, open } = await crowded('columns', 99)
-    await expectRefusal(act({ kind: 'add_column', column: { label: 'one_more', title: 'One more', source: 'question.qnum', width_px: 80 } }), 'columnsFull')
+    await expectRefusal(act({ kind: 'add_column', column: { label: 'one_more', title: 'One more', source: 'qnum', width_px: 80 } }), 'columnsFull')
     const columns = await tt.run(async (ctx) => await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', open.quiz_id)).collect())
     expect(columns).to.have.lengthOf(99)
   })
@@ -1649,7 +1649,7 @@ describe("hunts.perform, at the caps", () => {
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.QuizzesPerRealm.max - 1 }, (_unused, idx) => `quiz_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id: open.realm_id, title: '', label, smiths_note: '', q1_preamble: '', recap_head: '', recap_tail: '', templated: [], locked: false, last_sortkey: null, row_ordering: [] })
+        await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id: open.realm_id, title: '', label, smiths_note: '', q1_preamble: '', recap_head: '', recap_tail: '', templateable: [], locked: false, last_sortkey: null, row_ordering: [] })
       }
     })
     await expectRefusal(act({ kind: 'new_quiz', label: 'one_more' }), 'quizzesFull')
@@ -1860,7 +1860,7 @@ describe("a quiz's export, imported into an empty quiz", () => {
     await source.act({ kind: 'set_recap_head', recap_head: 'Thanks, playtesters!' })
     await source.act({ kind: 'set_recap_tail', recap_tail: 'Until next time.' })
     await source.act({ kind: 'set_recap_template', recap_template: '{{#played}}{{number}}. {{title}}{{/played}}' })
-    await source.act({ kind: 'set_templated', templated: ['question.recap', 'remark'] })
+    await source.act({ kind: 'set_templateable', templateable: ['recap', 'remark'] })
     await source.act({ kind: 'add_column', column: { label: 'remark', title: 'Remark', source: 'remark', width_px: 140, align: 'center' }, onto_idx: 1 })
     await source.act({ kind: 'edit_column', label: 'qnum', patch: { width_px: 44, align: 'right' } })
     await source.act({ kind: 'sort_questions', sortkey: 'column:title', descending: true })
@@ -1882,7 +1882,7 @@ describe("a quiz's export, imported into an empty quiz", () => {
     expect(got).to.deep.eq(want)
     expect(_.omit(got, ['questions', 'widgetings', 'columns', 'created_at', 'updated_at'])).to.deep.eq({
       title: 'Quiz one', smiths_note: 'Kings and lions.', q1_preamble: 'Read the note first.', recap_head: 'Thanks, playtesters!', recap_tail: 'Until next time.',
-      recap_template: '{{#played}}{{number}}. {{title}}{{/played}}', templated: ['question.recap', 'remark'], locked: false, last_sortkey: 'column:title',
+      recap_template: '{{#played}}{{number}}. {{title}}{{/played}}', templateable: ['recap', 'remark'], locked: false, last_sortkey: 'column:title',
     })
     expect(got.columns.remark).to.deep.eq({ position: 1, title: 'Remark', source: 'remark', width_px: 140, align: 'center' })
     expect(got.columns.qnum).to.deep.include({ width_px: 44, align: 'right' })

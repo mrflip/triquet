@@ -444,15 +444,17 @@ describe('the category-estimate widgetings', () => {
     expect(Runner.widgetedOf(run, 'cats', blank._id)).to.deep.eq(Widgeted.missing)
   })
 
-  it("offer each persona's chance and their average as parts, read against the hunt's total order", () => {
-    const parts = (['masie', 'artie', 'poppy', 'average'] as const).map((part) => Runner.widgetedOf(run, 'cats', placed._id, part).value)
+  /** What the bag holds under `cats` for `question`, once every widgeting has run */
+  const catsOf = (question: { _id: string }, inRun = run) => Runner.bagsAt(inRun, { label: 'remark', params: {} }).get(question._id)?.qn.cats as Record<string, unknown> | undefined
+
+  it("carry each persona's chance and their average as parts, read against the hunt's total order", () => {
+    const parts = (['masie', 'artie', 'poppy', 'average'] as const).map((part) => catsOf(placed)?.[part])
     expect(parts.map((chance) => Number(chance).toFixed(2))).to.deep.eq(['0.69', '0.90', '0.69', '0.76'])
   })
 
-  it('offer the estimates as a part, a cell nobody filled in drawing on no category in particular, at medium', () => {
-    expect(Runner.widgetedOf(run, 'cats', placed._id, 'estimates')).to.deep.eq(Widgeted.ok([{ category: 'art', difficulty: 'easy' }]))
-    expect(Runner.widgetedOf(run, 'cats', blank._id, 'estimates')).to.deep.eq(Widgeted.ok([{ category: null, difficulty: 'medium' }]))
-    expect(Runner.widgetedOf(run, 'cats', blank._id, 'poppy')).to.deep.eq(Widgeted.ok(0.525))
+  it('carry the estimates as a part, a cell nobody filled in drawing on no category in particular, at medium', () => {
+    expect(catsOf(placed)?.estimates).to.deep.eq([{ category: 'art', difficulty: 'easy' }])
+    expect(catsOf(blank)).to.deep.include({ status: 'missing', estimates: [{ category: null, difficulty: 'medium' }], poppy: 0.525 })
   })
 
   it('carry their parts in the bag beside status and value, so a later formula reads them', () => {
@@ -462,8 +464,7 @@ describe('the category-estimate widgetings', () => {
   })
 
   it('have no parts for any other widgeting to give', () => {
-    expect(Runner.widgetedOf(run, 'remark', placed._id, 'masie')).to.deep.eq(Widgeted.missing)
-    expect(run.parts.has('remark')).to.be.false
+    expect(Runner.widgetedOf(run, 'remark', placed._id)).to.deep.eq(Widgeted.missing)
     const [bagged] = Runner.bagsAt(run, { label: 'remark', params: {} }).get(placed._id)?.qns ?? []
     expect(bagged?.loved).to.deep.eq(Widgeted.ok('Artie'))
   })
@@ -471,7 +472,7 @@ describe('the category-estimate widgetings', () => {
   it('follow the wheel: whoever sits beside a category knows it best', () => {
     const wheel = Wheel.placed(Wheel.defaultWheel(), 'art', 0)
     const rearranged = runOf(quiz, library, Runner.placeOf({ label: 'deep_lake', title: '', wheel }, { label: 'home', title: '' }))
-    expect(Runner.widgetedOf(rearranged, 'cats', placed._id, 'masie')).to.deep.eq(Widgeted.ok(0.9))
+    expect(catsOf(placed, rearranged)?.masie).to.eq(0.9)
     expect(Runner.widgetedOf(rearranged, 'loved', placed._id)).to.deep.eq(Widgeted.ok('Masie'))
   })
 })

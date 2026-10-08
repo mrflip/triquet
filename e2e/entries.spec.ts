@@ -98,7 +98,7 @@ test('an entry rides the export, and an import puts it back', { tag: '@smoke' },
 test('a templated clueing shows what an entry holds, filled in before its markdown is read', async ({ page }) => {
   await addNewEntry(page, freshWidgetLabel('author'), /^Text/, 'author')
   await openManage(page)
-  const nominated = manageDialog(page).getByRole('group', { name: 'Templated sources' }).getByRole('checkbox', { name: 'Clueing' })
+  const nominated = manageDialog(page).getByRole('group', { name: 'Templateable sources' }).getByRole('checkbox', { name: 'Clueing' })
   // Ticked once the server has it: the box shows the quiz's nominations, not a draft of them.
   await nominated.click()
   await expect(nominated).toBeChecked()

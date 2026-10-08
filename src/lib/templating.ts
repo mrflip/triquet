@@ -4,9 +4,8 @@ import * as Labelmaker from './labelmaker'
 import * as Liquidry from './liquidry'
 import * as Shaping from './shaping'
 import type { QuizBag, QuizRun } from './formulary/runner'
-import { QuestionWidgetLabel } from '../models/column'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
-import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../models/quiz'
+import { TemplatableFieldVals, isTemplatableField, type QuizT } from '../models/quiz'
 import { ArchivedField, RankField, SecondaryField, type QuestionT } from '../models/question'
 import type { Formularykind, WidgetT } from '../models/widget'
 
@@ -151,20 +150,47 @@ export function bagOf(run: QuizRun, question_id: string | null): TemplateBag {
 
 /**
  * What a text of the quiz's own reads (the recap's head, tail and template): `bagOf(run, null)`,
- * but with every question's templated texts (`quiz.templated`: its own fields, and text entries)
- * filled in, each over its own question's bag (`bagOf`), as the grid shows them. Filled once: a
- * template a filled text comes to is not filled again, and one that cannot be filled stays as typed.
+ * but with every question's templateable texts (`quiz.templateable`: its own fields, and text
+ * entries) filled in, each over its own question's bag (`finishedQnsOf`), as the grid shows them.
+ * Filled once: a template a filled text comes to is not filled again, and one that cannot be
+ * filled stays as typed.
  *
- * @param quiz - The quiz: which of its texts it templates.
+ * @param quiz - The quiz: which of its texts it nominates as templateable.
  * @param run - Its run.
  * @returns The bag, `qns` and `quiz.questions` holding the questions filled in.
  *
  * @example filledBagOf(quiz, run).qns[0].clueing  // => 'By Ada'   (typed as 'By {{qn.author}}')
  */
-export function filledBagOf(quiz: Pick<QuizT, 'templated'>, run: QuizRun): TemplateBag {
-  if (quiz.templated.length === 0) { return bagOf(run, null) }
-  const filled = run.qnsAfter.map((qn, idx) => filledQnOf(quiz.templated, qn, bagOf(run, run.frame.question_ids[idx] ?? null)))
-  return bagOver(run, filled, null)
+export function filledBagOf(quiz: Pick<QuizT, 'templateable'>, run: QuizRun): TemplateBag {
+  if (quiz.templateable.length === 0) { return bagOf(run, null) }
+  return bagOver(run, finishedQnsOf(run, quiz.templateable), null)
+}
+
+/** What `finishedQnsOf` made, by the run, and by the sources filled */
+const FinishedOf = new WeakMap<QuizRun, Map<string, readonly Record<string, unknown>[]>>()
+
+/**
+ * Every question of the run as the finished bag holds it: as the last widgeting left it, with
+ * each source `templateable` names filled in over the question's own template bag (`bagOf`): a
+ * field, or a text entry's widgeted's value. The one place a templateable source is filled; made
+ * once per run. Anything else named, or not text, is left as it is.
+ *
+ * @param run - The quiz, run.
+ * @param templateable - What the quiz nominates as templateable.
+ * @returns The questions, in the run's order; the run's own when nothing is nominated.
+ *
+ * @example finishedQnsOf(run, ['clueing'])[0].clueing  // => 'By Ada'   (typed as 'By {{qn.author}}')
+ */
+export function finishedQnsOf(run: QuizRun, templateable: readonly string[]): readonly Record<string, unknown>[] {
+  if (templateable.length === 0) { return run.qnsAfter }
+  const known = FinishedOf.get(run) ?? new Map<string, readonly Record<string, unknown>[]>()
+  FinishedOf.set(run, known)
+  const key = templateable.join('\n')
+  const held = known.get(key)
+  if (held !== undefined) { return held }
+  const finished = run.qnsAfter.map((qn, idx) => filledQnOf(templateable, qn, bagOf(run, run.frame.question_ids[idx] ?? null)))
+  known.set(key, finished)
+  return finished
 }
 
 /** The template bag over `questions` (every question of the run, in its order) for `question_id`, or for none */
@@ -228,64 +254,53 @@ function imagesLinkedIn(val: unknown): unknown {
 }
 
 /**
- * One question of a bag with each of its texts `templated` names filled in over `bag`, its own: a
- * field (`question.clueing`) or a text entry, whose widgeted's value is filled in. Anything else
+ * One question of a bag with each of its texts `templateable` names filled in over `bag`, its
+ * own: a field (`clueing`) or a text entry, whose widgeted's value is filled in. Anything else
  * named, or not text, is left as it is.
  */
-function filledQnOf(templated: readonly string[], qn: Record<string, unknown>, bag: TemplateBag): Record<string, unknown> {
-  const filled = templated.flatMap((source): [string, unknown][] => {
-    const field = TemplatableFieldVals.find((each) => sourceOfField(each) === source)
-    const key = field ?? source
-    const held = qn[key]
-    if (field !== undefined) { return typeof held === 'string' ? [[key, fill(held, bag).markdown]] : [] }
-    return isWidgeted(held) && typeof held.value === 'string' ? [[key, { ...held, value: fill(held.value, bag).markdown }]] : []
+function filledQnOf(templateable: readonly string[], qn: Record<string, unknown>, bag: TemplateBag): Record<string, unknown> {
+  const filled = templateable.flatMap((source): [string, unknown][] => {
+    const held = qn[source]
+    if (isTemplatableField(source)) { return typeof held === 'string' ? [[source, fill(held, bag).markdown]] : [] }
+    return isWidgeted(held) && typeof held.value === 'string' ? [[source, { ...held, value: fill(held.value, bag).markdown }]] : []
   })
   return filled.length === 0 ? qn : { ...qn, ...Object.fromEntries(filled) }
 }
 
 /**
- * The source string by which a quiz nominates a question's own field for templating, as a
- * column names it.
+ * Whether `quiz` nominates `source` as templateable: a question's field (`clueing`) or a
+ * widgeting's label.
  *
- * @example sourceOfField('clueing')  // => 'question.clueing'
+ * @example templates({ templateable: ['clueing'] }, 'clueing')  // => true
+ * @example templates({ templateable: ['clueing'] }, 'hint')     // => false
  */
-export function sourceOfField(field: TemplatableField): string {
-  return `${QuestionWidgetLabel}.${field}`
+export function templates(quiz: Pick<QuizT, 'templateable'>, source: string): boolean {
+  return quiz.templateable.includes(source)
 }
 
-/**
- * Whether `quiz` templates `source`: a question's field (`question.clueing`) or a widgeting's label.
- *
- * @example templates({ templated: ['question.clueing'] }, 'question.clueing')  // => true
- * @example templates({ templated: ['question.clueing'] }, 'question.hint')     // => false
- */
-export function templates(quiz: Pick<QuizT, 'templated'>, source: string): boolean {
-  return quiz.templated.includes(source)
-}
-
-/** One source a quiz may template, and what an author calls it */
+/** One source a quiz may nominate as templateable, and what an author calls it */
 export type TemplatableSourceT = {
   source: string
   title:  string
 }
 
 /**
- * The sources a quiz may nominate for templating, in the order an author is offered them: each
+ * The sources a quiz may nominate as templateable, in the order an author is offered them: each
  * of its questions' fields an author writes markdown into, then each widgeting for each question
- * typed into as text, in run order, and any other such widgeting the quiz already templates, so it
- * can be let go.
+ * typed into as text, in run order, and any other such widgeting the quiz already nominates, so
+ * it can be let go.
  *
- * @param quiz - The quiz: its widgetings, and what it templates now.
+ * @param quiz - The quiz: its widgetings, and what it nominates now.
  * @param library - The library's widgets, which say what each widgeting is.
  * @returns The sources, each with its title.
  *
  * @example templatableSources(quiz, library).map(({ source }) => source)
- *   // => ['question.clueing', 'question.hint', 'question.full_answer', 'question.notes', 'question.recap', 'author']
+ *   // => ['clueing', 'hint', 'full_answer', 'notes', 'recap', 'author']
  */
-export function templatableSources(quiz: Pick<QuizT, 'widgetings' | 'templated'>, library: readonly WidgetT[]): TemplatableSourceT[] {
+export function templatableSources(quiz: Pick<QuizT, 'widgetings' | 'templateable'>, library: readonly WidgetT[]): TemplatableSourceT[] {
   const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
   const isText = (widget: WidgetT | undefined) => widget?.formulary === 'entry' && widget.config.entry_kind === 'text'
-  const fields = TemplatableFieldVals.map((field) => ({ source: sourceOfField(field), title: Labelmaker.titleize(field) }))
+  const fields = TemplatableFieldVals.map((field) => ({ source: field, title: Labelmaker.titleize(field) }))
   const widgetings = quiz.widgetings
     .filter((widgeting) => widgeting.tier === 'question')
     .filter((widgeting) => isText(widgetFor.get(widgeting.widget_label)) || templates(quiz, widgeting.label))
@@ -294,18 +309,18 @@ export function templatableSources(quiz: Pick<QuizT, 'widgetings' | 'templated'>
 }
 
 /**
- * `quiz` with each of its questions' templated fields filled in over its run, for an export to
+ * `quiz` with each of its questions' templateable fields filled in over its run, for an export to
  * read as it reads any quiz. A field that cannot be filled keeps its text as typed. Widgetings'
  * cells are left as they are.
  *
  * @param quiz - The quiz, as run.
  * @param run - Its run.
- * @returns The quiz; the very same object when it templates none of its questions' fields.
+ * @returns The quiz; the very same object when it nominates none of its questions' fields.
  *
  * @example filledQuiz(quiz, run).questions[0].clueing  // => 'By Ada'   (typed as 'By {{qn.author}}')
  */
 export function filledQuiz(quiz: QuizT, run: QuizRun): QuizT {
-  const fields = TemplatableFieldVals.filter((field) => templates(quiz, sourceOfField(field)))
+  const fields = TemplatableFieldVals.filter((field) => templates(quiz, field))
   if (fields.length === 0) { return quiz }
   const questions = quiz.questions.map((question): QuestionT => {
     const bag = bagOf(run, question._id)

@@ -33,7 +33,7 @@ const TwoQuiz: QuizT = {
   ...Quiz.blank('Templated'),
   questions:  [first, second],
   widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' }), Widgeting.fill({ label: 'size', widget_label: 'sizer' })],
-  templated:  ['question.clueing'],
+  templateable: ['clueing'],
 }
 const run = runOf(TwoQuiz, Library)
 const bag = Templating.bagOf(run, first._id)
@@ -357,6 +357,17 @@ describe("bagOf", () => {
   })
 })
 
+describe("finishedQnsOf", () => {
+  it("holds every question as the last widgeting left it, each templateable source filled in over its own question", () => {
+    expect(Templating.finishedQnsOf(run, ['clueing']).map((qn) => qn.clueing)).to.deep.eq(['By Ada', '{{#qns'])
+    expect(Templating.finishedQnsOf(run, ['clueing'])).to.eq(Templating.finishedQnsOf(run, ['clueing']))
+  })
+
+  it("is the run's own questions when nothing is nominated", () => {
+    expect(Templating.finishedQnsOf(run, [])).to.eq(run.qnsAfter)
+  })
+})
+
 describe("filledBagOf", () => {
   it("holds every question with its templated texts filled in, each over its own question, once", () => {
     const filled = Templating.filledBagOf(TwoQuiz, run)
@@ -366,35 +377,29 @@ describe("filledBagOf", () => {
   })
 
   it("fills in a text entry the quiz templates, as its widgeted's value", () => {
-    const bylined = { ...TwoQuiz, questions: [{ ...first, stored: { ...first.stored, byline: typed('By {{qn.author}}') } }], widgetings: [...TwoQuiz.widgetings, Widgeting.fill({ label: 'byline', widget_label: 'authors' })], templated: ['byline'] }
+    const bylined = { ...TwoQuiz, questions: [{ ...first, stored: { ...first.stored, byline: typed('By {{qn.author}}') } }], widgetings: [...TwoQuiz.widgetings, Widgeting.fill({ label: 'byline', widget_label: 'authors' })], templateable: ['byline'] }
     const [qn] = Templating.filledBagOf(bylined, runOf(bylined, Library)).qns
     expect(qn?.byline).to.deep.include({ status: 'ok', value: 'By Ada' })
     expect(qn?.clueing).to.eq('By {{qn.author}}')
   })
 
   it("fills a filled text in no further, so a text naming another templated one reads it as typed", () => {
-    const chained = { ...TwoQuiz, questions: [{ ...first, hint: '{{qn.clueing}}' }], templated: ['question.clueing', 'question.hint'] }
+    const chained = { ...TwoQuiz, questions: [{ ...first, hint: '{{qn.clueing}}' }], templateable: ['clueing', 'hint'] }
     const [qn] = Templating.filledBagOf(chained, runOf(chained, Library)).qns
     expect([qn?.clueing, qn?.hint]).to.deep.eq(['By Ada', 'By {{qn.author}}'])
   })
 
   it("is the bag for no question when the quiz templates nothing", () => {
-    expect(Templating.filledBagOf({ templated: [] }, run)).to.deep.eq(Templating.bagOf(run, null))
+    expect(Templating.filledBagOf({ templateable: [] }, run)).to.deep.eq(Templating.bagOf(run, null))
   })
 })
 
-describe("sourceOfField", () => {
-  it("names a question's field as a column does", () => {
-    expect(Templating.sourceOfField('clueing')).to.eq('question.clueing')
-    expect(Templating.sourceOfField('recap')).to.eq('question.recap')
-  })
-})
 
 describe("templates", () => {
   it("says whether the quiz nominates a source", () => {
-    expect(Templating.templates({ templated: ['question.clueing'] }, 'question.clueing')).to.be.true
-    expect(Templating.templates({ templated: ['question.clueing'] }, 'question.hint')).to.be.false
-    expect(Templating.templates({ templated: ['author'] }, 'author')).to.be.true
+    expect(Templating.templates({ templateable: ['clueing'] }, 'clueing')).to.be.true
+    expect(Templating.templates({ templateable: ['clueing'] }, 'hint')).to.be.false
+    expect(Templating.templates({ templateable: ['author'] }, 'author')).to.be.true
   })
 })
 
@@ -412,13 +417,13 @@ describe("filledQuiz", () => {
   })
 
   it("hands back the very quiz when it templates none of its questions' fields", () => {
-    const untemplated = { ...TwoQuiz, templated: ['author'] }
+    const untemplated = { ...TwoQuiz, templateable: ['author'] }
     expect(Templating.filledQuiz(untemplated, run)).to.eq(untemplated)
   })
 })
 
 describe("templatableSources", () => {
-  const FieldSources = ['question.clueing', 'question.hint', 'question.full_answer', 'question.notes', 'question.recap']
+  const FieldSources = ['clueing', 'hint', 'full_answer', 'notes', 'recap']
 
   it("offers each markdown field, then each text entry, each with its title", () => {
     const offered = Templating.templatableSources(TwoQuiz, Library)
@@ -427,7 +432,7 @@ describe("templatableSources", () => {
   })
 
   it("offers a widgeting of another kind only once the quiz templates it, so it can be let go", () => {
-    const offered = Templating.templatableSources({ ...TwoQuiz, templated: ['size'] }, Library)
+    const offered = Templating.templatableSources({ ...TwoQuiz, templateable: ['size'] }, Library)
     expect(offered.map(({ source }) => source)).to.deep.eq([...FieldSources, 'author', 'size'])
   })
 

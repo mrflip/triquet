@@ -27,6 +27,12 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
 // `result_meta`, a quiz's widgeted's as a question's. `tests/convex/schema.test.ts` holds them to the row validators.
 //
+// Two more are written by hand while a quiz's `templated` becomes its `templateable`, in the
+// plain grammar (`notes/deploy.md`, *Schema pushes*; the columnwise sprint). `templateable` is
+// optional here though every write gives one, so that quizzes written before it existed still
+// fit until `migrations.ts` backfills them; `templated`, which no row validator writes any more,
+// is still let through until the same backfill has taken it off every quiz.
+//
 // A row's stamps (`created_at`, `updated_at`) are optional for good, in the row validators too:
 // the trigger writes them once a row has landed (`stamping.ts`), so a row goes in without them.
 //
@@ -37,7 +43,11 @@ const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
 const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
-const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
+const quizFields        = {
+  ...zodOutputToConvexFields(QuizValidators.row.shape),
+  templateable: CVX.optional(zodOutputToConvex(QuizValidators.templateable)),
+  templated:    CVX.optional(CVX.array(CVX.string())),
+}
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
 const widgetingFields   = {
   ...zodOutputToConvexFields(_.omit(WidgetingValidators.row.shape, ['params'])),

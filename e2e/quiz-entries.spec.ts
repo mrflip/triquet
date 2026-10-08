@@ -54,7 +54,7 @@ test('a quiz entry is typed into the Quiz entries panel, kept, and filled into a
   await expect(box).toHaveValue('Ada and Grace')
 
   await openManage(page)
-  const nominated = manageDialog(page).getByRole('group', { name: 'Templated sources' }).getByRole('checkbox', { name: 'Clueing' })
+  const nominated = manageDialog(page).getByRole('group', { name: 'Templateable sources' }).getByRole('checkbox', { name: 'Clueing' })
   await nominated.click()
   await expect(nominated).toBeChecked()
   await closeManage(page)

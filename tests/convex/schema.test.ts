@@ -60,21 +60,27 @@ const Stamps = ['created_at', 'updated_at']
  * The fields a row may lack for good, their absence meaning what the code reading them says: a
  * hunt nobody has arranged reads as the default wheel, a quiz given no recap template of its own
  * follows the default one, and a column nobody has aligned centers Q# and lets every other cell
- * set itself; and every stamped row's stamps, a row the trigger has
+ * set itself, one with no formula shows what it picks as it is (identity), one with no template
+ * draws the value as it is, one with no readout draws as the cells choose, and one never
+ * collapsed is not; and every stamped row's stamps, a row the trigger has
  * not seen reading as made and last edited when the database made it (`Stamps.of`)
  */
 const Absentable: Partial<Record<TableNames, string[]>> = {
   ...Object.fromEntries(StampedTables.map((tablename) => [tablename, Stamps])),
   hunts:   ['wheel', ...Stamps],
   quizzes: ['recap_template', ...Stamps],
-  columns: ['align', ...Stamps],
+  columns: ['align', 'formula', 'template', 'readout', 'collapsed', ...Stamps],
 }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
-const Backfilling: Partial<Record<TableNames, string[]>> = {}
+const Backfilling: Partial<Record<TableNames, string[]>> = {
+  quizzes: ['templateable'],
+}
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
-const Retiring: Partial<Record<TableNames, string[]>> = {}
+const Retiring: Partial<Record<TableNames, string[]>> = {
+  quizzes: ['templated'],
+}
 
 /** For sorting names into a stable order to compare */
 const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)
@@ -106,7 +112,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const hunt_id = await insert('hunts', hunt)
     const realm = RealmValidators.row({ hunt_id, label: 'home', title: '', position: 0 })
     const realm_id = await insert('realms', realm)
-    const quiz = QuizValidators.row({ hunt_id, realm_id, title: '', label: 'princes', smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', recap_head: 'Thanks to {{quiz.playtesters}}.', recap_tail: 'See you next season.', templated: ['question.recap', 'dumdum'], locked: false, last_sortkey: 'column:clueing', row_ordering: [] })
+    const quiz = QuizValidators.row({ hunt_id, realm_id, title: '', label: 'princes', smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', recap_head: 'Thanks to {{quiz.playtesters}}.', recap_tail: 'See you next season.', templateable: ['recap', 'dumdum'], locked: false, last_sortkey: 'column:clueing', row_ordering: [] })
     const quiz_id = await insert('quizzes', quiz)
     const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', recap: 'Leon was the pseudonym.' })
     const question_id = await insert('questions', question)
@@ -130,7 +136,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
         config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 }, position: 0,
       }),
       widgetings:  widgeting,
-      columns:     ColumnValidators.row({ hunt_id, quiz_id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 200, position: 0 }),
+      columns:     ColumnValidators.row({ hunt_id, quiz_id, label: 'clueing', title: 'Clueing', source: 'clueing', width_px: 200, position: 0 }),
       reviews:     review,
       reviewings:  ReviewingValidators.row({
         hunt_id, quiz_id, ident_id, review_id, question_id, get_rate: 40, guesses: 'Hamlet?', comments: 'Fair.', minutes: 2.5, keep_it: true, needs_fact_check: false, elimination_candidate: false, peeked: true,

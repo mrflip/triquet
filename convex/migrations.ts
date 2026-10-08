@@ -2,8 +2,17 @@ import { Migrations, type MigrationFunctionReference } from '@convex-dev/migrati
 import { components, internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
 import { zInternalQuery } from './functions'
+import { layoutOf } from './reading'
+import * as Labelmaker from '../src/lib/labelmaker'
+import * as Estimates from '../src/lib/estimates'
 import * as Stamps from '../src/lib/stamps'
+import { widgetFrom } from '../src/lib/rows'
 import { ValidatorKit } from '../src/lib/validator'
+import { CategoriesDescription, CategoriesWidgetLabel, categoryDataOf, relabelledSource } from '../src/models/before-october'
+import { ColumnValidators, plainOf } from '../src/models/column'
+import { QuizValidators, templateableFrom } from '../src/models/quiz'
+import { CategoryDataLabel, SeedWidgets } from '../src/models/seeds'
+import { WidgetingValidators } from '../src/models/widgeting'
 import schema from './schema'
 import type { StampedTablename } from './stamping'
 
@@ -64,9 +73,111 @@ export const backfillReviewStamps    = stampBackfill('reviews')
 export const backfillReviewingStamps = stampBackfill('reviewings')
 export const backfillHuntingStamps   = stampBackfill('huntings')
 
+// The columnwise chain (`Serial Deploy: columnwise`), in order: the library's category-estimate
+// entry relabelled `category_data`, since `categories` is a word at the bag's top level that a
+// widgeting must not shadow; each quiz's widgetings of it, and the columns and nominations naming
+// them, relabelled with it; each column's source written in the plain grammar; and each quiz's
+// `templated` written as its `templateable`, in the plain grammar, and taken off. The grammar
+// before October 2026 is `column.ts`'s to read (`plainOf`), which every reader does meanwhile. A
+// value that will not do under today's validators is left as it is and said in the log, rather
+// than stopping the series. Nothing rewrites an author's formula reading `qn.categories`.
+
+/** The seeded category-estimate entry as the library holds it now */
+const CategoryDataSeed = SeedWidgets.find((widget) => widget.label === CategoryDataLabel)
+
 /**
- * Every backfill still defined, in the order they run: the stamps'. What `runAll` runs and
- * `outstanding` reports on. A new backfill joins the end, and leaves with the tightening after it.
+ * Relabel the library's category-estimate entry, `categories` before October 2026, as
+ * `category_data`, its seeded description with it. Where the seeds have already made a
+ * `category_data` category-estimate entry beside it, the old one is taken away instead, the
+ * widgetings working it being relabelled to the new one next; any other widget under that label
+ * stops the series, for a Coach to settle.
+ */
+export const backfillCategoryDataWidget = migrations.define({
+  table:      'widgets',
+  migrateOne: async (ctx, widget) => {
+    if (widget.label !== CategoriesWidgetLabel) { return }
+    const already = await ctx.db.query('widgets').withIndex('by_scope_and_label', (cvx) => cvx.eq('scope', widget.scope).eq('label', CategoryDataLabel)).first()
+    if (already) {
+      if (! Estimates.isEstimating(widgetFrom(already))) { throw new Error(`The library holds a widget labelled "${CategoryDataLabel}" that is no category-estimate entry, so "${CategoriesWidgetLabel}" cannot become it`) }
+      await ctx.db.delete('widgets', widget._id)
+      return
+    }
+    const description = CategoryDataSeed && widget.description === CategoriesDescription ? CategoryDataSeed.description : widget.description
+    await ctx.db.patch('widgets', widget._id, { label: ValidatorKit.label.parse(CategoryDataLabel), description: ValidatorKit.noteish.parse(description) })
+  },
+})
+
+/**
+ * In each quiz, relabel what the category-estimate entry's relabelling leaves behind: each
+ * widgeting working it, as its `widget_label`; each widgeting labelled `categories` or
+ * `categories_<n>`, as `category_data` or `category_data_<n>` (the first free label after
+ * `category_data`, if the quiz holds that already, or another of these is to take it); and each column's source and each nomination of what it templates
+ * naming one of those, in whichever grammar it is written.
+ */
+export const backfillCategoryDataWidgetings = migrations.define({
+  table:      'quizzes',
+  migrateOne: async (ctx, quiz) => {
+    const { widgetings, columns } = await layoutOf(ctx.db, quiz)
+    const kept = widgetings.filter((widgeting) => categoryDataOf(widgeting.label) === null).map((widgeting) => widgeting.label)
+    const labelFor = new Map<string, string>()
+    for (const widgeting of widgetings) {
+      const relabelled = categoryDataOf(widgeting.label)
+      const others = widgetings.filter((other) => other !== widgeting).flatMap((other) => categoryDataOf(other.label) ?? [])
+      const label = relabelled === null ? widgeting.label : Labelmaker.firstFree(relabelled, new Set([...kept, ...others, ...labelFor.values()]))
+      if (label !== widgeting.label) { labelFor.set(widgeting.label, label) }
+      const widget_label = widgeting.widget_label === CategoriesWidgetLabel ? CategoryDataLabel : widgeting.widget_label
+      if (label === widgeting.label && widget_label === widgeting.widget_label) { continue }
+      await ctx.db.patch('widgetings', widgeting._id, { label: WidgetingValidators.widgetingLabel.parse(label), widget_label: ValidatorKit.label.parse(widget_label) })
+    }
+    if (labelFor.size === 0) { return }
+    for (const column of columns) {
+      const source = relabelledSource(column.source, labelFor)
+      if (source !== column.source) { await ctx.db.patch('columns', column._id, { source }) }
+    }
+    const relabelled = (sources: readonly string[] | undefined) => sources?.map((source) => labelFor.get(source) ?? source)
+    await ctx.db.patch('quizzes', quiz._id, { templated: relabelled(quiz.templated), templateable: relabelled(quiz.templateable) })
+  },
+})
+
+/**
+ * Write each column's source in the plain grammar (`plainOf`): `question.<x>` as `<x>`, and
+ * `<widgeting>.<part>` as the widgeting with the formula `$.<part>`. A plain source is left.
+ */
+export const backfillPlainColumnSources = migrations.define({
+  table:      'columns',
+  migrateOne: async (ctx, column) => {
+    const plain = plainOf(column)
+    if (plain.source === column.source) { return }
+    const source = ColumnValidators.source.safeParse(plain.source)
+    const formula = ColumnValidators.formula.optional().safeParse(plain.formula)
+    if (! source.success || ! formula.success) {
+      console.warn(`Column ${column.label} of quiz ${column.quiz_id} is left showing "${column.source}": "${plain.source}" will not do`)
+      return
+    }
+    await ctx.db.patch('columns', column._id, { source: source.data, formula: formula.data })
+  },
+})
+
+/**
+ * Write each quiz's nomination of what it templates as its `templateable`, in the plain grammar
+ * (`templateableFrom`), and take its `templated` off. A nomination that will not do is left out,
+ * and said in the log.
+ */
+export const backfillQuizTemplateables = migrations.define({
+  table:      'quizzes',
+  migrateOne: async (ctx, quiz) => {
+    if (quiz.templateable !== undefined && quiz.templated === undefined) { return }
+    const sources = quiz.templateable ?? templateableFrom(quiz.templated ?? [])
+    const kept = sources.filter((source) => QuizValidators.templateableSource.safeParse(source).success)
+    const dropped = sources.filter((source) => ! kept.includes(source))
+    if (dropped.length > 0) { console.warn(`Quiz ${quiz.label} (${quiz._id}) no longer nominates ${dropped.join(', ')}: no source can be so named`) }
+    await ctx.db.patch('quizzes', quiz._id, { templateable: QuizValidators.templateable.parse([...new Set(kept)]), templated: undefined })
+  },
+})
+
+/**
+ * Every backfill still defined, in the order they run: the stamps', then the columnwise chain's.
+ * What `runAll` runs and `outstanding` reports on. A new backfill joins the end, and leaves with the tightening after it.
  * It is never empty: `runAll`, a runner of the series, refuses to run none.
  */
 export const Backfills: readonly MigrationFunctionReference[] = [
@@ -82,6 +193,10 @@ export const Backfills: readonly MigrationFunctionReference[] = [
   internal.migrations.backfillReviewStamps,
   internal.migrations.backfillReviewingStamps,
   internal.migrations.backfillHuntingStamps,
+  internal.migrations.backfillCategoryDataWidget,
+  internal.migrations.backfillCategoryDataWidgetings,
+  internal.migrations.backfillPlainColumnSources,
+  internal.migrations.backfillQuizTemplateables,
 ]
 
 /**

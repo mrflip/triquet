@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { BlankQuestionQty, DefaultQ1Preamble, Quiz, QuizValidators } from '../../src/models/quiz'
+import { BlankQuestionQty, DefaultQ1Preamble, Quiz, QuizValidators, isTemplatableField, templateableFrom } from '../../src/models/quiz'
 import { Question } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
 import * as Labelmaker from '../../src/lib/labelmaker'
@@ -18,7 +18,7 @@ describe('Quiz.fill', () => {
       q1_preamble:     DefaultQ1Preamble,
       recap_head:      '',
       recap_tail:      '',
-      templated:       [],
+      templateable: [],
       widgetings:      [],
       columns:         [],
     })
@@ -66,7 +66,7 @@ describe('Quiz.fill', () => {
   })
 
   it('holds 99 columns, and refuses a hundredth', () => {
-    const columns = Array.from({ length: 100 }, (_unused, idx) => ({ label: `column_${String(idx)}`, title: 'Title', source: 'question.title', width_px: 80 }))
+    const columns = Array.from({ length: 100 }, (_unused, idx) => ({ label: `column_${String(idx)}`, title: 'Title', source: 'title', width_px: 80 }))
     expect(Quiz.fill({ _id: quiz_id, columns: columns.slice(0, 99) }).columns).to.have.lengthOf(99)
     expect(() => Quiz.fill({ _id: quiz_id, columns })).to.throw(Z.ZodError)
   })
@@ -108,7 +108,7 @@ describe('Quiz.fill', () => {
   })
 
   const Widgeting = { widget_label: 'answer_reversed', label: 'zed' }
-  const Col = { label: 'zed', title: 'Zed', source: 'question.title', width_px: 78 }
+  const Col = { label: 'zed', title: 'Zed', source: 'title', width_px: 78 }
 
   const Refused: [object, string][] = [
     [{ widgetings: [Widgeting, { ...Widgeting, description: 'again' }] },                       'two widgetings sharing a label'],
@@ -117,9 +117,10 @@ describe('Quiz.fill', () => {
     [{ widgetings: [{ ...Widgeting, label: 'rank' }] },                                         'a widgeting labelled as the rank the bag adds'],
     [{ columns: [Col, { ...Col, title: 'Again' }] },                                            'two columns sharing a label'],
     [{ columns: [{ ...Col, source: 'nowhere' }] },                                              'a column showing a widgeting the quiz does not have'],
-    [{ templated: ['nowhere'] },                                                                'templating a widgeting the quiz does not have'],
-    [{ templated: ['question.recap', 'question.recap'] },                                       'templating one source twice'],
-    [{ templated: ['question.title'] },                                                         'templating a question field that holds no markdown'],
+    [{ columns: [{ ...Col, source: 'nowhere.masie' }] },                                        'a column showing a part of a widgeting the quiz does not have, before October 2026'],
+    [{ templateable: ['nowhere'] },                                                                'templating a widgeting the quiz does not have'],
+    [{ templateable: ['recap', 'recap'] },                                       'templating one source twice'],
+    [{ templateable: ['title'] },                                                         'templating a question field that holds no markdown'],
     [{ recap_tail: 'x'.repeat(20_001) },                                                        'a recap tail past 20,000 characters'],
   ]
   for (const [overrides, describes] of Refused) {
@@ -133,13 +134,13 @@ describe('Quiz.fill', () => {
   })
 
   it('templates its questions\' markdown fields and its own widgetings, trimming its recap head and tail', () => {
-    const quiz = Quiz.fill({ _id: quiz_id, widgetings: [Widgeting], templated: ['question.clueing', 'zed', 'question.recap'], recap_head: '  Thanks!\n', recap_tail: 'Bye. ' })
-    expect([quiz.templated, quiz.recap_head, quiz.recap_tail]).to.deep.eq([['question.clueing', 'zed', 'question.recap'], 'Thanks!', 'Bye.'])
+    const quiz = Quiz.fill({ _id: quiz_id, widgetings: [Widgeting], templateable: ['clueing', 'zed', 'recap'], recap_head: '  Thanks!\n', recap_tail: 'Bye. ' })
+    expect([quiz.templateable, quiz.recap_head, quiz.recap_tail]).to.deep.eq([['clueing', 'zed', 'recap'], 'Thanks!', 'Bye.'])
   })
 
   it('names the offending source when it templates a widgeting it does not have', () => {
-    const outcome = QuizValidators.quiz.safeParse({ _id: quiz_id, widgetings: [Widgeting], templated: ['zed', 'gone'] })
-    expect(outcome.error?.issues[0]?.path).to.deep.eq(['templated', 1])
+    const outcome = QuizValidators.quiz.safeParse({ _id: quiz_id, widgetings: [Widgeting], templateable: ['zed', 'gone'] })
+    expect(outcome.error?.issues[0]?.path).to.deep.eq(['templateable', 1])
   })
 
   it('accepts two widgetings of one widget under labels of their own', () => {
@@ -223,15 +224,33 @@ describe('Quiz.fill, with widgetings run once for the whole quiz', () => {
     expect(() => Quiz.fill({ _id: quiz_id, widgetings: [{ ...playtesters, label: 'smiths_note' }] })).to.throw(/the quiz already answers to/)
   })
 
-  it('refuses a column showing one, or a template of one: it has no cell for any question', () => {
+  it('refuses a column naming one as a widgeting for each question, or a template of one: it has no cell for any question', () => {
     expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], columns: [{ label: 'thanks', title: 'Thanks', source: 'playtesters', width_px: 90 }] })).to.throw(/does not have for each question/)
-    expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], templated: ['playtesters'] })).to.throw(/does not have for each question/)
+    expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], templateable: ['playtesters'] })).to.throw(/does not have for each question/)
+  })
+
+  it('takes a column showing one by its ref, `quiz.<label>`, and refuses one naming a widgeting it does not have for the whole quiz', () => {
+    expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], columns: [{ label: 'thanks', title: 'Thanks', source: 'quiz.playtesters', width_px: 90 }] })).to.not.throw()
+    expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], columns: [{ label: 'gone', title: 'Gone', source: 'quiz.nowhere', width_px: 90 }] })).to.throw(/does not have for the whole quiz/)
+  })
+})
+
+describe('templateableFrom', () => {
+  it("reads a nomination in the grammar before October 2026 as it reads now: a field by its name, a widgeting's label as it is", () => {
+    expect(templateableFrom(['question.clueing', 'author'])).to.deep.eq(['clueing', 'author'])
+    expect(templateableFrom([])).to.deep.eq([])
+  })
+})
+
+describe('isTemplatableField', () => {
+  it("is a question's field that holds markdown, by its name", () => {
+    expect(['clueing', 'recap', 'qnum', 'question.clueing', 'author'].map((source) => isTemplatableField(source))).to.deep.eq([true, true, false, false, false])
   })
 })
 
 describe('QuizValidators.row', () => {
   const Row = {
-    hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', smiths_note: '', q1_preamble: 'Read the note![br]', recap_head: '', recap_tail: '', templated: ['question.recap'], locked: false, last_sortkey: null,
+    hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', smiths_note: '', q1_preamble: 'Read the note![br]', recap_head: '', recap_tail: '', templateable: ['recap'], locked: false, last_sortkey: null,
     row_ordering: ['j97d0qbj35dar1v8edndzckvsx8f828f'], created_at: 1_759_700_000_000, updated_at: 1_759_700_000_000,
   }
 
@@ -250,8 +269,8 @@ describe('QuizValidators.row', () => {
     [{ locked: 'no' },                       'a lock that is not a yes or no'],
     [{ row_ordering: ['princes'] },          'an order naming something that is not a row id'],
     [{ recap_head: undefined },              'a missing recap head, which a row never defaults'],
-    [{ templated: undefined },               'missing templating, which a row never defaults'],
-    [{ templated: ['question.qnum'] },       'templating a field that holds no markdown'],
+    [{ templateable: undefined },            'missing templating, which a row never defaults'],
+    [{ templateable: ['qnum'] },       'templating a field that holds no markdown'],
     [{ row_ordering: Array.from({ length: 1000 }, () => 'j97d0qbj35dar1v8edndzckvsx8f828f') }, 'an order of more questions than a quiz may hold'],
   ]
   for (const [overrides, describes] of Refused) {

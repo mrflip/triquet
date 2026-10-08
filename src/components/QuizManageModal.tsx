@@ -8,7 +8,7 @@ import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
 import { DangerZone, type DangerousAct } from './DangerZone'
 import NextLink from './NextLink'
-import { TemplatedEditor } from './TemplatedEditor'
+import { TemplateableEditor } from './TemplateableEditor'
 import { WidgetingsEditor } from './WidgetingsEditor'
 import type { WorkbenchOffersT } from './offers'
 import * as Labelmaker from '../lib/labelmaker'
@@ -54,7 +54,7 @@ export type QuizManageModalProps = {
 
 /**
  * The gear icon's modal: editing this quiz's own label (top), its computed columns, its widgetings
- * for each question and those run once for the whole quiz, which of its fields are templated, its
+ * for each question and those run once for the whole quiz, which of its fields are templateable, its
  * history,
  * a quick way to open any other quiz in the realm by name, the hunt's title and label, the quiz's
  * archived questions, each to un-archive or delete, and, fenced off at the foot, deleting the quiz
@@ -175,7 +175,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
               holds; <code>{'{{ qn.rank }}'}</code>, <code>{'{{ quiz.title }}'}</code> and <code>{'{% for qn in qns %}...{% endfor %}'}</code> work
               too: it is Liquid. Markdown only, never HTML; an image only from an <code>https</code> address.
             </p>
-            <TemplatedEditor quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch} />
+            <TemplateableEditor quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch} />
           </section>
 
           <section>
