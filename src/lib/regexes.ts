@@ -32,7 +32,7 @@ export const SourceMax = 200
  */
 export function compileIssueOf({ source, flags }: RegexT): string | null {
   try {
-    void new RegExp(source, flags)
+    compiled({ source, flags })
     return null
   } catch (err) {
     const said = err instanceof Error ? err.message : String(err)
@@ -44,8 +44,9 @@ export function compileIssueOf({ source, flags }: RegexT): string | null {
 const Compiled = new Map<string, RegExp>()
 
 /**
- * `regex` compiled, once: a pattern already through `compileIssueOf` and `Redos`, as a stored one
- * is. Its flags never include `g` or `y`, so the same `RegExp` checks every cell.
+ * `regex` compiled, once, however often it is asked for: what checks every cell against a stored
+ * pattern, which has been through `Redos` and is trusted. Its flags never include `g` or `y`, so
+ * the same `RegExp` checks each cell afresh.
  *
  * @throws A `SyntaxError` for a pattern that does not compile, which a stored one always does.
  *

@@ -25,8 +25,8 @@ function regexIn(bag: unknown): Regexes.RegexT | null {
  * @example refuseRiskyRegexes([{ regex: { source: '^(a+)+$', flags: '' } }])  // throws: The pattern «/^(a+)+$/» could take far too long ...
  */
 export function refuseRiskyRegexes(written: readonly unknown[], held: readonly unknown[] = []): void {
-  const heldShown = new Set(held.map(regexIn).filter((regex) => regex !== null).map(Regexes.shown))
-  const fresh = written.map(regexIn).filter((regex) => regex !== null).filter((regex) => ! heldShown.has(Regexes.shown(regex)))
+  const heldShown = new Set(held.map((bag) => regexIn(bag)).filter((regex) => regex !== null).map((regex) => Regexes.shown(regex)))
+  const fresh = written.map((bag) => regexIn(bag)).filter((regex) => regex !== null).filter((regex) => ! heldShown.has(Regexes.shown(regex)))
   if (fresh.length === 0) { return }
   const refusal = Redos.firstRefusalOf(fresh)
   if (refusal !== null) { refuse('regexRisky', refusal) }
