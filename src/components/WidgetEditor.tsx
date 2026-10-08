@@ -7,6 +7,7 @@ import { ConfirmRemove } from './ConfirmRemove'
 import { AibotFields } from './AibotFields'
 import { EntryFields } from './EntryFields'
 import { JsonataFields } from './JsonataFields'
+import { LiquidizeFields } from './LiquidizeFields'
 import { FormularyWords, usageLine } from './widget-words'
 import { useWidgetUsage } from '../state/use-widget-usage'
 import { BlankJsonataDraft, blankDraftOf, draftOf, planNewWidget, planWidgetEdit, type WidgetDraft } from '../state/widget-edit'
@@ -38,8 +39,9 @@ export type WidgetEditorProps = {
 
 /**
  * The widget editor: one widget of the library on its own, its fields following its formulary --
- * a formula, or a prompt with its input formula and config, each with a live preview against a
- * real question and the button that copies a prompt asking a chatbot for help; or an entry's kind.
+ * a formula, a prompt with its input formula and config, or a template with its input formula,
+ * each with a live preview against a real question and the button that copies a prompt asking a
+ * chatbot for help; or an entry's kind.
  *
  * A new widget is written here, its formulary chosen first. An existing one says how far it is
  * put to work, in every hunt, and cannot be removed while anything works it. An edit here changes
@@ -162,5 +164,6 @@ function DraftFields({ hunt, library, quiz, draft, onChange, labelEditable, labe
   case 'jsonata': { return <JsonataFields draft={draft} {...shared} /> }
   case 'aibot':   { return <AibotFields draft={draft} {...shared} /> }
   case 'entry':   { return <EntryFields draft={draft} onChange={onChange} labelEditable={labelEditable} labelIssue={labelIssue} /> }
+  case 'liquidize': { return <LiquidizeFields draft={draft} {...shared} /> }
   }
 }

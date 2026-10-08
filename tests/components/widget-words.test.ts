@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EntryKindWords, FormularyWords, ParamWords, StatusWords, TextLinesWords, TextPatternWords, paramsGist, statusLine, statusPhrases, usageLine } from '../../src/components/widget-words'
+import { EntryKindWords, FormularyWords, ParamWords, StatusWords, TextLinesWords, TextPatternWords, paramsGist, statusLine, templateFromGist, statusPhrases, usageLine } from '../../src/components/widget-words'
 import { EntryKindVals, EntryParamsOf, FormularykindVals, TextLinesVals, TextPatternVals } from '../../src/models/widget'
 import type { EntryInForceT } from '../../src/lib/formulary/entry'
 import { WidgetedStatusVals } from '../../src/models/widgeted'
@@ -102,5 +102,12 @@ describe("statusPhrases", () => {
 describe("StatusWords", () => {
   it("speaks of every status", () => {
     expect(Object.keys(StatusWords)).to.have.members([...WidgetedStatusVals])
+  })
+})
+
+describe("templateFromGist", () => {
+  it("names where a template is read from, and by what formula", () => {
+    expect(templateFromGist({ ref: 'notes' })).to.eq('Read from notes, for each question.')
+    expect(templateFromGist({ ref: 'dumdum', formula: '$.value.template' })).to.eq('Read from dumdum by $.value.template, for each question.')
   })
 })

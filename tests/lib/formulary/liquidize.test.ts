@@ -121,6 +121,15 @@ describe('LiquidizeFormulary', () => {
     })
   })
 
+  describe('ownOf', () => {
+    it("is what a widgeting says of its template, and nothing for params that do not fit or no widgeting", () => {
+      expect(LiquidizeFormulary.ownOf({ params: { template: '{{ qn.hint }}' } })).to.deep.eq({ template: '{{ qn.hint }}' })
+      expect(LiquidizeFormulary.ownOf({ params: { template_from: { ref: 'dumdum' } } })).to.deep.eq({ template_from: { ref: 'dumdum' } })
+      expect(LiquidizeFormulary.ownOf({ params: { loud: true } })).to.deep.eq({})
+      expect(LiquidizeFormulary.ownOf(null)).to.deep.eq({})
+    })
+  })
+
   describe('templateOf', () => {
     const Cases: [Record<string, JsonT>, QuestionT, ReturnType<typeof LiquidizeFormulary.templateOf>, string][] = [
       // params                                                                  question  expected                                                       blurb

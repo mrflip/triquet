@@ -8,8 +8,10 @@ import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
 import { CopyButton } from '../CopyButton'
 import { hiddenUntil } from '../room'
-import { EntryKindWords, FormularyWords, NoCellsLine, StatusJoint, paramsGist, statusPhrases } from '../widget-words'
+import { EntryKindWords, FormularyWords, NoCellsLine, StatusJoint, paramsGist, statusPhrases, templateFromGist } from '../widget-words'
 import { EntryFormulary } from '../../lib/formulary/entry'
+import { LiquidizeFormulary } from '../../lib/formulary/liquidize'
+import { LiquidizeDefaultInput, type LiquidizeWidgetT } from '../../models/widget'
 import { Formularies } from '../../lib/formulary/formularies'
 import * as Runner from '../../lib/formulary/runner'
 import * as Rank from '../../lib/rank'
@@ -38,8 +40,10 @@ export type WidgetsPanelProps = {
  * tiers mixed as the author placed them), each folded to a line of fields that line up down the
  * list: its label, the widget it works, how its cells stand (`statusLine`) and a snippet of its
  * description. Open, the descriptions in full, the widget's formula or prompt exactly as it
- * stands, placeholders and all, and the button that copies a prompt asking a chatbot for help --
- * or, for an entry, what kind of value is typed into it, and what its params let a cell hold. The
+ * stands, placeholders and all, or the template a `liquidize` widgeting fills in (its own, its
+ * widget's, or where in the bag it is read from), and the button that copies a prompt asking a
+ * chatbot for help -- or, for an entry, what kind of value is typed into it, and what its params
+ * let a cell hold. The
  * list measures its own width, not the window's, to decide which fields there is room for
  * (`RoomFor`).
  */
@@ -135,8 +139,14 @@ function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>)
         {widget && widget.formulary !== 'entry' && (
           <>
             {widget.description === '' ? null : <p className={styles.microcopy}>The widget: {widget.description}</p>}
-            <div className={styles.microcopy}>{widget.formulary === 'aibot' ? 'The prompt, placeholders and all: each {{name}} is filled in from that key of the input' : 'The formula'}</div>
-            <ReadonlyBox label={`${_.upperFirst(noun)}: ${widgeting.label}`} text={widget.formula} rows={widget.formulary === 'aibot' ? 10 : 4} />
+            {widget.formulary === 'liquidize'
+              ? <TemplateInForce widget={widget} widgeting={widgeting} noun={noun} />
+              : (
+                <>
+                  <div className={styles.microcopy}>{widget.formulary === 'aibot' ? 'The prompt, placeholders and all: each {{name}} is filled in from that key of the input' : 'The formula'}</div>
+                  <ReadonlyBox label={`${_.upperFirst(noun)}: ${widgeting.label}`} text={widget.formula} rows={widget.formulary === 'aibot' ? 10 : 4} />
+                </>
+              )}
             {widget.formulary === 'aibot' && (
               <>
                 <div className={styles.microcopy}>The input formula: what the prompt is filled in from, for each question</div>
@@ -150,5 +160,38 @@ function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>)
         )}
       </AccordionDetails>
     </Accordion>
+  )
+}
+
+type TemplateInForceProps = {
+  widget:    LiquidizeWidgetT
+  widgeting: Runner.RunStep['widgeting']
+  noun:      string
+}
+
+/**
+ * The template a `liquidize` widgeting fills in: its own, said in full; where in the bag it is
+ * read from, for each question; or its widget's, said in full. An input formula of its widget's
+ * own, other than the whole bag, is said beneath.
+ */
+function TemplateInForce({ widget, widgeting, noun }: Readonly<TemplateInForceProps>) {
+  const { template, template_from } = LiquidizeFormulary.ownOf(widgeting)
+  return (
+    <>
+      {template_from === undefined
+        ? (
+          <>
+            <div className={styles.microcopy}>{template === undefined ? "The widget's template, filled in for each question and shown as markdown" : "This widgeting's own template, in place of its widget's, filled in for each question and shown as markdown"}</div>
+            <ReadonlyBox label={`${_.upperFirst(noun)}: ${widgeting.label}`} text={template ?? widget.formula} rows={4} />
+          </>
+        )
+        : <p className={styles.microcopy}>The template: {templateFromGist(template_from)} What it comes to is filled in there, and shown as markdown.</p>}
+      {widget.input_formula.trim() !== LiquidizeDefaultInput && (
+        <>
+          <div className={styles.microcopy}>The input formula: what the template is filled in from, for each question</div>
+          <ReadonlyBox label={`Input formula: ${widgeting.label}`} text={widget.input_formula} rows={2} />
+        </>
+      )}
+    </>
   )
 }

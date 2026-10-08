@@ -3,7 +3,7 @@ import type { EntryInForceT } from '../lib/formulary/entry'
 import * as Regexes from '../lib/regexes'
 import type { StatusCounts } from '../lib/formulary/runner'
 import type { WidgetUsageT } from '../lib/rows'
-import type { EntryKind, EnumParamsT, Formularykind, NumberParamsT, TextLines, TextParamsT, TextPattern } from '../models/widget'
+import type { EntryKind, EnumParamsT, Formularykind, LiquidizeParamsT, NumberParamsT, TextLines, TextParamsT, TextPattern } from '../models/widget'
 import { WidgetedStatusVals, type WidgetedStatus } from '../models/widgeted'
 
 /** How each formulary is spoken of on screen: one of its widgets, several, and what one does */
@@ -91,6 +91,16 @@ function textGist({ pattern, regex, lines, max_length }: TextParamsT): string {
 /** A choice entry's params in a sentence: its options */
 function enumGist({ options = [] }: EnumParamsT): string {
   return options.length === 0 ? 'No options yet: give its widgeting some.' : `One of: ${options.join(', ')}.`
+}
+
+/**
+ * Where a `liquidize` widgeting's template is read from, in a sentence.
+ *
+ * @example templateFromGist({ ref: 'notes' })                                // => 'Read from notes, for each question.'
+ * @example templateFromGist({ ref: 'dumdum', formula: '$.value.template' })  // => 'Read from dumdum by $.value.template, for each question.'
+ */
+export function templateFromGist({ ref, formula }: NonNullable<LiquidizeParamsT['template_from']>): string {
+  return formula === undefined ? `Read from ${ref}, for each question.` : `Read from ${ref} by ${formula}, for each question.`
 }
 
 /**

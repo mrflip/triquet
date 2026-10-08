@@ -105,6 +105,20 @@ export class LiquidizeFormulary {
   }
 
   /**
+   * Where a widgeting says its template comes from: its own `template`, a `template_from` the bag,
+   * or neither, so its widget's. Params that do not fit (a widgeting written before they were held
+   * to this formulary) say nothing.
+   *
+   * @example LiquidizeFormulary.ownOf({ params: { template: '{{ qn.hint }}' } })  // => { template: '{{ qn.hint }}' }
+   * @example LiquidizeFormulary.ownOf({ params: { loud: true } })                // => {}
+   * @example LiquidizeFormulary.ownOf(null)                                      // => {}
+   */
+  static ownOf(widgeting: Pick<WidgetingT, 'params'> | null): LiquidizeParamsT {
+    const params = WidgetValidators.liquidizeParams.safeParse(widgeting?.params ?? {})
+    return params.success ? params.data : {}
+  }
+
+  /**
    * The template a widgeting fills in for the question `bag` is for: its own (`params.template`),
    * or one read from the bag (`params.template_from`), or else its widget's. Read from the bag, it
    * is what the ref picks, worked by the formula as a column's is: with no formula, a field
@@ -121,9 +135,7 @@ export class LiquidizeFormulary {
    * @example LiquidizeFormulary.templateOf(widget, { ...widgeting, params: { template_from: { ref: 'dumdum' } } }, bag)  // => { status: 'missing' }   (not yet asked)
    */
   static templateOf(widget: Pick<WidgetT, 'formula'>, widgeting: Pick<WidgetingT, 'params'> | null, bag: QuizBag): TemplateOutcome {
-    const params = WidgetValidators.liquidizeParams.safeParse(widgeting?.params ?? {})
-    // A widgeting written before its params were held to this formulary says nothing of its own.
-    const own: LiquidizeParamsT = params.success ? params.data : {}
+    const own = this.ownOf(widgeting)
     if (own.template !== undefined) { return { status: 'ok', template: own.template } }
     if (own.template_from === undefined) { return { status: 'ok', template: widget.formula } }
     const { ref, formula } = own.template_from
