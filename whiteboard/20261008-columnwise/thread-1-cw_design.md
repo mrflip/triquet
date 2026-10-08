@@ -82,8 +82,9 @@ no e2e (git_hygiene, *When e2e is not worth running*).
     export holding one** meets the importer's promise. Options: (a) the importer refuses it with a
     sentence naming the word, and the author edits the paste; (b) the importer relabels it
     (`Labelmaker.firstFree`), which breaks whatever names it by label (formulas, columns).
-    **Recommendation: (a)**, with your grep of production's raw export before thread 2 deploys,
-    as for `qn.categories` before 3a. The record says only the grep.
-  - **`category`**, singular, is a noun of the tool and not reserved anywhere; suggest 3c reserve
-    it with `categories` (the note in `patterns.ts` exempts both).
+    **Answered by the orchestrator: (a)**, refused with a sentence naming the word, built by
+    thread 2; the Coach greps production's raw export before thread 2 deploys. One line in §9.
+  - **`category`**, singular, is a noun of the tool and not reserved anywhere; suggested for 3c
+    with `categories` (the note in `patterns.ts` exempts both). A suggestion for the Coach, not in
+    the record.
   - Read decisions 2, 4, 5, 8 and 11 above most closely: each shapes what a later thread builds.

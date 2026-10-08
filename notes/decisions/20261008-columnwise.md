@@ -341,8 +341,8 @@ label. `2026-10-widgets.md` still says it is reserved.
 A global word is refused for every label: hunt, realm, quiz, question, column, widget,
 widgeting, ident. The row validators and the quiz's integrity check (`src/models/quiz.ts`) refuse
 a reserved label as they do now. Nothing rewrites a row already holding one; before thread 2
-deploys, the Coach checks production for labels the new words catch. No seeded label may be a
-reserved word.
+deploys, the Coach checks production for labels the new words catch. An import holding one is
+refused, with a sentence naming the word (thread 2). No seeded label may be a reserved word.
 
 ## 10. Schema: the `columnwise` chain, and the importer's promise (3a widens, 3c tightens)
 
