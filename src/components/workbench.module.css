@@ -37,6 +37,8 @@
   border-bottom:  1px solid var(--border);
   vertical-align: bottom;
   white-space:    nowrap;
+  /* A double-click on a head collapses its column, and should select none of its words */
+  user-select:    none;
 }
 
 /* The top-left corner: its fold at the top and its batch-mode controls at the foot, however tall

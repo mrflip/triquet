@@ -444,12 +444,19 @@ that makes it.
   identity and there is no template.
 * **template** (a column's) -- Liquid making text of the value the formula came to, filled in over
   the question's template bag with that value as `value`. How one column draws a value; it touches
-  no stored text. Not a *templateable* source (*The things an author makes*).
+  no stored text. Like the formula, worked only on an `ok` value. Not a *templateable* source
+  (*The things an author makes*).
 * **readout** -- how a column draws its text: `plain`, `markdown` (then the sanitizer), `code` or
-  `label`. Absent, as the cells choose; with a template, or showing a `liquidize`, `markdown`.
+  `label`. Absent, as the cells choose; with a template, or showing a `liquidize`, `markdown`. A
+  cell typed into (a field, an entry, a bot's asked cell, while the column is identity with no
+  template) is drawn by its own box, whatever the readout says.
+* **preset** (a column's) -- a formula the column editor offers beside a ref for what it picks:
+  an estimates entry's parts (`$.masie`), the field names of a word whose schema is known
+  (`$.title` of `quiz`, each question's of `qns`). `ColumnMenu.PresetSources` lists where they
+  come from.
 * **collapsed** -- a column folded to the width of its turned header by a double-click on its
-  head, its cells empty and its `width_px` kept for the double-click that restores it. The TSV is
-  unchanged by it.
+  head, its cells empty and its `width_px` kept for the double-click that restores it. Its head
+  sorts nothing while collapsed. The TSV is unchanged by it.
 * **bag** (the quiz bag) -- the document a formula reads: `hunt`, `realm`, `categories`, `quiz`,
   `qns`, `qn`, `qn_label`, `quiz_label`, and the running widgeting's `params` and
   `widgeting_label`. No ids; everything by label. It is **flat**: each earlier widgeting's
