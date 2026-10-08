@@ -48,9 +48,11 @@ export const ReservedWidgetingLabels: readonly string[] = _.uniq([
 ])
 
 /**
- * The names the formularies give their params, which a widgeting's params may take though they
- * are reserved words: each entry family's (`min`, `max`, `integer`), and a `liquidize`
- * widgeting's (`template`, `template_from`).
+ * The names any formulary gives its params, which a widgeting's row may take though they are
+ * reserved words: each entry family's (`min`, `max`, `integer`), and a `liquidize` widgeting's
+ * (`template`, `template_from`), each read from its validator. The row knows no widget, so it
+ * takes them all; each formulary holds its own widgetings to its own (`paramsOf`), and a formula's
+ * or a prompt's to none of them (`WidgetingValidators.openParams`).
  */
 export const FormularyParamnames: ReadonlySet<string> = new Set([
   ...Object.values(EntryParamsOf).flatMap((validator) => Object.keys(validator.shape)),
@@ -77,10 +79,14 @@ export const WidgetingValidators = Validator(({ obj, rec, oneof, label, labelAll
     .describe('Which widget of the library it works, by label: labels are fixed once made, so exports round-trip with no id to translate.')
   const description = noteish
     .describe('What this widgeting is for in this quiz, in the author\'s words.')
-  // A param a formulary names (`min`, `max`, `template`) is let through though it is reserved; any other is held to every label's words.
-  const params = rec(labelAllowing(FormularyParamnames), zod.json())
+  // Params whose names are held to every label's words, but for those `allowed`.
+  const paramsAllowing = (allowed: ReadonlySet<string>) => rec(labelAllowing(allowed), zod.json())
     .refine((val) => UU.jsonify(val).length <= PA.ParamsJson.max, PA.ParamsJson.msg)
+  // A param some formulary names (`min`, `max`, `template`) is let through though it is reserved; any other is held to every label's words.
+  const params = paramsAllowing(FormularyParamnames)
     .describe('What it hands its widget beyond the bag, by name, held to its widget\'s formulary where a widgeting is written (`paramsOf`): an entry\'s constraints, say. Reaches the bag as `params`.')
+  const openParams = paramsAllowing(new Set())
+    .describe('What a formula\'s or a prompt\'s widgeting hands it beyond the bag: any few settings, by names held to every label\'s reserved words. Reaches the bag as `params`.')
   const tier = oneof(WidgetingTierVals)
     .describe('Which level it runs at: `question`, once for each question; or `quiz`, once for the quiz as a whole. Fixed once it is made, as the widget it works is.')
 
@@ -116,7 +122,7 @@ export const WidgetingValidators = Validator(({ obj, rec, oneof, label, labelAll
   })
     .describe('One widgeting as the database holds it.')
 
-  return { widgetingLabel, params, tier, widgeting, widgetingPatch, row }
+  return { widgetingLabel, params, openParams, tier, widgeting, widgetingPatch, row }
 })
 
 export type WidgetingDNA   = Z.input<typeof WidgetingValidators.widgeting>

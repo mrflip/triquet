@@ -656,6 +656,14 @@ describe("a widgeting's params", () => {
     await act({ kind: 'add_widgeting', widgeting: { ...Backward, params: { size: 3 } } })
     expect(paramsOf(await read(), 'backward')).to.deep.eq({ size: 3 })
   })
+
+  it("are refused for a formula's widgeting under a reserved word another formulary names its params by", async () => {
+    const seeded = await seed()
+    const ante = await seeded.read()
+    await expect(seeded.act({ kind: 'add_widgeting', widgeting: { ...Backward, params: { template: 'x' } } })).rejects.toThrow()
+    await expect(seeded.act({ kind: 'add_widgeting', widgeting: { ...Backward, params: { min: 1 } } })).rejects.toThrow()
+    expect(await seeded.read()).to.deep.eq(ante)
+  })
 })
 
 describe("widgetings run once for the whole quiz", () => {

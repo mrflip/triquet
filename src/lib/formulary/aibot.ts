@@ -39,13 +39,15 @@ export class AibotFormulary {
   static readonly config = WidgetValidators.aibotConfig
 
   /**
-   * The validator of a widgeting's params: any few settings, by name, which reach the bag as
-   * `params` for the input formula to read.
+   * The validator of a widgeting's params: any few settings, by names held to every label's
+   * reserved words (`min` and `template` among them, which other formularies give their own
+   * params), which reach the bag as `params` for the input formula to read.
    *
    * @example AibotFormulary.paramsOf().safeParse({ size: 3 }).success  // => true
+   * @example AibotFormulary.paramsOf().safeParse({ template: 'x' }).success  // => false
    */
-  static paramsOf(): typeof WidgetingValidators.params {
-    return WidgetingValidators.params
+  static paramsOf(): typeof WidgetingValidators.openParams {
+    return WidgetingValidators.openParams
   }
 
   /**

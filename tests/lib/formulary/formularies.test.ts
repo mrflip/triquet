@@ -4,7 +4,7 @@ import { AibotFormulary } from '../../../src/lib/formulary/aibot'
 import { EntryFormulary } from '../../../src/lib/formulary/entry'
 import { JsonataFormulary } from '../../../src/lib/formulary/jsonata'
 import { LiquidizeFormulary } from '../../../src/lib/formulary/liquidize'
-import { FormularykindVals, Widget } from '../../../src/models/widget'
+import { FormularykindVals, Widget, type WidgetT } from '../../../src/models/widget'
 
 describe('Formularies', () => {
   it('holds one formulary for every kind a widget can name, each reporting its own kind', () => {
@@ -62,4 +62,31 @@ describe('paramsOf', () => {
   it("says what each widgeting's folded line holds: a formula, nothing for a prompt, an entry's params", () => {
     expect(Object.values(Formularies).map((formulary) => formulary.folded)).to.deep.eq(['formula', null, 'params'])
   })
+
+  // Each formulary lets through only the reserved words its own params are named by.
+  const dumdum = Widget.fill({ label: 'dumdum', formulary: 'aibot', formula: 'Q: {{clueing}}', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 9 } })
+  const textEntry = Widget.fill({ label: 'memo', formulary: 'entry', config: { entry_kind: 'text' } })
+  const AllowCases: [WidgetT, Record<string, unknown>, boolean, string][] = [
+    // a formula's and a prompt's: none
+    [shoutWidget,  { size: 3 },                           true,  "a formula's widgeting takes a param of any name not reserved"],
+    [shoutWidget,  { template: 'x' },                     false, "a formula's widgeting refuses a liquidize widgeting's param, a reserved word"],
+    [shoutWidget,  { min: 1 },                            false, "a formula's widgeting refuses an entry's param, a reserved word"],
+    [dumdum,       { tone: 'dry' },                       true,  "a prompt's widgeting takes a param of any name not reserved"],
+    [dumdum,       { template: 'x' },                     false, "a prompt's widgeting refuses a liquidize widgeting's param, a reserved word"],
+    [dumdum,       { template_from: 'notes' },            true,  "a prompt's widgeting takes a name no word keeps back, whoever else uses it"],
+    [dumdum,       { max: 1 },                            false, "a prompt's widgeting refuses an entry's param, a reserved word"],
+    // an entry's: its family's own
+    [numberEntry,  { min: 1 },                            true,  "a number entry's widgeting takes its own min"],
+    [numberEntry,  { template: 'x' },                     false, "a number entry's widgeting refuses a liquidize widgeting's param"],
+    [textEntry,    { max_length: 3 },                     true,  "a text entry's widgeting takes its own max_length"],
+    [textEntry,    { min: 1 },                            false, "a text entry's widgeting refuses a number entry's param"],
+    // a template's: its own
+    [blurbWidget,  { template_from: { ref: 'notes' } },   true,  "a liquidize widgeting takes its own template_from"],
+    [blurbWidget,  { min: 1 },                            false, "a liquidize widgeting refuses an entry's param"],
+  ]
+  for (const [widget, params, passes, describes] of AllowCases) {
+    it(describes, () => {
+      expect(paramsOf(widget).safeParse(params).success).to.eq(passes)
+    })
+  }
 })
