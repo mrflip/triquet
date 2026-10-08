@@ -131,6 +131,12 @@ const ReadoutTitles: Readonly<Record<ColumnReadout, string>> = {
   label:    'As a label',
 }
 
+/** What the menu says a column naming no readout is drawn as: markdown, for a template or what a template wrote; else as the cells choose */
+function unsetReadoutOf(templated: boolean, liquidized: boolean): string {
+  if (templated) { return 'Markdown, for a template' }
+  return liquidized ? 'Markdown, as a template writes it' : 'As the cells choose'
+}
+
 /** The menu's word for the readout a column names none of */
 const DefaultReadout = 'default'
 
@@ -138,8 +144,8 @@ const DefaultReadout = 'default'
  * How a column draws its text, or, picking none, as the cells choose (markdown, for a column with
  * a template). A column whose cells are typed into is drawn by their editor, which says so.
  */
-export function ColumnReadoutField({ column, drawnByEditor, locked, onCommit }: Readonly<ColumnFieldProps & { drawnByEditor: boolean }>) {
-  const unset = column.template === undefined ? 'As the cells choose' : 'Markdown, for a template'
+export function ColumnReadoutField({ column, drawnByEditor, liquidized = false, locked, onCommit }: Readonly<ColumnFieldProps & { drawnByEditor: boolean, liquidized?: boolean }>) {
+  const unset = unsetReadoutOf(column.template !== undefined, liquidized)
   return (
     <TextField
       select size="small" label="Readout" value={column.readout ?? DefaultReadout} disabled={locked || drawnByEditor} sx={{ minWidth: 200 }}
@@ -184,7 +190,7 @@ export function ColumnStagesFields({ column, quiz, library, locked, onCommit }: 
       <ColumnFormulaField column={column} presets={presets} locked={locked} onCommit={onCommit} />
       <ColumnTemplateField column={column} locked={locked} onCommit={onCommit} />
       <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
-        <ColumnReadoutField column={column} drawnByEditor={drawnByEditor} locked={locked} onCommit={onCommit} />
+        <ColumnReadoutField column={column} drawnByEditor={drawnByEditor} liquidized={subject?.widget?.formulary === 'liquidize'} locked={locked} onCommit={onCommit} />
         <ColumnCollapsedField column={column} locked={locked} onCommit={onCommit} />
       </Stack>
     </Stack>

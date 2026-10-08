@@ -248,15 +248,22 @@ export function isDrawnByEditor(spec: StagedSpec, widget: WidgetT | null): boole
 
 /**
  * How a column draws its text: as it says, or, saying nothing, `markdown` for a column with a
- * template; null for any other, which its cells draw as they choose (a field in its box, a value as
- * a worked-out cell shows one).
+ * template or showing a `liquidize` widgeting, whose text is markdown by convention; null for any
+ * other, which its cells draw as they choose (a field in its box, a value as a worked-out cell
+ * shows one).
  *
- * @example readoutOf({ readout: 'code', template: '{{ value }}' })  // => 'code'
- * @example readoutOf({ readout: null, template: '{{ value }}' })    // => 'markdown'
- * @example readoutOf({ readout: null, template: null })             // => null
+ * @param spec - The column.
+ * @param widget - The widget of the widgeting it shows, when it shows one the library has.
+ * @returns The readout.
+ *
+ * @example readoutOf({ readout: 'code', template: '{{ value }}' })              // => 'code'
+ * @example readoutOf({ readout: null, template: '{{ value }}' })                // => 'markdown'
+ * @example readoutOf({ readout: null, template: null }, { formulary: 'liquidize' })  // => 'markdown'
+ * @example readoutOf({ readout: null, template: null })                         // => null
  */
-export function readoutOf(spec: Pick<ColumnSpec, 'readout' | 'template'>): ColumnReadout | null {
-  return spec.readout ?? (spec.template === null ? null : 'markdown')
+export function readoutOf(spec: Pick<ColumnSpec, 'readout' | 'template'>, widget: Pick<WidgetT, 'formulary'> | null = null): ColumnReadout | null {
+  if (spec.readout !== null) { return spec.readout }
+  return spec.template !== null || widget?.formulary === 'liquidize' ? 'markdown' : null
 }
 
 /**
@@ -351,7 +358,7 @@ const TextedOf = new WeakMap<Runner.QuizRun, Map<string, Map<string, DrawnT>>>()
  * @example drawnOf({ source: categoryData, formula: '$round($.masie * 100)', template: '{{ value }}%', readout: null }, run, [], question._id).text  // => '53%'
  */
 export function drawnOf(spec: Pick<ColumnSpec, 'source' | 'formula' | 'template' | 'readout'>, run: Runner.QuizRun, templateable: readonly string[], question_id: string): DrawnT {
-  const linked = readoutOf(spec) === 'markdown' && ! isTyped(spec.source, run)
+  const linked = readoutOf(spec, shownWidgetOf(spec.source, run)) === 'markdown' && ! isTyped(spec.source, run)
   return textedOf(spec, run, templateable, question_id, linked)
 }
 
@@ -389,6 +396,11 @@ function textOfShown(template: string | null, widgeted: WidgetedT, run: Runner.Q
   return { widgeted, text: filled.markdown, issue: filled.issue }
 }
 
+/** The widget of the widgeting `source` shows, when it shows one the run has a widget for */
+function shownWidgetOf(source: Resolved, run: Runner.QuizRun): WidgetT | null {
+  return source.kind === 'widgeting' ? Runner.stepOf(run, source.widgeting.label)?.widget ?? null : null
+}
+
 /**
  * Whether the thing `source` picks is text a person typed: a question's own field, view or key,
  * or an entry's widgeted. What a formula or a bot came to is not, nor a word of the bag, which
@@ -397,7 +409,7 @@ function textOfShown(template: string | null, widgeted: WidgetedT, run: Runner.Q
 function isTyped(source: Resolved, run: Runner.QuizRun): boolean {
   if (source.kind === 'word') { return false }
   if (source.kind !== 'widgeting') { return true }
-  const widget = Runner.stepOf(run, source.widgeting.label)?.widget ?? null
+  const widget = shownWidgetOf(source, run)
   return widget !== null && ! Templating.computes(widget)
 }
 

@@ -151,7 +151,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
    */
   const readoutBody = (spec: ColumnSpec): React.JSX.Element => {
     const wide = spec.widthPx >= WideReadoutPx
-    const readout = readoutOf(spec)
+    const readout = readoutOf(spec, widgetOf(spec))
     if (readout !== null) { return <DrawnReadout drawn={drawnOf(spec, run, templateable, question._id)} readout={readout} wide={wide} heightPx={heightPx} /> }
     if (spec.source.kind === 'view' && spec.formula === null) {
       return <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />

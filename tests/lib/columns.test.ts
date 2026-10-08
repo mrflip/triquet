@@ -343,6 +343,12 @@ describe('readoutOf', () => {
     expect(readoutOf({ readout: null, template: null })).to.be.null
     expect(readoutOf({ readout: 'plain', template: null })).to.eq('plain')
   })
+
+  it("is markdown for a column showing a liquidize widgeting, unless it says otherwise", () => {
+    expect(readoutOf({ readout: null, template: null }, { formulary: 'liquidize' })).to.eq('markdown')
+    expect(readoutOf({ readout: 'code', template: null }, { formulary: 'liquidize' })).to.eq('code')
+    expect(readoutOf({ readout: null, template: null }, { formulary: 'jsonata' })).to.be.null
+  })
 })
 
 /** A column's stages as `isDrawnByEditor` reads them */
@@ -384,12 +390,14 @@ describe('drawnOf and templatedTextOf', () => {
   const cats = Widgeting.fill({ label: 'cats', widget_label: 'estimating' })
   const remark = Widgeting.fill({ label: 'remark', widget_label: 'jottings' })
   const pictured = Widgeting.fill({ label: 'pictured', widget_label: 'picture' })
+  const carded = Widgeting.fill({ label: 'carded', widget_label: 'card' })
   const library = [
+    Widget.fill({ label: 'card', formulary: 'liquidize', formula: '![logo](https://host/l.png) **{{ qn.title }}**' }),
     Widget.fill({ label: 'estimating', formulary: 'entry', config: { entry_kind: 'estimates' } }),
     Widget.fill({ label: 'jottings', formulary: 'entry', config: { entry_kind: 'text' } }),
     Widget.fill({ label: 'picture', formulary: 'jsonata', formula: '"![map](https://host/m.png)"' }),
   ]
-  const quiz = { ...Quiz.blank('Drawn'), questions: [placed, blank], widgetings: [cats, remark, pictured] }
+  const quiz = { ...Quiz.blank('Drawn'), questions: [placed, blank], widgetings: [cats, remark, pictured, carded] }
   const run = runOf(quiz, library)
   type Stages = { formula?: string, template?: string, readout?: 'plain' | 'markdown' | 'code' | 'label' }
   const specWith = (source: string, stages: Stages) => present(specFor({ ...columnOf(source), ...stages }, quiz.widgetings))
@@ -424,6 +432,11 @@ describe('drawnOf and templatedTextOf', () => {
     expect(drawn('pictured', { readout: 'markdown' }).text).to.eq('&#33;[map](https://host/m.png)')
     expect(drawn('pictured', { template: 'See {{ value }}' }).text).to.eq('See &#33;[map](https://host/m.png)')
     expect(drawn('pictured', { readout: 'code' }).text).to.eq('![map](https://host/m.png)')
+  })
+
+  it("draws a liquidize widgeting's text as markdown, saying nothing, its images made links", () => {
+    expect(drawn('carded', {}).text).to.eq('&#33;[logo](https://host/l.png) **Leon**')
+    expect(drawn('carded', { readout: 'plain' }).text).to.eq('![logo](https://host/l.png) **Leon**')
   })
 
   it('leaves the images of typed text as they are', () => {
