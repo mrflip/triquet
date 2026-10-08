@@ -291,8 +291,9 @@ O4, O7, O6's headers and O5 as far as one username; the rest wait on the Coach.
   `max_tokens`. *Coach, 2026-10-08:* once there is OAuth, asking becomes bring-your-own-key.
 * **O2, medium/high, certain (needs the Coach: who are the admins?).** `Actor.isAdmin` is `true` for
   everyone, so anyone with a username can rewrite every library widget used by every hunt
-  (`widgets.perform`), and read `widgets.usage` and `stats.backfills`. *Coach, 2026-10-08:* the
-  admin is the username `mrflip`. Waiting on how the e2e specs that write the library run as one.
+  (`widgets.perform`), and read `widgets.usage` and `stats.backfills`. *Fixed* (2026-10-08): the
+  deployment's `TRIQUET_ADMINS` names them (`Actor.namesAdmin`); the Coach sets production's to
+  `mrflip`.
 * **O3, medium, certain in code / uncertain in production.** An unheld legacy ident goes to the
   first session asserting it (`claimFor`), and `hunts.open` tells anyone a hunt's smiths' usernames.
   Close out unheld idents; name smiths only to a session with a username.

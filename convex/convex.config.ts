@@ -7,6 +7,9 @@ import { v as CVX } from 'convex/values'
  *
  * * `TRIQUET_CLEARABLE` is set to `yes` only on a development or test deployment whose tables may
  *   be emptied; production never has it.
+ * * `TRIQUET_ADMINS` names the deployment's admins (`Actor.namesAdmin`): usernames parted by
+ *   commas or spaces, or `*` for every username. Unset names nobody. `scripts/convex_dev` sets `*`
+ *   on a local backend; a Coach sets production's (`notes/deploy.md`).
  * * `JWT_PRIVATE_KEY`, `JWKS` and `SITE_URL` are Convex Auth's (`convex/auth.ts`), which reads
  *   them itself: the key it signs a session's tokens with, the public half it checks them by, and
  *   the web app's address. `scripts/convex_auth_keys` sets them on a local backend; a Coach sets
@@ -17,6 +20,7 @@ import { v as CVX } from 'convex/values'
 const app = defineApp({
   env: {
     TRIQUET_CLEARABLE: CVX.optional(CVX.literal('yes')),
+    TRIQUET_ADMINS:    CVX.optional(CVX.string()),
     JWT_PRIVATE_KEY:   CVX.optional(CVX.string()),
     JWKS:              CVX.optional(CVX.string()),
     SITE_URL:          CVX.optional(CVX.string()),

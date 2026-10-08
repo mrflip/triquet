@@ -13,21 +13,54 @@ describe('Actor.anonymous', () => {
 })
 
 describe('Actor.asIdent', () => {
-  it('is the actor of a session, by the ident it took on last', () => {
-    expect(Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' })).to.deep.eq({ kind: 'ident', user_id, ident_id, ident_label: 'flip_kromer' })
+  it('is the actor of a session, by the ident it took on last, saying whether it is an admin', () => {
+    expect(Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false)).to.deep.eq({ kind: 'ident', user_id, ident_id, ident_label: 'flip_kromer', admin: false })
+  })
+})
+
+const AdminCases: [string | undefined, string, boolean, string][] = [
+  // regular usage:
+  ['mrflip',         'mrflip',        true,  'the one username named'],
+  ['mrflip, ada_l',  'ada_l',         true,  'one of several, parted by a comma and a space'],
+  ['mrflip,ada_l',   'ada_l',         true,  'one of several, parted by a comma alone'],
+  ['mrflip ada_l',   'ada_l',         true,  'one of several, parted by a space alone'],
+  ['*',              'anyone_at_all', true,  'every username, as a local backend has it'],
+  // who is not:
+  ['mrflip',         'ada_l',         false, 'a username not named'],
+  ['mrflip',         'mrflip_two',    false, 'a username the named one begins'],
+  ['mrflip',         'mrfli',         false, 'a username that begins the named one'],
+  ['mr*',            'mrflip',        false, 'a star inside a name, which is no pattern'],
+  // naming nobody:
+  [undefined,        'mrflip',        false, 'unset'],
+  ['',               'mrflip',        false, 'blank'],
+  [' , ',            'mrflip',        false, 'nothing but partings'],
+]
+
+describe('Actor.namesAdmin', () => {
+  for (const [admins, label, expected, describes] of AdminCases) {
+    it(describes, () => {
+      expect(Actor.namesAdmin(admins, label)).to.eq(expected)
+    })
+  }
+})
+
+describe('Actor.isAdmin', () => {
+  it('is what the server decided as it built the actor', () => {
+    expect(Actor.isAdmin(Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, true))).to.be.true
+    expect(Actor.isAdmin(Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false))).to.be.false
   })
 })
 
 describe('Actor.isAnonymous', () => {
   it('is true for the anonymous actor, and false for an ident', () => {
     expect(Actor.isAnonymous(Actor.anonymous)).to.be.true
-    expect(Actor.isAnonymous(Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }))).to.be.false
+    expect(Actor.isAnonymous(Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false))).to.be.false
   })
 })
 
 const hunt_id  = 'k17ah9c4r1hm0z5y1ad0bbn7wn7fn9x1' as Id<'hunts'>
 const other_id = 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'idents'>
-const Flip = Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' })
+const Flip = Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false)
 
 describe('Actor.claimsOn', () => {
   it("takes the standing of the actor's hunting, as a role", () => {

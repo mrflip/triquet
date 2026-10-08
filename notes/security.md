@@ -14,7 +14,8 @@ security expert who knows what questions to ask.
   written `&#33;[` in the template's bag (`Templating.bagOf`). An image whose `![` the template's
   own text supplies (`![map]({{qn.col}})`, or a `!` typed just before a tag) takes its address from
   the column.
-* `Actor.isAdmin` is to be an equality check on the username (`mrflip`), the Coach's word of
-  2026-10-08; until that lands it approves every username.
+* `Actor.isAdmin` is an equality check on the username, against the deployment's `TRIQUET_ADMINS`
+  (production: `mrflip`), made on the server as it builds the actor and carried to the browser;
+  `*` makes every username an admin, which `scripts/convex_dev` sets on every local backend.
 * The first user to claim a username becomes that user: an ident nobody holds goes to the first
   session to assert it (`claimFor`, `convex/writing/account_actions.ts`).

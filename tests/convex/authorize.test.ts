@@ -77,9 +77,9 @@ describe("affirmForHunt", () => {
       return [keysOf(onHunt), keysOf(onQuiz), keysOf(onAction), onQuiz.quiz?._id, onAction.realm?._id, onQuiz.held, onQuiz.hunting?.role]
     })
     expect(seen).to.deep.eq([
-      ['hunt_id', 'ident_id', 'ident_label', 'kind', 'standing', 'user_id'],
-      ['held', 'hunt_id', 'hunting', 'ident_id', 'ident_label', 'kind', 'quiz', 'quiz_id', 'standing', 'user_id'],
-      ['hunt_id', 'ident_id', 'ident_label', 'kind', 'quiz', 'quiz_id', 'realm', 'realm_id', 'standing', 'user_id'],
+      ['admin', 'hunt_id', 'ident_id', 'ident_label', 'kind', 'standing', 'user_id'],
+      ['admin', 'held', 'hunt_id', 'hunting', 'ident_id', 'ident_label', 'kind', 'quiz', 'quiz_id', 'standing', 'user_id'],
+      ['admin', 'hunt_id', 'ident_id', 'ident_label', 'kind', 'quiz', 'quiz_id', 'realm', 'realm_id', 'standing', 'user_id'],
       open.quiz_id, open.realm_id, 7, 'smith',
     ])
   })
@@ -238,7 +238,7 @@ describe("affirmLibraryAction", () => {
 
   afterEach(() => { vi.restoreAllMocks() })
 
-  it("lets anyone with a username change the library, smith of a hunt or not, while every one is an admin", async () => {
+  it("lets anyone with a username change the library, smith of a hunt or not, where every one is an admin (`TRIQUET_ADMINS` `*`)", async () => {
     const { alice, bob, carol } = await peopled()
     const outcomes = [alice.actor, bob.actor, carol.actor, Actor.anonymous].map((actor) => outcomeFor(actor))
     expect(outcomes).to.deep.eq(['allow', 'allow', 'allow', 'notIdentified'])

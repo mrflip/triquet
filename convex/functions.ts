@@ -3,7 +3,7 @@ import type { Auth } from 'convex/server'
 import { zCustomMutation, zCustomQuery } from 'convex-helpers/server/zod4'
 import type * as Z from 'zod'
 import type { Id } from './_generated/dataModel'
-import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
+import { env, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
 import * as Actor from '../src/lib/actor'
 import * as Approve from '../src/lib/approve'
 import { refusingInvalid } from '../src/lib/refusals'
@@ -40,7 +40,7 @@ export async function askerOf(ctx: { auth: Auth, db: Reader }): Promise<AskerT> 
   if (user_id === null || session_id === null) { return NoSession }
   const [session, ident] = await Promise.all([ctx.db.get('authSessions', session_id), identFor(ctx.db, user_id)])
   if (session === null) { return NoSession }
-  return { user_id, actor: ident ? Actor.asIdent(user_id, ident) : Actor.anonymous }
+  return { user_id, actor: ident ? Actor.asIdent(user_id, ident, Actor.namesAdmin(env.TRIQUET_ADMINS, ident.label)) : Actor.anonymous }
 }
 
 /**

@@ -69,7 +69,7 @@ describe('placeIn', () => {
   })
 })
 
-const Alice = Actor.asIdent('m57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>, { _id: 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>, label: 'alice_smiths' })
+const Alice = Actor.asIdent('m57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>, { _id: 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>, label: 'alice_smiths' }, true)
 
 describe('claimsOf', () => {
   it("holds who is looking, the hunt, their standing there and the quiz on screen's lock", () => {

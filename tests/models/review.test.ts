@@ -59,7 +59,7 @@ describe('Review.isActiveOwner', () => {
   const other_hunt_id = 'k17ah9c4r1hm0z5y1ad0bbn7wn7fn9x2' as Id<'hunts'>
   const ident_id = 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>
   const other_id = 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'idents'>
-  const Flip = Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' })
+  const Flip = Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false)
   const Own = { hunt_id, ident_id }
 
   const Cases: [Pick<ReviewRowT, 'hunt_id' | 'ident_id'>, Actor.HuntClaimsT, boolean, string][] = [
@@ -81,7 +81,7 @@ describe('Review.ownOf', () => {
   const user_id  = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
   const ident_id = 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>
   const other_id = 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'idents'>
-  const Flip = Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' })
+  const Flip = Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false)
   const reviews = [{ ident_id: other_id, phase: 'shared' }, { ident_id, phase: 'draft' }] as const
 
   it("finds the actor's own among a quiz's reviews", () => {

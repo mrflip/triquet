@@ -61,7 +61,12 @@ effort, and a shallow clone may list no commits.
   Doppler's app configs: `JWT_PRIVATE_KEY` and `JWKS`, a key pair minted for that deployment alone
   (`scripts/convex_auth_keys` shows how), and `SITE_URL`, the web app's address. Without them no
   browser can sign in, and so none can assert a username. Preview deployments take theirs from
-  the project's default environment variables for previews.
+  the project's default environment variables for previews. A fourth names the admins, who may
+  change the widget library: `TRIQUET_ADMINS`, usernames parted by commas or spaces (`*` for
+  every username, which only a local backend should have). Unset, nobody is an admin. Production:
+  `./scripts/doppledo prd_janitor npx convex env set TRIQUET_ADMINS mrflip`. Previews take it from
+  the same defaults; a local backend gets `*` from `scripts/convex_dev` unless `TRIQUET_ADMINS` is
+  in its environment.
 * **GitHub Actions** (`.github/workflows/ci.yml`) typechecks, lints, tests, builds and runs e2e
   (against the optimized build) on every pull request and every push to `main`, and checks that
   `convex/_generated/` was committed as the functions regenerate it. Every job runs against a local backend or none; CI
