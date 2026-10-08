@@ -355,6 +355,9 @@ uncommitted there, and frees the lane. The branch lives on in the spine. Only un
 dies with a worktree, or with the container: commits are in the shared repository from the
 moment they are made.
 
+Branches, worktrees and lanes that other threads left behind are housekeeping, not part of a
+thread: `notes/housekeeping.md`.
+
 
 ## Sprints
 
@@ -451,9 +454,13 @@ Match the existing log style: a `feat:` / `fix:` / `docs:` / `style:` / `perf:` 
 ```
 git log --graph --oneline --decorate origin/main -30   # the ladder
 git log --first-parent --oneline origin/main           # one line per PR
-git branch --merged origin/main                        # local branches safe to delete
-git branch -r --merged origin/main                     # remote branches safe to delete
+git branch --merged origin/main                        # local branches whose own commits reached main
+git branch -r --merged origin/main                     # the same, for remote-tracking refs
 ```
+
+`--merged` misses a branch whose PR merged after a rebase, or whose work landed reworded, so it is
+not the list of what to delete: stray local branches are retired with `scripts/git-attic`
+(`notes/housekeeping.md`, *Retiring stray branches*).
 
 GitHub deletes head branches automatically on merge. `fetch.prune` is unset in the container, so
 a bare `git fetch` keeps their remote-tracking refs, stale; `git fetch --prune origin` drops them.
@@ -464,7 +471,8 @@ The spine's scripts fetch with `--prune`.
 Committed work survives almost anything: the reflog, or a tag, brings it back. Uncommitted work
 does not. Before a command that throws changes away (`reset --hard`, `restore`, `checkout -- .`,
 `clean`, `branch -D`), make everything it would discard reachable first: commit it, stash it, or
-put a branch on it. If you can't tell what it would discard, stop and ask.
+put a branch on it. If you can't tell what it would discard, stop and ask. To clear away
+branches and worktrees, use `notes/housekeeping.md`, which keeps every branch it retires as a tag.
 
 Anything that touches `main` directly: stop and ask Coach.
 

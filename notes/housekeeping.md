@@ -128,3 +128,9 @@ $CLAUDE_CODE_SESSION_ID`, which is the full id the `--json` output carries.
 `git worktree list` marks a worktree whose directory is gone as *prunable*, and its branch stays
 checked out there, so nothing will retire or delete it. `git worktree prune` clears the stale
 entries.
+
+## Remotes you cannot reach
+
+`feat`, `home` and `meta` point at `../../triquet-{feat,home,meta}/triquet`: checkouts in the
+Coach's other containers, not visible from inside this one. A fetch from them fails here and
+their remote-tracking refs look stale. They are not clutter: never remove or prune them.
