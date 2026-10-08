@@ -1,8 +1,8 @@
 # e2e triage: a suite that is fast, honest, and runs only its corner
 
 **Date:** 2026-10-06. **Mode:** normal. **Review level:** medium. **At once:** 3. **Issued by:** flip,
-in session e2e_triage. **Status:** paused: threads 1 to 5 landed (#156 to #160); thread 6 waits on the Coach's word (`human/20261006-sprint_e2e_triage_paused.md`). Thread 6 (the lock) is **held**: the
-sprint runner does not cut it until the Coach releases it, once threads 1 to 5 have been measured.
+in session e2e_triage. **Status:** done: threads 1 to 7 landed (#156 to #160, #169, #176). The Coach released thread 6 (the lock)
+on 2026-10-07, and asked in chat for thread 7, a follow-up to it.
 
 Words: **way in** = what every test does before it is about anything: say who it is at the front
 door, make a hunt, open its quiz (`startHunt` in `e2e/support.ts`). **Corner** = the specs the
@@ -335,8 +335,8 @@ Coach's text, verbatim:
 > and have the sprint runner hold on it. Also make sure that after the lock releases they
 > restack, as it's very likely the previous contestant just restacked the git tree
 
-**Held.** The sprint runner cuts this thread only when the Coach says so, after reading the
-measurements threads 1, 2 and 5 leave in the progress document.
+**Held** until the Coach said so, after reading the measurements threads 1, 2 and 5 left in the
+progress document. *Orchestrator:* released by the Coach on 2026-10-07.
 
 When released: `pnpm e2e` (full and `--touched` runs, not reruns or chosen specs) takes a lock
 beside the e2e log (`$TQ_WORKTREES/.e2e-lock`, so it is one per container, which the Coach
@@ -356,6 +356,30 @@ the hold and before its own catch-up, an order older than this sprint. A spec fi
 in a corner the branch proved, is then not required by that bid. Thread 6 already reorders a
 catch-up ahead of the run; when it is cut, it also moves the scope check after the bid's catch-up,
 or says why not.
+
+### 7. A checkout that moves onto a new dependency installs it
+
+Coach's word, in chat on 2026-10-07, choosing "Install, then fix": the orchestrator runs
+`pnpm install` in the main checkout, then cuts "a small follow-up thread: spine.ts imports
+proper-lockfile lazily, and catchup/land reinstall when the lockfile changed."
+
+*Orchestrator:* thread 6 landed `import * as Lockfile from 'proper-lockfile'` at the top of
+`scripts/spine.ts`, and only `pnpm worktree` installs packages (into the new worktree). So the main
+checkout, and any worktree that caught up onto #169, failed every spine command with
+`ERR_MODULE_NOT_FOUND` until someone ran `pnpm install`. Two halves:
+
+* **Lazy:** spine.ts reaches proper-lockfile only where the lock is taken (a dynamic `import()`
+  inside `takeE2eLock`, or however reads best), so `sweep`, `top`, `worktree`, `catchup` and `land`
+  never need a package they do not use.
+* **Reinstall on move:** wherever the spine moves a checkout's files to a commit whose
+  `pnpm-lock.yaml` differs from the one it stood on (`catchup` in a worktree; `land`, `sweep` and
+  the replay moving the main checkout onto a new top), run `pnpm install --frozen-lockfile
+  --prefer-offline` there, as `worktree` already does, and say so in one line. Only a lockfile
+  change triggers it. The main checkout's `node_modules` is derived state, so the spine installing
+  there is the same kind of write as the landing that moved it; note that in `notes/git_hygiene.md`.
+
+Likely touches: `scripts/spine.ts`, `tests/scripts/spine.test.ts`, `notes/git_hygiene.md`. Depends on:
+thread 6 (landed, #169).
 
 ## Running order
 

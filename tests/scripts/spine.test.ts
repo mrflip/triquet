@@ -1,8 +1,8 @@
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as E2eLog from '../../scripts/e2e-log'
 import * as Spine from '../../scripts/spine'
 
@@ -290,6 +290,47 @@ describe('Spine.skipE2eOf', () => {
   }
 })
 
+describe('Spine.takesE2eLock', () => {
+  const cases = [
+    ['a full run', [], {}, true],
+    ['a touched run', ['--touched'], {}, true],
+    ['a rerun', ['--last-failed', '--workers=1'], {}, false],
+    ['chosen specs', ['e2e/grid.spec.ts'], {}, false],
+    ['the smoke tier', ['--grep', '@smoke'], {}, false],
+    ['a full run in CI', [], { CI: 'true' }, false],
+    ['a full run started by one holding the lock for it', [], { TRIQUET_E2E_WAITED_S: '0' }, false],
+    ['a full run where CI is set but empty', [], { CI: '' }, true],
+  ] as const
+  for (const [blurb, args, env, expected] of cases) {
+    it(`is ${String(expected)} for ${blurb}`, () => {
+      expect(Spine.takesE2eLock(args, env)).to.eq(expected)
+    })
+  }
+})
+
+describe('Spine.e2eWaitSaid', () => {
+  const now = Date.parse('2026-10-07T12:05:00.000Z')
+  const holder = { pid: 4242, lane: 2, branch: '20261007-other', root: '/home/node/worktrees/triquet/other', kind: 'full', since: '2026-10-07T12:02:00.000Z' } as const
+  const waiter = { branch: '20261007-mine', kind: 'full', inMain: false } as const
+
+  it("reads the doc block's example: a holder that has not written its note", () => {
+    expect(Spine.e2eWaitSaid(undefined, waiter, now, true)[0]).to.eq('The e2e lock is held, by a run that has not yet said whose.')
+  })
+
+  it('names the holder by lane, run, branch, checkout and process, says since when, and what this run does next', () => {
+    const said = Spine.e2eWaitSaid(holder, waiter, now, true).join('\n')
+    expect(said).to.contain("held by lane 2's full run of 20261007-other (/home/node/worktrees/triquet/other, pid 4242), since ").and.contain(', 3 min ago.')
+    expect(said).to.contain('catches 20261007-mine up with the top first (`pnpm catchup`)').and.contain('then runs the whole suite')
+    expect(said).not.to.contain('process is gone')
+  })
+
+  it('says when the holder is gone, a touched run that it chooses its corner afresh, and the main checkout that it catches up with nothing', () => {
+    const said = Spine.e2eWaitSaid(holder, { branch: 'main-ish', kind: 'touched', inMain: true }, now, false).join('\n')
+    expect(said).to.contain('Its process is gone, so the lock frees itself within 30 s.')
+    expect(said).to.contain('this run, in the main checkout, chooses its corner afresh and runs it').and.not.contain('catchup')
+  })
+})
+
 describe('Spine.withSpineHeld', () => {
   let scratch: string
   beforeEach(() => {
@@ -329,10 +370,12 @@ const isolatedEnv = (home: string) => ({
   GIT_COMMITTER_NAME:  'Tess Ter',
   GIT_COMMITTER_EMAIL: 'tess@example.com',
   TRIQUET_LANE:        '',
+  CI:                  '',
   TQ_WORKTREES:        path.join(home, 'worktrees'),
   TRIQUET_LAND_CHECKS: 'true',
   TRIQUET_JUSTIFY:     'true',
   TRIQUET_E2E:         `node ${path.join(home, 'fake-e2e.mjs')}`,
+  TRIQUET_INSTALL:     `pwd >> ${path.join(home, 'installs.log')}`,
 })
 
 /**
@@ -340,11 +383,13 @@ const isolatedEnv = (home: string) => ({
  * a spec called `works`, taking a second and a half, in each spec file it is given, or else in each
  * file FAKE_RAN names (a.spec.ts and b.spec.ts unless it names others), failing in each file
  * FAKE_FAILING names, and exits red if any failed. FAKE_BROKEN exits red with no report, as a run
- * whose web server never started does.
+ * whose web server never started does. FAKE_UNTIL names a file it waits for before it begins, so
+ * a test can hold a run open.
  */
 const FakeE2e = `import fs from 'node:fs'
 import path from 'node:path'
 if (process.env.FAKE_BROKEN) { process.exit(1) }
+while (process.env.FAKE_UNTIL && ! fs.existsSync(process.env.FAKE_UNTIL)) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50) }
 const listed = (envname, fallback) => (process.env[envname] ?? fallback).split(',').filter(Boolean)
 const given = process.argv.slice(2).filter((arg) => arg.endsWith('.spec.ts')).map((arg) => path.basename(arg))
 const ran = given.length > 0 ? given : listed('FAKE_RAN', 'a.spec.ts,b.spec.ts')
@@ -360,6 +405,10 @@ interface WorldT {
   git:     (cwd: string, ...args: string[]) => string
   /** Runs scripts/spine.ts in `cwd`; returns its exit status and everything it printed */
   spine:   (cwd: string, args: string[], env?: Record<string, string>) => { status: number | null, said: string }
+  /** Starts scripts/spine.ts in `cwd` and lets it run: what it has printed so far, and its exit status once it exits */
+  started: (cwd: string, args: string[], env?: Record<string, string>) => { said: () => string, exited: Promise<number | null> }
+  /** The e2e lock's directory and its holder's note, beside the e2e log */
+  e2eLock: { lockdir: string, notefile: string }
   /** Writes `body` to `filename` in `cwd` and commits it */
   commit:  (cwd: string, filename: string, body: string) => void
   /** Cuts a worktree for `label` and returns its root */
@@ -370,6 +419,8 @@ interface WorldT {
   logged:  () => E2eLog.Entry[]
   /** The branch the main checkout stands on */
   top:     () => string
+  /** The checkouts whose packages the spine has installed, in order */
+  installs: () => string[]
 }
 
 /**
@@ -386,6 +437,15 @@ const makeWorld = (scratch: string): WorldT => {
     // eslint-disable-next-line sonarjs/no-os-command-from-path -- the node running these tests, whichever it is
     const ran = spawnSync('node', [SpineScript, ...args], { cwd, encoding: 'utf8', env: { ...env, ...extra } })
     return { status: ran.status, said: `${ran.stdout}${ran.stderr}` }
+  }
+  const started = (cwd: string, args: string[], extra: Record<string, string> = {}) => {
+    // eslint-disable-next-line sonarjs/no-os-command-from-path -- the node running these tests, whichever it is
+    const child = spawn('node', [SpineScript, ...args], { cwd, env: { ...env, ...extra } })
+    let said = ''
+    child.stdout.on('data', (chunk: Buffer) => { said += chunk.toString() })
+    child.stderr.on('data', (chunk: Buffer) => { said += chunk.toString() })
+    const exited = new Promise<number | null>((resolve) => { child.on('close', resolve) })
+    return { said: () => said, exited }
   }
   const commit = (cwd: string, filename: string, body: string) => {
     fs.mkdirSync(path.dirname(path.join(cwd, filename)), { recursive: true })
@@ -420,7 +480,10 @@ const makeWorld = (scratch: string): WorldT => {
     return spine(root, ['land'], extra)
   }
   const logged = () => E2eLog.read(E2eLog.logfileOf(path.join(scratch, 'worktrees')))
-  return { scratch, main, git, spine, commit, cut, top, bid, logged }
+  const e2eLock = Spine.e2eLockOf(path.join(scratch, 'worktrees'))
+  const installlog = path.join(scratch, 'installs.log')
+  const installs = () => (fs.existsSync(installlog) ? fs.readFileSync(installlog, 'utf8').split('\n').filter(Boolean) : [])
+  return { scratch, main, git, spine, started, e2eLock, commit, cut, top, bid, logged, installs }
 }
 
 /**
@@ -466,6 +529,14 @@ const provedOverAlarms = (world: WorldT) => {
   const ran = world.spine(root, ['e2e', '--touched'])
   expect(ran.status, ran.said).to.eq(0)
   return { root, ran }
+}
+
+/** Starts a full run in `root` that holds the e2e lock until `open` is called, once it has taken the lock */
+const holdingE2eLock = async (world: WorldT, root: string) => {
+  const gate = path.join(world.scratch, `gate-${path.basename(root)}`)
+  const run = world.started(root, ['e2e'], { FAKE_UNTIL: gate })
+  await vi.waitFor(() => { expect(fs.existsSync(world.e2eLock.notefile), run.said()).to.be.true }, { timeout: 20_000, interval: 50 })
+  return { ...run, open: () => { fs.writeFileSync(gate, '') } }
 }
 
 // Each test here runs git and node dozens of times over: under a loaded machine (another
@@ -960,6 +1031,186 @@ describe('node scripts/spine.ts, in a repository with worktrees', { timeout: 60_
       const rerun = world.spine(root, ['e2e', '--last-failed'], { FAKE_RAN: 'alarms.spec.ts' })
       expect(rerun.status, rerun.said).to.eq(0)
       expect(rerun.said).to.contain('A flake: alarms.spec.ts › works').and.contain('over its corner alone (alarms)')
+    })
+  })
+
+  describe('the bid, after its catch-up', () => {
+    it('reads a scoped proof afresh once it has rebased, so a spec file the top gained in the proved corner is required', () => {
+      withSpecs(world, 'reviews')
+      const root = world.cut('alpha')
+      world.commit(root, 'src/components/FoldButton.tsx', 'fold\n')
+      expect(world.spine(root, ['justify']).status).to.eq(0)
+      expect(world.spine(root, ['e2e', '--touched']).status).to.eq(0)
+      expect(world.logged().at(-1)?.args).to.deep.eq(['e2e/reviews.spec.ts'])
+      withSpecs(world, 'grid')
+      const refused = world.spine(root, ['land'])
+      expect(refused.status, refused.said).to.eq(1)
+      expect(refused.said).to.contain(`${Today}-alpha is rebased onto main`).and.contain('src/components/FoldButton.tsx reaches beyond it')
+      expect(world.top()).to.eq('main')
+      expect(world.git(world.main, 'log', '-1', '--format=%s')).to.eq('feat: e2e/grid.spec.ts')
+      const again = world.spine(root, ['e2e', '--touched'])
+      expect(again.status, again.said).to.eq(0)
+      expect(world.logged().at(-1)?.args).to.deep.eq(['e2e/grid.spec.ts', 'e2e/reviews.spec.ts'])
+      const landed = world.spine(root, ['land'])
+      expect(landed.status, landed.said).to.eq(0)
+    })
+
+    it('passes on what the proof read afresh says, its flakes among it', () => {
+      const [alpha, beta] = [world.cut('alpha'), world.cut('beta')]
+      world.commit(beta, 'beta.txt', 'beta\n')
+      expect(world.spine(beta, ['justify']).status).to.eq(0)
+      expect(world.spine(beta, ['e2e'], { FAKE_FAILING: 'b.spec.ts' }).status).to.eq(1)
+      expect(world.spine(beta, ['e2e', '--last-failed'], { FAKE_RAN: 'b.spec.ts' }).status).to.eq(0)
+      world.commit(alpha, 'alpha.txt', 'alpha\n')
+      expect(world.bid(alpha).status).to.eq(0)
+      const ran = world.spine(beta, ['land'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain('The top had moved').and.contain("Flakes, for the PR's Tests: line: b.spec.ts › works.")
+    })
+  })
+
+  describe('the e2e lock', () => {
+    it('makes a second full run wait, saying whose run holds it, then catch up with what landed meanwhile before it runs', async () => {
+      const [alpha, beta, gamma] = [world.cut('alpha'), world.cut('beta'), world.cut('gamma')]
+      world.commit(alpha, 'alpha.txt', 'alpha\n')
+      world.commit(beta, 'beta.txt', 'beta\n')
+      world.commit(gamma, 'notes/gamma.md', 'gamma\n')
+      const first = await holdingE2eLock(world, alpha)
+      const second = world.started(beta, ['e2e'])
+      await vi.waitFor(() => { expect(second.said()).to.contain('The e2e lock is held') }, { timeout: 20_000, interval: 50 })
+      expect(second.said()).to.contain(`held by lane 1's full run of ${Today}-alpha (${alpha}, pid `)
+      expect(second.said()).to.contain(`this run catches ${Today}-beta up with the top first`)
+      expect(world.spine(gamma, ['justify']).status).to.eq(0)
+      expect(world.spine(gamma, ['land']).status).to.eq(0)
+      first.open()
+      expect(await first.exited, first.said()).to.eq(0)
+      expect(await second.exited, second.said()).to.eq(0)
+      expect(second.said()).to.contain('Took the e2e lock, after').and.contain(`Rebased ${Today}-beta onto ${Today}-gamma`).and.contain(`Proved ${Today}-beta`)
+      const [provedOn] = world.git(beta, 'config', `branch.${Today}-beta.proved`).split(' ', 1)
+      expect(provedOn).to.eq(world.git(world.main, 'rev-parse', `${Today}-gamma`))
+      const runs = world.logged()
+      expect(runs.map(({ branch, waited_s }) => [branch, waited_s === undefined ? 'none' : 'some'])).to.deep.eq([[`${Today}-alpha`, 'some'], [`${Today}-beta`, 'some']])
+      expect(runs[0]?.waited_s).to.eq(0)
+      expect(fs.existsSync(world.e2eLock.lockdir) || fs.existsSync(world.e2eLock.notefile)).to.be.false
+    })
+
+    it('lets a rerun, chosen specs and a run in CI go by without it', async () => {
+      const [alpha, beta] = [world.cut('alpha'), world.cut('beta')]
+      world.commit(alpha, 'alpha.txt', 'alpha\n')
+      world.commit(beta, 'beta.txt', 'beta\n')
+      const first = await holdingE2eLock(world, alpha)
+      for (const [args, extra] of [[['e2e', '--last-failed'], {}], [['e2e', 'e2e/a.spec.ts'], {}], [['e2e'], { CI: 'true' }]] as const) {
+        const ran = world.spine(beta, [...args], extra)
+        expect(ran.status, ran.said).to.eq(0)
+        expect(ran.said).not.to.contain('The e2e lock is held')
+      }
+      expect(world.logged().map(({ kind, waited_s }) => [kind, waited_s])).to.deep.eq([['rerun', undefined], ['chosen', undefined], ['full', undefined]])
+      first.open()
+      expect(await first.exited, first.said()).to.eq(0)
+    })
+
+    it('stops a waiting run whose catch-up conflicts, freeing the lock and running nothing', async () => {
+      const [alpha, beta, gamma] = [world.cut('alpha'), world.cut('beta'), world.cut('gamma')]
+      world.commit(alpha, 'alpha.txt', 'alpha\n')
+      world.commit(beta, 'notes/shared.md', 'beta\n')
+      world.commit(gamma, 'notes/shared.md', 'gamma\n')
+      const first = await holdingE2eLock(world, alpha)
+      const second = world.started(beta, ['e2e'])
+      await vi.waitFor(() => { expect(second.said()).to.contain('The e2e lock is held') }, { timeout: 20_000, interval: 50 })
+      expect(world.spine(gamma, ['justify']).status).to.eq(0)
+      expect(world.spine(gamma, ['land']).status).to.eq(0)
+      first.open()
+      expect(await first.exited, first.said()).to.eq(0)
+      expect(await second.exited).to.eq(1)
+      expect(second.said()).to.contain('conflicted').and.contain('so the suite has not run; the e2e lock is free again')
+      expect(fs.existsSync(world.e2eLock.lockdir)).to.be.false
+      expect(world.logged().map(({ branch }) => branch)).to.deep.eq([`${Today}-alpha`])
+    })
+  })
+
+  describe('installing on a move', () => {
+    it('installs in the main checkout once a bid folds in another lockfile, and in a worktree a catch-up brings it to', () => {
+      const [alpha, beta] = [world.cut('alpha'), world.cut('beta')]
+      world.commit(alpha, 'pnpm-lock.yaml', 'lockfileVersion: 9\n')
+      world.commit(beta, 'beta.txt', 'beta\n')
+      const landed = world.bid(alpha)
+      expect(landed.status, landed.said).to.eq(0)
+      expect(landed.said).to.contain(`pnpm-lock.yaml changed when ${world.main} moved onto`)
+      expect(world.installs()).to.deep.eq([world.main])
+      const ran = world.spine(beta, ['catchup'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain(`Rebased ${Today}-beta`).and.contain(`pnpm-lock.yaml changed when ${beta} moved onto`)
+      expect(world.installs()).to.deep.eq([world.main, beta])
+    })
+
+    it("installs in a worktree the bid rebases onto another lockfile, before the bid's checks, and not again in the main checkout", () => {
+      const [alpha, beta] = [world.cut('alpha'), world.cut('beta')]
+      world.commit(alpha, 'pnpm-lock.yaml', 'lockfileVersion: 9\n')
+      world.commit(beta, 'beta.txt', 'beta\n')
+      expect(world.bid(alpha).status).to.eq(0)
+      // The checks pass only where the packages were installed.
+      const ran = world.bid(beta, { TRIQUET_LAND_CHECKS: `grep -qx "$PWD" ${path.join(world.scratch, 'installs.log')}` })
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain(`pnpm-lock.yaml changed when ${beta} moved onto`).and.not.contain(`when ${world.main} moved`)
+      expect(world.installs()).to.deep.eq([world.main, beta])
+    })
+
+    it('installs in the main checkout when a restack replays it onto another lockfile', () => {
+      const elsewhere = path.join(world.scratch, 'elsewhere')
+      world.git(world.scratch, 'clone', '--quiet', path.join(world.scratch, 'origin.git'), elsewhere)
+      world.commit(elsewhere, 'pnpm-lock.yaml', 'lockfileVersion: 9\n')
+      world.git(elsewhere, 'push', '--quiet', 'origin', 'main')
+      const ran = world.spine(world.main, ['restack'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain('fast-forwarded').and.contain(`pnpm-lock.yaml changed when ${world.main} moved onto`)
+      expect(world.installs()).to.deep.eq([world.main])
+    })
+
+    it('installs nothing for a move that leaves the lockfile as it was, though the branch changes its own', () => {
+      world.commit(world.main, 'pnpm-lock.yaml', 'lockfileVersion: 9\n')
+      const [alpha, beta] = [world.cut('alpha'), world.cut('beta')]
+      world.commit(alpha, 'alpha.txt', 'alpha\n')
+      world.commit(beta, 'pnpm-lock.yaml', 'lockfileVersion: 9\nimporters: {}\n')
+      expect(world.bid(alpha).status).to.eq(0)
+      const ran = world.spine(beta, ['catchup'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain(`Rebased ${Today}-beta`).and.not.contain('pnpm-lock.yaml changed')
+      expect(world.installs()).to.deep.eq([])
+    })
+
+    it("stops a catch-up whose install fails, but lets a landing stand, saying the main checkout's failed", () => {
+      const [alpha, beta] = [world.cut('alpha'), world.cut('beta')]
+      world.commit(alpha, 'pnpm-lock.yaml', 'lockfileVersion: 9\n')
+      world.commit(beta, 'beta.txt', 'beta\n')
+      const landed = world.bid(alpha, { TRIQUET_INSTALL: 'false' })
+      expect(landed.status, landed.said).to.eq(0)
+      expect(landed.said).to.contain('installing its packages there failed, as above: tell the Coach').and.contain(`Landed ${Today}-alpha`)
+      const ran = world.spine(beta, ['catchup'], { TRIQUET_INSTALL: 'false' })
+      expect(ran.status).to.eq(1)
+      expect(ran.said).to.contain(`pnpm-lock.yaml changed when ${beta} moved onto`).and.contain('installing its packages there failed')
+    })
+
+    it('reaches proper-lockfile only for the e2e lock, so the other commands run where it is not installed', () => {
+      // The spine's scripts alone, with no packages anywhere above them.
+      const bare = path.join(world.scratch, 'bare', 'scripts')
+      fs.mkdirSync(bare, { recursive: true })
+      for (const script of ['spine.ts', 'e2e-log.ts', 'lanes.ts']) { fs.copyFileSync(path.join(RepoRoot, 'scripts', script), path.join(bare, script)) }
+      fs.writeFileSync(path.join(bare, 'package.json'), '{ "type": "module" }\n')
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      const bareSpine = (cwd: string, args: string[]) => {
+        // eslint-disable-next-line sonarjs/no-os-command-from-path -- the node running these tests, whichever it is
+        const ran = spawnSync('node', [path.join(bare, 'spine.ts'), ...args], { cwd, encoding: 'utf8', env: isolatedEnv(world.scratch) })
+        return { status: ran.status, said: `${ran.stdout}${ran.stderr}` }
+      }
+      for (const [cwd, args] of [[world.main, ['top']], [world.main, ['sweep']], [root, ['catchup']], [root, ['justify']], [root, ['e2e', '--last-failed']], [root, ['land', '--skip-e2e', 'a test of the spine']]] as const) {
+        const ran = bareSpine(cwd, [...args])
+        expect(ran.status, `${args.join(' ')}: ${ran.said}`).to.eq(0)
+      }
+      expect(world.top()).to.eq(`${Today}-alpha`)
+      const locking = bareSpine(world.main, ['e2e'])
+      expect(locking.status).to.eq(1)
+      expect(locking.said).to.contain('proper-lockfile')
     })
   })
 

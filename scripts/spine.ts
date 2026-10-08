@@ -10,6 +10,7 @@
  *   node scripts/spine.ts e2e [<playwright args>]           the e2e suite, logged; the branch's proof recorded once every spec of a full run has passed
  *   node scripts/spine.ts e2e --touched                     the corner of the suite the branch's changes reach (SpecCorners), logged; a proof scoped to it
  *   node scripts/spine.ts e2e-log                           the e2e log, summarised
+ *   node scripts/spine.ts proof [--skip-e2e <reason>]       where the branch's e2e proof stands, as a bid would take it
  *   node scripts/spine.ts land                              the bid: a proved branch caught up, typechecked and tested, folded in and pushed, under one hold
  *   node scripts/spine.ts sweep                             the main checkout's whiteboard/, human/ and notes/, committed onto the top
  *   node scripts/spine.ts restack                           the spine, replayed onto origin/main if origin has moved, and pushed
@@ -17,17 +18,21 @@
  *
  * package.json spells each `pnpm <command>`, `pnpm e2e:rerun` is `e2e --last-failed --workers=1`, and
  * `pnpm e2e:smoke` is `e2e --grep @smoke`, one test of each spec file: a quick signal, never a proof.
+ * A full or touched run takes the container's e2e lock first, and waits its turn (`underE2eLock`).
  * Worktrees live under TQ_WORKTREES (`~/worktrees/triquet`). Each suite these run is a shell
  * command an environment variable may replace: TRIQUET_JUSTIFY (typecheck, lint and test through
  * `pnpm run --no-bail`, which runs them side by side and lets each finish), TRIQUET_E2E
- * (`pnpm test:e2e`) and TRIQUET_LAND_CHECKS (typecheck beside `pnpm test:bid`, the unit tests
- * patient of a loaded machine: what a bid runs under the hold).
+ * (`pnpm test:e2e`), TRIQUET_LAND_CHECKS (typecheck beside `pnpm test:bid`, the unit tests
+ * patient of a loaded machine: what a bid runs under the hold) and TRIQUET_INSTALL (`pnpm install`
+ * from the lockfile as it stands: what a new worktree runs, and any checkout the spine moves onto
+ * another `pnpm-lock.yaml`).
  */
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { parseArgs } from 'node:util'
 import type { JSONReport } from '@playwright/test/reporter'
 import * as E2eLog from './e2e-log.ts'
@@ -39,6 +44,21 @@ export const SweptDirs = ['whiteboard', 'human', 'notes'] as const
 /** How long to wait for another checkout's hold on the spine before giving up: long enough for a few bids ahead, each running typecheck and the unit tests */
 const LockWaitMs = 30 * 60 * 1000
 
+/** How long a full or touched run waits for the e2e lock before giving up: long past the few runs that could be ahead of it, each three to five minutes */
+const E2eLockWaitMs = 60 * 60 * 1000
+
+/** How long the e2e lock outlives a holder that stopped keeping it fresh (proper-lockfile's `stale`): a run killed outright frees it this long after */
+const E2eLockStaleMs = 30 * 1000
+
+/** How often a run waiting for the e2e lock tries for it again */
+const E2eLockPollMs = 2000
+
+/**
+ * Set by a run holding the e2e lock in the run it starts beneath it, to the whole seconds it waited
+ * for the lock: the run beneath logs it, and takes no lock of its own.
+ */
+const WaitedEnv = 'TRIQUET_E2E_WAITED_S'
+
 /** What `pnpm justify` runs: typecheck, lint and the unit tests, side by side, each run to its end however the others fare */
 const JustifyCommand = 'pnpm run --no-bail "/^(typecheck|lint|test)$/"'
 
@@ -49,6 +69,12 @@ const JustifyCommand = 'pnpm run --no-bail "/^(typecheck|lint|test)$/"'
  * time out at five seconds; a test that truly hangs still fails, and CI keeps the five.
  */
 const LandChecks = 'pnpm run --no-bail "/^(typecheck|test:bid)$/"'
+
+/** What installs a checkout's packages: exactly the lockfile's, from pnpm's store where it has them */
+const InstallCommand = 'pnpm install --frozen-lockfile --prefer-offline'
+
+/** The lockfile a checkout's packages are installed from, so that a move changing it calls for an install */
+const LockfileName = 'pnpm-lock.yaml'
 
 /** The build directory `pnpm test:e2e` builds into, as package.json names it: the cache a new worktree is seeded with */
 export const E2eDistDir = '.next-e2e'
@@ -182,10 +208,17 @@ export const SpecCorners: readonly CornerRule[] = [
   { corner: 'the way in and the addresses', specs: RoutingSpecs,                             paths: ['src/app/(synced)/page.tsx', 'src/app/(synced)/h/', 'src/components/IdentGate.tsx', 'src/components/HuntEditModal.tsx', 'src/components/NotOnHunt.tsx', 'src/components/QuizNotFound.tsx'] },
 ]
 
-const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [--touched | <playwright args>] | e2e-log | land [--skip-e2e <reason>] | sweep | restack | top'
+const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [--touched | <playwright args>] | e2e-log | proof [--skip-e2e <reason>] | land [--skip-e2e <reason>] | sweep | restack | top'
 
 /** A stop that needs the agent or the Coach: its message says what happened and what to do */
 export class SpineStop extends Error {}
+
+/** A stop whose reason a process beneath this one has printed already, leaving nothing more to say */
+class SaidStop extends SpineStop {
+  constructor() {
+    super('')
+  }
+}
 
 /** The top of the spine: the branch the main checkout stands on, and its commit */
 export interface Top {
@@ -362,7 +395,8 @@ export function refuseBusy(main: string): void {
  * merges, and pushes every spine branch origin still has and the replay left holding commits of
  * its own, each with an explicit lease. The Coach's uncommitted edits are autostashed; a conflict
  * undoes the replay and stops. Once the whole spine has merged, the main checkout goes back to
- * `main`, and the next landing starts the spine afresh.
+ * `main`, and the next landing starts the spine afresh. A replay that brings another lockfile
+ * installs its packages there (`installedSince`).
  *
  * @returns Lines saying what was done, empty when the spine was already on `origin/main`.
  */
@@ -370,7 +404,7 @@ export function restack(main: string): string[] {
   git(main, 'fetch', '--quiet', '--prune', 'origin')
   const top = topOf(main)
   const replayed = gitOk(main, 'merge-base', '--is-ancestor', 'origin/main', top.sha) ? [] : replay(main, top)
-  return [...replayed, ...backOnMain(main)]
+  return [...replayed, ...backOnMain(main), ...mainInstalledSince(main, top.sha)]
 }
 
 /** Replays the spine, which origin/main has moved past, onto it: the body of restack() */
@@ -447,6 +481,45 @@ export function sweep(main: string): string[] {
   return paths
 }
 
+/** Whether the checkout at `root` installed its packages (TRIQUET_INSTALL, else InstallCommand), the install's output shown as it runs */
+function installs(root: string): boolean {
+  return passes(root, process.env.TRIQUET_INSTALL ?? InstallCommand)
+}
+
+/** Git's hash of the lockfile at `commit` in the repository at `root`, or empty where the commit has none */
+function lockfileAt(root: string, commit: string): string {
+  const spec = `${commit}:${LockfileName}`
+  return gitOk(root, 'rev-parse', '--verify', '--quiet', spec) ? git(root, 'rev-parse', spec) : ''
+}
+
+/**
+ * Installs the packages of the checkout at `root`, which the spine has just moved off the commit
+ * `before`, when the commit it stands on now holds another lockfile: its `node_modules` is derived
+ * from the lockfile, and the next script run there may need what the lockfile added. A move that
+ * leaves the lockfile as it was installs nothing.
+ *
+ * @returns A line saying it installed, empty when the lockfile stands as it was. A failed install stops.
+ */
+function installedSince(root: string, before: string): string[] {
+  if (lockfileAt(root, before) === lockfileAt(root, 'HEAD')) { return [] }
+  const moved = `${LockfileName} changed when ${root} moved onto ${git(root, 'rev-parse', '--short=8', 'HEAD')}`
+  if (! installs(root)) { throw new SpineStop(`${moved}, and installing its packages there failed, as above: repair, and \`pnpm install\` there.`) }
+  return [`${moved}: installed its packages there.`]
+}
+
+/**
+ * Installs the main checkout's packages as `installedSince` does, after a move that stands
+ * however the install goes: a failed install is said, and stops nothing.
+ */
+function mainInstalledSince(main: string, before: string): string[] {
+  try {
+    return installedSince(main, before)
+  } catch (err) {
+    if (! (err instanceof SpineStop)) { throw err }
+    return [`${LockfileName} changed when the main checkout moved onto ${git(main, 'rev-parse', '--short=8', 'HEAD')}, and installing its packages there failed, as above: tell the Coach, whose checkout it is.`]
+  }
+}
+
 /**
  * A worktree for a new thread, cut from the top of the spine (replayed onto `origin/main` and
  * swept first), with a lane of its own, its e2e build cache seeded from the main checkout's, and
@@ -475,11 +548,7 @@ export function cutWorktree(cwd: string, label: string, opts: { install: boolean
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- the node running this script, whichever it is
   const lane = execFileSync('node', [path.join(root, 'scripts', 'lanes.ts'), 'lane'], { cwd: root, encoding: 'utf8' }).trim()
   const seeded = seedCache(main, root)
-  if (opts.install) {
-    // eslint-disable-next-line sonarjs/no-os-command-from-path -- the pnpm this checkout already runs
-    const installed = spawnSync('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], { cwd: root, stdio: 'inherit' })
-    if (installed.status !== 0) { throw new SpineStop(`pnpm install failed in ${root}; the worktree stands, on lane ${lane}.`) }
-  }
+  if (opts.install && ! installs(root)) { throw new SpineStop(`pnpm install failed in ${root}; the worktree stands, on lane ${lane}.`) }
   return [...notes, ...seeded, `Worktree: ${root}`, `Branch:   ${branch}, cut from ${top.branch} at ${top.sha.slice(0, 8)}`, `Lane:     ${lane}`, `Agent: at the end of your next chat response, offer the Coach this to copy and paste: /rename ${branch}`]
 }
 
@@ -742,7 +811,8 @@ function caughtUp(root: string, branch: string, top: Top): boolean {
 /**
  * Catches the worktree's branch up with the top. Under the hold, replays the spine onto
  * `origin/main` if origin has moved and sweeps the main checkout; then, released, rebases the
- * branch onto the top if it stands anywhere else.
+ * branch onto the top if it stands anywhere else, and installs its packages if that brought
+ * another lockfile.
  *
  * @returns Lines saying what moved.
  */
@@ -755,7 +825,9 @@ export function catchUp(cwd: string): string[] {
     return { top: topOf(main), notes: said }
   })
   const where = `${top.branch} at ${top.sha.slice(0, 8)}`
-  return [...notes, caughtUp(root, branch, top) ? `Rebased ${branch} onto ${where}: justify it again (\`pnpm justify\`).` : `${branch} stands on the top already: ${where}.`]
+  const before = git(root, 'rev-parse', 'HEAD')
+  if (! caughtUp(root, branch, top)) { return [...notes, `${branch} stands on the top already: ${where}.`] }
+  return [...notes, `Rebased ${branch} onto ${where}: justify it again (\`pnpm justify\`).`, ...installedSince(root, before)]
 }
 
 /**
@@ -804,7 +876,8 @@ interface SuiteRun {
  * keeps the branch's tally: a full or touched run starts it afresh, and a rerun or chosen specs
  * clear what they pass. Once every spec of a full or touched run has passed, there or alone since,
  * the branch is proved: `branch.<b>.proved` holds the top it was proved on and its patch-id then,
- * and a touched run's tally holds the spec files its proof is scoped to.
+ * and a touched run's tally holds the spec files its proof is scoped to. A full or touched run
+ * comes here beneath `underE2eLock`, which holds the container's e2e lock for it.
  *
  * @param args - none for the whole suite, `--touched` for the branch's corner, or Playwright's: `--last-failed` for a rerun, specs, `--grep @smoke`.
  * @returns Lines saying how the run went and where the proof stands; a red run stops.
@@ -900,17 +973,194 @@ function runSuite(root: string, main: string, run: SuiteRun): string[] {
   }
   const counts = E2eLog.countsOf(outcomes)
   const failures = E2eLog.failuresOf(outcomes)
+  const waited = process.env[WaitedEnv] === undefined ? undefined : Number(process.env[WaitedEnv])
   E2eLog.append(E2eLog.logfileOf(worktreesHome()), {
     at, branch: ante.branch, lane: Lanes.laneHere(process.env, root), kind, args: [...args], committed,
     load: { before: loadBefore, after: loadAfter }, cores: os.availableParallelism(), cache, seconds, test_seconds: testSeconds, status,
-    counts, failures, cleared, still: tally?.outstanding ?? [], proved,
+    counts, failures, cleared, still: tally?.outstanding ?? [], proved, ...(waited !== undefined && { waited_s: waited }),
   })
+  const waitSaid = waited === undefined || waited === 0 ? '' : `; ${String(waited)} s waiting for the e2e lock`
   const lines = [
-    `e2e, ${kind}: ${String(counts.passed + counts.flaky)} passed, ${String(counts.failed)} failed, ${String(counts.unrun)} not run, in ${String(seconds)} s, ${String(testSeconds)} test-seconds (load ${loadBefore.toFixed(1)} as it began; build cache ${cache}).`,
+    `e2e, ${kind}: ${String(counts.passed + counts.flaky)} passed, ${String(counts.failed)} failed, ${String(counts.unrun)} not run, in ${String(seconds)} s, ${String(testSeconds)} test-seconds (load ${loadBefore.toFixed(1)} as it began; build cache ${cache}${waitSaid}).`,
     ...e2eNotes({ kind, committed, prior, tally, cleared, proved, branch: ante.branch }),
   ]
   if (status !== 0) { throw new SpineStop(lines.join('\n')) }
   return lines
+}
+
+/**
+ * Whether a run of the e2e suite with `args` takes the e2e lock: a full or touched run does, a rerun
+ * or chosen specs (the smoke tier among them) do not, and neither does anything in CI or a run
+ * started by one holding the lock for it (`WaitedEnv`).
+ *
+ * @example takesE2eLock([], {})                  // => true
+ * @example takesE2eLock(['--last-failed'], {})   // => false
+ * @example takesE2eLock([], { CI: 'true' })      // => false
+ */
+export function takesE2eLock(args: readonly string[], env: Readonly<Record<string, string | undefined>>): boolean {
+  if ((env.CI ?? '') !== '' || env[WaitedEnv] !== undefined) { return false }
+  return args.length === 0 || args.includes('--touched')
+}
+
+/** Who holds the e2e lock, as its holder writes on taking it */
+export interface E2eHolder {
+  pid:    number
+  lane:   number
+  branch: string
+  root:   string
+  kind:   'full' | 'touched'
+  /** When it took the lock, as an ISO timestamp */
+  since:  string
+}
+
+/** The e2e lock beside the e2e log under `home`, one per container as the log is: proper-lockfile's directory, and the note naming its holder */
+export function e2eLockOf(home: string): { lockdir: string, notefile: string } {
+  return { lockdir: path.join(home, '.e2e-lock'), notefile: path.join(home, '.e2e-lock.json') }
+}
+
+/**
+ * What a run finding the e2e lock held says, for a session that meets it cold: whose run holds it,
+ * since when, and what this run will do once it has the lock.
+ *
+ * @param holder - The holder's note, undefined when it has not written one yet.
+ * @param waiter - This run: its branch and kind, and whether it stands in the main checkout, which catches up with nothing.
+ * @param alive - Whether the holder's process is still running.
+ *
+ * @example e2eWaitSaid(undefined, { branch: 'b', kind: 'full', inMain: false }, Date.now(), true)[0]  // => 'The e2e lock is held, by a run that has not yet said whose.'
+ */
+export function e2eWaitSaid(holder: E2eHolder | undefined, waiter: { branch: string, kind: 'full' | 'touched', inMain: boolean }, now: number, alive: boolean): string[] {
+  const whose = holder === undefined ? 'The e2e lock is held, by a run that has not yet said whose.' : `The e2e lock is held by lane ${String(holder.lane)}'s ${holder.kind} run of ${holder.branch} (${holder.root}, pid ${String(holder.pid)}), since ${timeOfDay(holder.since)}, ${agoOf(Date.parse(holder.since), now)}.`
+  const gone = holder !== undefined && ! alive ? [`Its process is gone, so the lock frees itself within ${String(E2eLockStaleMs / 1000)} s.`] : []
+  const running = waiter.kind === 'full' ? 'runs the whole suite' : 'chooses its corner afresh and runs it'
+  const then = waiter.inMain ? `this run, in the main checkout, ${running}` : `this run catches ${waiter.branch} up with the top first (\`pnpm catchup\`), since the holder has likely landed, and then ${running}`
+  return [
+    whose,
+    ...gone,
+    'Full and touched runs take turns in this container, since two at once time each other out.',
+    `Waiting, for up to ${String(E2eLockWaitMs / 60_000)} minutes; once the lock is free, ${then}.`,
+  ]
+}
+
+/** The local time of day of an ISO timestamp, to the second */
+function timeOfDay(iso: string): string {
+  return new Date(iso).toTimeString().slice(0, 8)
+}
+
+/** How long before `now` the moment `then` was, roughly, in words */
+function agoOf(then: number, now: number): string {
+  const seconds = Math.max(0, Math.round((now - then) / 1000))
+  return seconds < 120 ? `${String(seconds)} s ago` : `${String(Math.round(seconds / 60))} min ago`
+}
+
+/** The note naming the e2e lock's holder, or undefined while there is none */
+function e2eHolderOf(notefile: string): E2eHolder | undefined {
+  try {
+    return JSON.parse(fs.readFileSync(notefile, 'utf8')) as E2eHolder
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Takes the e2e lock under `home` for `holder`, waiting while another run holds it and saying
+ * whose it is each time the holder changes; refuses after E2eLockWaitMs. proper-lockfile keeps the
+ * lock fresh while this process lives and frees it when it exits, and a lock its holder stopped
+ * keeping fresh is taken over once stale.
+ *
+ * @returns How to let it go (nothing to do once the lock was lost, which proper-lockfile counts as released), and whether it had to wait.
+ */
+async function takeE2eLock(home: string, holder: Omit<E2eHolder, 'since'>, waiter: { branch: string, kind: 'full' | 'touched', inMain: boolean }): Promise<{ release: () => Promise<void>, waited: boolean }> {
+  // Imported only where the lock is taken, so the spine's other commands run in a checkout whose packages lag its lockfile.
+  const Lockfile = await import('proper-lockfile')
+  fs.mkdirSync(home, { recursive: true })
+  const { lockdir, notefile } = e2eLockOf(home)
+  const deadline = Date.now() + E2eLockWaitMs
+  let seen: string | undefined
+  for (;;) {
+    try {
+      const release = await Lockfile.lock(notefile, {
+        lockfilePath: lockdir, realpath: false, stale: E2eLockStaleMs,
+        onCompromised: (err) => { process.stderr.write(`The e2e lock was lost (${err.message}): another full run may overlap this one.\n`) },
+      })
+      fs.writeFileSync(notefile, `${JSON.stringify({ ...holder, since: new Date().toISOString() })}\n`)
+      const letGo = async () => {
+        try {
+          await release()
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code !== 'ERELEASED') { throw err }
+        }
+      }
+      return { release: letGo, waited: seen !== undefined }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ELOCKED') { throw err }
+    }
+    const held = e2eHolderOf(notefile)
+    const key = held === undefined ? 'unnamed' : `${String(held.pid)} ${held.since}`
+    if (key !== seen) {
+      seen = key
+      process.stderr.write(`${e2eWaitSaid(held, waiter, Date.now(), held !== undefined && isAlive(held.pid)).join('\n')}\n`)
+    }
+    if (Date.now() > deadline) { throw new SpineStop(`The e2e lock has been held for ${String(E2eLockWaitMs / 60_000)} minutes (${lockdir}): see whose run it is, above, before you take it.`) }
+    await sleep(E2eLockPollMs)
+  }
+}
+
+/** Runs this script again in `root` with `args`, its output shown as it runs, and hands back its exit status */
+function rerunHere(root: string, args: readonly string[], env: Record<string, string> = {}): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [...process.execArgv, import.meta.filename, ...args], { cwd: root, stdio: 'inherit', env: { ...process.env, ...env } })
+    child.on('error', reject)
+    child.on('close', (status) => { resolve(status ?? 1) })
+  })
+}
+
+/**
+ * Runs a full or touched run of the e2e suite (`e2e`) holding the container's e2e lock, beside the
+ * e2e log: one such run at a time on the machine, since two at once load it until each times the
+ * other's specs out. A run that finds the lock held says whose run holds it and since when, and
+ * waits. Having waited, it catches the branch up first (`pnpm catchup`), since the holder has likely
+ * landed and moved the top; a catch-up that conflicts stops, freeing the lock. Then it runs the
+ * suite in a process of its own, told how long it waited, so the run is the caught-up checkout's
+ * own and chooses a touched run's corner from the top as it now stands, while this process, idle
+ * meanwhile, keeps the lock fresh. The lock goes with this process however it ends.
+ *
+ * @returns Nothing more to say: the run beneath says it all; its stop stops this.
+ */
+export async function underE2eLock(cwd: string, args: readonly string[]): Promise<string[]> {
+  const { root, main } = checkoutAt(cwd)
+  const branch = gitOk(root, 'symbolic-ref', '--quiet', 'HEAD') ? git(root, 'symbolic-ref', '--short', 'HEAD') : 'no branch'
+  const kind = args.includes('--touched') ? 'touched' : 'full'
+  const lane = Lanes.laneHere(process.env, root)
+  const { notefile } = e2eLockOf(worktreesHome())
+  const began = Date.now()
+  const { release, waited } = await takeE2eLock(worktreesHome(), { pid: process.pid, lane, branch, root, kind }, { branch, kind, inMain: root === main })
+  try {
+    const waitedS = Math.round((Date.now() - began) / 1000)
+    if (waited) {
+      process.stdout.write(`Took the e2e lock, after ${String(waitedS)} s.\n`)
+      await catchUpAfterWait(root, main)
+    }
+    if (await rerunHere(root, ['e2e', ...args], { [WaitedEnv]: String(waitedS) }) !== 0) { throw new SaidStop() }
+    return []
+  } finally {
+    if (e2eHolderOf(notefile)?.pid === process.pid) { fs.rmSync(notefile, { force: true }) }
+    await release()
+  }
+}
+
+/**
+ * Catches the checkout at `root` up with the top after waiting for the e2e lock, in a process of its
+ * own (`catchup`), so this one stays free to keep the lock fresh. The main checkout is the spine
+ * itself, and a worktree holding uncommitted changes cannot be rebased (its run counts toward no
+ * proof anyway): each is said and left. A catch-up that stops stops the run.
+ */
+async function catchUpAfterWait(root: string, main: string): Promise<void> {
+  if (root === main) { return }
+  if (! isClean(root)) {
+    process.stdout.write('This worktree holds uncommitted changes, so it is not caught up with the top before the run.\n')
+    return
+  }
+  if (await rerunHere(root, ['catchup']) !== 0) { throw new SpineStop('Catching up after the wait stopped, as above, so the suite has not run; the e2e lock is free again.') }
 }
 
 /** What a run of the e2e suite with Playwright's `args` is: the whole suite, a rerun of what failed, or specs chosen */
@@ -936,20 +1186,33 @@ function e2eNotes(said: { kind: E2eLog.RunKind, committed: boolean, prior: E2eLo
 }
 
 /**
- * What a bid needs of the branch before it takes the hold: a justify at its present patch-id,
- * and an e2e proof unless it changes only documents and notes. A proof scoped to a corner (`pnpm
- * e2e --touched`) stands while every path the branch changes still reaches inside it; a path that
- * reaches further leaves the branch as unproved as no proof would. Refuses without a proof, and
- * says, when it does, whether e2e could notice any path the branch changes. A bid may say why e2e
- * has nothing to tell it (`skipE2e`) and go without a proof; a proof it has stands over the reason.
+ * What a bid needs of the branch before it takes the hold: a justify at its present patch-id, and
+ * an e2e proof as `e2eProofOf` takes it.
  *
  * @returns Lines for the bid to pass on, naming the flakes the PR's Tests: line names.
  */
 function proofOf(root: string, main: string, branch: string, skipE2e?: string): string[] {
-  const { base, patchid } = standingOf(root, main)
+  const standing = standingOf(root, main)
   const justified = configOf(root, `branch.${branch}.justified`)
   if (justified === undefined) { throw new SpineStop(`${branch} has not been justified: \`pnpm justify\`, then bid again.`) }
-  if (justified !== patchid) { throw new SpineStop(`${branch} has changed since it was justified: \`pnpm justify\`, then bid again.`) }
+  if (justified !== standing.patchid) { throw new SpineStop(`${branch} has changed since it was justified: \`pnpm justify\`, then bid again.`) }
+  return e2eProofOf(root, standing, skipE2e)
+}
+
+/**
+ * Where the branch's e2e proof stands, as a bid takes it, and what `node scripts/spine.ts proof`
+ * says: needed unless the branch changes only documents and notes. A proof scoped to a corner
+ * (`pnpm e2e --touched`) stands while every path the branch changes still reaches inside it; a path
+ * that reaches further leaves the branch as unproved as no proof would. Refuses without a proof,
+ * and says, when it does, whether e2e could notice any path the branch changes. A bid may say why
+ * e2e has nothing to tell it (`skipE2e`) and go without a proof; a proof it has stands over the
+ * reason.
+ *
+ * @param standing - The branch, its base and its patch-id, as `standingOf` finds them.
+ * @returns Lines for the bid to pass on, naming the flakes the PR's Tests: line names.
+ */
+function e2eProofOf(root: string, standing: { branch: string, base: string, patchid: string }, skipE2e?: string): string[] {
+  const { branch, base, patchid } = standing
   const changed = changedPaths(root, base, branch)
   if (isDocsOnly(changed)) { return ['Documents and notes only: no e2e proof needed.'] }
   const proved = configOf(root, `branch.${branch}.proved`)
@@ -999,27 +1262,51 @@ export function skippingE2e(branch: string, changed: readonly string[], reason: 
  * and proved by the e2e suite unless it changes only documents and notes, or the bid says why e2e
  * has nothing to tell it (`skipE2e`). Then, under one hold:
  * replays the spine onto `origin/main` if origin has moved, sweeps the main checkout, rebases the
- * branch onto the top if the top has moved, runs typecheck and the unit tests, and switches the main checkout
- * onto the branch. The hold released, it pushes the branch. Any stop leaves the spine as it was.
+ * branch onto the top if the top has moved, and then reads its e2e proof afresh (`proofAfresh`), runs
+ * typecheck and the unit tests, and switches the main checkout onto the branch. Each checkout
+ * moved onto another lockfile installs its packages first (`installedSince`). The hold released,
+ * it pushes the branch. Any stop leaves the spine as it was.
  *
  * @returns Lines saying what landed, on what.
  */
 export function land(cwd: string, skipE2e?: string): string[] {
   const { root, main, commondir } = checkoutAt(cwd)
   const branch = worktreeBranch(root, main, 'Landing')
-  const proof = proofOf(root, main, branch, skipE2e)
+  // Read before the hold too, so a bid with no proof is refused without queueing for it.
+  const proofBefore = proofOf(root, main, branch, skipE2e)
   const checks = process.env.TRIQUET_LAND_CHECKS ?? LandChecks
-  const { top, notes } = withSpineHeld(commondir, `landing ${branch}`, () => {
+  const { top, notes, proof } = withSpineHeld(commondir, `landing ${branch}`, () => {
     refuseBusy(main)
     const said = [...restack(main), ...sweptNotes(sweep(main))]
     const stood = topOf(main)
-    if (caughtUp(root, branch, stood)) { said.push(`The top had moved: rebased onto ${stood.branch} at ${stood.sha.slice(0, 8)}.`) }
+    const before = git(root, 'rev-parse', 'HEAD')
+    const rebased = caughtUp(root, branch, stood)
+    if (rebased) { said.push(`The top had moved: rebased onto ${stood.branch} at ${stood.sha.slice(0, 8)}.`, ...installedSince(root, before)) }
+    const proven = rebased ? proofAfresh(root, branch, stood, skipE2e) : proofBefore
     if (! passes(root, checks)) { throw new SpineStop(`Typecheck or the tests failed on ${branch}, on ${stood.branch}: repair, commit, justify, and bid again. The spine is untouched.`) }
     refuseBusy(main)
     foldIn(root, main, branch)
-    return { top: stood, notes: said }
+    said.push(...mainInstalledSince(main, stood.sha))
+    return { top: stood, notes: said, proof: proven }
   })
   return [...notes, ...pushed(main, branch), ...proof, `Landed ${branch} on ${top.branch}: the main checkout stands on it now. File its PR (${stackingOn(top)}), then remove this worktree.`]
+}
+
+/**
+ * The e2e proof of a branch the bid has just rebased onto `top`, read afresh by this script as the
+ * rebase left it (`proof`, in a process of its own): a corner the branch proved may have gained a
+ * spec file on the top, or the top may have changed the map itself, and the bid must see both. A
+ * proof that no longer holds stops the bid, the branch left rebased.
+ *
+ * @returns Lines for the bid to pass on, as `e2eProofOf` says them.
+ */
+function proofAfresh(root: string, branch: string, top: Top, skipE2e?: string): string[] {
+  const reason = skipE2e === undefined ? [] : ['--skip-e2e', skipE2e]
+  const ran = spawnSync(process.execPath, [...process.execArgv, import.meta.filename, 'proof', ...reason], { cwd: root, encoding: 'utf8' })
+  if (ran.status !== 0) {
+    throw new SpineStop(`${branch} is rebased onto ${top.branch} at ${top.sha.slice(0, 8)}, where its e2e proof no longer holds, so nothing landed; the spine is untouched.\n${ran.stderr.trim()}`)
+  }
+  return ran.stdout.split('\n').filter(Boolean)
 }
 
 /** What a branch landed on `top` says its PR is stacked on */
@@ -1060,7 +1347,7 @@ export function skipE2eOf(args: readonly string[]): string | undefined {
 }
 
 /** What the command line asks for, done, as the lines to print */
-function main(args: readonly string[]): string[] {
+async function main(args: readonly string[]): Promise<string[]> {
   const [command, ...rest] = args
   const cwd = process.cwd()
   switch (command) {
@@ -1077,11 +1364,15 @@ function main(args: readonly string[]): string[] {
     return justify(cwd)
   }
   case 'e2e': {
-    return e2e(cwd, rest)
+    return takesE2eLock(rest, process.env) ? underE2eLock(cwd, rest) : e2e(cwd, rest)
   }
   case 'e2e-log': {
     const logfile = E2eLog.logfileOf(worktreesHome())
     return E2eLog.summarise(E2eLog.read(logfile))
+  }
+  case 'proof': {
+    const { root, main: mainroot } = checkoutAt(cwd)
+    return e2eProofOf(root, standingOf(root, mainroot), skipE2eOf(rest))
   }
   case 'land': {
     return land(cwd, skipE2eOf(rest))
@@ -1110,9 +1401,10 @@ function main(args: readonly string[]): string[] {
 
 if (import.meta.main) {
   try {
-    process.stdout.write(`${main(process.argv.slice(2)).join('\n')}\n`)
+    const lines = await main(process.argv.slice(2))
+    if (lines.length > 0) { process.stdout.write(`${lines.join('\n')}\n`) }
   } catch (err) {
-    console.error(err instanceof Error ? err.message : err)
+    if (! (err instanceof SaidStop)) { console.error(err instanceof Error ? err.message : err) }
     process.exitCode = 1
   }
 }

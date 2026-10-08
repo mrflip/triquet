@@ -1,5 +1,5 @@
 import type { Locator } from '@playwright/test'
-import { addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, openPanel, preparedExport, showTab, test } from './support'
+import { addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, openPanel, preparedExport, reloadOnceSaved, showTab, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
@@ -186,8 +186,9 @@ test('LL Export\'s mode, going live at first, puts the Q1 preamble or the smith\
   await page.getByLabel('Quiz name').click()
   await expect(records).toHaveValue(/^\|See the note!\[br\]Which region\?\|\|\$\$/)
   await mode.selectOption({ label: 'Plain' })
-  // The preamble is kept with the quiz; the mode is not, and goes live again.
-  await page.reload()
+  // The preamble is kept with the quiz; the mode is not, and goes live again. The export above is
+  // drawn from the screen, not the server, so wait for the preamble to be saved before reloading.
+  await reloadOnceSaved(page)
   const reloaded = await showTab(page, 'LL Export')
   await expect(reloaded.getByRole('combobox', { name: 'LL Export mode' })).toHaveValue('go_live')
   await expect(reloaded.getByLabel('Q1 preamble')).toHaveValue('See the note![br]')

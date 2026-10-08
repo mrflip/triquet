@@ -1,6 +1,6 @@
 # e2e triage: progress
 
-**Status:** paused. Threads 1 to 5 landed, in the order #156, #157, #158, #159, #160; every lane is free. Thread 6 waits on the Coach's word: `human/20261006-sprint_e2e_triage_paused.md` has the measurements, the recommendation and every open question. Thread 6 held until the Coach releases it.
+**Status:** done. All seven threads landed, in the order #156, #157, #158, #159, #160, #169, #176. The open questions are gathered in `human/20261007-sprint_e2e_triage_done.md`.
 
 ## Status
 
@@ -11,7 +11,8 @@
 | 3 | cover the error boundary | landed #157 |
 | 4 | cover stats and the other light gaps | landed #159 |
 | 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | landed #158 |
-| 6 | per-container lock on full runs, catch up on acquiring | **held** by the Coach |
+| 6 | per-container lock on full runs, catch up on acquiring | landed #169 |
+| 7 | install a new dependency when a checkout moves onto it | landed #176 |
 
 ## Measurements
 
@@ -179,3 +180,37 @@ test, since a failure replaces the worker. Left, minor: storage can be saved mid
 inside Convex Auth's 10 s reuse window); every worker walks the front door once; under CI's one
 worker, one ident smiths about 200 hunts.
 
+
+*Orchestrator:* from thread 6's reports (its file, `thread-6-e2e_lock.md`). A full or touched
+`pnpm e2e` takes a per-container lock (proper-lockfile, at `$TQ_WORKTREES/.e2e-lock`), says whose
+run holds it while it waits, catches up only after a wait, and logs `waited_s`; the bid re-reads a
+scoped proof after its own catch-up (`node scripts/spine.ts proof`). Its catch-up met a main that
+had moved by 113 files (#167 and others, with the `recap` and `quiz-entries` specs), so it proved
+afresh: 254 passed, 1 flake (`widgets.spec.ts`, the chatbot prompt copy), 1081 test-seconds,
+171 s at load 3.8, waited 0 s.
+
+*Review (thread 6):* `fixed`, at medium through `/code-review`, probed against proper-lockfile
+4.1.2. Fixed (b0daa31): a lock compromised mid-run made `release()` reject with `ERELEASED`, so a
+green run exited 1; the release now ignores it. Checked and sound: the lock is freed on success, a
+red run, a conflicting catch-up and SIGINT, and goes stale after SIGKILL; CI never takes it; a bid
+that does not rebase keeps its proof. Agreed with catching up only after a wait. Left, minor: a
+signal sent to the holder's pid alone frees the lock while its child suite runs on; the early scope
+check reads the pre-rebase map; `.e2e-lock.json` outlives a signal exit.
+
+*Orchestrator, after thread 6 landed:* `scripts/spine.ts` imports `proper-lockfile` at the top, and
+nothing installs packages into a checkout but `pnpm worktree`. The main checkout's `node_modules`
+lacks it, so every spine command there (`sweep`, `worktree`, `top`) fails with
+`ERR_MODULE_NOT_FOUND`, as would `land` and `e2e` in any worktree that catches up onto this top.
+The Coach chose: the orchestrator installed in the main checkout, and thread 7 makes it not recur.
+
+*Orchestrator:* from thread 7's reports (its file, `thread-7-e2e_install.md`). `scripts/spine.ts`
+now reaches proper-lockfile only inside `takeE2eLock`, and wherever the spine moves a checkout onto
+a commit with another `pnpm-lock.yaml` (`restack`, `catchUp`, and `land` on both sides) it installs
+there; `TRIQUET_INSTALL` overrides the command. A failed install in the main checkout is reported and
+stops nothing. Proved in full: 255 passed, 0 failed, 960 test-seconds, 154 s at load 3.1, waited 0 s.
+
+*Review (thread 7):* `clean`, at medium through `/code-review`, then by hand. Checked: the install
+fires only on a changed lockfile blob; the hold is released in a `finally`; the "before" each
+caller passes is the commit that checkout stood on; the lazy import keeps its types. Left, minor:
+after a failed install, the next catch-up finds nothing to rebase and does not install again; a
+failed catch-up install drops the restack's message lines, as a rebase conflict already does.
