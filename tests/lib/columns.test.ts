@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GutterWidthPx, alignAfter, alignOf, columnsShowing, gridWidthPx, headAlignOf, qnumSortkeyOf, resolve, shownOf, specFor, specsFor, widgetingRemovalRefusal } from '../../src/lib/columns'
+import { CollapsedWidthPx, GutterWidthPx, alignAfter, alignOf, columnsShowing, drawnOf, gridWidthPx, headAlignOf, isDrawnByEditor, isTypedInto, qnumSortkeyOf, readoutOf, resolve, shownOf, specFor, specsFor, templatedTextOf, widgetingRemovalRefusal } from '../../src/lib/columns'
 import { Column, type ColumnAlign } from '../../src/models/column'
 import { classicLayout } from '../support/layouts'
 import { Widgeting } from '../../src/models/widgeting'
@@ -11,11 +11,9 @@ import { runOf } from '../support/runs'
 import { present } from '../support/present'
 
 const layout = classicLayout()
-const widgetings = [
-  Widgeting.fill({ label: 'dumdum', widget_label: 'dumdum' }),
-  Widgeting.fill({ label: 'numnum_hint', widget_label: 'numnum_hint' }),
-  Widgeting.fill({ label: 'grand_total', widget_label: 'clueing_full' }),
-]
+const dumdum = Widgeting.fill({ label: 'dumdum', widget_label: 'dumdum' })
+const total = Widgeting.fill({ label: 'grand_total', widget_label: 'clueing_full' })
+const widgetings = [dumdum, Widgeting.fill({ label: 'numnum_hint', widget_label: 'numnum_hint' }), total]
 const columnOf = (source: string, width_px = 100, label = 'tally') => Column.fill({ label, title: 'Col', source, width_px })
 
 /** A cell whose newest row, and newest `ok` row, both hold `value` */
@@ -300,5 +298,150 @@ describe('shownOf', () => {
     const spec = { ...present(specFor({ ...columnOf('clueing'), formula: '$' }, quiz.widgetings)) }
     expect(shownOf(spec, templated, ['clueing'], filled._id)).to.deep.eq(Widgeted.ok('By Leon'))
     expect(shownOf(spec, templated, [], filled._id)).to.deep.eq(Widgeted.ok('By {{ qn.title }}'))
+  })
+})
+
+describe('specFor: the later stages', () => {
+  it('carries the template, the readout and the collapse, each absent as null or not collapsed', () => {
+    const spec = present(specFor({ ...columnOf('grand_total'), template: '{{ value }}%', readout: 'code' }, widgetings))
+    expect([spec.template, spec.readout, spec.collapsed]).to.deep.eq(['{{ value }}%', 'code', false])
+    expect([specOf('grand_total').template, specOf('grand_total').readout]).to.deep.eq([null, null])
+  })
+
+  it('draws a collapsed column narrow, with its turned header, its own width kept on the column', () => {
+    const column = { ...columnOf('clueing', 330), collapsed: true }
+    const spec = present(specFor(column, widgetings))
+    expect([spec.collapsed, spec.widthPx, spec.headkind, column.width_px]).to.deep.eq([true, CollapsedWidthPx, 'vertical', 330])
+    expect(gridWidthPx([spec])).to.eq(GutterWidthPx + CollapsedWidthPx)
+  })
+
+  it('keeps a collapsed column sortable, as the sort memory is the quiz\'s, not the screen\'s', () => {
+    const spec = present(specFor({ ...columnOf('title'), collapsed: true }, widgetings))
+    expect(spec.sortkey).to.eq('column:tally')
+  })
+})
+
+describe('isTypedInto', () => {
+  const Cases: [string | null, string | null, boolean, string][] = [
+    // formula            template          typed   blurb
+    [null,                null,             true,   'with neither a formula nor a template, its cells are typed into'],
+    ['$round($.value)',   null,             false,  'a rounded number has no inverse to type into'],
+    [null,                '{{ value }}%',   false,  'a value dressed by a template is not typed into either'],
+    ['$',                 null,             false,  '`$` is a formula, not identity'],
+  ]
+  for (const [formula, template, typed, blurb] of Cases) {
+    it(blurb, () => {
+      expect(isTypedInto({ formula, template })).to.eq(typed)
+    })
+  }
+})
+
+describe('readoutOf', () => {
+  it('is what the column says, or markdown for a template, or null for the cells to choose', () => {
+    expect(readoutOf({ readout: 'code', template: '{{ value }}' })).to.eq('code')
+    expect(readoutOf({ readout: null, template: '{{ value }}' })).to.eq('markdown')
+    expect(readoutOf({ readout: null, template: null })).to.be.null
+    expect(readoutOf({ readout: 'plain', template: null })).to.eq('plain')
+  })
+})
+
+/** A column's stages as `isDrawnByEditor` reads them */
+function stagesOf(source: Parameters<typeof isDrawnByEditor>[0]['source'], formula: string | null = null, template: string | null = null) {
+  return { source, formula, template }
+}
+
+describe('isDrawnByEditor', () => {
+  const entry = Widget.fill({ label: 'jottings', formulary: 'entry', config: { entry_kind: 'text' } })
+  const formula = Widget.fill({ label: 'clueing_full', formulary: 'jsonata', formula: '1' })
+  const bot = Widget.fill({ label: 'guesser', formulary: 'aibot', formula: 'Guess', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 500 } })
+  const remark = Widgeting.fill({ label: 'remark', widget_label: 'jottings' })
+  const quizRemark = Widgeting.fill({ label: 'remark', widget_label: 'jottings', tier: 'quiz' })
+
+  it("draws a question's field, an entry's cell and a bot's asked cell in their editors while typed into", () => {
+    expect(isDrawnByEditor(stagesOf({ kind: 'field', field: 'clueing' }), null)).to.be.true
+    expect(isDrawnByEditor(stagesOf({ kind: 'widgeting', widgeting: remark }), entry)).to.be.true
+    expect(isDrawnByEditor(stagesOf({ kind: 'widgeting', widgeting: dumdum }), bot)).to.be.true
+  })
+
+  it('draws them read-only once a formula or a template works on them: the editability rule, pills and new cells alike', () => {
+    expect(isDrawnByEditor(stagesOf({ kind: 'field', field: 'clueing' }, '$uppercase($)'), null)).to.be.false
+    expect(isDrawnByEditor(stagesOf({ kind: 'widgeting', widgeting: remark }, null, '**{{ value }}**'), entry)).to.be.false
+  })
+
+  it("never draws a formula's widgeting, a view, a key, a word, a quiz-wide widgeting or an unknown widget by an editor", () => {
+    expect(isDrawnByEditor(stagesOf({ kind: 'widgeting', widgeting: total }), formula)).to.be.false
+    expect(isDrawnByEditor(stagesOf({ kind: 'view', view: 'butnot' }), null)).to.be.false
+    expect(isDrawnByEditor(stagesOf({ kind: 'key', key: 'rank' }), null)).to.be.false
+    expect(isDrawnByEditor(stagesOf({ kind: 'word', word: 'quiz' }), null)).to.be.false
+    expect(isDrawnByEditor(stagesOf({ kind: 'widgeting', widgeting: quizRemark }), entry)).to.be.false
+    expect(isDrawnByEditor(stagesOf({ kind: 'widgeting', widgeting: remark }), null)).to.be.false
+  })
+})
+
+describe('drawnOf and templatedTextOf', () => {
+  const placed = { ...Question.blank(), title: 'Leon', qnum: '2', clueing: 'By {{ qn.title }}', stored: { cats: answered([{ category: 'art', difficulty: 'easy' }]), remark: answered('![map](https://host/m.png)') } }
+  const blank = { ...Question.blank(), title: 'Nantes', qnum: '1' }
+  const cats = Widgeting.fill({ label: 'cats', widget_label: 'estimating' })
+  const remark = Widgeting.fill({ label: 'remark', widget_label: 'jottings' })
+  const pictured = Widgeting.fill({ label: 'pictured', widget_label: 'picture' })
+  const library = [
+    Widget.fill({ label: 'estimating', formulary: 'entry', config: { entry_kind: 'estimates' } }),
+    Widget.fill({ label: 'jottings', formulary: 'entry', config: { entry_kind: 'text' } }),
+    Widget.fill({ label: 'picture', formulary: 'jsonata', formula: '"![map](https://host/m.png)"' }),
+  ]
+  const quiz = { ...Quiz.blank('Drawn'), questions: [placed, blank], widgetings: [cats, remark, pictured] }
+  const run = runOf(quiz, library)
+  type Stages = { formula?: string, template?: string, readout?: 'plain' | 'markdown' | 'code' | 'label' }
+  const specWith = (source: string, stages: Stages) => present(specFor({ ...columnOf(source), ...stages }, quiz.widgetings))
+  const drawn = (source: string, stages: Stages, question: QuestionT = placed, templateable: string[] = []) => drawnOf(specWith(source, stages), run, templateable, question._id)
+
+  it("fills the template over the question's bag, what the formula came to as `value`", () => {
+    expect(drawn('cats', { formula: '$round($.artie * 100)', template: '{{ value }}% for {{ qn.title }}' }).text).to.eq('90% for Leon')
+    expect(drawn('title', { template: '**{{ value }}**' })).to.deep.eq({ widgeted: Widgeted.ok('Leon'), text: '**Leon**', issue: null })
+  })
+
+  it("is, with no template, the value's own text", () => {
+    expect(drawn('rank', {}).text).to.eq('2')
+    expect(drawn('cats', { formula: '$.estimates' }).text).to.eq('[{"category":"art","difficulty":"easy"}]')
+  })
+
+  it('passes a value that is not ok by the template, with no text, so the dash and the badge show', () => {
+    expect(drawn('remark', { template: 'Said: {{ value }}' }, blank)).to.deep.eq({ widgeted: Widgeted.missing, text: '', issue: null })
+    expect(drawn('title', { formula: '$error("no")', template: '{{ value }}' }).widgeted.status).to.eq('errored')
+  })
+
+  it('says why a template could not be filled in, its text then the template as typed', () => {
+    const { text, issue } = drawn('title', { template: '{% if value %}' })
+    expect([text, issue]).to.deep.eq(['{% if value %}', 'tag {% if value %} not closed, line:1, col:1'])
+  })
+
+  it('reads the templateable sources filled in, as the finished bag holds them', () => {
+    expect(drawn('title', { template: '{{ qn.clueing }}' }, placed, ['clueing']).text).to.eq('By Leon')
+    expect(drawn('title', { template: '{{ qn.clueing }}' }, placed, []).text).to.eq('By {{ qn.title }}')
+  })
+
+  it("makes the images of a formula's value links when drawn as markdown, and only then", () => {
+    expect(drawn('pictured', { readout: 'markdown' }).text).to.eq('&#33;[map](https://host/m.png)')
+    expect(drawn('pictured', { template: 'See {{ value }}' }).text).to.eq('See &#33;[map](https://host/m.png)')
+    expect(drawn('pictured', { readout: 'code' }).text).to.eq('![map](https://host/m.png)')
+  })
+
+  it('leaves the images of typed text as they are', () => {
+    expect(drawn('remark', { readout: 'markdown' }).text).to.eq('![map](https://host/m.png)')
+  })
+
+  it("carries the template's text into a sheet, its images as typed", () => {
+    expect(templatedTextOf(specWith('pictured', { template: 'See {{ value }}' }), run, [], placed._id)).to.eq('See ![map](https://host/m.png)')
+    expect(templatedTextOf(specWith('cats', { formula: '$round($.artie * 100)', template: '{{ value }}%' }), run, [], placed._id)).to.eq('90%')
+  })
+
+  it('is the same object the second time it is asked, made once per run', () => {
+    const spec = specWith('title', { template: '{{ value }}!' })
+    expect(drawnOf(spec, run, [], placed._id)).to.eq(drawnOf(spec, run, [], placed._id))
+  })
+
+  it('leaves what the column came to, for the sorts, to the formula alone', () => {
+    const spec = specWith('cats', { formula: '$round($.artie * 100)', template: '{{ value }}%' })
+    expect(shownOf(spec, run, [], placed._id)).to.deep.eq(Widgeted.ok(90))
   })
 })

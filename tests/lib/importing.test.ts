@@ -584,6 +584,17 @@ describe('importInto: columns', () => {
     ])
   })
 
+  it("sets a column's formula, template, readout and collapse as pasted, and takes off those the paste lacks", () => {
+    const held = laidOut(['remark', 'remark', 160])
+    const dressed = { ...held, columns: held.columns.map((column) => ({ ...column, formula: '$.value', template: '{{ value }}!', readout: 'code' as const, collapsed: true })) }
+    const set = withColumns(held, { remark: { position: 0, title: 'remark', source: 'remark', width_px: 160, formula: '$.value', template: '{{ value }}!', readout: 'code', collapsed: true } })
+    expect(set.columnActions).to.deep.eq([{ kind: 'edit_column', label: 'remark', patch: { formula: '$.value', template: '{{ value }}!', readout: 'code', collapsed: true } }])
+    const bare = withColumns(dressed, { remark: { position: 0, title: 'remark', source: 'remark', width_px: 160 } })
+    expect(bare.columnActions).to.deep.eq([{ kind: 'edit_column', label: 'remark', patch: { formula: null, template: null, readout: null, collapsed: null } }])
+    const same = withColumns(dressed, { remark: { position: 0, title: 'remark', source: 'remark', width_px: 160, formula: '$.value', template: '{{ value }}!', readout: 'code', collapsed: true } })
+    expect(same.columnActions).to.deep.eq([])
+  })
+
   it("skips a column showing a widgeting the quiz will not have, and then removes none", () => {
     const quiz = laidOut(['title', 'title', 100], ['notes', 'notes', 220])
     const outcome = withColumns(quiz, { guess: { position: 0, title: 'Guess', source: 'nowhere', width_px: 160 }, title: { position: 1, title: 'title', source: 'title', width_px: 100 } })

@@ -59,7 +59,7 @@ describe('cellTextOf', () => {
   const question = Question.blank()
   const run = runHolding({ questions: [question] }, { tally: { [question._id]: Widgeted.ok('x') } })
   const widgeting = Widgeting.fill({ label: 'tally', widget_label: 'whatever' })
-  const textFor = (widgeted: WidgetedT) => Sheets.cellTextOf({ source: { kind: 'widgeting', widgeting }, formula: null }, { question, target: null, run: runHolding({ questions: [question] }, { tally: { [question._id]: widgeted } }), templateable: [] })
+  const textFor = (widgeted: WidgetedT) => Sheets.cellTextOf({ source: { kind: 'widgeting', widgeting }, formula: null, template: null }, { question, target: null, run: runHolding({ questions: [question] }, { tally: { [question._id]: widgeted } }), templateable: [] })
 
   const Cases: [WidgetedT, string, string][] = [
     // widgeted                                                     text                          blurb
@@ -82,14 +82,14 @@ describe('cellTextOf', () => {
     const placed = { ...Question.blank(), stored: { cats: answered([{ category: 'art', difficulty: 'easy' }]) } }
     const cats = Widgeting.fill({ label: 'cats', widget_label: 'categories' })
     const estimated = runOf({ ...Quiz.blank(), questions: [placed], widgetings: [cats] }, [Widget.fill({ label: 'categories', formulary: 'entry', config: { entry_kind: 'estimates' } })])
-    const partText = (formula: string) => Sheets.cellTextOf({ source: { kind: 'widgeting', widgeting: cats }, formula }, { question: placed, target: null, run: estimated, templateable: [] })
+    const partText = (formula: string) => Sheets.cellTextOf({ source: { kind: 'widgeting', widgeting: cats }, formula, template: null }, { question: placed, target: null, run: estimated, templateable: [] })
     expect([partText('$.artie'), partText('$.estimates'), partText('$.average > 0.5')]).to.deep.eq(['0.9', '[{"category":"art","difficulty":"easy"}]', 'true'])
   })
 
   it('writes a field as the question holds it, and the chain as the target\'s label', () => {
     const target = { ...Question.blank(), label: 'the_film', hint: 'BUT NOT the film' }
     const chained = { ...Question.blank(), clueing: 'Who?', chains_to: target._id }
-    const textOf = (source: Parameters<typeof Sheets.cellTextOf>[0]['source'], withTarget: QuestionT | null = target) => Sheets.cellTextOf({ source, formula: null }, { question: chained, target: withTarget, run, templateable: [] })
+    const textOf = (source: Parameters<typeof Sheets.cellTextOf>[0]['source'], withTarget: QuestionT | null = target) => Sheets.cellTextOf({ source, formula: null, template: null }, { question: chained, target: withTarget, run, templateable: [] })
     expect(textOf({ kind: 'field', field: 'clueing' })).to.eq('Who?')
     expect(textOf({ kind: 'field', field: 'chains_to' })).to.eq('the_film')
     expect(textOf({ kind: 'view', view: 'butnot' })).to.eq('BUT NOT the film')
@@ -99,11 +99,30 @@ describe('cellTextOf', () => {
   it("writes a field worked by a formula as what the formula came to", () => {
     const shouted = { ...Question.blank(), title: 'Leon' }
     const shoutRun = runOf({ ...Quiz.blank(), questions: [shouted] }, [])
-    expect(Sheets.cellTextOf({ source: { kind: 'field', field: 'title' }, formula: '$uppercase($)' }, { question: shouted, target: null, run: shoutRun, templateable: [] })).to.eq('LEON')
+    expect(Sheets.cellTextOf({ source: { kind: 'field', field: 'title' }, formula: '$uppercase($)', template: null }, { question: shouted, target: null, run: shoutRun, templateable: [] })).to.eq('LEON')
+  })
+})
+
+describe('cellTextOf: a template', () => {
+  it("writes the template's text, filled in over what the formula came to, for a field and a widgeting alike", () => {
+    const leon = { ...Question.blank(), title: 'Leon', stored: { remark: answered('fine') } }
+    const remark = Widgeting.fill({ label: 'remark', widget_label: 'jottings' })
+    const run = runOf({ ...Quiz.blank(), questions: [leon], widgetings: [remark] }, [Widget.fill({ label: 'jottings', formulary: 'entry', config: { entry_kind: 'text' } })])
+    const textOf = (source: Parameters<typeof Sheets.cellTextOf>[0]['source'], formula: string | null, template: string) => Sheets.cellTextOf({ source, formula, template }, { question: leon, target: null, run, templateable: [] })
+    expect(textOf({ kind: 'field', field: 'title' }, null, '**{{ value }}**')).to.eq('**Leon**')
+    expect(textOf({ kind: 'field', field: 'title' }, '$uppercase($)', '{{ value }}!')).to.eq('LEON!')
+    expect(textOf({ kind: 'widgeting', widgeting: remark }, null, 'Said: {{ value }}')).to.eq('Said: fine')
   })
 })
 
 describe('sheetsExport', () => {
+  it('is unchanged by a collapsed column, which it carries as any other', () => {
+    const questions = [{ ...Question.blank(), title: 'Leon' }]
+    const layout = classicLayout()
+    const collapsed = { ...layout, columns: layout.columns.map((column) => ({ ...column, collapsed: true })) }
+    expect(exported(questions, collapsed)).to.deep.eq(exported(questions, layout))
+  })
+
   it('opens with a header row naming every displayed column by its label, in alphabetical order', () => {
     const table = exported([Question.blank()])
     const labels = classicLayout().columns.map((column) => column.label)

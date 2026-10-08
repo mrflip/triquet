@@ -433,12 +433,20 @@ function placeIn(layout: string[], label: string, idx: number): void {
   layout.splice(idx, 0, label)
 }
 
-/** What revises `held` into `pasted`, field by field; null when nothing differs */
+/**
+ * What revises `held` into `pasted`, field by field; null when nothing differs. A formula,
+ * template, readout or collapse the held column has and the pasted one lacks is taken off, as the
+ * paste says the column stands.
+ */
 function columnPatchOf(held: ColumnT, pasted: ColumnT): ColumnPatch | null {
   const fieldnames = ['title', 'source', 'width_px', 'align'] as const
   const changed = fieldnames.filter((fieldname) => pasted[fieldname] !== undefined && pasted[fieldname] !== held[fieldname])
-  if (changed.length === 0) { return null }
-  return ColumnValidators.columnPatch(Object.fromEntries(changed.map((fieldname) => [fieldname, pasted[fieldname]])))
+  const stages = (['formula', 'template', 'readout', 'collapsed'] as const).filter((fieldname) => pasted[fieldname] !== held[fieldname])
+  if (changed.length === 0 && stages.length === 0) { return null }
+  return ColumnValidators.columnPatch({
+    ...Object.fromEntries(changed.map((fieldname) => [fieldname, pasted[fieldname]])),
+    ...Object.fromEntries(stages.map((fieldname) => [fieldname, pasted[fieldname] ?? null])),
+  })
 }
 
 /** The widgetings' share of the summary, or nothing when the paste carried none */

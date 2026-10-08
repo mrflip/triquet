@@ -1,9 +1,11 @@
 import * as Runner from './formulary/runner'
 import * as Templating from './templating'
 import { JsonataFormulary } from './formulary/jsonata'
-import { ColumnAlignVals, plainOf, refOf, sortkeyOf, type BagWord, type ColumnAlign, type ColumnT, type QuestionField, type QuestionKey, type QuestionView } from '../models/column'
+import { ColumnAlignVals, plainOf, refOf, sortkeyOf, type BagWord, type ColumnAlign, type ColumnReadout, type ColumnT, type QuestionField, type QuestionKey, type QuestionView } from '../models/column'
 import { Widgeted, type JsonT, type WidgetedT } from '../models/widgeted'
 import type { WidgetingT } from '../models/widgeting'
+import type { WidgetT } from '../models/widget'
+import { formularyFor } from './formulary/formularies'
 import type { Sortkey } from '../models/quiz'
 import { widgetingShownNotice } from './notices'
 
@@ -33,6 +35,13 @@ export type ColumnSpec = {
   source:   Resolved
   /** What it works out of what it shows, in JSONata; null for identity, the thing itself */
   formula:  string | null
+  /** The Liquid making text of what the formula came to; null to draw the value as it is */
+  template: string | null
+  /** How it draws its text, as the column says; null leaves it to the default (`readoutOf`) */
+  readout:  ColumnReadout | null
+  /** Folded to its turned header, its cells empty: drawn `CollapsedWidthPx` wide, its own width kept for the return */
+  collapsed: boolean
+  /** How wide it is drawn: its own width, or `CollapsedWidthPx` while collapsed */
   widthPx:  number
   headkind: Headkind
   /**
@@ -44,8 +53,14 @@ export type ColumnSpec = {
   sortkey?: Sortkey
 }
 
+/** A column as far as what it draws: its ref found, its formula and its template */
+type StagedSpec = Pick<ColumnSpec, 'source' | 'formula' | 'template'>
+
 /** The gutter holding a row's grip, or its checkbox and trash can, belongs to the grid rather than to the quiz, and is always first */
 export const GutterWidthPx = 40
+
+/** How wide a collapsed column is drawn: its turned header's line of text, and the header's padding either side. A state, not a width, so below `WidthPxMin`. */
+export const CollapsedWidthPx = 20
 
 /**
  * What `source` shows, given the widgetings a quiz has: found on the question first, then at the
@@ -121,9 +136,9 @@ function sortable(source: Resolved, formula: string | null): boolean {
   return source.kind !== 'view'
 }
 
-/** How a column's header is drawn: a narrow widgeting's rotated into it, everything else along the row */
-function headkindOf(source: Pick<Resolved, 'kind'>, widthPx: number): Headkind {
-  return source.kind === 'widgeting' && widthPx <= 100 ? 'vertical' : 'plain'
+/** How a column's header is drawn: a narrow widgeting's, or a collapsed column's, rotated into it, everything else along the row */
+function headkindOf(source: Pick<Resolved, 'kind'>, widthPx: number, collapsed = false): Headkind {
+  return collapsed || (source.kind === 'widgeting' && widthPx <= 100) ? 'vertical' : 'plain'
 }
 
 /** Whether `column` shows the question's Q# as it is */
@@ -179,17 +194,69 @@ export function specFor(column: ColumnT, widgetings: readonly WidgetingT[]): Col
   const source = resolve(plain.source, widgetings)
   if (! source) { return null }
   const formula = plain.formula ?? null
+  const collapsed = column.collapsed ?? false
   return {
-    colkey:   column.label,
-    title:    column.title,
-    header:   column.label,
+    colkey:    column.label,
+    title:     column.title,
+    header:    column.label,
     source,
     formula,
-    widthPx:  column.width_px,
-    headkind: headkindOf(source, column.width_px),
-    align:    alignOf(column),
+    template:  column.template ?? null,
+    readout:   column.readout ?? null,
+    collapsed,
+    widthPx:   collapsed ? CollapsedWidthPx : column.width_px,
+    headkind:  headkindOf(source, column.width_px, collapsed),
+    align:     alignOf(column),
     ...(sortable(source, formula) && { sortkey: sortkeyOf(column) }),
   }
+}
+
+/**
+ * Whether a column's cells are typed into, as an entry's or a question's field's are: only while
+ * it works nothing out of what it shows and makes no text of it, the formula absent (identity) and
+ * no template. A rounded number has no inverse to type into. Whether the thing shown takes typing
+ * at all is the cell's own to say.
+ *
+ * @example isTypedInto({ formula: null, template: null })            // => true
+ * @example isTypedInto({ formula: '$round($.value)', template: null })  // => false
+ * @example isTypedInto({ formula: null, template: '{{ value }}%' })  // => false
+ */
+export function isTypedInto(spec: Pick<ColumnSpec, 'formula' | 'template'>): boolean {
+  return spec.formula === null && spec.template === null
+}
+
+/**
+ * Whether a column's cells are drawn by their own editor, whatever readout the column names: a
+ * question's field, an entry's cell or a bot's asked from the cell, while the column is typed into
+ * (`isTypedInto`). Every other cell is a readout, drawn as `readoutOf` says.
+ *
+ * @param spec - The column.
+ * @param widget - The widget of the widgeting it shows, when it shows one the library has.
+ * @returns True for a cell its editor draws.
+ *
+ * @example isDrawnByEditor({ source: { kind: 'field', field: 'clueing' }, formula: null, template: null }, null)  // => true
+ * @example isDrawnByEditor({ source: { kind: 'field', field: 'clueing' }, formula: '$uppercase($)', template: null }, null)  // => false
+ * @example isDrawnByEditor({ source: { kind: 'widgeting', widgeting: total }, formula: null, template: null }, clueingFull)  // => false   (a formula's)
+ */
+export function isDrawnByEditor(spec: StagedSpec, widget: WidgetT | null): boolean {
+  if (! isTypedInto(spec)) { return false }
+  const { source } = spec
+  if (source.kind === 'field') { return true }
+  if (widget === null || source.kind !== 'widgeting' || source.widgeting.tier !== 'question') { return false }
+  return widget.formulary === 'entry' || formularyFor(widget).refresh === 'click'
+}
+
+/**
+ * How a column draws its text: as it says, or, saying nothing, `markdown` for a column with a
+ * template; null for any other, which its cells draw as they choose (a field in its box, a value as
+ * a worked-out cell shows one).
+ *
+ * @example readoutOf({ readout: 'code', template: '{{ value }}' })  // => 'code'
+ * @example readoutOf({ readout: null, template: '{{ value }}' })    // => 'markdown'
+ * @example readoutOf({ readout: null, template: null })             // => null
+ */
+export function readoutOf(spec: Pick<ColumnSpec, 'readout' | 'template'>): ColumnReadout | null {
+  return spec.readout ?? (spec.template === null ? null : 'markdown')
 }
 
 /**
@@ -252,6 +319,86 @@ export function shownOf(spec: Pick<ColumnSpec, 'source' | 'formula'>, run: Runne
     return tier === 'quiz' ? Runner.quizWidgetedOf(run, label) : Runner.widgetedOf(run, label, question_id)
   }
   return Widgeted.ok(thingOf(source, run.qnsAfter, run, run.frame.question_ids.indexOf(question_id)) as JsonT)
+}
+
+/** What a column draws for one question, before the readout draws it */
+export type DrawnT = {
+  /** What the column came to (`shownOf`): one not `ok` draws as the dash or the badge, with no text */
+  widgeted: WidgetedT
+  /** The text drawn: the column's template filled in over what it came to, or that value's own text; empty for one not `ok` */
+  text:     string
+  /** Why the template could not be filled in, `text` then the template as typed; null when nothing is wrong */
+  issue:    string | null
+}
+
+/** What `textedOf` made, by the run, then by the column's stages and the quiz's templateable sources, then by the question */
+const TextedOf = new WeakMap<Runner.QuizRun, Map<string, Map<string, DrawnT>>>()
+
+/**
+ * What a column draws for one question: what it came to (`shownOf`), and the text of it, its
+ * template filled in (Liquid, through `Templating.fill`, over the question's template bag with what
+ * the formula came to as `value`) or the value's own text. A template, like a formula, works only
+ * on an `ok` value: `missing` and `errored` pass by, so the dash and the badge still show. Drawn as
+ * markdown (`readoutOf`), what a formula or a bot came to has its images made links
+ * (`Templating.imagesLinkedIn`): only text a person typed draws an image.
+ *
+ * @param spec - The column.
+ * @param run - The quiz, run.
+ * @param templateable - What the quiz nominates as templateable, which the template's bag holds filled in.
+ * @param question_id - The question.
+ * @returns What it came to, and its text.
+ *
+ * @example drawnOf({ source: categoryData, formula: '$round($.masie * 100)', template: '{{ value }}%', readout: null }, run, [], question._id).text  // => '53%'
+ */
+export function drawnOf(spec: Pick<ColumnSpec, 'source' | 'formula' | 'template' | 'readout'>, run: Runner.QuizRun, templateable: readonly string[], question_id: string): DrawnT {
+  const linked = readoutOf(spec) === 'markdown' && ! isTyped(spec.source, run)
+  return textedOf(spec, run, templateable, question_id, linked)
+}
+
+/**
+ * What a column carries into a spreadsheet for one question: its template filled in, as the grid
+ * draws it, its images left as they are, since nothing draws them; empty for a value not `ok`.
+ *
+ * @example templatedTextOf({ source: categoryData, formula: '$round($.masie * 100)', template: '{{ value }}%' }, run, [], question._id)  // => '53%'
+ */
+export function templatedTextOf(spec: StagedSpec, run: Runner.QuizRun, templateable: readonly string[], question_id: string): string {
+  return textedOf(spec, run, templateable, question_id, false).text
+}
+
+/** What a column draws for one question (`drawnOf`), its value's images made links or not, made once per run */
+function textedOf(spec: StagedSpec, run: Runner.QuizRun, templateable: readonly string[], question_id: string, linked: boolean): DrawnT {
+  const known = TextedOf.get(run) ?? new Map<string, Map<string, DrawnT>>()
+  TextedOf.set(run, known)
+  const key = [keyOf(spec.source), spec.formula ?? '', spec.template ?? '', String(linked), ...templateable].join('\n')
+  const byQuestion = known.get(key) ?? new Map<string, DrawnT>()
+  known.set(key, byQuestion)
+  const held = byQuestion.get(question_id)
+  if (held !== undefined) { return held }
+  const widgeted = shownOf(spec, run, templateable, question_id)
+  const drawn = textOfShown(spec.template, widgeted, run, templateable, question_id, linked)
+  byQuestion.set(question_id, drawn)
+  return drawn
+}
+
+/** The text of what a column came to, through its template when it has one */
+function textOfShown(template: string | null, widgeted: WidgetedT, run: Runner.QuizRun, templateable: readonly string[], question_id: string, linked: boolean): DrawnT {
+  if (widgeted.status !== 'ok') { return { widgeted, text: '', issue: null } }
+  const value = linked ? Templating.imagesLinkedIn(widgeted.value) as JsonT : widgeted.value
+  if (template === null) { return { widgeted, text: Widgeted.textOf({ ...widgeted, value }), issue: null } }
+  const filled = Templating.fill(template, Templating.valuedBagOf(run, templateable, question_id, value))
+  return { widgeted, text: filled.markdown, issue: filled.issue }
+}
+
+/**
+ * Whether the thing `source` picks is text a person typed: a question's own field, view or key,
+ * or an entry's widgeted. What a formula or a bot came to is not, nor a word of the bag, which
+ * holds what every widgeting came to.
+ */
+function isTyped(source: Resolved, run: Runner.QuizRun): boolean {
+  if (source.kind === 'word') { return false }
+  if (source.kind !== 'widgeting') { return true }
+  const widget = Runner.stepOf(run, source.widgeting.label)?.widget ?? null
+  return widget !== null && ! Templating.computes(widget)
 }
 
 /**

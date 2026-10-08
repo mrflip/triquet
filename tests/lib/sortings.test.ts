@@ -212,6 +212,15 @@ describe('sortValueFor', () => {
     expect(answers(sortedBefore)).to.deep.eq(['math', 'blank', 'art'])
   })
 
+  it("reads what a column came to, never the text its template dresses it in: 9% sorts before 10%", () => {
+    const questions = questionsOf(['1', 'a'], ['2', 'b'])
+    const [aa, bb] = questions
+    const quiz = { ...sizedQuiz(questions), columns: [Column.fill({ label: 'size', title: 'Size', source: 'size', template: '{{ value }}%', width_px: 78 })] }
+    const run = runHolding(quiz, { size: { [present(aa)._id]: Widgeted.ok(10), [present(bb)._id]: Widgeted.ok(9) } })
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:size', quiz, run), false)
+    expect(answers(sorted)).to.deep.eq(['b', 'a'])
+  })
+
   it('reads a column showing a widgeting the quiz does not have as having nothing to say', () => {
     const questions = questionsOf(['1', 'b'], ['2', 'a'])
     const quiz = { ...sizedQuiz(questions), widgetings: [] }
