@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: planned.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: thread 1 landing; 2, 3a and 4 next.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -325,8 +325,10 @@ thread (last, the top of the series).
 
 * **Mode: normal**, per your invocation; the preplan's closing list says "mode YOLO", which I read
   as superseded. Workers block on significant questions, and the sprint pauses for them.
-* **The design note before code.** The preplan says "the Coach reads it before code moves". See
-  the chat question at the start of the sprint; the answer is recorded here once given.
+* **The design note before code.** The preplan says "the Coach reads it before code moves".
+  *Answered 2026-10-08:* code threads proceed once thread 1 lands; the Coach reads the record on
+  its PR meanwhile, and a correction reaches workers as a resume.
+* **Optional threads 6 and 8.** *Answered 2026-10-08:* run both.
 * **Merge order:** up to 3a's PR (`Serial Deploy: columnwise`), wait for its production deploy to
   say `Backfills: every one has finished.`, then the rest; 3c's tightening last. Before 3a's
   deploy, grep the raw export for author formulas reading `qn.categories` (nothing rewrites
