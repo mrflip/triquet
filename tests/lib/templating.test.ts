@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Templating from '../../src/lib/templating'
+import * as Bbjank from '../../src/lib/bbjank'
+import * as Markdown from '../../src/lib/markdown'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
@@ -247,6 +249,11 @@ describe("issueOf", () => {
   })
 })
 
+/** The kind of every node in the markdown tree under `node`, itself first */
+function nodekindsIn(node: { type: string, children?: { type: string }[] }): string[] {
+  return [node.type, ...(node.children ?? []).flatMap((child) => nodekindsIn(child))]
+}
+
 describe("bagOf", () => {
   it("holds the question and every question, each with every widgeting's widgeted", () => {
     expect(bag.qn.clueing).to.eq('By {{qn.author}}')
@@ -286,6 +293,34 @@ describe("bagOf", () => {
   it("holds the hunt's categories, each with its title, for a template to loop over", () => {
     expect(Templating.fill('{{categories.15.title}}', bag).markdown).to.eq('TV')
     expect(Templating.fill('{{#categories}}{{label}} {{/categories}}', bag).markdown.split(' ')).to.have.lengthOf(25)
+  })
+
+  it("draws an image in a formula's or a bot's column as a link to it, and keeps one typed into a field or an entry", () => {
+    const Imaged = [
+      ...Library,
+      Widget.fill({ label: 'mapper', formulary: 'jsonata', formula: '"![map](https://host/m.png?q=" & qn.title & ")"' }),
+      Widget.fill({ label: 'quiz_mapper', formulary: 'jsonata', formula: '["![all](https://host/all.png)"]' }),
+    ]
+    const pictured = questionWith({ title: 'Pic', clueing: '![typed](https://host/t.png)', stored: { author: typed('![entered](https://host/e.png)') } })
+    const imaged = {
+      ...TwoQuiz,
+      questions:  [pictured],
+      widgetings: [...TwoQuiz.widgetings, Widgeting.fill({ label: 'map', widget_label: 'mapper' }), Widgeting.fill({ label: 'maps', widget_label: 'quiz_mapper', tier: 'quiz' })],
+    }
+    const imagedRun = runOf(imaged, Imaged)
+    const imagedBag = Templating.bagOf(imagedRun, pictured._id)
+    expect(Templating.fill('{{qn.map}}', imagedBag).markdown).to.eq('&#33;[map](https://host/m.png?q=Pic)')
+    expect(Templating.fill('{{qn.map.value}} {{#quiz.maps.value}}{{.}}{{/quiz.maps.value}} {{quiz.maps}}', imagedBag).markdown).not.to.include('![')
+    expect(Templating.fill('{{qn.clueing}} {{qn.author}}', imagedBag).markdown).to.eq('![typed](https://host/t.png) ![entered](https://host/e.png)')
+    expect(imagedRun.widgeteds.get('map')?.get(pictured._id)?.value).to.eq('![map](https://host/m.png?q=Pic)')
+  })
+
+  it("leaves an image made a link no image to the screen's parser or the board's writer, whatever stands before it", () => {
+    const linked = ['&#33;[map](https://host/m.png)', String.raw`\&#33;[map](https://host/m.png)`, String.raw`\\&#33;[map](https://host/m.png)`, '!&#33;[map](https://host/m.png)']
+    for (const filled of linked) {
+      expect(nodekindsIn(Markdown.treeOf(filled)), filled).to.include('link').and.not.include('image')
+      expect(Bbjank.toBbjank(filled), filled).to.include('[url=https://host/m.png]').and.not.include('[img]')
+    }
   })
 
   it("offers no widgeting for the whole quiz for templating: it has no question's cell to fill", () => {

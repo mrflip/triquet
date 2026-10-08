@@ -288,10 +288,11 @@ O4, O7, O6's headers and O5 as far as one username; the rest wait on the Coach.
 * **O1, high, certain (fix needs a small design call).** `src/app/api/ask/route.ts` answers any
   POST on the server's Anthropic key (Opus tier, `max_tokens` as asked): no session, no rate limit.
   Check the caller's Convex Auth token (and username, or smith standing), rate-limit per ident, cap
-  `max_tokens`.
+  `max_tokens`. *Coach, 2026-10-08:* once there is OAuth, asking becomes bring-your-own-key.
 * **O2, medium/high, certain (needs the Coach: who are the admins?).** `Actor.isAdmin` is `true` for
   everyone, so anyone with a username can rewrite every library widget used by every hunt
-  (`widgets.perform`), and read `widgets.usage` and `stats.backfills`.
+  (`widgets.perform`), and read `widgets.usage` and `stats.backfills`. *Coach, 2026-10-08:* the
+  admin is the username `mrflip`. Waiting on how the e2e specs that write the library run as one.
 * **O3, medium, certain in code / uncertain in production.** An unheld legacy ident goes to the
   first session asserting it (`claimFor`), and `hunts.open` tells anyone a hunt's smiths' usernames.
   Close out unheld idents; name smiths only to a session with a username.
@@ -303,8 +304,9 @@ O4, O7, O6's headers and O5 as far as one username; the rest wait on the Coach.
 * **O8, low, uncertain.** A formula's timebox is per evaluation on the main thread: no budget per
   quiz run.
 * **O9, info.** An image may be any `https` address, the viewer's own network included.
-* Sprint, uncertain: a filled value (a library formula's or an `aibot` answer) can draw an image
-  whose address carries quiz text (the Coach's call: images from filled values as links?); each
+* ~~Sprint, uncertain: a filled value (a library formula's or an `aibot` answer) can draw an image
+  whose address carries quiz text~~ *Fixed* (2026-10-08, the Coach's yes): an image in a formula's
+  or a bot's column reaches a template as a link (`Templating.bagOf`). Each
   templated face may fill to 100,000 characters and re-parse on every render (memoize `faceOf`, or
   a lower cap for field templates).
 * Sprint, minor, uncertain whether it matters: the default recap template stops on `FillBudget`

@@ -8,7 +8,7 @@ import { QuestionWidgetLabel } from '../models/column'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
 import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../models/quiz'
 import { ArchivedField, type QuestionT } from '../models/question'
-import type { WidgetT } from '../models/widget'
+import type { Formularykind, WidgetT } from '../models/widget'
 
 /**
  * Field templates: a field's markdown filled in, by mustache, over the quiz's bag, before
@@ -18,7 +18,9 @@ import type { WidgetT } from '../models/widget'
  * markdown parser and then to the sanitizer, which is always the last step: on screen
  * `react-markdown` and `rehype-sanitize` (`Markdown.RenderOptions`), on the board
  * `Bbjank.toBbjank`. So a value holding `<script>` is shown as the characters typed, and a value
- * holding `**bold**` is bold, since it was filled in before the parser read it.
+ * holding `**bold**` is bold, since it was filled in before the parser read it. One thing is
+ * changed on the way in: an image in a formula's or a bot's column is made a link to it, so only
+ * text a person typed draws an image.
  *
  * Every template may also call the app's few **helpers** (`Helpers`), each only as a section:
  * `{{#quote}}{{clueing}}{{/quote}}` fills the section in, then shapes what it came to.
@@ -266,8 +268,9 @@ export function issueOf(template: string): string | null {
  * What a template reads for one question of a run, or for none (`question_id` null): the run's
  * place, the hunt's categories and the quiz, and its questions as they stand once every widgeting
  * has run, so a template sees every column -- in `qns` those a screen shows (all but the
- * archived), in `quiz.questions` every one. `qn` is the question itself, archived or not. The one
- * place a template's bag is made; widen it here.
+ * archived), in `quiz.questions` every one. `qn` is the question itself, archived or not. An image
+ * in a formula's or a bot's column comes as a link to it (`imagesLinkedOf`). The one place a
+ * template's bag is made; widen it here.
  *
  * @param run - The quiz, run.
  * @param question_id - The question the text is a field of; null for a text of the quiz's own.
@@ -303,17 +306,60 @@ export function filledBagOf(quiz: Pick<QuizT, 'templated'>, run: QuizRun): Templ
 function bagOver(run: QuizRun, questions: readonly Record<string, unknown>[], question_id: string | null): TemplateBag {
   const { frame } = run
   const idx = question_id === null ? -1 : frame.question_ids.indexOf(question_id)
-  const every = questions as Record<string, unknown>[]
+  const { quiz, every } = imagesLinkedOf(run, questions)
   return {
     hunt:       frame.hunt,
     realm:      frame.realm,
     categories: frame.categories,
-    quiz:       { ...frame.quiz, questions: every },
+    quiz:       { ...quiz, questions: every },
     qns:        every.filter((qn) => qn[ArchivedField] !== true),
     qn:         every[idx] ?? {},
     qn_label:   frame.qn_labels[idx] ?? '',
     quiz_label: frame.quiz_label,
   }
+}
+
+/** The formularies whose columns are worked out, not typed: a formula's and a bot's */
+const ComputedFormularies: ReadonlySet<Formularykind> = new Set(['jsonata', 'aibot'])
+
+/** What `imagesLinkedOf` made, by the questions it was made from, so a run's is made once however many cells read it */
+const LinkedOf = new WeakMap<readonly Record<string, unknown>[], { quiz: Record<string, unknown>, every: Record<string, unknown>[] }>()
+
+/**
+ * The run's quiz and `questions` as a template reads them: in each computed column's widgeted (a
+ * formula's or a bot's, never an entry's or a field), every image is a link to it (`![alt](src)`
+ * becomes `&#33;[alt](src)`, a `!` and then a link), so a value a template fills in can make no
+ * browser fetch from an address it chose. Typed text keeps its images. Formulas read the run
+ * itself, untouched.
+ */
+function imagesLinkedOf(run: QuizRun, questions: readonly Record<string, unknown>[]): { quiz: Record<string, unknown>, every: Record<string, unknown>[] } {
+  const known = LinkedOf.get(questions)
+  if (known !== undefined) { return known }
+  const computed = run.steps.filter(({ widget }) => widget !== null && ComputedFormularies.has(widget.formulary))
+  const labelsAt = (tier: string) => computed.filter(({ widgeting }) => widgeting.tier === tier).map(({ widgeting }) => widgeting.label)
+  const linked = { quiz: labelsLinkedIn(run.frame.quiz, labelsAt('quiz')), every: questions.map((qn) => labelsLinkedIn(qn, labelsAt('question'))) }
+  LinkedOf.set(questions, linked)
+  return linked
+}
+
+/** `held` with what each of `labels` holds imagesLinkedIn; `held` itself when it holds none of them */
+function labelsLinkedIn(held: Record<string, unknown>, labels: readonly string[]): Record<string, unknown> {
+  const present = labels.filter((label) => Object.hasOwn(held, label))
+  if (present.length === 0) { return held }
+  return { ...held, ...Object.fromEntries(present.map((label) => [label, imagesLinkedIn(held[label])])) }
+}
+
+/**
+ * `val` with every `![` in every string it holds written `&#33;[`: the `!` as a character
+ * reference, which markdown reads as the character and never as the start of an image.
+ *
+ * @example imagesLinkedIn({ value: ['![map](https://host/m.png)'] })  // => { value: ['&#33;[map](https://host/m.png)'] }
+ */
+function imagesLinkedIn(val: unknown): unknown {
+  if (typeof val === 'string') { return val.replaceAll('![', '&#33;[') }
+  if (Array.isArray(val)) { return val.map((each) => imagesLinkedIn(each)) }
+  if (typeof val === 'object' && val !== null) { return Object.fromEntries(Object.entries(val).map(([key, each]) => [key, imagesLinkedIn(each)])) }
+  return val
 }
 
 /**
