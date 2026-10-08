@@ -4,6 +4,11 @@
 rewidgeting sprint; this record was written by that sprint's first thread
 (`whiteboard/20261001-rewidgeting/`) and is the design threads 2 to 8 build to.
 
+**Revised by** `notes/decisions/20261008-columnwise.md` (the columnwise sprint, October 2026):
+entry families and params, a fourth formulary (`liquidize`), the column's ref and formula in place
+of `question.` and the parts, the reserved words, and removal. Each place below that it changes
+says so.
+
 **Replaces:** expressions, expressings, the bots and their prompts as code, the botting widget, and
 the `bottings` table with its three projected question fields.
 
@@ -126,6 +131,10 @@ export type Formulary = {
 
 ### Entries (thread 8, as built)
 
+*Revised by the columnwise record, §2 and §4:* the kinds become families with params on the
+widgeting, `valueOf` takes the widgeting, and the parts are a column's formula (`$.masie`), not a
+source.
+
 An `entry` widget has no formula and reads nothing: its cells are typed into. So it answers less of
 the interface than the other two, and the type says so: `TypedFormulary` in `formularies.ts` has
 no `run` and no `advice` (there is no formula to help write), and in their place `valueOf(widget)`,
@@ -164,6 +173,9 @@ entry's column no inputs (only a `click` widgeting has any).
   any other widgeting is refused (`partUnoffered`).
 
 ### The quiz tier (the recap sprint's thread 6, as built)
+
+*Revised by the columnwise record, §4:* a column may show a quiz widgeting, by the ref
+`quiz.<label>`.
 
 A widgeting's `tier` (`question` or `quiz`, widened in by the recap sprint's thread 1) says
 whether it runs for each question or once for the whole quiz. The Coach's design: the gear lists
@@ -330,7 +342,9 @@ default order puts the `aibot` widgetings first, as today's default layout puts 
 `qn_label` and `quiz_label`. The bag is therefore made per (question, widgeting); the per-render
 cost of that is `notes/decisions/20260928-database-decisions.md`'s memoization item, not this sprint's.
 
-**The reserved pattern.** A widgeting's label may not be:
+**The reserved pattern.** *Revised by the columnwise record, §9:* `forced_label`, below, was
+dropped from the code when the override retired, and is restored there with the rest of the lists.
+A widgeting's label may not be:
 
 * any key a question has in the bag: `Question.exposed` (`alt_text`, `chains_to`, `clueing`,
   `full_answer`, `hint`, `label`, `notes`, `qnum`, `title`) and `rank`, which the bag adds;
@@ -467,7 +481,8 @@ personal scopes will fix it.
   any hunt" comes to when the library is reached from a quiz. `authorize.ts`'s header says so in a
   sentence; no new rule is needed until a door to the library opens outside any hunt.
 * **Removing a widget is refused while any widgeting works it**, in any hunt (thread 6). Removing a
-  widgeting removes its columns and its widgeteds.
+  widgeting removes its columns and its widgeteds. *Revised by the columnwise record, §8:* a
+  widgeting is removed only once no column shows it; its widgeteds still go with it.
 * **Reading the library**: any browser that has said who it is. It holds formulas and prompts,
   nothing of any hunt.
 * **Counting usage** ("worked by N widgetings across M quizzes, in H hunts", thread 6) reads

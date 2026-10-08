@@ -27,3 +27,10 @@ security expert who knows what questions to ask.
   a prompt's input goes through `Formulas.plainJson` before it is read.
   Runaway templates stop on the app's counted budgets, behind LiquidJS's own time and allocation
   limits, which have had bypasses before (CVE-2026-44645).
+* 2026-10-08 (columnwise sprint, `notes/decisions/20261008-columnwise.md`): a model's reply can
+  reach Liquid as the template itself, not only as a value filled into one: a `liquidize`
+  widgeting whose template is read from the bag (`template_from`) over a bot's reply or a formula
+  of one, or a templateable source whose text came from one, is filled in over the quiz's bag in
+  every smith's browser, under the same budgets and own-keys reading as a field template. A
+  computed value (`jsonata`, `aibot`, `liquidize`) reaches markdown with its images made links,
+  through a column's template or its markdown readout alike.
