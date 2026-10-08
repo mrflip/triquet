@@ -93,6 +93,12 @@ estimates, widgets, entries, quiz-entries, sheets, grid) green on lane 2.
      or `backfillCategoryDataWidget`, `backfillCategoryDataWidgetings`,
      `backfillPlainColumnSources`, `backfillQuizTemplateables`.
 
+* **Review** (`8562e8b`, `ab77f54`): `updateColumn` reads the held column plain before merging a
+  patch; the importer relabels `categories` by the backfill's first-free rule
+  (`categoryDataLabelsFor`). Left for the Coach: a renamed or deleted `categories` widgeting
+  misses a column whose plain source is `categories` (the reviewer's `shadowedBy`), only in the
+  window before the backfill.
+
 * **For the Coach**:
   - Before deploying: grep the raw export for formulas reading `qn.categories`.
   - Is the empty-estimates-cell rule (above) right, or should an unplaced question show a dash?
