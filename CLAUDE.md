@@ -158,6 +158,9 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
   - `notes/stack.md` *(auto-loads)* -- what we build with. Consult it when
     adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
   - `notes/deploy.md` -- agents never deploy to production, but look here if humans request your guidance.
+  - `notes/housekeeping.md` -- stray branches, stale worktrees, and finding the session that owns a
+    branch. **Read before deleting any branch, tag or worktree, or cleaning up the container.**
+    Stray branches are retired with `scripts/git-attic`, never `git branch -d` or `-D`.
   - `notes/security.md` -- decisions a security reviewer should look at. Add one when you make such a decision.
   - `notes/testing.md` *(auto-loads)* -- test conventions.
   - `notes/convex.md` *(auto-loads)* -- how we use Convex, where we depart from its guidelines, and which Convex skill to name when.
@@ -186,7 +189,7 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
 
 ## Git
 
-History on main is semi-linear. Read `notes/git_hygiene.md` before any complicated operation (eg a rebase that touches more than one branch), or when your guidance on git is requested, or if performing operations on the github repo.
+History on main is semi-linear. Read `notes/git_hygiene.md` before any complicated operation (eg a rebase that touches more than one branch) or anything that deletes a ref or a worktree, or when your guidance on git is requested, or if performing operations on the github repo.
 
 Work goes in **threads**: one line of work, one branch, one PR, one worktree. (A session may involve several threads.) An ordered series of threads issued at once is a **sprint**, run by the `/sprint` orchestrator through `thread-worker` agents: `notes/git_hygiene.md`, *Sprints*. Within a thread you have standing permission to commit, land, push its branch, and open its PR without asking. `git_hygiene` has more details on each of these steps.
 
