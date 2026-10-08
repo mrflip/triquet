@@ -3,7 +3,7 @@ import * as Liquidry from '../../src/lib/liquidry'
 
 /** A renderer with one shaping filter and one plain one, a value filling in as its text */
 const Renderer = Liquidry.rendererFor({
-  fillingOf: (val) => (val === null || val === undefined ? '' : String(val)),
+  fillingOf: (val) => (typeof val === 'string' || typeof val === 'number' ? String(val) : ''),
   shapers:   { shout: (text) => text.toUpperCase() },
   filters:   { twice: (val) => [val, val] },
 })
@@ -30,7 +30,7 @@ describe('Liquidry.rendererFor', () => {
   })
 
   it('counts what its shaping filters are handed', () => {
-    const long = 'x'.repeat(Liquidry.ShapedMax / 2 + 1)
+    const long = 'x'.repeat((Liquidry.ShapedMax / 2) + 1)
     expect(Renderer.render('{{ long | shout | shout }}', { long }).issue).to.eq('This template shapes too much text: the same long text shaped again and again, perhaps.')
   })
 
