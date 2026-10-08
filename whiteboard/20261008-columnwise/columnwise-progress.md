@@ -14,7 +14,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 4 | removal and commit model | landed #192 |
 | 3b | column expression authoring | landed #197 |
 | 7 | `liquidize` formulary | in review |
-| 6 | free regex (optional) | underway |
+| 6 | free regex (optional) | in review |
 | 5a | folding editors | underway |
 | 5b | run order in both places, row preview | pending |
 | 8 | seeds pass (optional) | pending |
