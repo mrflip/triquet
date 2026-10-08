@@ -238,12 +238,13 @@ describe('shownOf', () => {
   const cats = Widgeting.fill({ label: 'cats', widget_label: 'estimating' })
   const playtesters = Widgeting.fill({ label: 'playtesters', widget_label: 'names', tier: 'quiz' })
   const shouted = Widgeting.fill({ label: 'shouted', widget_label: 'shout' })
+  const remark = Widgeting.fill({ label: 'remark', widget_label: 'names' })
   const library = [
     Widget.fill({ label: 'estimating', formulary: 'entry', config: { entry_kind: 'estimates' } }),
     Widget.fill({ label: 'names', formulary: 'entry', config: { entry_kind: 'text' } }),
     Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$error("no")' }),
   ]
-  const quiz = { ...Quiz.blank('Shown'), questions: [placed, blank], widgetings: [cats, playtesters, shouted], stored: { playtesters: answered('Ada and Grace') } }
+  const quiz = { ...Quiz.blank('Shown'), questions: [placed, blank], widgetings: [cats, playtesters, shouted, remark], stored: { playtesters: answered('Ada and Grace') } }
   const run = runOf(quiz, library)
   /** What a column showing `source`, worked by `formula`, shows for `question` */
   const shown = (source: string, formula: string | null, question: QuestionT = placed, templateable: string[] = []) => {
@@ -266,8 +267,12 @@ describe('shownOf', () => {
   })
 
   it('passes a widgeted that is not ok by, the dash and the badge with it', () => {
-    expect(shown('cats', '$.artie', blank)).to.deep.eq(Widgeted.missing)
+    expect(shown('remark', '$.value', blank)).to.deep.eq(Widgeted.missing)
     expect(shown('shouted', '$.value', blank).status).to.eq('errored')
+  })
+
+  it("works on an empty category-estimate cell, whose parts read it as no category in particular, at medium", () => {
+    expect(shown('cats', '$.artie', blank)).to.deep.eq(Widgeted.ok(0.525))
   })
 
   it('works a formula over a field, a key or a word, which has no status', () => {

@@ -258,8 +258,8 @@ export function shownOf(spec: Pick<ColumnSpec, 'source' | 'formula'>, run: Runne
  * What `formula` works out of what `source` picks for every question of the run, by the
  * question's id, made once per run. The thing is read from the finished bag: the questions as
  * the last widgeting left them, their templateable sources filled in (`Templating.finishedQnsOf`).
- * A widgeted is worked on only when `ok`: `missing` and `errored` pass through, so the dash and
- * the badge still show. What the formula comes to reads as a `jsonata` widgeted does
+ * A widgeted is worked on only when `ok` (or carrying parts worked out from nothing, `isWorkable`):
+ * `missing` and `errored` pass through, so the dash and the badge still show. What the formula comes to reads as a `jsonata` widgeted does
  * (`JsonataFormulary.worked`); a formula that will not stop is stopped once, and every later
  * question reads the same failure rather than waiting on it again.
  */
@@ -274,7 +274,7 @@ function workedOf(source: Resolved, formula: string, run: Runner.QuizRun, templa
   let stopped: WidgetedT | null = null
   for (const [idx, question_id] of run.frame.question_ids.entries()) {
     const thing = thingOf(source, qns, run, idx)
-    if (source.kind === 'widgeting' && ! isOk(thing)) {
+    if (source.kind === 'widgeting' && ! isWorkable(thing)) {
       worked.set(question_id, passedThrough(thing))
     } else if (stopped === null) {
       const outcome = JsonataFormulary.worked(formula, thing)
@@ -324,9 +324,19 @@ function thingOf(source: Resolved, qns: readonly Record<string, unknown>[], run:
   }
 }
 
-/** Whether `thing`, a widgeted as the bag holds one, is `ok` */
-function isOk(thing: unknown): boolean {
-  return (thing as Partial<WidgetedT> | null)?.status === 'ok'
+/** What a widgeted holds of its own, beside which the bag may carry its parts */
+const WidgetedKeys: ReadonlySet<string> = new Set(['status', 'value', 'err'])
+
+/**
+ * Whether a formula works on `thing`, a widgeted as the bag holds one: when it is `ok`; or when it
+ * is `missing` but carries parts beside it, worked out from nothing typed (a category-estimate
+ * entry's, whose empty cell reads as one estimate of no category in particular). An `errored` one,
+ * or a `missing` one with nothing beside it, passes by.
+ */
+function isWorkable(thing: unknown): boolean {
+  const { status } = (thing ?? {}) as Partial<WidgetedT>
+  if (status === 'ok') { return true }
+  return status === 'missing' && Object.keys(thing as object).some((key) => ! WidgetedKeys.has(key))
 }
 
 /** A widgeted that is not `ok`, as it passes a formula by: its status, value and failure, without what rides beside them */
