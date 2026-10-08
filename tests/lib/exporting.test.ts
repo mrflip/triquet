@@ -134,12 +134,23 @@ describe('quizBodyOf', () => {
   it("keeps every field the quiz stores and each widgeting's and column's, its sort memory and a column's alignment among them", () => {
     const chained = chainedQuiz()
     const columns = chained.columns.map((column, ii) => (ii === 0 ? { ...column, align: 'right' as const } : column))
-    const recap = { recap_head: 'Thanks to our playtesters.', recap_tail: 'Until next season.', recap_template: '{{#played}}{{number}}. {{title}}{{/played}}', templated: ['question.recap', 'remark'] }
+    const recap = { recap_head: 'Thanks to our playtesters.', recap_tail: 'Until next season.', recap_template: '{{#played}}{{number}}. {{title}}{{/played}}', templateable: ['recap', 'remark'] }
     const quiz = { ...chained, columns, locked: true, smiths_note: 'Kings and lions.', ...recap, last_sortkey: 'column:title' as const }
     const body = bodyOf(quiz)
     expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, ...recap, locked: true, last_sortkey: 'column:title', created_at: null, updated_at: null })
     expect(body.widgetings.remark).to.deep.eq({ position: quiz.widgetings.length - 1, widget_label: 'remark', description: '', params: {}, tier: 'question' })
-    expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'question.title', width_px: 100, align: 'right' })
+    expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'title', width_px: 100, align: 'right' })
+  })
+
+  it("writes each column in the plain grammar, its formula beside it, one held in the grammar before October 2026 included", () => {
+    const chained = chainedQuiz()
+    const columns = [
+      { label: 'title', title: 'Title', source: 'question.title', width_px: 100 },
+      { label: 'shout', title: 'Shout', source: 'title', formula: '$uppercase($)', width_px: 100 },
+    ]
+    const body = bodyOf({ ...chained, columns })
+    expect([body.columns.title?.source, body.columns.shout?.source, body.columns.shout?.formula]).to.deep.eq(['title', 'title', '$uppercase($)'])
+    expect(body.columns.title).to.not.have.property('formula')
   })
 
   it("writes the recap template of a quiz that follows the default as null", () => {

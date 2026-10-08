@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sourceOf as columnSourceOf } from '../../src/models/column'
+import { refOf } from '../../src/models/column'
 import { Hunt } from '../../src/models/hunt'
 import { Quiz } from '../../src/models/quiz'
 import { DefaultWidgetings } from '../../src/models/seeds'
@@ -25,7 +25,7 @@ describe('classicLayout', () => {
   })
 
   it("shows each of its twelve widgetings in a column, the sums as narrow as numbers", () => {
-    expect(layout.columns.map((column) => columnSourceOf(column.source)).filter((source) => source.kind === 'widgeting')).to.have.lengthOf(12)
+    expect(layout.columns.map((column) => refOf(column.source)).filter((source) => source.kind === 'widgeting')).to.have.lengthOf(12)
     const sums = layout.columns.filter((column) => (SumColkeyLabels as readonly string[]).includes(column.label))
     expect(new Set(sums.map((column) => column.width_px))).to.deep.eq(new Set([78]))
   })

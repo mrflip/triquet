@@ -2,7 +2,7 @@ import { expect } from 'vitest'
 import { authTables } from '@convex-dev/auth/server'
 import type { Doc, TableNames } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
-import { QuestionWidgetLabel, sourceOf } from '../../src/models/column'
+import { ColumnValidators, beforeOctoberOf, refOf } from '../../src/models/column'
 import type { Tester } from './convex'
 
 // Convex has no foreign keys and no unique indexes: every cascade and every uniqueness is code in
@@ -94,7 +94,7 @@ function danglingChains(held: Held): string[] {
   })
 }
 
-/** Each column's `source` is a question's field or view, or the label of a widgeting of its quiz */
+/** Each column's `source` is a plain ref: a question's field, view or key, a word of the bag, or the label of a widgeting of its quiz at the tier it names */
 function unshowableSources(held: Held): string[] {
   const widgetingsOf = groupedBy(held.widgetings, (widgeting) => widgeting.quiz_id)
   return held.columns.flatMap((column) => (
@@ -102,12 +102,12 @@ function unshowableSources(held: Held): string[] {
   ))
 }
 
-/** Whether `source` names a question's field or view, or one of `widgetings` that runs for each question */
+/** Whether `source`, written in the plain grammar, names something there is: a widgeting among `widgetings` at the tier it names, or anything else a ref names */
 function isShowable(source: string, widgetings: readonly Doc<'widgetings'>[]): boolean {
-  const named = sourceOf(source)
-  if (named.kind === 'widgeting') { return widgetings.some((widgeting) => widgeting.label === named.label && widgeting.tier === 'question') }
-  if (named.kind === 'view') { return source === `${QuestionWidgetLabel}.${named.view}` }
-  return source === `${QuestionWidgetLabel}.${named.field}`
+  if (beforeOctoberOf(source) !== null || ! ColumnValidators.source.safeParse(source).success) { return false }
+  const ref = refOf(source)
+  if (ref.kind !== 'widgeting') { return true }
+  return widgetings.some((widgeting) => widgeting.label === ref.label && widgeting.tier === ref.tier)
 }
 
 /** No two hunts share a label, nor two quizzes of one realm */

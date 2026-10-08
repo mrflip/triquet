@@ -59,7 +59,7 @@ describe('cellTextOf', () => {
   const question = Question.blank()
   const run = runHolding({ questions: [question] }, { col: { [question._id]: Widgeted.ok('x') } })
   const widgeting = Widgeting.fill({ label: 'col', widget_label: 'whatever' })
-  const textFor = (widgeted: WidgetedT) => Sheets.cellTextOf({ kind: 'widgeting', widgeting, part: null }, { question, target: null, run: runHolding({ questions: [question] }, { col: { [question._id]: widgeted } }) })
+  const textFor = (widgeted: WidgetedT) => Sheets.cellTextOf({ source: { kind: 'widgeting', widgeting }, formula: null }, { question, target: null, run: runHolding({ questions: [question] }, { col: { [question._id]: widgeted } }), templateable: [] })
 
   const Cases: [WidgetedT, string, string][] = [
     // widgeted                                                     text                          blurb
@@ -78,21 +78,28 @@ describe('cellTextOf', () => {
     })
   }
 
-  it("writes a part of a category-estimate widgeting as what it came to: a chance as its number, the estimates as their JSON", () => {
+  it("writes what a column's formula came to: a part of a category-estimate widgeting, a chance as its number, the estimates as their JSON", () => {
     const placed = { ...Question.blank(), stored: { cats: answered([{ category: 'art', difficulty: 'easy' }]) } }
     const cats = Widgeting.fill({ label: 'cats', widget_label: 'categories' })
     const estimated = runOf({ ...Quiz.blank(), questions: [placed], widgetings: [cats] }, [Widget.fill({ label: 'categories', formulary: 'entry', config: { entry_kind: 'estimates' } })])
-    const partText = (part: 'artie' | 'estimates') => Sheets.cellTextOf({ kind: 'widgeting', widgeting: cats, part }, { question: placed, target: null, run: estimated })
-    expect([partText('artie'), partText('estimates')]).to.deep.eq(['0.9', '[{"category":"art","difficulty":"easy"}]'])
+    const partText = (formula: string) => Sheets.cellTextOf({ source: { kind: 'widgeting', widgeting: cats }, formula }, { question: placed, target: null, run: estimated, templateable: [] })
+    expect([partText('$.artie'), partText('$.estimates'), partText('$.average > 0.5')]).to.deep.eq(['0.9', '[{"category":"art","difficulty":"easy"}]', 'true'])
   })
 
   it('writes a field as the question holds it, and the chain as the target\'s label', () => {
     const target = { ...Question.blank(), label: 'the_film', hint: 'BUT NOT the film' }
     const chained = { ...Question.blank(), clueing: 'Who?', chains_to: target._id }
-    expect(Sheets.cellTextOf({ kind: 'field', field: 'clueing' }, { question: chained, target, run })).to.eq('Who?')
-    expect(Sheets.cellTextOf({ kind: 'field', field: 'chains_to' }, { question: chained, target, run })).to.eq('the_film')
-    expect(Sheets.cellTextOf({ kind: 'view', view: 'butnot' }, { question: chained, target, run })).to.eq('BUT NOT the film')
-    expect(Sheets.cellTextOf({ kind: 'view', view: 'butnot' }, { question: chained, target: null, run })).to.eq('')
+    const textOf = (source: Parameters<typeof Sheets.cellTextOf>[0]['source'], withTarget: QuestionT | null = target) => Sheets.cellTextOf({ source, formula: null }, { question: chained, target: withTarget, run, templateable: [] })
+    expect(textOf({ kind: 'field', field: 'clueing' })).to.eq('Who?')
+    expect(textOf({ kind: 'field', field: 'chains_to' })).to.eq('the_film')
+    expect(textOf({ kind: 'view', view: 'butnot' })).to.eq('BUT NOT the film')
+    expect(textOf({ kind: 'view', view: 'butnot' }, null)).to.eq('')
+  })
+
+  it("writes a field worked by a formula as what the formula came to", () => {
+    const shouted = { ...Question.blank(), title: 'Leon' }
+    const shoutRun = runOf({ ...Quiz.blank(), questions: [shouted] }, [])
+    expect(Sheets.cellTextOf({ source: { kind: 'field', field: 'title' }, formula: '$uppercase($)' }, { question: shouted, target: null, run: shoutRun, templateable: [] })).to.eq('LEON')
   })
 })
 
@@ -122,7 +129,7 @@ describe('sheetsExport', () => {
 
   it('follows the quiz\'s own columns, whatever they show', () => {
     const widgeting = Widgeting.fill({ label: 'backward', widget_label: 'answer_reversed' })
-    const columns = [Column.fill({ label: 'zzz', title: 'Backward', source: 'backward', width_px: 78 }), Column.fill({ label: 'aaa', title: 'Answer', source: 'question.full_answer', width_px: 220 })]
+    const columns = [Column.fill({ label: 'zzz', title: 'Backward', source: 'backward', width_px: 78 }), Column.fill({ label: 'aaa', title: 'Answer', source: 'full_answer', width_px: 220 })]
     const table = exported([{ ...Question.blank(), qnum: '1', full_answer: 'stressed' }], { widgetings: [widgeting], columns })
     expect(table[0]).to.deep.eq(['aaa', 'zzz'])
     expect(table[1]).to.deep.eq(['stressed', 'desserts'])

@@ -72,9 +72,9 @@ export const RefusalNotices = {
   columnGone:       'That column is no longer in this quiz.',
   labelTaken:       'That label is already taken here — choose another.',
   sourceUnshowable: "That column would show a widgeting this quiz doesn't have.",
-  partUnoffered:    'Only a category-estimate entry has parts for a column to show.',
   untemplatable:    "That would template a widgeting this quiz doesn't have.",
   widgetInUse:      'A widgeting still works this widget — remove the widgeting first.',
+  widgetingShown:   'A column still shows that widgeting — remove the column first.',
   formularyFixed:   "A widget's formulary is fixed once it is made — make a new widget instead.",
   notStored:        "That widgeting isn't asked from its cell; there is nothing to record.",
   notEntered:       "That widgeting's cells aren't typed into.",
@@ -146,6 +146,25 @@ export function noSuchHuntNotice(org: string | null, huntLabel: string): string 
 
 /** Any of several names, as a sentence says them: "Flip, Ada, or Grace" */
 const EitherOf = new Intl.ListFormat('en', { type: 'disjunction' })
+
+/** All of several names, as a sentence says them: "Masie, Artie, and Poppy" */
+const AllOf = new Intl.ListFormat('en', { type: 'conjunction' })
+
+/**
+ * Why a widgeting cannot be removed: the columns that show it, by what each is called on screen.
+ * The refusal `widgetingShown` says it of no column in particular.
+ *
+ * @param columnNames - What each column showing it is called: its title, or its label when untitled.
+ *
+ * @example widgetingShownNotice(['Sum'])  // => 'The column “Sum” still shows that widgeting — remove the column first.'
+ * @example widgetingShownNotice(['Masie', 'Artie'])  // => 'The columns “Masie” and “Artie” still show that widgeting — remove them first.'
+ */
+export function widgetingShownNotice(columnNames: readonly string[]): string {
+  const quoted = columnNames.map((columnName) => `“${columnName}”`)
+  if (quoted.length === 0) { return RefusalNotices.widgetingShown }
+  if (quoted.length === 1) { return `The column ${AllOf.format(quoted)} still shows that widgeting — remove the column first.` }
+  return `The columns ${AllOf.format(quoted)} still show that widgeting — remove them first.`
+}
 
 /**
  * `smiths` as a sentence names them, any one of them to be asked, each by title and label (by

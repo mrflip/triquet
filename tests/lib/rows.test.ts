@@ -3,7 +3,7 @@ import type { MigrationStatus } from '@convex-dev/migrations'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  assembledQuiz, backfillFrom, backfillsFrom, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
+  assembledQuiz, backfillFrom, backfillsFrom, columnFrom, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, templateableOf, widgetFrom, widgetingFrom,
   type CellRows, type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import * as Wheel from '../../src/lib/wheel'
@@ -36,7 +36,7 @@ const FailedSince: CellRows = { newest: widgetedRow('errored', 7.25, 'failed'), 
 
 const QuizRow: Doc<'quizzes'> = {
   _id: quiz_id, _creationTime: 1, hunt_id, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes',
-  smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', recap_head: 'Thanks, playtesters!', recap_tail: 'Next season.', templated: ['question.recap', 'dumdum'],
+  smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', recap_head: 'Thanks, playtesters!', recap_tail: 'Next season.', templateable: ['recap', 'dumdum'],
   locked: false, last_sortkey: null, row_ordering: [question_id],
 }
 const WidgetingRow: Doc<'widgetings'> = {
@@ -99,7 +99,7 @@ describe('quizFrom', () => {
   })
 
   it('carries the recap\'s head and tail, and what the quiz templates', () => {
-    expect(_.pick(quizFrom(rows), ['recap_head', 'recap_tail', 'templated'])).to.deep.eq({ recap_head: 'Thanks, playtesters!', recap_tail: 'Next season.', templated: ['question.recap', 'dumdum'] })
+    expect(_.pick(quizFrom(rows), ['recap_head', 'recap_tail', 'templateable'])).to.deep.eq({ recap_head: 'Thanks, playtesters!', recap_tail: 'Next season.', templateable: ['recap', 'dumdum'] })
   })
 
   it('carries the quiz\'s widgetings, each without its ids or place', () => {
@@ -186,12 +186,40 @@ describe('frameOf', () => {
   })
 
   it('sends each column as the grid needs it, its alignment only where one was set', () => {
-    const ColumnRow: Doc<'columns'> = { _id: idOf('columns', 'col1'), _creationTime: 2, hunt_id, quiz_id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330, position: 0 }
-    const columns = [ColumnRow, { ...ColumnRow, _id: idOf('columns', 'col2'), label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60, position: 1, align: 'right' as const }]
+    const ColumnRow: Doc<'columns'> = { _id: idOf('columns', 'col1'), _creationTime: 2, hunt_id, quiz_id, label: 'clueing', title: 'Clueing', source: 'clueing', width_px: 330, position: 0 }
+    const columns = [ColumnRow, { ...ColumnRow, _id: idOf('columns', 'col2'), label: 'qnum', title: 'Q#', source: 'qnum', width_px: 60, position: 1, align: 'right' as const }]
     expect(frameOf(QuizRow, [], columns, new Map()).columns).to.deep.eq([
-      { label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330 },
-      { label: 'qnum',    title: 'Q#',      source: 'question.qnum',    width_px: 60,  align: 'right' },
+      { label: 'clueing', title: 'Clueing', source: 'clueing', width_px: 330 },
+      { label: 'qnum',    title: 'Q#',      source: 'qnum',    width_px: 60,  align: 'right' },
     ])
+  })
+
+  it("reads a quiz written before its nomination was renamed by its `templated`, in the plain grammar", () => {
+    const older = _.omit(QuizRow, ['templateable'])
+    expect(frameOf({ ...older, templated: ['question.recap', 'dumdum'] }, [], [], new Map()).templateable).to.deep.eq(['recap', 'dumdum'])
+    expect(frameOf({ ...older, templated: ['question.recap'] }, [], [], new Map())).to.not.have.property('templated')
+  })
+})
+
+describe('templateableOf', () => {
+  it("is a quiz row's `templateable`, or else its `templated` read in the plain grammar, or else nothing", () => {
+    expect(templateableOf({ templateable: ['clueing'], templated: ['question.hint'] })).to.deep.eq(['clueing'])
+    expect(templateableOf({ templated: ['question.clueing'] })).to.deep.eq(['clueing'])
+    expect(templateableOf({})).to.deep.eq([])
+  })
+})
+
+describe('columnFrom', () => {
+  const ColumnRow: Doc<'columns'> = { _id: idOf('columns', 'col1'), _creationTime: 2, hunt_id, quiz_id, label: 'masie', title: 'Masie', source: 'categories.masie', width_px: 60, position: 0 }
+
+  it('reads a row written in the grammar before October 2026 as it reads now', () => {
+    expect(columnFrom(ColumnRow)).to.deep.eq({ label: 'masie', title: 'Masie', source: 'categories', formula: '$.masie', width_px: 60 })
+    expect(columnFrom({ ...ColumnRow, source: 'question.title' }).source).to.eq('title')
+  })
+
+  it("carries a column's formula, template, readout and collapse, where it has them", () => {
+    const shaped = { ...ColumnRow, source: 'category_data', formula: '$.average', template: '{{ value }}', readout: 'markdown' as const, collapsed: true }
+    expect(columnFrom(shaped)).to.deep.eq({ label: 'masie', title: 'Masie', source: 'category_data', formula: '$.average', template: '{{ value }}', readout: 'markdown', collapsed: true, width_px: 60 })
   })
 })
 

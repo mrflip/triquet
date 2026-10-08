@@ -74,7 +74,22 @@ export class JsonataFormulary {
     const input = this.input(widget, bag)
     if (input.status === 'missing') { return { widgeted: Widgeted.missing, stops: false } }
     if (input.status === 'errored') { return { widgeted: failed(input.message), stops: input.stops } }
-    const outcome = Formulas.evaluate(widget.formula, input.input)
+    return this.worked(widget.formula, input.input)
+  }
+
+  /**
+   * What `formula` comes to over `input`, read as a widgeted: a value is `ok`; a failure, or a
+   * function, is `errored`; nothing at all (JSONata `undefined`, null or an empty string) is
+   * `missing`. How a widget's formula reads, and a column's.
+   *
+   * @param formula - JSONata.
+   * @param input - What it reads.
+   * @returns The widgeted, and whether the formula would not stop, so the rest of its column should read the same failure rather than wait on it again.
+   *
+   * @example JsonataFormulary.worked('$.masie', { status: 'ok', value: [], err: null, masie: 0.5 }).widgeted  // => { status: 'ok', value: 0.5, err: null }
+   */
+  static worked(formula: string, input: unknown): LiveRun {
+    const outcome = Formulas.evaluate(formula, input)
     if (! outcome.ok) { return { widgeted: failed(outcome.message), stops: outcome.failkind === 'timeout' } }
     return { widgeted: reading(outcome.val), stops: false }
   }

@@ -1,6 +1,6 @@
 import * as Rank from './rank'
 import * as Runner from './formulary/runner'
-import { resolve, type Resolved } from './columns'
+import { shownOf, specFor, type ColumnSpec } from './columns'
 import { columnLabelOf } from '../models/column'
 import type { QuizT, Sortkey } from '../models/quiz'
 import type { QuestionT } from '../models/question'
@@ -57,16 +57,23 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
  * @param run - The quiz, run: what each widgeting came to, for a column that shows one.
  * @returns A reader for that column.
  */
-export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgetings'>, run: Runner.QuizRun): SortValueOf {
+export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgetings' | 'templateable'>, run: Runner.QuizRun): SortValueOf {
   const label = columnLabelOf(sortkey)
   const column = quiz.columns.find((each) => each.label === label)
-  const source = column ? resolve(column.source, quiz.widgetings) : null
-  if (! source) { return () => null }
-  return readerFor(source, quiz.questions, run)
+  const spec = column ? specFor(column, quiz.widgetings) : null
+  if (! spec) { return () => null }
+  return readerFor(spec, quiz.questions, run, quiz.templateable)
 }
 
-/** How a thing a column shows reads one question */
-function readerFor(source: Resolved, questions: readonly QuestionT[], run: Runner.QuizRun): SortValueOf {
+/**
+ * How a column reads one question: a question's own field as it orders (Q# by its number, a
+ * chain by its target's title), and anything else by what the column came to, through its formula
+ * when it has one (`shownOf`), never by how it is drawn.
+ */
+function readerFor(spec: Pick<ColumnSpec, 'source' | 'formula'>, questions: readonly QuestionT[], run: Runner.QuizRun, templateable: readonly string[]): SortValueOf {
+  const { source } = spec
+  const shown: SortValueOf = (question) => sortValueOf(shownOf(spec, run, templateable, question._id))
+  if (spec.formula !== null) { return shown }
   const questionForId = new Map(questions.map((question) => [question._id, question]))
   const targetOf = (question: QuestionT) => (question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null)
   switch (source.kind) {
@@ -76,11 +83,13 @@ function readerFor(source: Resolved, questions: readonly QuestionT[], run: Runne
     if (source.field === 'chains_to') { return (question) => targetOf(question)?.title ?? null }
     return () => null
   }
-  case 'view': {
+  case 'view':
+  case 'word': {
     return () => null
   }
+  case 'key':
   case 'widgeting': {
-    return (question) => sortValueOf(Runner.widgetedOf(run, source.widgeting.label, question._id, source.part))
+    return shown
   }
   }
 }

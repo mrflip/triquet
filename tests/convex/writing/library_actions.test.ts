@@ -213,6 +213,7 @@ describe("delete_widget", () => {
 
   it("removes it once no widgeting works it", async () => {
     const { act, actOnLibrary, read } = await seed(classicHunt())
+    await act({ kind: 'delete_column', label: 'clueing_full' })
     await act({ kind: 'delete_widgeting', label: 'clueing_full' })
     await actOnLibrary({ kind: 'delete_widget', label: 'clueing_full' })
     expect(labelsOf(await read())).to.not.include('clueing_full')

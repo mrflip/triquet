@@ -134,16 +134,16 @@ describe("testing.makeHunt", () => {
     const tt = openTester()
     await tt.mutation(internal.seeding.seedWidgets, {})
     await identified(tt, 'tester_maker')
-    const address = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker', widgetings: ['dumdum', 'clueing_full', 'categories', 'dumdum'], columns: ['hint', 'butnot'] })
+    const address = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker', widgetings: ['dumdum', 'clueing_full', 'category_data', 'dumdum'], columns: ['hint', 'butnot'] })
     const made = await madeOf(tt, address)
-    expect(made.widgetings).to.deep.eq([['dumdum', 'dumdum'], ['clueing_full', 'clueing_full'], ['categories', 'categories'], ['dumdum_2', 'dumdum']])
+    expect(made.widgetings).to.deep.eq([['dumdum', 'dumdum'], ['clueing_full', 'clueing_full'], ['category_data', 'category_data'], ['dumdum_2', 'dumdum']])
     expect(made.columns.slice(5)).to.deep.eq([
       ['dumdum',       'Dumdum',       'dumdum',           NewColumnWidthPx.aibot],
       ['clueing_full', 'Clueing Full', 'clueing_full',     NewColumnWidthPx.jsonata],
-      ['categories',   'Categories',   'categories',       EstimatesColumnWidthPx],
+      ['category_data', 'Category Data', 'category_data', EstimatesColumnWidthPx],
       ['dumdum_2',     'Dumdum 2',     'dumdum_2',         NewColumnWidthPx.aibot],
-      ['hint',         'Hint',         'question.hint',    AddedColumnWidthPx],
-      ['butnot',       'BUT NOT',      'question.butnot',  AddedColumnWidthPx],
+      ['hint',         'Hint',         'hint',    AddedColumnWidthPx],
+      ['butnot',       'BUT NOT',      'butnot',  AddedColumnWidthPx],
     ])
   })
 

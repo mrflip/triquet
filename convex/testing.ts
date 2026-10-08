@@ -6,7 +6,7 @@ import * as Routes from '../src/lib/routes'
 import { ValidatorKit } from '../src/lib/validator'
 import { planWidgetingEdit } from '../src/lib/widgeting-edit'
 import { widgetFrom } from '../src/lib/rows'
-import { Column, namesFor, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, type QuestionField, type QuestionView } from '../src/models/column'
+import { Column, namesFor, QuestionFieldVals, QuestionViewVals, type QuestionField, type QuestionView } from '../src/models/column'
 import { ActionValidators, isLayoutAction } from '../src/models/actions'
 import { AddedColumnWidthPx } from '../src/models/layout'
 import { HomeRealmLabel } from '../src/models/realm'
@@ -120,7 +120,7 @@ async function layOutWidgeting(db: Writer, open: OpenQuizT, quiz: Doc<'quizzes'>
 
 /** Show the question's own `field` in a column at the open quiz's end, as the columns editor makes one left at its defaults */
 async function layOutColumn(db: Writer, open: OpenQuizT, quiz: Doc<'quizzes'>, field: QuestionField | QuestionView): Promise<void> {
-  const source = `${QuestionWidgetLabel}.${field}`
+  const source = field
   const named = namesFor(source)
   const { columns } = await layoutOf(db, quiz)
   const taken = columns.some((column) => column.label === named.label)

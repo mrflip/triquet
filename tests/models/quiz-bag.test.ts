@@ -36,9 +36,9 @@ describe('the bags formulas are actually given', () => {
   })
 
   it("satisfy the schema with a category-estimate widgeting's parts carried beside its status and value", () => {
-    const estimated = { ...quiz, widgetings: [Widgeting.fill({ widget_label: 'categories', label: 'categories' }), ...quiz.widgetings] }
+    const estimated = { ...quiz, widgetings: [Widgeting.fill({ widget_label: 'category_data', label: 'category_data' }), ...quiz.widgetings] }
     const bag = present(Runner.bagsAt(runOf(estimated), { label: 'clueing_plus_butnot_full', params: {} }).get(question._id))
-    expect(bag.qn.categories).to.deep.include({ status: 'missing', average: 0.525 })
+    expect(bag.qn.category_data).to.deep.include({ status: 'missing', average: 0.525 })
     expect(QuizBagValidators.quizBag.safeParse(bag).success).to.be.true
   })
 

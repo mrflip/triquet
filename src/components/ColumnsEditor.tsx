@@ -14,7 +14,7 @@ import { hiddenUntil } from './room'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Estimates from '../lib/estimates'
 import { alignAfter, headAlignOf } from '../lib/columns'
-import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals, WidthPxMax, namesFor, widgetingSourceOf, type ColumnAlign, type ColumnPatch, type ColumnT } from '../models/column'
+import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, WidgetingPartVals, WidthPxMax, namesFor, partFormulaOf, type ColumnAlign, type ColumnPatch, type ColumnT } from '../models/column'
 import type { QuizT } from '../models/quiz'
 import { AddedColumnWidthPx } from '../models/layout'
 import type { WidgetT } from '../models/widget'
@@ -47,17 +47,40 @@ const AlignIcons: Readonly<Record<ColumnAlign, React.ReactNode>> = {
  */
 const RoomFor = { label: '@800', source: '@620', width: '@400' } as const
 
-/** What a column of `quiz` can show, each with the group it is listed under: a category-estimate widgeting's parts beneath it. A widgeting run once for the whole quiz has no cell for any question, and is shown in the Quiz panel instead. */
-function sourcesOf(quiz: QuizT, library: readonly WidgetT[]) {
+/** One thing the columns editor offers a column to show: its ref and formula, under the key the menu lists it by */
+type SourceChoice = { key: string, source: string, formula: string | null, group: string }
+
+/** The key the menu lists a column's ref and formula by: the ref alone, or with its formula after it */
+function choiceKeyOf(source: string, formula: string | null): string {
+  return formula === null ? source : `${source}, ${formula}`
+}
+
+/** A menu choice of a ref and formula */
+function choiceOf(source: string, formula: string | null, group: string): SourceChoice {
+  return { key: choiceKeyOf(source, formula), source, formula, group }
+}
+
+/**
+ * What a column of `quiz` can show, each with the group it is listed under: a category-estimate
+ * widgeting's parts beneath it, each by the formula that picks it out (`$.masie`). A widgeting run
+ * once for the whole quiz has no cell for any question, and is shown in the Quiz panel instead.
+ */
+function sourcesOf(quiz: QuizT, library: readonly WidgetT[]): SourceChoice[] {
   const estimating = new Set(library.filter((widget) => Estimates.isEstimating(widget)).map((widget) => widget.label))
   return [
-    ...QuestionFieldVals.map((field) => ({ value: `${QuestionWidgetLabel}.${field}`, group: 'A question field' })),
-    ...QuestionViewVals.map((view) => ({ value: `${QuestionWidgetLabel}.${view}`, group: 'Worked out from the chain' })),
+    ...QuestionFieldVals.map((field) => choiceOf(field, null, 'A question field')),
+    ...QuestionViewVals.map((view) => choiceOf(view, null, 'Worked out from the chain')),
     ...quiz.widgetings.flatMap((widgeting) => (widgeting.tier === 'question' ? [
-      { value: widgeting.label, group: 'A widgeting' },
-      ...(estimating.has(widgeting.widget_label) ? WidgetingPartVals.map((part) => ({ value: widgetingSourceOf(widgeting.label, part), group: 'Part of a widgeting' })) : []),
+      choiceOf(widgeting.label, null, 'A widgeting'),
+      ...(estimating.has(widgeting.widget_label) ? WidgetingPartVals.map((part) => choiceOf(widgeting.label, partFormulaOf(part), 'Part of a widgeting')) : []),
     ] : [])),
   ]
+}
+
+/** The choices for `column`: those of its quiz, and what it shows now if they lack it (a formula the menu does not offer) */
+function choicesFor(column: Pick<ColumnT, 'source' | 'formula'>, sources: readonly SourceChoice[]): readonly SourceChoice[] {
+  const key = choiceKeyOf(column.source, column.formula ?? null)
+  return sources.some((each) => each.key === key) ? sources : [...sources, choiceOf(column.source, column.formula ?? null, 'As it is')]
 }
 
 /**
@@ -97,7 +120,7 @@ export function ColumnsEditor({ quiz, library, revisable, dispatch }: Readonly<C
 type ColumnRowProps = {
   column:   ColumnT
   /** What the column could show instead */
-  sources:  readonly { value: string, group: string }[]
+  sources:  readonly SourceChoice[]
   handle:   React.ReactNode
   locked:   boolean
   dispatch: (action: HuntActionDNA) => void
@@ -119,6 +142,7 @@ function ColumnRow({ column, sources, handle, locked, dispatch, onEdit }: Readon
   }
   const titleDraft = useDraft(column.title, (title) => { commit({ title }) })
   const columnName = column.title || column.label
+  const choices = choicesFor(column, sources)
 
   return (
     <Stack spacing={0.5} role="group" aria-label={`Column ${columnName}`}>
@@ -129,11 +153,14 @@ function ColumnRow({ column, sources, handle, locked, dispatch, onEdit }: Readon
           onChange={(event) => { titleDraft.onChange(event.target.value) }} onBlur={titleDraft.onBlur}
         />
         <TextField
-          select fullWidth size="small" label="Shows" value={column.source} disabled={locked} sx={{ ...hiddenUntil(RoomFor.source), width: 240, flexShrink: 0 }}
+          select fullWidth size="small" label="Shows" value={choiceKeyOf(column.source, column.formula ?? null)} disabled={locked} sx={{ ...hiddenUntil(RoomFor.source), width: 240, flexShrink: 0 }}
           slotProps={{ select: { renderValue: String } }}
-          onChange={(event) => { commit({ source: event.target.value }) }}
+          onChange={(event) => {
+            const choice = choices.find((each) => each.key === event.target.value)
+            if (choice) { commit({ source: choice.source, formula: choice.formula }) }
+          }}
         >
-          {sources.map((each) => <MenuItem key={each.value} value={each.value}>{`${each.value} — ${each.group}`}</MenuItem>)}
+          {choices.map((each) => <MenuItem key={each.key} value={each.key}>{`${each.key} — ${each.group}`}</MenuItem>)}
         </TextField>
         <Box sx={{ ...hiddenUntil(RoomFor.width), width: 96, flexShrink: 0 }}>
           <NumberField
@@ -183,7 +210,7 @@ function AlignButton({ column, columnName, locked, onAlign }: Readonly<AlignButt
 type ColumnDialogProps = {
   quiz:      QuizT
   /** What a column of the quiz can show */
-  sources:   readonly { value: string, group: string }[]
+  sources:   readonly SourceChoice[]
   /** The column being edited, or null to make a new one */
   column:    ColumnT | null
   /** Whether the column may be changed: shown as it is, with nothing to apply, when not */
@@ -196,29 +223,33 @@ type ColumnDialogProps = {
 function ColumnDialog({ quiz, sources, column, revisable, dispatch, onClose }: Readonly<ColumnDialogProps>) {
   const [title, setTitle] = useState(column?.title ?? '')
   const [label, setLabel] = useState(column?.label ?? '')
+  const choices = column ? choicesFor(column, sources) : sources
   /** What a new column offers to show first: the first thing no column shows yet */
-  const unshown = sources.find((each) => quiz.columns.every((other) => other.source !== each.value)) ?? sources[0]
-  const [source, setSource] = useState(column?.source ?? unshown?.value ?? 'question.notes')
+  const unshown = choices.find((each) => quiz.columns.every((other) => choiceKeyOf(other.source, other.formula ?? null) !== each.key)) ?? choices[0]
+  const [chosen, setChosen] = useState(column ? choiceKeyOf(column.source, column.formula ?? null) : unshown?.key ?? 'notes')
+  const choice = choices.find((each) => each.key === chosen) ?? choiceOf(chosen, null, '')
   const [widthPx, setWidthPx] = useState(String(column?.width_px ?? AddedColumnWidthPx))
   const [issue, setIssue] = useState<string | null>(null)
-  const named = namesFor(source)
+  const named = namesFor(choice.source, choice.formula)
   const typed = Labelmaker.normalize(label)
   /** The header it takes when the title is left blank: what it shows, or the label typed */
   const untitled = typed === '' ? named.title : Labelmaker.titleize(typed)
 
   const onApply = () => {
     const siblings = new Set(quiz.columns.filter((other) => other.label !== column?.label).map((other) => other.label))
-    const chosen = typed === '' ? named.label : typed
-    const finalLabel = typed === '' && siblings.has(chosen) ? Labelmaker.appendFallback(chosen) : chosen
+    const picked = typed === '' ? named.label : typed
+    const finalLabel = typed === '' && siblings.has(picked) ? Labelmaker.appendFallback(picked) : picked
     if (siblings.has(finalLabel)) { setIssue('Another column in this quiz already has that label.'); return }
-    const fields = { label: finalLabel, title: title.trim() === '' ? untitled : title.trim(), source, width_px: Number(widthPx) }
+    const fields = { label: finalLabel, title: title.trim() === '' ? untitled : title.trim(), source: choice.source, width_px: Number(widthPx), ...(choice.formula !== null && { formula: choice.formula }) }
     const checked = ColumnValidators.column.safeParse(fields)
     if (! checked.success) { setIssue(checked.error.issues[0]?.message ?? 'That column will not do.'); return }
     if (column === null) {
       dispatch({ kind: 'add_column', column: Column.fill(checked.data) })
     } else {
       const changed = Object.entries(checked.data).filter(([key, val]) => (column as Record<string, unknown>)[key] !== val)
-      if (changed.length > 0) { dispatch({ kind: 'edit_column', label: column.label, patch: Object.fromEntries(changed) }) }
+      const formulaTaken = column.formula !== undefined && choice.formula === null ? { formula: null } : {}
+      const patch: ColumnPatch = { ...Object.fromEntries(changed), ...formulaTaken }
+      if (Object.keys(patch).length > 0) { dispatch({ kind: 'edit_column', label: column.label, patch }) }
     }
     onClose()
   }
@@ -231,8 +262,8 @@ function ColumnDialog({ quiz, sources, column, revisable, dispatch, onClose }: R
           <TextField size="small" label="Column title" value={title} placeholder={untitled} helperText="The header the grid shows." onChange={(event) => { setTitle(event.target.value); setIssue(null) }} />
           <TextField size="small" label="Column label" value={label} placeholder={named.label} helperText="Names it in exports and in the quiz's sort memory; blank takes one from what it shows."
             onChange={(event) => { setLabel(event.target.value); setIssue(null) }} />
-          <TextField select size="small" label="Shows" value={source} onChange={(event) => { setSource(event.target.value); setIssue(null) }}>
-            {sources.map((each) => <MenuItem key={each.value} value={each.value}>{`${each.value} — ${each.group}`}</MenuItem>)}
+          <TextField select size="small" label="Shows" value={chosen} onChange={(event) => { setChosen(event.target.value); setIssue(null) }}>
+            {choices.map((each) => <MenuItem key={each.key} value={each.key}>{`${each.key} — ${each.group}`}</MenuItem>)}
           </TextField>
           <TextField size="small" label="Width (px)" type="number" value={widthPx} sx={{ maxWidth: 160 }} onChange={(event) => { setWidthPx(event.target.value); setIssue(null) }} />
           {issue !== null && <p className={styles.microcopy} role="alert">{issue}</p>}

@@ -11,7 +11,7 @@ import { present } from '../support/present'
 const library = SeedWidgets
 const quiz: QuizT = { ...Quiz.blank(), ...classicLayout() }
 const lockedQuiz = (): QuizT => ({ ...quiz, locked: true })
-const altTextIdx = quiz.columns.findIndex((column) => column.source === 'question.alt_text')
+const altTextIdx = quiz.columns.findIndex((column) => column.source === 'alt_text')
 const heldWidgeting = present(quiz.widgetings.find((each) => each.label === 'hint_full'))
 
 /** An edit of the standard Hint Full widgeting, as opened and untouched */
@@ -38,8 +38,8 @@ describe("NewColumnWidthPx", () => {
 
 describe("EstimatesColumnWidthPx", () => {
   it("is the width of the column a new category-estimate widgeting brings, wider than any other entry's", () => {
-    const actions = actionsOf(ofHeld('categories'))
-    expect(actions[1]?.kind === 'add_column' && [actions[1].column.source, actions[1].column.width_px]).to.deep.eq(['categories', EstimatesColumnWidthPx])
+    const actions = actionsOf(ofHeld('category_data'))
+    expect(actions[1]?.kind === 'add_column' && [actions[1].column.source, actions[1].column.width_px]).to.deep.eq(['category_data', EstimatesColumnWidthPx])
     expect(EstimatesColumnWidthPx).to.be.above(NewColumnWidthPx.entry)
   })
 })
@@ -133,7 +133,7 @@ describe("planWidgetingEdit, making a new widgeting", () => {
   })
 
   it("puts its column at the end for a quiz that has no Alt Text column", () => {
-    const noAlt = { ...quiz, columns: quiz.columns.filter((column) => column.source !== 'question.alt_text') }
+    const noAlt = { ...quiz, columns: quiz.columns.filter((column) => column.source !== 'alt_text') }
     const column = actionsOf(ofHeld('answer_reversed'), noAlt).at(-1)
     expect(column).to.deep.include({ kind: 'add_column' })
     expect(column).to.not.have.property('onto_idx')
@@ -173,7 +173,7 @@ describe("planWidgetingEdit, a new widgeting run once for the whole quiz", () =>
   })
 
   it("refuses a widget that cannot run at the quiz's level: a model, or a question's category estimates", () => {
-    for (const widgetLabel of ['dumdum', 'categories']) {
+    for (const widgetLabel of ['dumdum', 'category_data']) {
       expect(planWidgetingEdit(ofHeld(widgetLabel, { tier: 'quiz' }), library, quiz)).to.deep.eq({ ok: false, issue: 'Only a formula or an entry of one value can run once for the whole quiz.', labelIssue: null })
     }
   })

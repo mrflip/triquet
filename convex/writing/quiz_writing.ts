@@ -4,7 +4,7 @@ import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 import * as Labelmaker from '../../src/lib/labelmaker'
 import type { AffirmsT } from '../../src/models/actions'
-import { ColumnValidators } from '../../src/models/column'
+import { ColumnValidators, plainOf, type ColumnPatch } from '../../src/models/column'
 import { DefaultBranch, HuntValidators } from '../../src/models/hunt'
 import { defaultLayout, type Layout } from '../../src/models/layout'
 import { Question, QuestionValidators } from '../../src/models/question'
@@ -17,6 +17,7 @@ import { Widget, WidgetValidators, type EntryValueT, type WidgetPatch, type Widg
 import { WidgetedValidators, type WidgetedRecordT } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
 import { libraryOf } from '../reading'
+import { templateableOf } from '../../src/lib/rows'
 
 /** What a mutation writes through */
 export type Writer = MutationCtx['db']
@@ -70,10 +71,16 @@ export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<
   if (! _.isEmpty(changed)) { await db.patch('hunts', held._id, changed) }
 }
 
-/** Revise a quiz's own row */
+/**
+ * Revise a quiz's own row. A row written before the nomination was renamed is written with its
+ * `templateable`, read from its `templated` (`templateableOf`), and the `templated` taken off, as
+ * the backfill would.
+ */
 export async function updateQuiz(db: Writer, held: Doc<'quizzes'>, patch: Partial<Z.output<typeof QuizValidators.row>>): Promise<void> {
-  const changed = changedFields(held, QuizValidators.row({ ..._.omit(held, SystemFields), ...patch }))
-  if (! _.isEmpty(changed)) { await db.patch('quizzes', held._id, changed) }
+  const { templated, ...fields } = _.omit(held, SystemFields)
+  const changed = changedFields(held, QuizValidators.row({ ...fields, templateable: templateableOf(held), ...patch }))
+  const retired = templated === undefined ? {} : { templated: undefined }
+  if (templated !== undefined || ! _.isEmpty(changed)) { await db.patch('quizzes', held._id, { ...changed, ...retired }) }
 }
 
 /** Revise a question's row */
@@ -102,9 +109,21 @@ export async function updateWidgeting(db: Writer, held: Doc<'widgetings'>, patch
   if (! _.isEmpty(changed)) { await db.patch('widgetings', held._id, changed) }
 }
 
-/** Revise a column's row */
-export async function updateColumn(db: Writer, held: Doc<'columns'>, patch: Partial<Z.output<typeof ColumnValidators.row>>): Promise<void> {
-  const changed = changedFields(held, ColumnValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+/** A revision of a column's row: any of its fields, a formula, template or readout of null taking it off */
+export type ColumnRowPatch = Omit<Partial<Z.output<typeof ColumnValidators.row>>, 'formula' | 'template' | 'readout'> & Pick<ColumnPatch, 'formula' | 'template' | 'readout'>
+
+/**
+ * Revise a column's row, writing its source and formula in the plain grammar: a source in the
+ * grammar before October 2026, held or given, is written as it reads now (`plainOf`), the held
+ * row read so before the patch goes over it, as the browser saw it. A formula, template or
+ * readout of null is taken off.
+ */
+export async function updateColumn(db: Writer, held: Doc<'columns'>, patch: ColumnRowPatch): Promise<void> {
+  const merged = { ..._.omit(held, SystemFields), ...plainOf(held), ...patch }
+  const fields = _.omitBy(merged, (val: unknown) => val === null || val === undefined) as Z.input<typeof ColumnValidators.row>
+  const next = ColumnValidators.row({ ...fields, ...plainOf({ source: merged.source, formula: merged.formula ?? undefined }) })
+  const taken = Object.fromEntries(Object.keys(held).filter((key) => ! key.startsWith('_') && ! Object.hasOwn(next, key)).map((key) => [key, undefined]))
+  const changed = { ...changedFields(held, next), ...taken }
   if (! _.isEmpty(changed)) { await db.patch('columns', held._id, changed) }
 }
 

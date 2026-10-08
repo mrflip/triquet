@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Id } from '../../../convex/_generated/dataModel'
+import type { Doc, Id } from '../../../convex/_generated/dataModel'
 import { libraryOf, quizRowsOf, realmsOf, reviewsOf } from '../../../convex/reading'
 import {
   changedFields, deleteQuiz, deleteWidgeting, insertAbsentWidgets, insertHunt, insertQuiz, repositioned, updateColumn, updateQuestion, updateQuiz, updateReview, updateReviewing,
@@ -120,6 +120,31 @@ describe("the update helpers", () => {
     await expect(revise(async (db, held) => { await updateQuiz(db, held.quiz, { title: 'x'.repeat(83) }) })).rejects.toThrow(/is too long/)
     const { quiz } = await rows()
     expect(quiz.title).to.eq('Princes')
+  })
+
+  it("updateColumn writes the plain grammar, a column held in the grammar before October 2026 included, and takes a field of null off", async () => {
+    const { tt, rows } = await holding(huntHolding([{ ...Quiz.blank('Princes'), ...classicLayout(), questions: [Question.blank()] }]))
+    await tt.run(async (ctx) => {
+      const held = await ctx.db.query('columns').collect()
+      const [title, sum] = ['title', 'clueing_full'].map((label) => present(held.find((column) => column.label === label)))
+      const reread = async (column: Doc<'columns'>) => present(await ctx.db.get('columns', column._id))
+      await ctx.db.patch('columns', present(title)._id, { source: 'question.title' })
+      await updateColumn(ctx.db, await reread(present(title)), { width_px: 120 })
+      await updateColumn(ctx.db, present(sum), { source: 'clueing_full', formula: '$.value * 2', readout: 'code' })
+      await updateColumn(ctx.db, await reread(present(sum)), { formula: null })
+    })
+    const held = await rows()
+    const pick = (label: string) => held.columns.find((column) => column.label === label)
+    expect([pick('title')?.source, pick('title')?.width_px]).to.deep.eq(['title', 120])
+    expect([pick('clueing_full')?.formula, pick('clueing_full')?.readout]).to.deep.eq([undefined, 'code'])
+  })
+
+  it("updateQuiz writes a quiz held with its old `templated` as its `templateable`, and takes `templated` off", async () => {
+    const { tt, quiz_id, revise } = await holding(titled('aa'))
+    await tt.run(async (ctx) => { await ctx.db.patch('quizzes', quiz_id, { templateable: undefined, templated: ['question.clueing'] }) })
+    await revise(async (db, held) => { await updateQuiz(db, held.quiz, { title: 'Kings' }) })
+    const quiz = await tt.run(async (ctx) => present(await ctx.db.get('quizzes', quiz_id)))
+    expect([quiz.title, quiz.templateable, quiz.templated]).to.deep.eq(['Kings', ['clueing'], undefined])
   })
 
   it("updateReview writes the fields that change, and leaves the rest", async () => {

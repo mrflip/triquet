@@ -1,10 +1,10 @@
 import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
-import { widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
-import * as Estimates from '../../src/lib/estimates'
-import { Quiz } from '../../src/models/quiz'
-import { ColumnValidators, sortkeyOf, sourceOf, widgetingLabelOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
+import { templateableOf, widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
+import { widgetingRemovalRefusal } from '../../src/lib/columns'
+import { Quiz, isTemplatableField } from '../../src/models/quiz'
+import { ColumnValidators, plainOf, refOf, sortkeyOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
 import { Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../../src/models/widgeting'
 import type { LayoutActionT } from '../../src/models/actions'
 import { widgetForLabel } from '../reading'
@@ -46,17 +46,17 @@ async function writeRunOrder(db: Writer, ordered: readonly Doc<'widgetings'>[]):
 }
 
 /**
- * Refuse a column `source` that names nothing the quiz can show: a widgeting it does not have, or
- * runs once for the whole quiz (with no cell for any question), or a part of a widgeting whose
- * widget offers none.
+ * Refuse a column `source` that names nothing the quiz can show: a widgeting it does not have at
+ * the tier the source names (`<label>` for each question, `quiz.<label>` for the whole quiz). A
+ * word of the bag, which a quiz from before October 2026 may also hold a widgeting under, is
+ * always showable.
  */
-async function refuseUnshowable(db: Writer, rows: LayoutRows, source: string): Promise<void> {
-  const named = sourceOf(source)
-  if (named.kind !== 'widgeting') { return }
-  const widgeting = rows.widgetings.find((each) => each.label === named.label)
+function refuseUnshowable(rows: LayoutRows, source: string): void {
+  const ref = refOf(source)
+  if (ref.kind !== 'widgeting') { return }
+  const widgeting = rows.widgetings.find((each) => each.label === ref.label)
   if (! widgeting) { refuse('sourceUnshowable') }
-  if (tierOf(widgeting) !== 'question') { refuse('wrongTier') }
-  if (named.part !== null && ! Estimates.isEstimating(await widgetForLabel(db, widgeting.widget_label))) { refuse('partUnoffered') }
+  if (tierOf(widgeting) !== ref.tier) { refuse('wrongTier') }
 }
 
 /**
@@ -79,8 +79,8 @@ export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: Widge
 
 /**
  * Revise a widgeting of the open quiz. A rename onto a label a sibling has is refused, and
- * carries the columns that show the widgeting, whole or a part of it, with it, and its place
- * among the sources the quiz templates; what it stored stays with it.
+ * carries the columns that show the widgeting with it, and its place among the sources the quiz
+ * nominates as templateable; what it stored stays with it.
  */
 export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, patch: WidgetingPatch): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
@@ -89,56 +89,51 @@ export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, 
     if (renamedOnto !== label && labelTaken(rows, renamedOnto)) { refuse('labelTaken') }
     refuseQuizReserved(tierOf(held), renamedOnto)
     await updateWidgeting(db, held, { ...patch })
+    if (renamedOnto === label) { return }
     for (const column of rows.columns) {
-      const named = sourceOf(column.source)
-      if (named.kind === 'widgeting' && named.label === label) { await updateColumn(db, column, { source: widgetingSourceOf(renamedOnto, named.part) }) }
+      const ref = refOf(column.source)
+      if (ref.kind === 'widgeting' && ref.label === label) { await updateColumn(db, column, { ...plainOf(column), source: widgetingSourceOf(renamedOnto, ref.tier) }) }
     }
-    const { templated } = rows.quiz
-    if (renamedOnto !== label && templated.includes(label)) {
-      await updateQuiz(db, rows.quiz, { templated: templated.map((source) => (source === label ? renamedOnto : source)) })
+    const templateable = templateableOf(rows.quiz)
+    if (templateable.includes(label)) {
+      await updateQuiz(db, rows.quiz, { templateable: templateable.map((source) => (source === label ? renamedOnto : source)) })
     }
   })
 }
 
 /**
- * Nominate the sources the open quiz templates, replacing those it did: its questions' own fields
- * and its widgetings, each named as a column names what it shows. A widgeting the quiz does not
- * have is refused, and so is one run once for the whole quiz, which has no question's cell to fill.
+ * Nominate the sources the open quiz holds templateable, replacing those it did: its questions'
+ * own fields and its widgetings, each named as a column's ref names it. A widgeting the quiz does
+ * not have is refused, and so is one run once for the whole quiz, which has no question's cell to
+ * fill.
  */
-export async function setTemplated(db: Writer, open: OpenQuizT, templated: readonly string[]): Promise<void> {
+export async function setTemplateable(db: Writer, open: OpenQuizT, templateable: readonly string[]): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
     const held = new Set(rows.widgetings.map((widgeting) => widgeting.label))
     const quizWide = new Set(rows.widgetings.filter((widgeting) => tierOf(widgeting) === 'quiz').map((widgeting) => widgeting.label))
-    const named = templated.flatMap((source) => widgetingLabelOf(source) ?? [])
+    const named = templateable.filter((source) => ! isTemplatableField(source))
     if (named.some((widgetingLabel) => ! held.has(widgetingLabel))) { refuse('untemplatable') }
     if (named.some((widgetingLabel) => quizWide.has(widgetingLabel))) { refuse('wrongTier') }
-    await updateQuiz(db, rows.quiz, { templated: [...templated] })
+    await updateQuiz(db, rows.quiz, { templateable: [...templateable] })
   })
 }
 
 /**
- * The open quiz's columns that `doomed` picks, deleted, and a sort memory that named one of them
- * forgotten.
- */
-async function deleteColumns(db: Writer, rows: LayoutRows, doomed: (column: Doc<'columns'>) => boolean): Promise<void> {
-  const gone = rows.columns.filter((column) => doomed(column))
-  for (const column of gone) { await db.delete('columns', column._id) }
-  if (gone.some((column) => sortkeyOf(column) === rows.quiz.last_sortkey)) { await updateQuiz(db, rows.quiz, { last_sortkey: null }) }
-}
-
-/**
- * Delete a widgeting of the open quiz, everything it stored, and the columns that showed it: a
- * column with nothing to show is not a column. It leaves the sources the quiz templates too. The
- * widget it worked stays in the library.
+ * Delete a widgeting of the open quiz and everything it stored, refusing while a column shows it,
+ * whole or a part of it (`widgetingRemovalRefusal`, the sentence naming the columns): a widgeting
+ * goes only once nothing shows it, and the author removes the columns first. A formula or template
+ * naming it does not hold it back, and reads nothing afterwards. It leaves the sources the quiz
+ * templates; the widget it worked stays in the library.
  */
 export async function deleteWidgeting(db: Writer, open: OpenQuizT, label: string): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
     const held = rows.widgetings.find((widgeting) => widgeting.label === label)
     if (! held) { return }
+    const refusal = widgetingRemovalRefusal({ columns: rows.columns, widgetings: rows.widgetings.map((row) => widgetingFrom(row)) }, label)
+    if (refusal !== null) { refuse('widgetingShown', refusal) }
     await deleteWidgetingRows(db, held._id)
-    await deleteColumns(db, rows, (column) => widgetingLabelOf(column.source) === label)
-    const { templated } = rows.quiz
-    if (templated.includes(label)) { await updateQuiz(db, rows.quiz, { templated: templated.filter((source) => source !== label) }) }
+    const templateable = templateableOf(rows.quiz)
+    if (templateable.includes(label)) { await updateQuiz(db, rows.quiz, { templateable: templateable.filter((source) => source !== label) }) }
     await writeRunOrder(db, rows.widgetings.filter((widgeting) => widgeting._id !== held._id))
   })
 }
@@ -161,14 +156,14 @@ export async function moveWidgeting(db: Writer, open: OpenQuizT, label: string, 
 export async function addColumn(db: Writer, open: OpenQuizT, column: ColumnT, onto_idx?: number): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
     if (rows.columns.some((other) => other.label === column.label)) { refuse('labelTaken') }
-    await refuseUnshowable(db, rows, column.source)
+    refuseUnshowable(rows, column.source)
     if (rows.columns.length >= PA.ColumnsPerQuiz.max) { refuse('columnsFull') }
     const at = onto_idx === undefined ? rows.columns.length : Math.max(0, Math.min(onto_idx, rows.columns.length))
     for (const [idx, held] of rows.columns.entries()) {
       const position = idx < at ? idx : idx + 1
       if (held.position !== position) { await updateColumn(db, held, { position }) }
     }
-    await db.insert('columns', ColumnValidators.row({ ...column, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: at }))
+    await db.insert('columns', ColumnValidators.row({ ...column, ...plainOf(column), hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: at }))
   })
 }
 
@@ -181,15 +176,20 @@ export async function editColumn(db: Writer, open: OpenQuizT, label: string, pat
     const held = columnIn(rows, label)
     const renamedOnto = patch.label ?? label
     if (renamedOnto !== label && rows.columns.some((other) => other.label === renamedOnto)) { refuse('labelTaken') }
-    if (patch.source !== undefined) { await refuseUnshowable(db, rows, patch.source) }
+    if (patch.source !== undefined) { refuseUnshowable(rows, patch.source) }
     await updateColumn(db, held, { ...patch })
     if (rows.quiz.last_sortkey === sortkeyOf({ label })) { await updateQuiz(db, rows.quiz, { last_sortkey: sortkeyOf({ label: renamedOnto }) }) }
   })
 }
 
-/** Delete a column of the open quiz, forgetting a sort memory that named it */
+/** Delete a column of the open quiz, forgetting a sort memory that named it; nothing for a column already gone */
 export async function deleteColumn(db: Writer, open: OpenQuizT, label: string): Promise<void> {
-  await reviseOpenLayout(db, open, async (rows) => { await deleteColumns(db, rows, (column) => column.label === label) })
+  await reviseOpenLayout(db, open, async (rows) => {
+    const held = rows.columns.find((column) => column.label === label)
+    if (! held) { return }
+    await db.delete('columns', held._id)
+    if (sortkeyOf(held) === rows.quiz.last_sortkey) { await updateQuiz(db, rows.quiz, { last_sortkey: null }) }
+  })
 }
 
 /** Move a column of the open quiz to `onto_idx` among its siblings */
@@ -211,6 +211,6 @@ export async function performLayout(db: Writer, open: OpenQuizT, action: LayoutA
   case 'edit_column':         { await editColumn(db, open, action.label, action.patch); return }
   case 'delete_column':       { await deleteColumn(db, open, action.label); return }
   case 'move_column':         { await moveColumn(db, open, action.label, action.onto_idx); return }
-  case 'set_templated':       { await setTemplated(db, open, action.templated) }
+  case 'set_templateable':    { await setTemplateable(db, open, action.templateable) }
   }
 }

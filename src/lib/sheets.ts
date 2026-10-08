@@ -1,37 +1,35 @@
 import * as Rank from './rank'
 import * as Runner from './formulary/runner'
-import { specsFor, type Resolved } from './columns'
+import { shownOf, specsFor, type ColumnSpec } from './columns'
 import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import { Widgeted } from '../models/widgeted'
 
 /** What one cell says as text, given the question's own chain target */
 type CellContext = {
-  question:  QuestionT
-  target:    QuestionT | null
-  run:       Runner.QuizRun
+  question:     QuestionT
+  target:       QuestionT | null
+  run:          Runner.QuizRun
+  /** What the quiz nominates as templateable, which a formula reads filled in */
+  templateable: readonly string[]
 }
 
 /**
- * What a column shows, as the text a spreadsheet cell holds.
+ * What a column shows, as the text a spreadsheet cell holds: a question's own field or view as
+ * typed, anything else as what it came to (`shownOf`), through its formula when it has one.
  *
- * @param source - What the column shows.
- * @param context - The question, the one it chains to, and the quiz's run.
+ * @param spec - The column.
+ * @param context - The question, the one it chains to, the quiz's run and what it nominates as templateable.
  * @returns The cell's text; empty when there is nothing to say.
  */
-export function cellTextOf(source: Resolved, { question, target, run }: Readonly<CellContext>): string {
-  switch (source.kind) {
-  case 'field': {
+export function cellTextOf(spec: Pick<ColumnSpec, 'source' | 'formula'>, { question, target, run, templateable }: Readonly<CellContext>): string {
+  const { source } = spec
+  if (spec.formula === null && source.kind === 'field') {
     if (source.field === 'chains_to') { return target ? target.label : '' }
     return question[source.field]
   }
-  case 'view': {
-    return target?.hint ?? ''
-  }
-  case 'widgeting': {
-    return Widgeted.textOf(Runner.widgetedOf(run, source.widgeting.label, question._id, source.part))
-  }
-  }
+  if (spec.formula === null && source.kind === 'view') { return target?.hint ?? '' }
+  return Widgeted.textOf(shownOf(spec, run, templateable, question._id))
 }
 
 /**
@@ -59,7 +57,7 @@ export function sheetsExport(quiz: QuizT, run: Runner.QuizRun): string {
   const header = specs.map((spec) => spec.header)
   const rows = Rank.inRankOrder(shown).map((question) => {
     const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
-    return specs.map((spec) => cellTextOf(spec.source, { question, target, run }))
+    return specs.map((spec) => cellTextOf(spec, { question, target, run, templateable: quiz.templateable }))
   })
   return [header, ...rows].map((fields) => fields.map((field) => pasteSafe(field)).join('\t')).join('\n')
 }

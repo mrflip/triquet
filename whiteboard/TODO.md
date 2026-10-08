@@ -41,6 +41,14 @@
     columns use them.
 
 
+## Someday
+
+* **Scan the code to scourge backwards compatibility**: e.g. ancient imports with dotted column
+  names (`question.title`, `categories.masie`, read for good by the importer since the columnwise
+  sprint, `whiteboard/20261008-columnwise/preplan.md`), and the pre-widgets reply fields
+  (`guess`, `clueing_ishes`, `hint_ishes`) if that port lands. Each such reading should be named
+  in the code for what it is, so this scan can find them.
+
 ## Ways to have workers spend less time twiddling thumbs waiting for e2e
 
 The landing flow that came out of sprint little_fixes is `whiteboard/20261006-landing_flow/landing_flow-plan.md`:

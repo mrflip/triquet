@@ -32,12 +32,12 @@ The coach will outline these things; stop and ask for them if they didn't:
 Claude will:
 
 1. Reply in chat, "I see the `relics.md` instructions, let's make old things new again!"
-2. Make a file in whiteboard named for the subdirectory of relics we are working on (eg `whiteboard/validation.md` for porting the old validation frameworkl). Use this to surface information that you put in chat and anything longer worth communicating. If you want to, make files in `whiteboard/{reliclabel}/whatever.fext`. As always, do not put notes about our process into the code itself. You will not use HUMAN-* files when working in relics -- use the `whiteboard/{reliclabel}.md` file
+2. Make a file in whiteboard named for the subdirectory of relics we are working on (eg `whiteboard/validation.md` for porting the old validation frameworkl). Use this to surface information that you put in chat and anything longer worth communicating. If you want to, make files in `whiteboard/{YYYYMMDD}-{reliclabel}/whatever.fext`. As always, do not put notes about our process into the code itself. You will not use HUMAN-* files when working in relics -- use the `whiteboard/{YYYYMMDD}-{reliclabel}.md` file
 3. Read through the test files. Identify where the tests would benefit from mocks or other advanced capabilities. Give it the kind of implementation code review you would if your nephew who works somewhere else asked you for one: "this feels like a lot of work for little gain", "there's an easier way to do this", "what does this even do" -- not a list of nitpicks or bad habits or violations of our style guide.
 4. Confirm exactly what tests, if any, should be modified, and how
    - The coach may have indicated things they want to change about the codebase. Identify tests that should be changed in consequence
    - Identify places that the tests seem to enforce behavior at odds with the coach's proposal, or with the codebase or conventions -- this is a place where your skills will be especially valuable.
-5. Make a file, `whiteboard/{reliclabel}/testplan.md` similar to this: (`//! means this is my comment to you about the following sketch:)
+5. Make a file, `whiteboard/{YYYYMMDD}-{reliclabel}/testplan.md` similar to this: (`//! means this is my comment to you about the following sketch:)
 
 ```
 For each chunk of code, the files and their corresponding tests will be brought over in two phases:
@@ -77,7 +77,7 @@ In phase 2, will alter title and tests to enforce:
 
 ## Removed before transfer:
 
-* The code in (...) looks like it's specific to the other codebase or to unimplemented functionality here. Claude intends put those parts of those files into `whiteboard/{reliclabel}/(same path and filename as in relics/{reliclabel})` and otherwise abandon them
+* The code in (...) looks like it's specific to the other codebase or to unimplemented functionality here. Claude intends put those parts of those files into `whiteboard/{YYYYMMDD}-{reliclabel}/(same path and filename as in relics/{reliclabel})` and otherwise abandon them
 
 * As directed, everything to do with the CPM-80 operating system will be left behind.
 ```

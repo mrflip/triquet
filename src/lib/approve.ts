@@ -370,7 +370,7 @@ const LayoutPolicies = {
   edit_column:      mayReviseClaimedQuiz,
   delete_column:    mayReviseClaimedQuiz,
   move_column:      mayReviseClaimedQuiz,
-  set_templated:    mayReviseClaimedQuiz,
+  set_templateable: mayReviseClaimedQuiz,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
 /** The actions that revise the library every hunt shares: an admin's, of the actor alone, with no hunt or quiz in play */

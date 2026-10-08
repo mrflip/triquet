@@ -1,7 +1,7 @@
 import * as Labelmaker from './labelmaker'
 import * as Estimates from './estimates'
 import { RefusalNotices } from './notices'
-import { Column } from '../models/column'
+import { Column, plainOf } from '../models/column'
 import { DefaultTier, ReservedWidgetingLabels, Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../models/widgeting'
 import type { Formularykind, WidgetT } from '../models/widget'
 import { Quiz, type QuizT } from '../models/quiz'
@@ -84,7 +84,7 @@ function refused(issue: string, labelIssue = false): Extract<WidgetingPlan, { ok
 function newColumnFor(quiz: QuizT, label: string, width_px: number): HuntActionDNA {
   const columnLabel = Labelmaker.firstFree(label, new Set(quiz.columns.map((column) => column.label)))
   const column = Column.fill({ label: columnLabel, title: Labelmaker.titleize(label), source: label, width_px })
-  const before = quiz.columns.findIndex((each) => each.source === 'question.alt_text')
+  const before = quiz.columns.findIndex((each) => plainOf(each).source === 'alt_text')
   return before === -1 ? { kind: 'add_column', column } : { kind: 'add_column', column, onto_idx: before }
 }
 

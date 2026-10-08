@@ -7,8 +7,10 @@ import * as Recap from './recap'
 import * as UU from './useful'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
-import { ColumnValidators, widgetingLabelOf, type ColumnPatch, type ColumnT } from '../models/column'
-import { QuizValidators, type QuizT, type Sortkey } from '../models/quiz'
+import { ColumnValidators, plainOf, widgetingLabelOf, type ColumnPatch, type ColumnT } from '../models/column'
+import { CategoriesDescription, CategoriesWidgetLabel, categoryDataLabelsFor, relabelledSource } from '../models/before-october'
+import { CategoryDataLabel, SeedWidgets } from '../models/seeds'
+import { QuizValidators, isTemplatableField, templateableFrom, type QuizT, type Sortkey } from '../models/quiz'
 import { EntryFormulary } from './formulary/entry'
 import { Widget, WidgetValidators, type EntryValueT, type EntryWidgetT, type WidgetT } from '../models/widget'
 import { WidgetingValidators, type WidgetingT } from '../models/widgeting'
@@ -48,8 +50,8 @@ export type ColumnLogEntry = {
   reason:  string | null
 }
 
-/** One of the quiz's own fields an import may carry */
-export type CarriedFieldname = 'title' | Jsonball.PastedFieldname
+/** One of the quiz's own fields an import may carry: what an export from before October 2026 called `templated` is carried as `templateable` */
+export type CarriedFieldname = 'title' | Exclude<Jsonball.PastedFieldname, 'templated'>
 
 /** What became of one of the quiz's own fields the paste held */
 export type FieldLogEntry = {
@@ -167,20 +169,21 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
   if (payload.ok === 'elsewhere') { return { ...nothing, ok: true, summary: payload.summary, elsewhere: payload.elsewhere } }
   if (! payload.ok) { return { ok: false, summary: payload.summary, ...nothing } }
 
-  const incoming = payload.quiz.questions
+  const read = beforeOctoberRead(payload.quiz)
+  const incoming = read.questions
   if (incoming.length === 0) {
     return { ok: false, summary: `${payload.reading} It holds no questions, so nothing was changed.`, ...nothing }
   }
 
   const held = new Set(quiz.questions.map((question) => question.label))
-  const widgetings = widgetingsMerged(quiz, payload.quiz.widgetings, library)
+  const widgetings = widgetingsMerged(quiz, read.widgetings, library)
   const merge: MergeState = { patches: new Map(), entered: new Map(), log: [] }
-  const entries = entryWidgetingsOf(quiz, payload.quiz.widgetings, widgetings.actions, library)
+  const entries = entryWidgetingsOf(quiz, read.widgetings, widgetings.actions, library)
   for (const [ii, raw] of incoming.entries()) { readOneQuestion(merge, held, entries, raw, ii + 1) }
 
   const showable = showableAfter(quiz, widgetings.actions)
-  const columns = columnsMerged(quiz, payload.quiz.columns, showable)
-  const fields = fieldsCarried(quiz, payload.quiz, showable)
+  const columns = columnsMerged(quiz, read.columns, showable)
+  const fields = fieldsCarried(quiz, read, showable)
   const questions = chainsResolved(merge, held)
   const remembered = fields.last_sortkey === undefined ? {} : { last_sortkey: fields.last_sortkey }
 
@@ -226,7 +229,7 @@ const FieldTitles: Readonly<Record<CarriedFieldname, string>> = {
   recap_head:   'recap head',
   recap_tail:   'recap tail',
   recap_template: 'recap template',
-  templated:    'templated sources',
+  templateable: 'templateable sources',
   last_sortkey: 'sort memory',
 }
 
@@ -258,7 +261,7 @@ function fieldsCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, showable: Read
   carry('recap_head', noteOf('recap_head'), quiz.recap_head, (recap_head) => ({ kind: 'set_recap_head', recap_head }))
   carry('recap_tail', noteOf('recap_tail'), quiz.recap_tail, (recap_tail) => ({ kind: 'set_recap_tail', recap_tail }))
   carry('recap_template', recapTemplateOf(pasted), quiz.recap_template ?? '', (recap_template) => ({ kind: 'set_recap_template', recap_template: recap_template === '' ? null : recap_template }))
-  const afterLayout = templatedCarried(quiz, pasted, showable, log)
+  const afterLayout = templateableCarried(quiz, pasted, showable, log)
   if (! Object.hasOwn(pasted.fields, 'last_sortkey')) { return { actions, afterLayout, log } }
   const sortkey = QuizValidators.sortkey.nullable().safeParse(pasted.fields.last_sortkey)
   if (! sortkey.success) {
@@ -287,31 +290,62 @@ function recapTemplateOf(pasted: Jsonball.PastedQuizT): { success: true, data: s
 }
 
 /**
- * What the paste templates, as the action that makes it the quiz's (none when the paste says
- * nothing of it, or it is what the quiz has), with its line pushed onto `log`. A null clears it. A
- * widgeting the quiz will not have (`showable`) is left out, and the line names it.
+ * What the paste nominates as templateable, as the action that makes it the quiz's (none when the
+ * paste says nothing of it, or it is what the quiz has), with its line pushed onto `log`. A null
+ * clears it. A widgeting the quiz will not have (`showable`) is left out, and the line names it.
  */
-function templatedCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, showable: ReadonlySet<string>, log: FieldLogEntry[]): HuntActionDNA[] {
-  if (! Object.hasOwn(pasted.fields, 'templated')) { return [] }
-  const raw = pasted.fields.templated
-  const read = QuizValidators.templated.safeParse(raw === null ? [] : raw)
+function templateableCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, showable: ReadonlySet<string>, log: FieldLogEntry[]): HuntActionDNA[] {
+  if (! Object.hasOwn(pasted.fields, 'templateable')) { return [] }
+  const raw = pasted.fields.templateable
+  const read = QuizValidators.templateable.safeParse(raw === null ? [] : raw)
   if (! read.success) {
-    log.push({ fieldname: 'templated', outcome: 'skipped', reason: `not ${FieldTitles.templated} this tool can read` })
+    log.push({ fieldname: 'templateable', outcome: 'skipped', reason: `not ${FieldTitles.templateable} this tool can read` })
     return []
   }
-  const isUnshowable = (source: string) => {
-    const widgetingLabel = widgetingLabelOf(source)
-    return widgetingLabel !== null && ! showable.has(widgetingLabel)
-  }
-  const unshowable = read.data.filter((source) => isUnshowable(source))
-  const templated = read.data.filter((source) => ! unshowable.includes(source))
+  const unshowable = read.data.filter((source) => ! isTemplatableField(source) && ! showable.has(source))
+  const templateable = read.data.filter((source) => ! unshowable.includes(source))
   const reason = unshowable.length === 0 ? null : `without ${unshowable.join(', ')}, which this quiz will not have`
-  if (EST.isEqual(templated, quiz.templated)) {
-    log.push({ fieldname: 'templated', outcome: 'kept', reason })
+  if (EST.isEqual(templateable, quiz.templateable)) {
+    log.push({ fieldname: 'templateable', outcome: 'kept', reason })
     return []
   }
-  log.push({ fieldname: 'templated', outcome: 'carried', reason })
-  return [{ kind: 'set_templated', templated }]
+  log.push({ fieldname: 'templateable', outcome: 'carried', reason })
+  return [{ kind: 'set_templateable', templateable }]
+}
+
+/**
+ * A pasted quiz with what an export from before October 2026 holds read as it is now, as the
+ * backfills of the columnwise sprint read the rows (`convex/migrations.ts`), and for good, since
+ * an export is a promise: the category-estimate entry `categories` as `category_data`, and each
+ * widgeting labelled `categories` or `categories_<n>` as `category_data` or `category_data_<n>`,
+ * or the first free label after it where the paste holds that already (`categoryDataLabelsFor`),
+ * with each question's cell, column and nomination naming one; each column's source in the plain
+ * grammar (`plainOf`); and `templated` as `templateable`, in the plain grammar
+ * (`templateableFrom`), unless the paste holds a `templateable` too. Anything not in that grammar
+ * is left for the reading after to take or refuse.
+ */
+function beforeOctoberRead(quiz: Jsonball.PastedQuizT): Jsonball.PastedQuizT {
+  const labelFor = categoryDataLabelsFor(quiz.widgetings.flatMap((raw) => {
+    const label = fieldOf(raw, 'label')
+    return typeof label === 'string' ? [label] : []
+  }))
+  const widgetings = quiz.widgetings.map((raw) => {
+    if (! EST.isPlainObject(raw)) { return raw }
+    const label = typeof raw.label === 'string' ? labelFor.get(raw.label) : undefined
+    return { ...raw, ...(label !== undefined && { label }), ...(raw.widget_label === CategoriesWidgetLabel && { widget_label: CategoryDataLabel }) }
+  })
+  const questions = labelFor.size === 0 ? quiz.questions : quiz.questions.map((raw) => (
+    EST.isPlainObject(raw) ? Object.fromEntries(Object.entries(raw).map(([key, val]) => [labelFor.get(key) ?? key, val])) : raw
+  ))
+  const columns = quiz.columns?.map((raw) => {
+    if (! EST.isPlainObject(raw) || typeof raw.source !== 'string') { return raw }
+    const formula = typeof raw.formula === 'string' ? raw.formula : undefined
+    return { ...raw, ...plainOf({ source: relabelledSource(raw.source, labelFor), formula }) }
+  }) ?? null
+  const { templated, ...fields } = quiz.fields
+  const named = Array.isArray(templated) && templated.every((source) => typeof source === 'string') ? templateableFrom(templated).map((source) => labelFor.get(source) ?? source) : templated
+  const nominated = Object.hasOwn(quiz.fields, 'templated') && ! Object.hasOwn(fields, 'templateable') ? { templateable: named } : {}
+  return { ...quiz, widgetings, questions, columns, fields: { ...fields, ...nominated } }
 }
 
 /** The labels of the widgetings the quiz will hold once `actions` are sent: those it holds, and those added */
@@ -707,7 +741,7 @@ export function libraryImported(library: readonly WidgetT[], pasted: string): Li
   } catch {
     return { ok: false, summary: "That isn't readable as JSON, so nothing was changed. Your text is still here.", log: [], widgets: null }
   }
-  const listed = Jsonball.widgetsIn(raw)
+  const listed = Jsonball.widgetsIn(raw)?.map((each) => beforeOctoberWidget(each)) ?? null
   if (listed === null) { return { ok: false, summary: 'That holds no widgets, so nothing was changed. Your text is still here.', log: [], widgets: null } }
 
   const heldFor = new Map(library.map((widget) => [widget.label, widget]))
@@ -730,4 +764,26 @@ export function libraryImported(library: readonly WidgetT[], pasted: string): Li
     log,
     widgets: read.flatMap(({ widget }) => (widget ? [widget] : [])),
   }
+}
+
+/** The seeded category-estimate entry as the library holds it now */
+const CategoryDataSeed = SeedWidgets.find((widget) => widget.label === CategoryDataLabel)
+
+/**
+ * A pasted widget as a library export from before October 2026 holds it, read as it is now, and
+ * for good: the category-estimate entry `categories` as `category_data`, its seeded description
+ * with it. Any other widget is as pasted.
+ *
+ * @example beforeOctoberWidget({ label: 'categories', formulary: 'entry' })  // => { label: 'category_data', formulary: 'entry' }
+ */
+export function beforeOctoberWidget(raw: unknown): unknown {
+  if (! EST.isPlainObject(raw) || fieldOf(raw, 'label') !== CategoriesWidgetLabel) { return raw }
+  const held = fieldOf(raw, 'description')
+  const description = held === CategoriesDescription ? CategoryDataSeed?.description : held
+  return { ...raw, label: CategoryDataLabel, ...(description !== undefined && { description }) }
+}
+
+/** What `raw` holds at `key`, when it is an object; undefined otherwise */
+function fieldOf(raw: unknown, key: string): unknown {
+  return EST.isPlainObject(raw) ? (raw as Record<string, unknown>)[key] : undefined
 }

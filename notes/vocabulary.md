@@ -10,14 +10,22 @@ the domain.
 Everything a quiz works out per question beyond the question's own fields. Settled in October
 2026 by `notes/decisions/2026-10-widgets.md`, which replaced five words (bot, botting twice,
 expression, expressing) with the three nouns below and a piece of code. *Retiring*, at the end of
-this section, lists the words they replace while code still holds them.
+this section, lists the words they replace while code still holds them. The columnwise sprint
+(`notes/decisions/20261008-columnwise.md`) adds the families, params and `liquidize`; where the
+code does not say so yet, the record names the thread that makes it.
 
 * **formulary** -- the generic runner behind a widget: code, never a row. A class of statics in
   `src/lib/formulary/`, each answering one interface (`check`, `input`, `run`, `advice`) and
-  reporting `defaultInput`, `refresh` and `store`. The formularies are `jsonata` (a JSONata
-  formula worked out on render), `aibot` (a prompt put to a model when the author asks) and
-  `entry` (a value a person types into the cell, with no formula, so no `run` and no `advice`). A
-  word that meant nothing before, so it collides with nothing.
+  reporting `defaultInput`, `refresh` and `store`, and the validators of a widget's `config` and
+  of a widgeting's params (`paramsOf(widget)`). The formularies are `jsonata` (a JSONata formula
+  worked out on render), `aibot` (a prompt put to a model when the author asks), `entry` (a value
+  a person types into the cell, with no formula, so no `run` and no `advice`) and `liquidize`
+  (below). A word that meant nothing before, so it collides with nothing.
+* **liquidize** -- the formulary of a Liquid template filled in at its place in the run order:
+  a `jsonata` widget's twin with the other engine, worked out on render, storing nothing, at
+  either tier. Its template is the widget's `formula`, or the widgeting's params' own
+  (`template`, or `template_from`, a ref and a formula reading it from the bag). It always comes
+  to a string, markdown by convention; empty is `missing`.
 * **widget** -- a reusable definition: a formulary, a **formula**, an input formula and a config,
   under a label. Global: every hunt sees the same widgets, the **library**, whose one **scope**
   this sprint is `pub`. Outside the database a widget is named by its key, `pub/<label>`. It knows
@@ -25,34 +33,45 @@ this section, lists the words they replace while code still holds them.
 * **widgeting** -- one widget put to work in one quiz, under a label of its own (the widget's, by
   default, growing `_2`, `_3` while taken), at a place in the quiz's **run order**. The noun is
   deliberate, as *expressing* was: the widget is the recipe, the widgeting is it being worked here.
-  Removing a widgeting takes its columns.
+  A widgeting is removed only once no column shows it (*removal*).
+* **params** -- what a widgeting hands its widget beyond the bag, by name: the revisable half of
+  a widget's definition. For an entry, its family's constraints (a number's `min` and `max`, a
+  text's `pattern`); for a `liquidize`, its template; open and unused for `jsonata` and `aibot`.
+  Validated by what the formulary reports for the widget (`paramsOf`). A widget's `config` may hold
+  default params; the widgeting's win, key by key. Reaches the bag as `params`.
 * **widgeted** -- what one widgeting came to for one question, or, for a widgeting of the `quiz`
-  tier, for the quiz itself (a row of `quiz_widgeteds`, not `widgeteds`). Stored for the
-  formularies that store (`aibot` appends, `entry` upserts) and worked out on render for
-  `jsonata`. Everyone reads one as `{ status, value, err }`. Never called a "result".
+  tier, for the quiz itself (a row of `quiz_widgeteds`, not `widgeteds`). Stored for the formularies
+  that store (`aibot` appends, `entry` upserts) and worked out on render for `jsonata` and
+  `liquidize`. Everyone reads one as `{ status, value, err }`. Never called a "result".
 * **input formula** -- a widget's second JSONata expression, which culls the bag to what the widget
   reads. `$`, the whole bag, by default for `jsonata`; for `aibot`, the small object the prompt
   template is rendered over (`{ 'clueing': qn.clueing }`). An input that comes to nothing means "do
   not run", and the cell stays `missing`.
 * **formula** -- what a widget does with its input: a JSONata expression for `jsonata`, a prompt
-  template with `{{placeholders}}` for `aibot`.
+  template with `{{placeholders}}` for `aibot`, a Liquid template for `liquidize`. A column has a
+  formula of its own (*Columns and the bag*), only ever JSONata.
 * **config** -- a widget's formulary-specific settings: `servicelabel`, `model_tier` and
-  `max_tokens` for `aibot`; `entry_kind` for `entry`; nothing for `jsonata`.
-* **entry kind** -- what an `entry` widget's cells take: `text`, `number`, `labelish` (a label),
-  `titleish` (one line) or `estimates` (a question's category estimates, *Categories*). Fixed once the widget is made, as its formulary is; together they are its
-  **flavor** (`Widget.flavorOf`: "a number entry", "an aibot widget"). An emptied entry cell holds
-  no row and reads `missing`.
+  `max_tokens` for `aibot`; `entry_kind` and the family's default params for `entry`; nothing for
+  `jsonata`.
+* **family**, **entry kind** -- what an `entry` widget's cells take, and so its cell editor:
+  `number`, `text`, `boolean`, `enum` or `estimates` (a question's category estimates,
+  *Categories*), stored as `entry_kind`. The family is frozen on the widget; its constraints are the
+  widgeting's params. `labelish` (a label) and `titleish` (one line) are older kinds, presets of
+  `text` now: valid on rows, never offered. Fixed once the widget is made, as its formulary is;
+  together they are its **flavor** (`Widget.flavorOf`: "a number entry", "an aibot widget"). An
+  emptied entry cell holds no row and reads `missing`.
 * **tier** -- which level a widgeting runs at: `question` (once for each question, as every
   widgeting has) or `quiz` (once for the quiz as a whole, over a bag whose `qn` is empty). Only a
-  `jsonata` widget and an `entry` of one value run at `quiz` (`Widgeting.runsAt`). Fixed once made,
-  as its widget is. Not a bot's **model tier**, which is a widget's config. A `quiz` widgeting's
-  widgeted sits in every later bag as `quiz.<label>`, so it may not take a name the quiz itself
-  answers to there (`Quiz.exposed`); it has no column, and is shown and typed into in the **Quiz
-  entries** panel. The gear lists both tiers in one **Widgetings** list, each row marked *each
-  question* or *whole quiz*.
-* **run order** -- a quiz's widgetings in the order they run: their positions, the two tiers mixed
-  as the author placed them. Each widgeting's bag holds the widgeteds of the widgetings before it,
-  so the order is the dependency order: a `quiz` widgeting runs once over the questions as the
+  `jsonata` or `liquidize` widget and an `entry` of one value run at `quiz` (`Widgeting.runsAt`).
+  Fixed once made, as its widget is. Not a bot's **model tier**, which is a widget's config. A
+  `quiz` widgeting's widgeted sits in every later bag as `quiz.<label>`, so it may not take a name
+  the quiz itself answers to there (`Quiz.exposed`); a column shows it only by the ref
+  `quiz.<label>`, and it is shown and typed into in the **Quiz entries** panel. The gear lists both
+  tiers in one **Widgetings** list, each row marked *each question* or *whole quiz*.
+* **run order** -- a quiz's widgetings in the order they run: every entry first, as it reads
+  nothing, and then the rest by position, the two tiers mixed as the author placed them. Each
+  widgeting's bag holds the widgeteds of the widgetings before it, so the order is the dependency
+  order: a `quiz` widgeting runs once over the questions as the
   widgetings before it left them, and a `question` widgeting reads every `quiz` one before it as
   `quiz.<label>`. A new widgeting goes last, whichever its tier; `move_widgeting` counts the one
   list. (Until October 2026 a fixed *questions pivot* kept the tiers apart.)
@@ -77,9 +96,17 @@ this section, lists the words they replace while code still holds them.
   no hunt or quiz open.
 * **catalogue** -- the library as the widgeting editor's picker offers it.
 * **widgeting editor** -- the quiz's dialog for one widgeting: the widget it works, picked from the
-  catalogue, and its own label and description. It never edits the widget.
+  catalogue, and its own label and description. It never edits the widget. The columnwise sprint
+  retires it for the **folding editor**: a column row leading, its widgeting's **folded line**
+  (the formulary's few fields: an entry's params, a formula) beneath it, unfolding into the
+  widgeting's full panel, which is the same fields with more rows.
 * **widget editor** -- the library's dialog for one widget: its formulary (chosen once, when it is
-  written), formula, input formula and config, how far it is put to work, and its removal.
+  written), formula, input formula and config, how far it is put to work, and its removal. The
+  widget stays behind this door: an edit to it is global and admin-only.
+* **removal** -- one rule at every level: a thing goes only once nothing shows or works it. A
+  widget while no widgeting works it; a widgeting while no column shows it, whole or a part; a
+  column freely. The author clears references from the outside in. A formula naming what is gone
+  reads `missing`; deleting a quiz takes everything of it.
 
 ### Retiring
 
@@ -238,23 +265,26 @@ words above.
     making a field safe for one place where markdown's structure is fragile. It quotes a
     question's own hint after `...OR ELSE...`, where the LL Export shows the chained-to question's
     after `...BUT NOT...`.
-* **templated** -- the sources a quiz nominates for templating, named as a column names what it
-  shows: `question.<field>` for one of its questions' own fields that hold markdown (`clueing`,
-  `hint`, `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per
-  source, never per column. A templated text is **filled in** (`Templating.fill`, Liquid) over
-  the **template bag** -- the formula's bag less `params` and `widgeting_label`, every question
-  carrying every widgeting's widgeted, so `{{ qn.photo }}` is that column's value, and its questions
-  told apart: `qns` holds those a screen shows (the alternates among them), `quiz.questions` every
-  one, the archived too -- before the
-  markdown parser reads it, and the sanitizer reads what that makes, last. Shown filled in on the
-  grid and in the LL Export, and edited as typed. Any field's markdown may show an image, templated
-  or not (`https` only), held to a thumbnail's height in the grid's cells.
-  - **template helper** -- one of the app's three named shapings a template calls as a section
-    (`Templating.Helpers`): `{{#quote}}..{{/quote}}`, `{{#oneline}}..{{/oneline}}`,
-    `{{#apart}}..{{/apart}}`. The section is filled in, then **shaped** (`lib/shaping.ts`) for a
-    fragile place, as the recap bag's pre-shaped fields are. Every template may call them (field
-    templates, recap head and tail, the recap template); the bare names (`{{quote}}`) fill in
-    nothing, and a value in the bag is never called.
+* **templateable** (`quizzes.templateable`, set by `set_templateable`; a quiz written before the
+  columnwise sprint held it as `templated`, which the importer still reads) --
+  the sources a quiz nominates for templating, whose own stored text is a template, named as a
+  column's ref names them: one of its questions' own fields that hold markdown (`clueing`, `hint`,
+  `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per source, never
+  per column, and filled in at the end, over the finished bag, never in the run order (a template a
+  later formula must read filled is a `liquidize`). What the filling makes is **templated**. Not a
+  column's *template*, which touches no stored text. A templated text is **filled in**
+  (`Templating.fill`, Liquid) over the **template bag** -- the formula's bag less `params` and
+  `widgeting_label`, every question carrying every widgeting's widgeted, so `{{ qn.photo }}` is that
+  column's value, and its questions told apart: `qns` holds those a screen shows (the alternates
+  among them), `quiz.questions` every one, the archived too -- before the markdown parser reads it,
+  and the sanitizer reads what that makes, last. Shown filled in on the grid and in the LL Export,
+  and edited as typed. Any field's markdown may show an image, templated or not (`https` only), held
+  to a thumbnail's height in the grid's cells.
+  - **template helper** -- one of the app's three named shapings a template calls as a Liquid
+    filter (`Templating.Helpers`): `{{ qn.clueing | quote }}`, `| oneline`, `| apart`. What it is
+    given is **shaped** (`lib/shaping.ts`) for a fragile place; a text built of several is
+    `{% capture %}`d first and shaped as one. Every template may call them (field templates,
+    recap head and tail, the recap template); a value in the bag is never called.
 * **question** -- one row. Its base fields are the constant of the whole tool: `title`, `clueing`,
   `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`, `recap`. Everything else a
   quiz shows is a widgeted.
@@ -330,10 +360,11 @@ than one kind of player. Begun by the categories sprint, October 2026
   (`src/models/estimate.ts`). A question's estimates list each category once, or are a lone
   estimate of no category.
 * **category-estimate entry** -- an `entry` widget of kind `estimates` (the seeded one is
-  `categories`): each cell is a row of **pills**, one per category the question draws on, each a
-  category (or blank) and a difficulty. Blank pills come to nothing; a cell whose every pill is
-  blank, or that nobody has filled in, reads as one estimate of no category in particular. Its
-  widgeting offers **parts** (below, *Columns*); `Estimates.quizEstimatesOf` reads every
+  `category_data`, `categories` until the columnwise sprint's thread 3a renames it, since
+  `categories` is the bag's): each cell is a row of **pills**, one per category the question draws
+  on, each a category (or blank) and a difficulty. Blank pills come to nothing; a cell whose every
+  pill is blank, or that nobody has filled in, reads as one estimate of no category in particular.
+  Its widgeted carries **parts** (*Columns and the bag*); `Estimates.quizEstimatesOf` reads every
   question's estimates under a quiz's first one.
 * **spread** -- how a quiz's questions fall round the wheel (`Spread.spreadOf`): each
   category's **count**, every question counting once, split evenly across the categories its
@@ -382,17 +413,43 @@ than one kind of player. Begun by the categories sprint, October 2026
 
 ## Columns and the bag
 
-* **column** -- what the grid shows: a `label`, a `title`, a `width_px`, a `source`, and perhaps
-  an `align` (left, center or right; absent, Q# is centered and every other cell sets itself, a
-  number to the right and anything else to the left). Kept apart from widgetings on purpose: a
-  widgeting *has* a value, a column *shows* one. Removing a column keeps its widgeting; removing a
-  widgeting takes its columns. Columns have a label space of their own per quiz, and the TSV's
-  headers are column labels.
-* **source** -- what a column shows: `question.<field>`, `question.<view>`, a widgeting's
-  label, or `<widgeting>.<part>`: one **part** of what a widgeting came to, which only a
-  category-estimate entry offers (`estimates`, `masie`, `artie`, `poppy`, `average`), worked out on
-  render from the hunt's total order and stored nowhere. A formula reads the same parts on the
-  widgeted, `qn.<label>.masie`. `question` names the questions' own fields here, and no widgeting may be labelled it.
+The columnwise sprint (`notes/decisions/20261008-columnwise.md`) gives a column its ref, formula,
+template, readout and collapse; where the code does not say so yet, the record names the thread
+that makes it.
+
+* **column** -- what the grid shows: a `label`, a `title`, a `width_px`, a `source` holding its
+  **ref**, and perhaps an `align` (left, center or right; absent, Q# is centered and every other
+  cell sets itself, a number to the right and anything else to the left), a `formula`, a
+  `template`, a `readout` and `collapsed`. A short pipeline: the ref picks a thing, the formula
+  works a value out of it, the template makes text of the value, the readout draws the text; each
+  stage optional. Kept apart from widgetings on purpose: a widgeting *has* a value, a column
+  *shows* one. Removing a column keeps its widgeting; a widgeting is removed only once no column
+  shows it. Columns have a label space of their own per quiz, and the TSV's headers are column
+  labels; the TSV carries what each column shows.
+* **ref** -- what a column shows, held in its `source`: one plain key in the bag's own words,
+  found on `qn` first and then at the bag's top level: a question's field or its view `butnot`, a
+  widgeting's label, or `quiz`, `hunt`, `realm`, `categories`, `qns`. The one dotted form is
+  `quiz.<label>`, a quiz widgeting's widgeted. A column never names a column. *The grammar before
+  October 2026*, which the importer reads for good, said `question.<field>` and
+  `<widgeting>.<part>`.
+* **part** -- one piece of what a category-estimate entry came to (`estimates`, `masie`,
+  `artie`, `poppy`, `average`), worked out on render from the hunt's total order and stored
+  nowhere, beside `status` and `value` on the widgeted: a formula reads `qn.<label>.masie`, and a
+  column shows one by its formula, `$.masie`.
+* **formula** (a column's) -- JSONata over the thing the ref picked, as the bag holds it: a field
+  itself, or a widgeting's whole widgeted (`$.value.guess`, `$.masie`). Absent is **identity**: a
+  field itself, a widgeted's `value`. Worked out only on an `ok` widgeted (`missing` and `errored`
+  pass through, but for an empty category-estimate cell, whose parts the bag carries), never in the run order, and read by nothing else; combining two things is a
+  widgeting. Sorts read what it came to. An entry's cell is typed into only while the formula is
+  identity and there is no template.
+* **template** (a column's) -- Liquid making text of the value the formula came to, filled in over
+  the question's template bag with that value as `value`. How one column draws a value; it touches
+  no stored text. Not a *templateable* source (*The things an author makes*).
+* **readout** -- how a column draws its text: `plain`, `markdown` (then the sanitizer), `code` or
+  `label`. Absent, as the cells choose; with a template, or showing a `liquidize`, `markdown`.
+* **collapsed** -- a column folded to the width of its turned header by a double-click on its
+  head, its cells empty and its `width_px` kept for the double-click that restores it. The TSV is
+  unchanged by it.
 * **bag** (the quiz bag) -- the document a formula reads: `hunt`, `realm`, `categories`, `quiz`,
   `qns`, `qn`, `qn_label`, `quiz_label`, and the running widgeting's `params` and
   `widgeting_label`. No ids; everything by label. It is **flat**: each earlier widgeting's
@@ -403,10 +460,13 @@ than one kind of player. Begun by the categories sprint, October 2026
   **place** (`Runner.placeOf`), which the quiz's history also files it under; `categories` are
   the hunt's, in its total order, each a `label` and a `title`.
 * **reserved** -- the labels no widgeting may take, so the flat bag never shadows a question's
-  own field: every key a question has in the bag (its exposed fields, `rank`, `archived` and
-  `secondary`), its views, and `question`; and, for a widgeting run once for the whole quiz, the
-  quiz's exposed fields and `questions` (`Quiz.bagKeys`). Derived from those lists in one place,
-  never written out twice.
+  own field and a ref never finds the wrong thing: every key a question has in the bag (its
+  exposed fields, `rank`, `archived` and `secondary`), its views, and `question`; every top-level
+  key of the bag; the keys of a widgeted, of a column and of an estimates widgeted; and, for a
+  widgeting run once for the whole quiz, the quiz's exposed fields and `questions`
+  (`Quiz.bagKeys`). Derived from those lists in one place, never written out twice. Beyond these,
+  the words no label at all may be (*label*, under *Identity*). The columnwise record lists them
+  all.
 * **exposed** -- the class-level list of fields a thing shows the outside world. The bag, its
   JSON Schema and the git table are all built from these lists, so hiding a field is one edit. A
   widgeting exposes `status` and `value`; never its `err` or how it ran.

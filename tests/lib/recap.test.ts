@@ -70,7 +70,7 @@ function everythingQuiz(patch: Partial<QuizT> = {}): QuizT {
   const plain = questionWith({ qnum: '2', title: 'Plain', clueing: 'By {{qn.author}}, a ~50 year ~~old~~ thing.', full_answer: 'ADA', stored: { author: typed('Ada') } })
   return quizOf([target, plain, chained, Question.blank()], {
     widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' }), CorrectPct],
-    templated:  ['question.clueing'],
+    templateable: ['clueing'],
     recap_head: 'The recap of *{{quiz.title}}*.\n\nThanks to all.',
     recap_tail: 'See you next season.',
     ...patch,
@@ -137,7 +137,7 @@ describe('Recap.noteOf, by the default template', () => {
     const question = questionWith({ qnum: '1', clueing: 'By {{qn.author}}', recap: 'Ask {{qn.author}}', stored: { author: typed('Ada') } })
     const quiz = quizOf([question], {
       widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' })],
-      templated:  ['question.recap'],
+      templateable: ['recap'],
     })
     expect(recapOf(quiz)).to.contain('1. By {{qn.author}}[/quote]').and.to.contain('\nAsk Ada')
   })
@@ -146,7 +146,7 @@ describe('Recap.noteOf, by the default template', () => {
     const question = questionWith({ qnum: '1', clueing: 'Who?', stored: { author: typed('Ada'), byline: typed('By {{qn.author}}') } })
     const quiz = quizOf([question], {
       widgetings:     [Widgeting.fill({ label: 'author', widget_label: 'authors' }), Widgeting.fill({ label: 'byline', widget_label: 'authors' })],
-      templated:      ['byline'],
+      templateable: ['byline'],
       recap_template: '{% for qn in qns %}{{ qn.byline }}{% endfor %}',
     })
     expect(recapOf(quiz)).to.eq('By Ada')
@@ -338,7 +338,7 @@ describe('Recap.bagOf', () => {
 
   it('holds each question with its templated fields filled in, and its head and tail filled in', () => {
     const question = questionWith({ qnum: '1', clueing: 'By {{ qn.author }}\nWhen?', stored: { author: typed('Ada') } })
-    const quiz = quizOf([question], { widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' })], templated: ['question.clueing'], recap_head: 'Thanks to {{ qns.first.author }}!' })
+    const quiz = quizOf([question], { widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' })], templateable: ['clueing'], recap_head: 'Thanks to {{ qns.first.author }}!' })
     const bag = Recap.bagOf(quiz, runOf(quiz, Library))
     expect([bag.qns[0]?.clueing, bag.recap_head]).to.deep.eq(['By Ada\nWhen?', 'Thanks to Ada!'])
   })

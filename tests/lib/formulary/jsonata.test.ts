@@ -76,6 +76,19 @@ describe('JsonataFormulary', () => {
     })
   })
 
+  describe('worked', () => {
+    it("reads what a formula comes to over any input as a formula widget's widgeted, a part of a category-estimate entry among them", () => {
+      expect(JsonataFormulary.worked('$.masie', { status: 'ok', value: [], err: null, masie: 0.5 }).widgeted).to.deep.eq(Widgeted.ok(0.5))
+      expect(JsonataFormulary.worked('$uppercase($)', 'leon')).to.deep.eq({ widgeted: Widgeted.ok('LEON'), stops: false })
+      expect(JsonataFormulary.worked('$.nope', {}).widgeted).to.deep.eq(Widgeted.missing)
+      expect(JsonataFormulary.worked('$sum(', {}).widgeted.status).to.eq('errored')
+    })
+
+    it("says a formula that would not stop should stop the rest of its column", () => {
+      expect(JsonataFormulary.worked('($loop := function($x) { $loop($x) }; $loop(1))', {}).stops).to.be.true
+    })
+  })
+
   describe('input', () => {
     it('is the whole bag by default', () => {
       expect(JsonataFormulary.input({ input_formula: '$' }, bag)).to.deep.eq({ status: 'ok', input: bag })

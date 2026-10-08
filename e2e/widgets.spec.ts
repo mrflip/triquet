@@ -45,6 +45,15 @@ async function applyWidget(page: Page, label: string) {
   await expect(page.getByRole('dialog')).toHaveCount(0)
 }
 
+/** Through the gear's dialog, which must be open: remove the column titled `title`, saying yes when it asks */
+async function removeColumn(page: Page, title: string) {
+  await page.getByRole('button', { name: `Edit column ${title}` }).click()
+  const editor = page.getByRole('dialog', { name: `Column: ${title}` })
+  await editor.getByRole('button', { name: 'Remove column' }).click()
+  await editor.getByRole('button', { name: 'Yes, remove' }).click()
+  await expect(page.getByRole('group', { name: `Column ${title}`, exact: true })).toHaveCount(0)
+}
+
 /** Type a full answer into the first row */
 async function answerFirstRow(page: Page, full_answer: string) {
   await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill(full_answer)
@@ -196,7 +205,7 @@ test('a column can be added for anything the quiz can show, with its own title a
   await editor.getByRole('textbox', { name: 'Column title' }).fill('More notes')
   await editor.getByRole('textbox', { name: 'Column label' }).fill('more_notes')
   await editor.getByRole('combobox', { name: 'Shows' }).click()
-  await page.getByRole('option', { name: /^question\.notes/ }).click()
+  await page.getByRole('option', { name: /^notes / }).click()
   await editor.getByRole('spinbutton', { name: 'Width (px)' }).fill('200')
   await editor.getByRole('button', { name: 'Apply' }).click()
   await closeManage(page)
@@ -209,7 +218,7 @@ test('a new column offers first what no column shows yet, and takes that field\'
   await openManage(page)
   await page.getByRole('button', { name: '+ New column…' }).click()
   const editor = page.getByRole('dialog', { name: 'New column' })
-  await expect(editor.getByRole('combobox', { name: 'Shows' })).toHaveText(/^question\.hint/)
+  await expect(editor.getByRole('combobox', { name: 'Shows' })).toHaveText(/^hint/)
   await expect(editor.getByRole('textbox', { name: 'Column title' })).toHaveAttribute('placeholder', 'Hint')
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(manageDialog(page).getByRole('group', { name: 'Column Hint', exact: true })).toContainText('hint')
@@ -232,6 +241,7 @@ test('a widget nobody works asks first, and is removed', async ({ page }) => {
   const widget_label = freshWidgetLabel('spare')
   await addNewFormula(page, widget_label, '1', 'spare')
   await openManage(page)
+  await removeColumn(page, 'Spare')
   await page.getByRole('button', { name: 'Edit widgeting spare' }).click()
   const widgeting = page.getByRole('dialog', { name: 'Widgeting: spare' })
   await widgeting.getByRole('button', { name: 'Remove widgeting' }).click()
@@ -320,16 +330,22 @@ test('removing a column asks first, and leaves the widgeting it showed', async (
   await expect(page.getByRole('columnheader', { name: 'Hint Numeral' })).toHaveCount(0)
 })
 
-test('removing a widgeting asks first, and takes the columns that showed it', async ({ page }) => {
+test('removing a widgeting waits until no column shows it, saying which does, and then asks first', async ({ page }) => {
   await addWidgeting(page, 'hint_numeral')
   await openManage(page)
   await page.getByRole('button', { name: 'Edit widgeting hint_numeral' }).click()
   const editor = page.getByRole('dialog', { name: 'Widgeting: hint_numeral' })
+  await expect(editor).toContainText('The column “Hint Numeral” still shows that widgeting — remove the column first.')
+  await expect(editor.getByRole('button', { name: 'Remove widgeting' })).toHaveCount(0)
+  await editor.getByRole('button', { name: 'Cancel' }).click()
+
+  await removeColumn(page, 'Hint Numeral')
+  await page.getByRole('button', { name: 'Edit widgeting hint_numeral' }).click()
   await editor.getByRole('button', { name: 'Remove widgeting' }).click()
   await editor.getByRole('button', { name: 'Keep it' }).click()
   await editor.getByRole('button', { name: 'Remove widgeting' }).click()
   await editor.getByRole('button', { name: 'Yes, remove' }).click()
-  await expect(page.getByRole('group', { name: 'Column Hint Numeral' })).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Widgeting hint_numeral' })).toHaveCount(0)
   await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'Hint Numeral' })).toHaveCount(0)
 })
@@ -428,13 +444,13 @@ test('what a column shows and its width are changed in place, and kept', async (
   await openManage(page)
   const row = page.getByRole('group', { name: 'Column Hint Full' })
   await row.getByRole('combobox', { name: 'Shows' }).click()
-  await page.getByRole('option', { name: 'question.notes', exact: false }).first().click()
+  await page.getByRole('option', { name: 'notes', exact: false }).first().click()
   await row.getByRole('textbox', { name: 'Width (px)' }).fill('250')
   await row.getByRole('textbox', { name: 'Column title' }).focus()
   await closeManage(page)
   await reloadOnceSaved(page)
   await openManage(page)
-  await expect(row.getByRole('combobox', { name: 'Shows' })).toHaveText('question.notes')
+  await expect(row.getByRole('combobox', { name: 'Shows' })).toHaveText('notes')
   await expect(row.getByRole('textbox', { name: 'Width (px)' })).toHaveValue('250')
 })
 
