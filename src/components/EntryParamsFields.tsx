@@ -125,7 +125,7 @@ function ParamField({ paramname, said, beneath, help, issue, disabled, line, onP
   case 'regex': {
     return (
       <RegexField
-        label={label} committed={regexOf(said)} beneath={regexOf(beneath)} helperText={helperText} error={issue !== null} disabled={disabled}
+        label={label} committed={regexOf(said)} beneath={regexOf(beneath)} helperText={helperText ?? ''} error={issue !== null} disabled={disabled}
         onCommit={(regex) => { onPut(regex ?? undefined) }}
       />
     )
