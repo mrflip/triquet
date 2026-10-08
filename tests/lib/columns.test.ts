@@ -145,9 +145,9 @@ describe('specFor', () => {
   })
 
   it('orders the quiz by what a formula works out, but never by a word the same in every row', () => {
-    expect(specOf('clueing', '$length($)').sortkey).to.eq('column:col')
+    expect(specOf('clueing', '$length($)').sortkey).to.eq('column:tally')
     expect(specOf('qns', '$count($)').sortkey).to.be.undefined
-    expect(specOf('rank').sortkey).to.eq('column:col')
+    expect(specOf('rank').sortkey).to.eq('column:tally')
   })
 
   it('remembers a sortable column by its label', () => {

@@ -43,7 +43,7 @@ describe('SeedWidgets', () => {
 
   it("holds an entry of each family, the category estimates among them, and no preset of text", () => {
     const entries = SeedWidgets.flatMap((widget) => (widget.formulary === 'entry' ? [[widget.label, widget.config.entry_kind]] : []))
-    expect(entries).to.deep.eq([['categories', 'estimates'], ['memo', 'text'], ['figure', 'number'], ['yes_no', 'boolean'], ['choice', 'enum']])
+    expect(entries).to.deep.eq([['category_data', 'estimates'], ['memo', 'text'], ['figure', 'number'], ['yes_no', 'boolean'], ['choice', 'enum']])
     expect(entries.map(([, entry_kind]) => entry_kind)).to.have.members([...EntryFamilyVals])
   })
 
