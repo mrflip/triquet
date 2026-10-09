@@ -359,6 +359,22 @@ and in the gear (*Run order*, lines to drag); one question's row previewed above
 * Chain resolution, the sort's exactness check and the column relabel are restated from
   `convex/writing/` rather than shared.
 
+## From columnwise sprint, thread 10: one bag shape
+
+Built: the bag in the export's shape (`Bagged`, record section 12), the rewrite of the old words
+(`src/models/before-october.ts`), the `bagshape` backfills. Left:
+
+* **Retire the `bagshape` backfills** from `Backfills` once production's deploy has said they
+  finished (no tightening will). Keep the ledger row.
+* **A column's ref cannot name every key the bag's question holds**: `position`, `viz` and the
+  stamps are in the bag now, but `QuestionKeyVals` lists only `label`, `rank`, `archived` and
+  `secondary`. The regularity rule says to add them (and their `RefTitles`).
+* **The Coach's "simplify the data on a uniform structure"**: now there is one. Candidates seen on
+  the way: `archived`/`secondary` beside `viz` (two yes-or-nos read off one field), the realm with
+  no ball of its own, a question's `rank` beside `qnum`.
+* **butnot and the ishes as expressions** (the Coach): the seeded sums still look up the chained
+  question as widgets; a column preset could do it once the expression can read another question.
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and
