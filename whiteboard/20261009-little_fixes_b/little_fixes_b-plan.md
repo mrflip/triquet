@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-09. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip) in chat, as one list of seventeen small asks; the orchestrator grouped
 them into four threads ("I don't want a ton of PRs": unrelated asks may share a PR as separate
-commits). **Status: threads 1, 3, 4 landed (#212, #214, #216); 2 landing (full e2e, the closing proof).** `little_fixes_b-progress.md`, beside this file, is newer than this
+commits). **Status: done, 2026-10-09. All four threads landed: #212, #214, #216, #217 (one stack, on #204). Closing proof: full e2e, 293 passed, 0 failed, on thread 2's landing. See `human/20261009-sprint_little_fixes_b_done.md`.** `little_fixes_b-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
 
 ## Read first
