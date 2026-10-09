@@ -43,7 +43,20 @@ export type RecapPanelProps = {
  * The note follows the head, tail and template as they are typed. Each question's own recap is
  * written in the grid's Recap column.
  */
-export function RecapPanel({ quiz, run, revisable, onRecapHead, onRecapTail, onRecapTemplate }: Readonly<RecapPanelProps>) {
+export function RecapPanel(props: Readonly<RecapPanelProps>) {
+  return (
+    <Panel
+      title="Recap"
+      blurb="The recap note to post once the quiz has been played, in the message boards' BBCode: the head, each question with its answer behind a spoiler and its recap (the grid's Recap column), then the tail. The head and tail are templates, filled in as a templated field is: {{quiz.title}} and the like. The recap template, folded below, lays the whole note out."
+      double
+    >
+      <RecapBody {...props} />
+    </Panel>
+  )
+}
+
+/** What the Recap panel holds, worked out only once the panel has been opened: the head, the note, the tail and the template */
+function RecapBody({ quiz, run, revisable, onRecapHead, onRecapTail, onRecapTemplate }: Readonly<RecapPanelProps>) {
   const head = useDraft(quiz.recap_head, onRecapHead)
   const tail = useDraft(quiz.recap_tail, onRecapTail)
   const template = useDraft(Recap.templateOf(quiz), (text) => { onRecapTemplate(text === Recap.DefaultTemplate ? null : text) }, tidiedTemplate)
@@ -54,16 +67,12 @@ export function RecapPanel({ quiz, run, revisable, onRecapHead, onRecapTail, onR
   }, [quiz, run, head.draft, tail.draft, template.draft])
   useTemplateIssueReport(note.issue, 'Recap template', bag)
   return (
-    <Panel
-      title="Recap"
-      blurb="The recap note to post once the quiz has been played, in the message boards' BBCode: the head, each question with its answer behind a spoiler and its recap (the grid's Recap column), then the tail. The head and tail are templates, filled in as a templated field is: {{quiz.title}} and the like. The recap template, folded below, lays the whole note out."
-      double
-    >
+    <>
       <RecapNote label="Recap head" draft={head} bag={bag} placeholder={AppNotices.recapHeadBlank} revisable={revisable} />
       <ReadonlyBox label="Recap note" text={note.bbjank} rows={RecapShownRows} dense resizable />
       <RecapNote label="Recap tail" draft={tail} bag={bag} placeholder={AppNotices.recapTailBlank} revisable={revisable} />
       <RecapTemplate draft={template} owned={quiz.recap_template !== undefined} issue={note.issue} revisable={revisable} />
-    </Panel>
+    </>
   )
 }
 

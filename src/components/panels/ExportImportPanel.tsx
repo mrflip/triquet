@@ -1,8 +1,8 @@
 'use client'
 
 import { FullHistoryDownload } from '../FullHistoryDownload'
-import { ImportForm } from './ImportForm'
-import { LeagueExport } from './LeagueExport'
+import { ImportForm, useArrival } from './ImportForm'
+import { LeagueExport, type LeagueExportProps } from './LeagueExport'
 import { LibraryForm } from './LibraryForm'
 import { RawExport } from './RawExport'
 import { ReadonlyBox } from './ReadonlyBox'
@@ -48,11 +48,12 @@ export type ExportImportPanelProps = {
 export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibrary, onImport, onImportElsewhere, onQ1Preamble }: Readonly<ExportImportPanelProps>) {
   const exporting = useWholeHunt(hunt, quiz)
   const sentHere = PendingImports.peek(PendingImports.keyOf(hunt._id, quiz.label)) !== null
+  const arrival = useArrival({ hunt_id: hunt._id, quiz, library, locked: ! offers.importQuestions, onImport })
   const tabs = [
     {
       label:   'Spreadsheet',
       blurb:   'Tab-separated: a header row, then one line per question, with every column the grid has, always in rank order whatever the grid is sorted into. Click the box to select the lot, then paste straight into a spreadsheet.',
-      content: <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz, run)} />,
+      content: <SheetsExport quiz={quiz} run={run} />,
     },
     offers.exportHunt && {
       label:   'Raw Export',
@@ -62,7 +63,7 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     {
       label:   'Import',
       blurb:   'Paste back anything Raw Export ever gave you, a single quiz or its questions alone, or a bare list of questions. Questions and widgetings are matched by label; a field you leave out is left alone, a field set to null is cleared, and no question or widgeting is ever deleted. A widgeting whose widget the library lacks is skipped, and what its cells held with it: bring the widgets in first, through the Library tab. What was typed into an entry comes along, and what a bot replied fills its cell where the cell holds nothing. A quiz\'s title and notes come along, and its columns become this quiz\'s. A whole hunt whose quizzes match none of this one goes to the quiz of its first quiz\'s label, made for it if need be. Once a question comes in, the untouched blank ones are archived.',
-      content: <ImportForm hunt_id={hunt._id} quiz={quiz} library={library} locked={! offers.importQuestions} onImport={onImport} onElsewhere={onImportElsewhere} />,
+      content: <ImportForm quiz={quiz} library={library} locked={! offers.importQuestions} onImport={onImport} onElsewhere={onImportElsewhere} arrival={arrival} />,
     },
     {
       label:   'Library',
@@ -77,8 +78,18 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     {
       label:   'LL Export',
       blurb:   'The league\'s own import format, on one line. Each question in rank order gets a record: its number, its clueing with the BUT NOT below it, the full answer and the notes, separated by pipes and ending in $$. Bold and italics become [b] and [i], line breaks become [br], and a pipe in the text becomes ¦. The mode can put the smith\'s note, or the Q1 preamble, ahead of the first question.',
-      content: <LeagueExport quiz={Templating.filledQuiz(quiz, run)} revisable={offers.reviseQuiz} onQ1Preamble={onQ1Preamble} />,
+      content: <FilledLeagueExport quiz={quiz} run={run} revisable={offers.reviseQuiz} onQ1Preamble={onQ1Preamble} />,
     },
   ]
   return <TabbedPanel title="Export / Import" blurb="Ways to take the work somewhere else, and to bring it back." tabs={tabs.filter((tab) => tab !== false)} shownFirst={sentHere ? 'Import' : undefined} />
+}
+
+/** The Spreadsheet tab's box: the quiz as a spreadsheet paste, worked out only while the tab is built */
+function SheetsExport({ quiz, run }: Readonly<{ quiz: QuizT, run: QuizRun }>) {
+  return <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz, run)} />
+}
+
+/** The LL Export tab: the quiz with its templated fields filled in over its run (`Templating.filledQuiz`), worked out only while the tab is built */
+function FilledLeagueExport({ quiz, run, ...props }: Readonly<LeagueExportProps & { run: QuizRun }>) {
+  return <LeagueExport quiz={Templating.filledQuiz(quiz, run)} {...props} />
 }

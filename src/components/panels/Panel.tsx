@@ -32,10 +32,12 @@ export type PanelProps = {
  *
  * Every panel folds to its title bar, and opens again, by the triangle before its heading; one in
  * the row of panels under the quiz (`PanelsRow`) starts folded, and one that is a page's own
- * content (the login gate, the hunt page) starts open. What it holds stays mounted while folded, so a draft typed in it survives. One in a row of
- * panels (`PanelsRow`) that is not already the whole row wide also has an arrow at the end of its
- * title bar, widening it to the whole row and narrowing it back. A panel keeps which way each is
- * turned itself, unless the view using it holds the width (`widened`), to grow its content with it.
+ * content (the login gate, the hunt page) starts open. What it holds is built the first time it is
+ * opened, so a panel never opened costs nothing, and stays mounted while folded after that, so a
+ * draft typed in it survives. One in a row of panels (`PanelsRow`) that is not already the whole
+ * row wide also has an arrow at the end of its title bar, widening it to the whole row and
+ * narrowing it back. A panel keeps which way each is turned itself, unless the view using it holds
+ * the width (`widened`), to grow its content with it.
  *
  * Named by its own heading, so it is a landmark someone can jump straight to rather than an
  * anonymous box they have to arrow through the grid to reach.
@@ -61,7 +63,7 @@ export function Panel({ title, blurb, wide = false, double = false, widened: wid
           </IconButton>
         )}
       </Stack>
-      <Collapse in={open} id={bodyId}>
+      <Collapse in={open} id={bodyId} mountOnEnter>
         <p className={styles.microcopy}>{blurb}</p>
         {children}
       </Collapse>

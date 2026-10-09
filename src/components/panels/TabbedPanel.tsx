@@ -24,10 +24,19 @@ export type TabbedPanelProps = {
  * A titled panel, the whole row wide, whose sections are tabs, one showing at a time. The tabs
  * answer the arrow keys, and each section is a tab panel named by its tab.
  *
- * A hidden tab stays mounted, so what is typed or prepared in one survives a visit to another.
+ * A tab's section is built the first time it is shown, so a tab never visited costs nothing, and
+ * stays mounted while hidden after that, so what is typed or prepared in one survives a visit to
+ * another.
  */
 export function TabbedPanel({ title, blurb, tabs, shownFirst }: Readonly<TabbedPanelProps>) {
   const [shownIdx, setShownIdx] = useState(() => Math.max(0, tabs.findIndex((tab) => tab.label === shownFirst)))
+  // The tabs left since the panel was built, whose sections stay built: by label, so a tab coming or
+  // going (one offered only to some) leaves the others as they were. The tab shown is always built.
+  const [left, setLeft] = useState<ReadonlySet<string>>(() => new Set())
+  const show = (idx: number) => {
+    setLeft((was) => new Set([...was, tabs[shownIdx]?.label ?? '']))
+    setShownIdx(idx)
+  }
   const idBase = useId()
   const tabId = (idx: number) => `${idBase}-tab-${String(idx)}`
   const sectionId = (idx: number) => `${idBase}-section-${String(idx)}`
@@ -36,7 +45,7 @@ export function TabbedPanel({ title, blurb, tabs, shownFirst }: Readonly<TabbedP
     <Panel title={title} blurb={blurb} wide>
       <Tabs
         value={shownIdx}
-        onChange={(_event, idx: number) => { setShownIdx(idx) }}
+        onChange={(_event, idx: number) => { show(idx) }}
         variant="scrollable"
         scrollButtons="auto"
         aria-label={title}
@@ -46,8 +55,12 @@ export function TabbedPanel({ title, blurb, tabs, shownFirst }: Readonly<TabbedP
       </Tabs>
       {tabs.map((tab, ii) => (
         <Box key={tab.label} role="tabpanel" hidden={ii !== shownIdx} id={sectionId(ii)} aria-labelledby={tabId(ii)} sx={{ pt: 1 }}>
-          {tab.blurb === undefined ? null : <p className={styles.microcopy}>{tab.blurb}</p>}
-          {tab.content}
+          {(ii === shownIdx || left.has(tab.label)) && (
+            <>
+              {tab.blurb === undefined ? null : <p className={styles.microcopy}>{tab.blurb}</p>}
+              {tab.content}
+            </>
+          )}
         </Box>
       ))}
     </Panel>
