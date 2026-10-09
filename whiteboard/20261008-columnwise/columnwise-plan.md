@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **YOLO** from 2026-10-09 (normal before). Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode"; switched to YOLO on 2026-10-09 ("make good decisions, we'll fix them up later").
-**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b, 9 landed (#197-#202, #206); paused: the spine's replay onto main conflicts (`human/20261009-sprint_columnwise_paused.md`); then 3c; then a full e2e run; then 10 and 11.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b, 9 landed (#197-#202, #206); 3c underway (the replay conflict resolved, `human/20261009-sprint_columnwise_paused.md`); then a full e2e run; then 10 and 11.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -473,6 +473,11 @@ and in the sprint-end `human/` entry.
 * **Thread 9, by its worker:** `'whiteboard/**/*.mts'` is added to `eslint.config.mjs`'s global
   ignores (in its own commit, `2b124c4`). The orchestrator's `prd_checks.mts` had broken every
   lint run, because typed rules can't read a file outside the TypeScript project.
+* **The orchestrator, on the Coach's "fix both prs":** the eslint ignore commit moved from #206's
+  branch to the end of #202's (5b), since #202 carries `prd_checks.mts` and failed CI's lint.
+  Both branches were pushed with leases; #206's tree is unchanged.
+* **3c, by the orchestrator:** `category` is reserved too, beside `categories` (the Coach's
+  open call).
 
 ## For the Coach
 

@@ -1,4 +1,4 @@
-# 2026-10-09: Columnwise paused: the spine's replay onto main conflicts (the Coach's call)
+# 2026-10-09: Columnwise paused: the spine's replay onto main conflicts (the Coach's call; resolved)
 
 **Where things stand.**
 * Merged: #191 through #201.
@@ -38,3 +38,8 @@ rewritten copy (`cadf493`, 5b replayed onto #205). `rebase --abort` did not put 
 `--update-refs` had moved. The orchestrator set the ref back to `6188db95` (origin's, and the
 spine's) with `git branch -f`; the old value is in the reflog. `scripts/spine.ts`'s `replay()`
 should record each spine ref before the rebase and restore it after an abort.
+
+**Resolved, 04:03 UTC.** The replay was run (after #204 also merged); its `redos.test.ts` keeps both
+`VerdictMs` and the `RoomyMs` support. Then, on the Coach's "fix both prs", the orchestrator moved
+the eslint ignore for `whiteboard/**/*.mts` into #202's branch, which carries `prd_checks.mts`
+and failed lint without it. Both branches were pushed with leases. 3c is cut and building.
