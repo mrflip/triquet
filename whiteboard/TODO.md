@@ -303,6 +303,11 @@ and in the gear (*Run order*, lines to drag); one question's row previewed above
 * **The Widgets panel draws every widgeting's panel even while it is folded** (`Panel` keeps its
   content mounted, so a draft survives), each re-rendered on every change to the quiz. Cheap at a
   dozen widgetings; if a quiz grows many, mount the rows only while the panel is open.
+* **The gear's new-column pickers stay mounted after the quiz locks** (5b's review): open
+  *+ New column…*'s pickers in `ColumnsEditor` (the ref picker, the entry catalogue, the widget
+  door) are not unmounted when the layout stops being revisable, so a pick still dispatches; the
+  server refuses it. The Widgets panel's picker was closed the same way in `705db76`: render each
+  only while `revisable`.
 * **A change to the library, then an ask at once, can ask with the old widget** (`prompts.spec.ts`,
   *a prompt opened from the library…*, a flake under load): the ask reads the library as last
   loaded. A person cannot click that fast; the spec could wait until saved.

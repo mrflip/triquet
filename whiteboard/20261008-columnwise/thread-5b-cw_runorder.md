@@ -76,5 +76,18 @@ dependency.
     `beforeEach`), and once `widgets.spec.ts` *a widget says how far…* (*New widget…* clicked
     with the catalogue's listbox open, no dialog came; not seen again in three repeats).
 
+* **Review** (`fixed`): `705db76`, the Widgets panel's new-widgeting picker renders only while the
+  layout is revisable (left open as the quiz locked, a pick still dispatched). Left, minor, as the
+  reviewer listed them:
+  1. `madeFoldkeys` also unfolds a gear-made widgeting's row in the Widgets panel.
+  2. `ColumnsEditor`'s pickers have the same mounted-after-lock gap (outside this diff; the server
+     refuses anyway). In `whiteboard/TODO.md`.
+  3. `runOrderListsOf` restates `Runner.isEntryStep`'s entry test.
+  4. The row preview is read-only by stubbing handlers rather than by a read-only mode.
+  5. No unit tests for `RowPreview`, `usePreviewQuestion`, `RunOrderList` or `ColumnHead` (e2e
+     covers them).
+  6. Repeated `library.find` lookups.
+  7. A space inside `<em>` in the *Run order* blurb.
+
 * **For the Coach**:
   - Decisions 1 to 3 above are the visible ones; each is a small change if you want it otherwise.
