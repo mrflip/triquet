@@ -18,7 +18,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 5a | folding editors | landed #199 |
 | 5b | run order in both places, row preview | landed #202 |
 | 8 | seeds pass (optional) | landed #200 |
-| 9 | compute budgets (added) | review flagged, ruled: building two fixes |
+| 9 | compute budgets (added) | blocked: sort-after-edit race; A parked |
 | 3c | columns tighten (last) | pending |
 
 Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). Next asked-for full run: thread 9 (asked: core libraries, security), the twelfth landing, or the sprint's end.
