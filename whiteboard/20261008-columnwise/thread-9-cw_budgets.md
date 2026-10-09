@@ -91,6 +91,13 @@ Branch `20261009-cw_budgets`, PR filed at landing; see the report. Suites: `pnpm
     hunt's `wheel`. `descending` rides along, unstored, as the memory keeps only the sortkey.
   - **C, loose limits**: `RunMs` 5000; `Columns.workedOf` holds a column's formula to `RunMs` for its
     whole column (one deadline in its one pass). Record §4 (sorts) and §11 amended.
+  - **Open (blocking): a sort clicked within a round trip of an edit sorts the quiz as it was.**
+    The browser holds no optimistic state, so its run reads an edit only once the server echoes it;
+    the server used to sort after the edit committed. `e2e/widgets.spec.ts` "sorting by a computed
+    column…" types answers and sorts at once, and now gets `bb, '', '', a, ccc`. Choices: accept it
+    (the spec waits for the save first; a second click re-sorts), hold the sort in the browser until
+    its writes are in (new state in `Workbench`/`use-hunt`), or optimistic updates (the Coach's
+    coming thread on what each update sends). Recommended: accept now, fix with optimistic updates.
   - **A, questions keyed by label (`qnbag`)**: built, then held by the orchestrator while the
     Coach settles the bag's shape. Parked, unlanded, on the local branch
     `20261009-cw_budgets-qnbag-parked` (`1b7661f`, on `4bfaa3f`): `qnbag` in every bag, reserved,
