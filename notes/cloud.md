@@ -15,6 +15,10 @@ apply here.
   unpushed commits go with it. Push as you go (`notes/git_hygiene-cloud.md`).
 * **Four cores, not sixteen.** Long suites take longer, and the e2e suite runs fewer workers (as
   many as the idle cores bear: `workersFor` in `e2e/environment.ts`).
+* **Waiting is the expensive part.** The full e2e suite takes about twenty minutes here, and CI
+  runs it in about five on every push. A bug that CI or a later pass catches costs less than
+  making the Coach wait between prompts. Prove locally what a quick run can tell you, and leave
+  the full gate to CI: `notes/git_hygiene-cloud.md`, *Prove the milestone, cheaply*.
 
 ## What the session hook did
 
@@ -49,9 +53,9 @@ If a command below fails for want of one of those, run the hook yourself:
 One branch and one PR per milestone, all worked in the clone: a session may file several.
 `notes/git_hygiene-cloud.md` has each step, and `notes/git_hygiene.md` what holds everywhere. In
 short: cut each milestone's branch from `origin/main` (or from the milestone it builds on),
-commit and push as you go, prove with `pnpm justify` and `pnpm e2e`, rebase onto `origin/main`
-(never merge it in), open the PR ready for review with the GitHub MCP tools, and see it through
-CI and review.
+commit and push as you go, prove cheaply (the corner or the smoke tier; CI runs the rest), rebase
+onto `origin/main` (never merge it in), open the PR ready for review with the GitHub MCP tools,
+and see it through CI and review.
 
 `human/` and `whiteboard/` entries are committed on the thread's branch: there is no sweep to
 carry them, and the PR is how they reach the Coach.

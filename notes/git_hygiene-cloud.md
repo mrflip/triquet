@@ -50,16 +50,42 @@ Only such a branch may be rebased or force-pushed. One holding a commit from any
 Coach, another session) takes only plain new commits on top; ask before rewriting it. A blank or
 foreign trailer counts as someone else's.
 
-## 3. Prove the milestone
+## 3. Prove the milestone, cheaply
 
-* `pnpm justify` -- typecheck, lint and the unit tests, side by side. Green over committed work, it
-  records the branch's patch-id.
-* `pnpm e2e` -- the whole suite (about twenty minutes here), or `pnpm e2e --touched`, the corner
-  the branch reaches (`notes/git_hygiene-laptop.md`, *Running only the corner*, says how the corner
-  is chosen; it works the same here). Repair each failure alone: `pnpm e2e:rerun`. A spec that
-  fails in the full run and passes alone with the code unchanged is a flake: report it in the
-  PR's **Tests:** line.
-* Going without e2e is a judgment: `notes/git_hygiene.md`, *When e2e is not worth running*.
+**Why the bar is lower here.** The Coach uses cloud sessions from a small machine. A full local
+e2e run takes about twenty minutes, often five times as long as the change it checks, and the
+Coach waits through it between prompts. CI runs the whole suite on every push in about five
+minutes, across six shards. A bug that CI catches, or that the Coach cleans up later in the
+session or in a later PR, costs little next to those waits. So prove locally only what a quick
+run can tell you, and let CI be the full gate. When the cost changes (a change that is hard to
+undo, a schema or migration, something the Coach said to be careful with), weigh it again.
+
+* **Static checks and nearby tests**: typecheck, lint, and the unit tests near the change (`pnpm
+  typecheck`, `pnpm lint`, `pnpm exec vitest run <paths>`). `pnpm justify` runs all three over every
+  unit test, about four minutes here. Run it before the PR when the change is broad; otherwise
+  leave the full unit suite to CI, which runs it too.
+* **e2e, the corner**: `pnpm e2e --touched` when the branch reaches app code, as long as the corner
+  it prints is small. When it says the whole suite (anything under `convex/` or `src/models/`,
+  the dependencies, a new file the map does not know), run `pnpm e2e:smoke` instead (one test per spec
+  file, about three minutes here) and let CI run the rest.
+* **No e2e** when e2e could not notice the change: `notes/git_hygiene.md`, *When e2e is not
+  worth running*. Say which choice you made in the PR's **Tests:** line.
+* **The whole suite locally** only when the Coach asks for it, or when you are chasing something
+  CI cannot show you.
+
+**Investigating an e2e failure**, whether from CI or a local run: run the spec files involved, or
+the one test (`pnpm e2e <spec file>`, `pnpm e2e <spec file> --grep "<title>"`, `pnpm e2e:rerun`).
+Push the fix and let CI run the whole suite rather than rerunning it here.
+
+**A failure that is probably not this branch's.** A spec may fail on a PR when the branch
+plainly did not cause it. The usual signs:
+- it fails the same way on `main`, or on another recent PR's CI;
+- the commit that went red changed nothing the spec runs (docs only, say);
+- it passes when run alone, with the code unchanged.
+
+Then you may leave it: say on the PR which spec failed, what points away from this branch, and
+that you did not chase it, and rerun the job once if you can. Chase it when the branch touched
+what the spec exercises, or when it fails the same way twice on this branch and nowhere else.
 
 ## 4. Catch up
 
