@@ -443,3 +443,14 @@ headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (abo
 ## From perf_improvements sprint, thread 1: spine_test_split
 
 * `scripts/spine.ts`'s `E2eLockPollMs` (2000) makes the two waiting tests in `tests/scripts/spine-e2e-lock.test.ts` sleep ~2 s each. An env override, set short in tests, would cut ~4 s from the slowest unit file. Left alone because it changes `scripts/spine.ts` and so rules out that thread's e2e skip.
+
+## From perf_improvements sprint, thread 5: render_caches
+
+* **A panel opened and folded again, and an Export / Import tab visited and left, still re-render
+  with every change**, as every panel did before. React's `<Activity mode="hidden">` would defer
+  their renders to idle and keep their state, but it also takes their effects down while hidden,
+  and hides a panel's body at once, under its `Collapse`'s closing slide. Weigh it once thread 6
+  can count renders.
+* **The unit project has no DOM**, so a test can measure only a first render
+  (`react-dom/server`); counting re-renders wants a DOM there (`happy-dom`, a dev dependency to
+  propose) or a probe in an e2e spec.

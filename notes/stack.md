@@ -372,6 +372,14 @@ agrees to another.
   minutes pass, so the build that deploys a widening finishes only once its backfill has.
   Serializing deploys in GitHub Actions and guarding `pnpm land` were the alternatives, declined
   because each would change how the Coach merges. `notes/deploy.md`, *Schema pushes*.
+* **What reads a template, a formula or a pattern is remembered by its text, in a `Map` of our
+  own.** Asked for by a Coach Oct 2026 (`whiteboard/20261009-perf_improvements/`, thread 5).
+  Liquid's parse (`readerFor` in `src/lib/liquidry.ts`), JSONata's compile (`Compiled` in
+  `src/lib/formulas.ts`) and the regexes (`src/lib/regexes.ts`) each keep a plain `Map`, the
+  first two forgetting it all once it is full. liquidjs's own `cache` option holds only templates
+  read from files, and its LRU is not exported; `lru-cache` would be a dependency for what each
+  of these does in a dozen lines. A fourth such cache, or one that needs least-recently-used
+  eviction, is the moment to bring `lru-cache` in and fold all of them onto it.
 
 ## Later, i.e when we get there
 
