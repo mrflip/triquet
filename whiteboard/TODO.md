@@ -339,6 +339,22 @@ and in the gear (*Run order*, lines to drag); one question's row previewed above
   *a prompt opened from the library…*, a flake under load): the ask reads the library as last
   loaded. A person cannot click that fast; the spec could wait until saved.
 
+## From columnwise sprint, thread 3c: the tightening's review leftovers
+
+* A write to a row the backfill missed throws (`updateColumn`, `updateQuiz`, and `addColumn`'s shift
+  of later columns), and such a column reads as Title. This is by design: the runbook's step 5
+  gate must find none before #209 merges.
+* A part column whose widget is missing from the library does not retitle on a part pick, since
+  `namerOf` finds no presets.
+* `src/lib/formulary/liquidize.ts` `pickedOf`: the `kind === 'word'` branch is dead except for an
+  unmigrated row.
+* An older export holding a `category` widgeting loses that widgeting on import; the rest imports.
+* `seedWidgets` and its tests still key on old-grammar `question.*` sources (kept on purpose, for
+  quizzes laid out before the seeds); thread 10 reworks the bag.
+* Taste: a second `isOneOf` in `src/models/before-october.ts`; the near-identical `.describe` of
+  `ref` and `source`; `'question'` written as a literal in `ReservedWidgetingLabels`.
+* Should `categories` and `category` become global reserved words, after a grep of production?
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and
