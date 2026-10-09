@@ -47,6 +47,13 @@ describe('refChoicesOf', () => {
     expect(sources.some((source) => source.includes('$'))).to.be.false
   })
 
+  it("offers a widgeting only where its ref would find it: one held under a word of the bag (written before such labels were refused) is not offered twice", () => {
+    const shadowed = { ...categoryData, label: 'categories' }
+    const listed = ColumnMenu.refChoicesOf({ widgetings: [shadowed, dumdum] })
+    expect(listed.filter(({ source }) => source === 'categories')).to.deep.eq([{ source: 'categories', group: ColumnMenu.RefGroups.word }])
+    expect(listed.filter(({ group }) => group === ColumnMenu.RefGroups.widgeting).map(({ source }) => source)).to.deep.eq(['dumdum'])
+  })
+
   it('lists no widgetings for a quiz that has none', () => {
     expect(ColumnMenu.refChoicesOf({ widgetings: [] }).some(({ group }) => group === ColumnMenu.RefGroups.widgeting)).to.be.false
   })
