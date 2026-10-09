@@ -81,7 +81,7 @@ function ReadoutToggle({ column, columnName, drawnByEditor, locked, onCommit }: 
   const next = readoutAfter(column.readout)
   const tip = drawnByEditor
     ? 'Its cells are typed into, and drawn as their box draws them.'
-    : `Drawn as ${title}. Click to draw it as ${ReadoutFaces[next ?? 'unset'].title}.`
+    : `Drawn ${drawnAs(column.readout)}. Click to draw it ${drawnAs(next)}.`
   return (
     <Tooltip title={tip} describeChild>
       {/* The span lets the tooltip hear the pointer while the button is disabled. */}
@@ -92,6 +92,11 @@ function ReadoutToggle({ column, columnName, drawnByEditor, locked, onCommit }: 
       </span>
     </Tooltip>
   )
+}
+
+/** How a readout's tooltip says it is drawn: "as plain text", or, naming none, as the cells choose */
+function drawnAs(readout: ColumnReadout | null | undefined): string {
+  return readout ? `as ${ReadoutFaces[readout].title}` : ReadoutFaces.unset.title
 }
 
 type ToggleProps = {
