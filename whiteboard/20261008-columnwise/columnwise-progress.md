@@ -13,15 +13,15 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
 | 3b | column expression authoring | landed #197 |
-| 7 | `liquidize` formulary | landing (second review flagged; Coach: land, budgets to thread 9) |
+| 7 | `liquidize` formulary | landed #201 |
 | 6 | free regex (optional) | landed #198 |
 | 5a | folding editors | landed #199 |
 | 5b | run order in both places, row preview | underway |
 | 8 | seeds pass (optional) | landed #200 |
-| 9 | compute budgets (added) | pending (after 7) |
+| 9 | compute budgets (added) | underway |
 | 3c | columns tighten (last) | pending |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). Next asked-for full run: the twelfth landing, or the sprint's end.
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). Next asked-for full run: the twelfth landing, or the sprint's end.
 
 ## What the threads have taught
 
@@ -231,6 +231,32 @@ preplan, and take its numbered decisions as settled. Those that most shape later
 * **`pnpm lane` is shadowed** by pnpm 12's own `lane` command (it says "All packages are on the
   main lane"): `pnpm run lane` or `node scripts/lanes.ts lane` give the project's lane. CLAUDE.md
   still says `pnpm lane` (the Coach's).
+
+### From thread 7 (`liquidize`, #201)
+
+* **`LiquidizeFormulary`** (`src/lib/formulary/liquidize.ts`): either tier, `live`, stores nothing,
+  input `$`; the template from the widget's `formula`, the widgeting's `template`, or
+  `template_from: { ref, formula }` (a ref in the plain grammar, `ColumnValidators.ref`; no formula
+  reads as a column with none does, the field or a widgeting's `value`: the Coach may overrule).
+  Text out; blank is `missing`, unreadable is `errored`. Seed `blurb` (*Template*).
+* **Limits** (`src/lib/liquidry.ts`): `failkind` `syntax` | `runtime` | `limit`; a `limit` stops
+  the column (`stops: true`). **Column budget 250 ms** (`columnMs` on the formulary; the runner's
+  `deadlineOf` per column per run), on **`clockNow()` (`performance.now()`)**: `Date.now()` stands
+  still inside a Convex mutation, so LiquidJS's own `renderLimit` never fired on the server;
+  `clocked` replaces its check (in 10.30.0, `Render.renderTemplates` only; pinned by the exact
+  version and a test). A render past its deadline stops before parsing (`d01e061`).
+  **The budget holds between pieces and loop turns, not inside one filter call: thread 9.**
+  `thread-7-budgets.md` has the probe table.
+* **Allowlists per formulary**: `jsonata` and `aibot` params through `WidgetingValidators.openParams`
+  (no reserved word); entry and liquidize their strict validators' keys; the row validator allows
+  `FormularyParamnames` (every formulary's param names).
+* `readoutOf(spec, widget)`: a liquidize column defaults to markdown, images linked.
+* **In 5a's panel** (catch-up `2f9535e`, unreviewed, small): `folded: 'template'`;
+  `LiquidizeTemplateLine` in `FoldedLine`; `LiquidizeParamsFields` in the open panel.
+* *Reviews:* first `flagged` (ruled: stop on a limit plus a column budget; one allowlist per
+  formulary); second `flagged` (ruled: land; the rest to thread 9). Thread 6's recheck timing
+  tests (`redos.test.ts` "a word said twice, by a backreference"; `layout_actions.test.ts` "refuse
+  a regular expression with a sentence naming it") flake under load 25+: thread 9 steadies them.
 
 ### From thread 2's review (flagged, ruled)
 
