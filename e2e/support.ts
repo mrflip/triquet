@@ -650,8 +650,13 @@ export async function openAccount(page: Page): Promise<Locator> {
  * marked: the switcher opened to list them. Close it with Escape, or pick one.
  */
 export async function switcherQuizzes(page: Page): Promise<Locator> {
-  await page.getByRole('navigation', { name: 'Where you are' }).locator('[aria-haspopup="menu"]').click()
-  return page.getByRole('menu', { name: 'Open quiz' }).getByRole('menuitem')
+  const menu = page.getByRole('menu', { name: 'Open quiz' })
+  // Opened again if the switcher was drawn afresh under the click, as it is when the address moves to another quiz.
+  await expect(async () => {
+    if (! await menu.isVisible()) { await page.getByRole('navigation', { name: 'Where you are' }).locator('[aria-haspopup="menu"]').click() }
+    await expect(menu).toBeVisible({ timeout: 1000 })
+  }).toPass()
+  return menu.getByRole('menuitem')
 }
 
 /** Switch to the quiz titled `title` from the switcher, and wait until the browser is there */
