@@ -532,12 +532,13 @@ export async function waitUntilSaved(page: Page): Promise<void> {
 }
 
 /**
- * Bring the panel tab named `tabname` to the front: a hidden tab's contents cannot be found.
+ * Bring the Export / Import panel's tab named `tabname` to the front, opening the panel first: a
+ * folded panel holds no tabs until it is first opened, and a hidden tab's contents cannot be found.
  *
  * @returns The tab's section, now showing.
  */
 export async function showTab(page: Page, tabname: string): Promise<Locator> {
-  await unfold(page.getByRole('region').filter({ has: page.getByRole('tab', { name: tabname, exact: true, includeHidden: true }) }))
+  await openPanel(page, 'Export / Import')
   await page.getByRole('tab', { name: tabname, exact: true }).click()
   const section = page.getByRole('tabpanel', { name: tabname, exact: true })
   await expect(section).toBeVisible()
