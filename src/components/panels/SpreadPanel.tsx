@@ -51,7 +51,7 @@ export function SpreadPanel({ run }: Readonly<SpreadPanelProps>) {
   const quizEstimates = Estimates.quizEstimatesOf(run)
   if (! quizEstimates) {
     return (
-      <Panel title="Category spread" blurb={Blurb}>
+      <Panel title="Category spread" blurb={Blurb} fold={fold} onFoldChange={setFold}>
         <p className={styles.microcopy}>
           This quiz has no category estimate entry yet. Put one to work as a new column from the
           gear, or from the Widgets panel (the library&apos;s <strong>Categories</strong> widget is
