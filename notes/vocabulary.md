@@ -57,8 +57,9 @@ code does not say so yet, the record names the thread that makes it.
 * **family**, **entry kind** -- what an `entry` widget's cells take, and so its cell editor:
   `number`, `text`, `boolean`, `enum` or `estimates` (a question's category estimates,
   *Categories*), stored as `entry_kind`. The family is frozen on the widget; its constraints are the
-  widgeting's params. `labelish` (a label) and `titleish` (one line) are older kinds, presets of
-  `text` now: valid on rows, never offered. Fixed once the widget is made, as its formulary is;
+  widgeting's params. `percent` is a preset of `number`, offered beside it: from 0 to 100 unless
+  its params say otherwise, shown with `%`. `labelish` (a label) and `titleish` (one line) are older
+  kinds, presets of `text` now: valid on rows, never offered. Fixed once the widget is made, as its formulary is;
   together they are its **flavor** (`Widget.flavorOf`: "a number entry", "an aibot widget"). An
   emptied entry cell holds no row and reads `missing`.
 * **tier** -- which level a widgeting runs at: `question` (once for each question, as every

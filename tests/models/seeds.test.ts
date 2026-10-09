@@ -38,8 +38,8 @@ function seed(label: string): WidgetT {
 }
 
 describe('SeedWidgets', () => {
-  it("is twenty-three widgets, per the doc", () => {
-    expect(SeedWidgets).to.have.lengthOf(23)
+  it("is twenty-four widgets, per the doc", () => {
+    expect(SeedWidgets).to.have.lengthOf(24)
   })
 
   it("holds a template, last, that reads well over a question", () => {
@@ -51,10 +51,10 @@ describe('SeedWidgets', () => {
     expect(Runner.widgetedOf(runOf(quiz), 'blurb', question._id)).to.deep.eq(Widgeted.ok('**Leon**: Leon Trotsky'))
   })
 
-  it("holds an entry of each family, the category estimates among them, and no preset of text", () => {
+  it("holds an entry of each family, the category estimates among them, a percent beside the number, and no preset of text", () => {
     const entries = SeedWidgets.flatMap((widget) => (widget.formulary === 'entry' ? [[widget.label, widget.config.entry_kind]] : []))
-    expect(entries).to.deep.eq([['category_data', 'estimates'], ['memo', 'text'], ['figure', 'number'], ['yes_no', 'boolean'], ['choice', 'enum']])
-    expect(entries.map(([, entry_kind]) => entry_kind)).to.have.members([...EntryFamilyVals])
+    expect(entries).to.deep.eq([['category_data', 'estimates'], ['memo', 'text'], ['figure', 'number'], ['percentage', 'percent'], ['yes_no', 'boolean'], ['choice', 'enum']])
+    expect(entries.map(([, entry_kind]) => entry_kind)).to.include.members([...EntryFamilyVals])
   })
 
   it("labels none of them a word every label is kept from, nor one a widgeting of it could not take", () => {

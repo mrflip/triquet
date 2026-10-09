@@ -9,7 +9,7 @@ import { useDraft } from './use-draft'
 import { ParamWords, TextLinesWords, TextPatternWords } from './widget-words'
 import * as Reporting from '../lib/vv/reporting'
 import type { RegexT } from '../lib/regexes'
-import { EntryParamsOf, TextLinesVals, TextPatternVals, type EntryKind } from '../models/widget'
+import { EntryParamsOf, EntryPresets, TextLinesVals, TextPatternVals, type EntryKind } from '../models/widget'
 import type { JsonT } from '../models/widgeted'
 import styles from './workbench.module.css'
 
@@ -18,7 +18,7 @@ export type EntryParamsFieldsProps = {
   entry_kind: EntryKind
   /** The params said here, by name */
   params:     Readonly<Record<string, JsonT>>
-  /** The params beneath them, shown where nothing is said here: a widget's defaults, beneath a widgeting's own; none beneath a widget's */
+  /** The params beneath them, shown where nothing is said here: a widget's defaults, beneath a widgeting's own; none beneath a widget's but its kind's preset (`EntryPresets`), which shows beneath both */
   inherited:  Readonly<Record<string, unknown>>
   /** What the params are held to, whose sentence each field shows when it refuses (`EntryFormulary.paramsOf`) */
   validator:  Z.ZodType
@@ -44,10 +44,12 @@ export function EntryParamsFields({ entry_kind, params, inherited, validator, di
   if (paramnames.length === 0) { return layout === 'line' ? null : <p className={styles.microcopy}>This kind of entry takes no settings.</p> }
   const checked = validator.safeParse(params, { error: Reporting.customError })
   const issueOf = (paramname: string) => (checked.success ? null : checked.error.issues.find((issue) => issue.path[0] === paramname)?.message ?? null)
+  // A preset kind's own bounds or pattern show through beneath anything its widget says.
+  const beneath: Readonly<Record<string, unknown>> = { ...EntryPresets[entry_kind], ...inherited }
   const put = (paramname: string, val: JsonT | undefined) => { onChange(_.omitBy({ ...params, [paramname]: val }, _.isUndefined) as Record<string, JsonT>) }
   const fields = paramnames.map((paramname) => (
     <ParamField
-      key={paramname} paramname={paramname} said={params[paramname]} beneath={inherited[paramname]} help={helpOf(shape, paramname)}
+      key={paramname} paramname={paramname} said={params[paramname]} beneath={beneath[paramname]} help={helpOf(shape, paramname)}
       issue={issueOf(paramname)} disabled={disabled} line={layout === 'line'} onPut={(val) => { put(paramname, val) }}
     />
   ))

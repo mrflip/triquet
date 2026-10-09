@@ -18,6 +18,7 @@ export const FormularyWords: Readonly<Record<Formularykind, { noun: string, grou
 export const EntryKindWords: Readonly<Record<EntryKind, string>> = {
   text:      'Text: a note, markdown welcome, or one line held to a pattern',
   number:    'A number, between bounds if you like',
+  percent:   'A percent: a number from 0 to 100, shown with %',
   boolean:   'Yes or no: a checkbox',
   enum:      'A choice: one of a list of options',
   labelish:  'A label: lowercase letters, digits and single underscores',

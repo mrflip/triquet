@@ -100,14 +100,31 @@ test('a new entry and its column are made in one go from + New column…, its se
   await expect(page.getByRole('alert').filter({ hasText: AppNotices.changeNotKept })).toContainText('Figure: «2» should be «5» or more')
 })
 
-test('a new entry widget is one of a family, and the presets of text are not offered', async ({ page }) => {
+test('a new entry widget is one of a family or a percent, and the presets of text are not offered', async ({ page }) => {
   await openManage(page)
   await newWidgetFromColumns(page)
   const maker = newWidgetDialog(page)
   await maker.getByRole('combobox', { name: 'Formulary' }).click()
   await page.getByRole('option', { name: /^An entry/ }).click()
   await maker.getByRole('combobox', { name: 'Entry kind' }).click()
-  await expect(page.getByRole('option')).toHaveText([/^Text/, /^A number/, /^Yes or no/, /^A choice/, /^Category estimates/])
+  await expect(page.getByRole('option')).toHaveText([/^Text/, /^A number/, /^A percent/, /^Yes or no/, /^A choice/, /^Category estimates/])
+})
+
+test.describe('the seeded percent', () => {
+  test.use({ layout: { widgetings: ['percentage'] } })
+
+  test('shows its number with %, takes no keystroke past a hundred, and keeps what is typed', async ({ page }) => {
+    const box = entryBox(page, 0, 'Percentage')
+    await box.fill('42.5')
+    await leaveBox(page)
+    await expect(box).toHaveValue('42.5%')
+    await reloadOnceSaved(page)
+    await expect(box).toHaveValue('42.5%')
+    // The keystroke that would carry it past a hundred is not taken.
+    await box.fill('')
+    await box.pressSequentially('150')
+    await expect(box).toHaveValue('15%')
+  })
 })
 
 test.describe('the seeded families', () => {

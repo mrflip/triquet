@@ -179,6 +179,8 @@ export type NumberFieldProps = Omit<FieldProps, 'committed' | 'onCommit'> & {
   signed?:    boolean
   /** The most that may be typed */
   max?:       number
+  /** What the box shows after the number, as a percent's `%`; never part of what is committed */
+  suffix?:    string
   /** The grid's own borderless box, rather than a labelled MUI text field */
   bare?:      boolean
   /** What a labelled box says beneath itself: what it is for, or what is wrong with it */
@@ -193,7 +195,7 @@ export type NumberFieldProps = Omit<FieldProps, 'committed' | 'onCommit'> & {
  * taken, and what was typed is tidied on exit into the number it means (`2.50` becomes `2.5`, and
  * a lone `.` nothing).
  */
-export function NumberField({ committed, onCommit, locked, placeholder, label, fractional, signed = false, max, bare = false, helperText, error = false }: Readonly<NumberFieldProps>) {
+export function NumberField({ committed, onCommit, locked, placeholder, label, fractional, signed = false, max, suffix, bare = false, helperText, error = false }: Readonly<NumberFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(
     committed === null ? '' : String(committed),
     (typed) => { onCommit(typed === '' ? null : Number(typed)) },
@@ -206,6 +208,7 @@ export function NumberField({ committed, onCommit, locked, placeholder, label, f
     valueIsNumericString: true,
     allowNegative:        signed,
     decimalScale:         fractional ? undefined : 0,
+    suffix,
     placeholder,
     onBlur,
     isAllowed:            ({ floatValue }: NumberFormatValues) => max === undefined || floatValue === undefined || floatValue <= max,

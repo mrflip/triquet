@@ -336,12 +336,13 @@ describe('EntryParamsOf', () => {
 })
 
 describe('EntryFamilyOf', () => {
-  it("is each kind's own family, but for the presets of text", () => {
-    expect(EntryKindVals.map((entry_kind) => EntryFamilyOf[entry_kind])).to.deep.eq(['text', 'number', 'boolean', 'enum', 'text', 'text', 'estimates'])
+  it("is each kind's own family, but for the presets of text and of number", () => {
+    expect(EntryKindVals.map((entry_kind) => EntryFamilyOf[entry_kind])).to.deep.eq(['text', 'number', 'number', 'boolean', 'enum', 'text', 'text', 'estimates'])
   })
 
-  it("offers a new widget one kind per family, and neither preset", () => {
-    expect(OfferedEntryKindVals).to.deep.eq([...EntryFamilyVals])
+  it("offers a new widget one kind per family, a percent beside the number, and neither preset of text", () => {
+    expect(OfferedEntryKindVals).to.deep.eq(['text', 'number', 'percent', 'boolean', 'enum', 'estimates'])
+    expect(OfferedEntryKindVals).to.include.members([...EntryFamilyVals])
     expect(OfferedEntryKindVals).not.to.include.members(['labelish', 'titleish'])
   })
 })

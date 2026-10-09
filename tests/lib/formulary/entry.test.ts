@@ -61,6 +61,11 @@ describe('EntryFormulary', () => {
       expect(EntryFormulary.inForce(entryOf('titleish'), saying())).to.deep.eq({ family: 'text', params: { pattern: 'oneline', lines: 'one', max_length: 82 } })
     })
 
+    it("puts a percent's bounds beneath everything, per the doc example", () => {
+      expect(EntryFormulary.inForce({ config: { entry_kind: 'percent' } }, { params: { max: 50 } })).to.deep.eq({ family: 'number', params: { min: 0, max: 50 } })
+      expect(EntryFormulary.inForce(entryOf('percent', { min: 10 }), saying())).to.deep.eq({ family: 'number', params: { min: 10, max: 100 } })
+    })
+
     it("reads a widgeting's params written before they were held to its family as saying nothing", () => {
       expect(EntryFormulary.inForce(entryOf('number', { max: 10 }), saying({ strict: true }))).to.deep.eq({ family: 'number', params: { max: 10 } })
     })
@@ -92,6 +97,9 @@ describe('EntryFormulary', () => {
       ['number',    {},                                  -2.5,                               -2.5,                           'any finite number for a number entry, below nought and fractions included'],
       ['number',    { min: 1, max: 10, integer: true },  10,                                 10,                             'a whole number at its most'],
       ['number',    { min: 1, max: 10 },                 1,                                  1,                              'a number at its least'],
+      ['percent',   {},                                  100,                                100,                            'a hundred for a percent entry: its preset most'],
+      ['percent',   {},                                  12.5,                               12.5,                           'a fraction of a percent'],
+      ['percent',   { max: 150 },                        150,                                150,                            'past a hundred, for a percent whose params say so'],
       // boolean:
       ['boolean',   {},                                  false,                              false,                          'no for a yes-or-no entry'],
       ['boolean',   {},                                  true,                               true,                           'yes for a yes-or-no entry'],
@@ -130,6 +138,8 @@ describe('EntryFormulary', () => {
       ['number',    { min: 1 },                          0,                              'a number below its least'],
       ['number',    { max: 10 },                         10.5,                           'a number above its most'],
       ['number',    { integer: true },                   2.5,                            'a fraction for a whole-number entry'],
+      ['percent',   {},                                  101,                            'past a hundred for a percent entry'],
+      ['percent',   {},                                  -1,                             'below nought for a percent entry'],
       // boolean:
       ['boolean',   {},                                  'yes',                          'text for a yes-or-no entry'],
       ['boolean',   {},                                  0,                              'a number for a yes-or-no entry'],
@@ -186,6 +196,7 @@ describe('EntryFormulary', () => {
     it("refuses a value of another kind", () => {
       expect(EntryFormulary.kindValueOf(entryOf('boolean')).safeParse('yes').success).to.be.false
       expect(EntryFormulary.kindValueOf(entryOf('text')).safeParse(3).success).to.be.false
+      expect(EntryFormulary.kindValueOf(entryOf('percent')).safeParse('50%').success).to.be.false
     })
   })
 

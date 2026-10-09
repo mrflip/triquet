@@ -10,7 +10,7 @@ import * as Labelmaker from '../../lib/labelmaker'
 import { EntryFormulary } from '../../lib/formulary/entry'
 import * as Runner from '../../lib/formulary/runner'
 import { Widgeted, type WidgetedT } from '../../models/widgeted'
-import type { EntryValueT, EntryWidgetT } from '../../models/widget'
+import { EntrySuffixes, type EntryValueT, type EntryWidgetT } from '../../models/widget'
 import type { WidgetingT } from '../../models/widgeting'
 import styles from '../workbench.module.css'
 
@@ -93,7 +93,7 @@ type EntryBoxProps = {
 /**
  * An entry of the quiz's own, in a labelled box of its family, drawn from the params in force as
  * the grid's cell is: prose in a box that grows with it, or one line, a label tidied into one; a
- * number in the number box, signed and whole as its params say; a yes or no as a checkbox; a
+ * number in the number box, signed and whole as its params say, a percent's with `%` after it; a yes or no as a checkbox; a
  * choice as a select of its options. A box commits on blur, a checkbox and a select as they are
  * changed; an emptied one is sent as null, and a value the params refuse is not sent, the author
  * told why (`useEntering`).
@@ -104,7 +104,7 @@ function EntryBox({ widget, widgeting, widgeted, label, locked, onEnter }: Reado
   case 'number': {
     const committed = widgeted.status === 'ok' && typeof widgeted.value === 'number' ? widgeted.value : null
     const { signed, fractional } = EntryFormulary.numberBoxOf(cell.params, committed)
-    return <NumberField fractional={fractional} signed={signed} max={cell.params.max} label={label} locked={locked} committed={committed} onCommit={enter} />
+    return <NumberField fractional={fractional} signed={signed} max={cell.params.max} suffix={EntrySuffixes[widget.config.entry_kind]} label={label} locked={locked} committed={committed} onCommit={enter} />
   }
   case 'boolean': {
     const committed = widgeted.status === 'ok' && typeof widgeted.value === 'boolean' ? widgeted.value : null
