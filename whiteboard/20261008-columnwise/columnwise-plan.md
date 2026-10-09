@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b landed (#197-#202); 9 underway; 3c last.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b landed (#197-#202); 9 underway; then 3c; then a full e2e run; then 10 and 11.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -89,7 +89,9 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 ## Threads
 
 Thread 1 first, alone. Then 2, 3a and 4 side by side. Then 3b (after 3a) and 7 (after 2 and 3a);
-6 (after 2); 5a (after 2, 3b, 4); 5b (after 5a); 8 (after 3b); 3c last of all.
+6 (after 2); 5a (after 2, 3b, 4); 5b (after 5a); 8 (after 3b); 9 (after 7); 3c after them all.
+Then a full e2e run, and then 10 and 11 side by side (added 2026-10-09), with the sprint-end
+full e2e run after both.
 
 ```
 1 ─┬─ 2 ──┬──────────── 6 (optional)
@@ -381,8 +383,82 @@ the column grammar; `quizzes.templated` gone; the readers' old-grammar fallbacks
 check refuses what the backfill missed; backfills dropped (keep `Backfills` non-empty),
 `Backfilling` emptied, the ledger row added (with the note that nothing rewrites an author's
 formula reading `qn.categories`). Body says `Tightens Serial Deploy: columnwise`; merged only after
-3a's deploy reports `Backfills: every one has finished.` Full e2e run. Depends on: every other
-thread, 9 included (last, the top of the series).
+3a's deploy reports `Backfills: every one has finished.` Full e2e run. Depends on: 1 through 9
+(the last of the columnwise chain; 10 and 11 come after it). `question` stays reserved: thread 10
+makes it a top-level word of the bag.
+
+### 10. One bag shape (added 2026-10-09)
+
+*The Coach's text:* "make a clean break and have expressions widgets and templates accept a bag of
+the same shape as the export. If there's good reason, you are allowed to optimize the structure of
+the bag to support (a) efficiency of widgeting execution and (b) elegance of widgeting formulae.
+With that said, change qn to question and qns to questions. Where formula/template are dealing with
+ephemeral data that only concerns rendering of data, it might make sense to withold it from the json
+ball -- but in general it makes sense for them to agree. * it continues to makes sense for the
+formula/template bag to have the *_label fields denormalized to the top, * make the jsonball include
+label, viz and timestamps. They should discard errors, but otherwise be equivalent. * in general,
+converge them. I see some opportunities to simplify the data but let's do that on a uniform
+structure." And: "the crazy data format buffet is only going to cause more work later. tackle once
+these threads and a full e2e suite land."
+
+Gloss:
+* **One shape**, the export's, for three readers: the formula bag (`Runner.QuizBag`), the template
+  bag (`Templating.TemplateBag`), and the jsonball (`Exporting`, which feeds both git and Raw
+  Export). Questions are keyed by label, in quiz order, and each carries its `position`, `label`,
+  `viz` and stamps. A widgeting's result is `status` and `value`; errors are dropped from all three.
+  `qn` becomes `question` and `qns` becomes `questions`. The `*_label` fields stay at the bag's
+  top level (`qn_label` becomes `question_label`).
+* **What the bag and the jsonball do now, and where they differ:** `bag-shapes.md`, beside this
+  file. Converge every row. What concerns only rendering (images made
+  links, filled templateable text, the recap's `number`) may stay out of the jsonball; say which.
+* **Optimizing is allowed** for speed of execution or for elegance of formulas. Record each such
+  departure from the export's shape, and its reason, in a new § of the decision record.
+* **Liquid loops over keyed collections** with a `values` filter
+  (`{% assign list = questions | values %}`). LiquidJS's `for` takes no filter, and a bare
+  `for` over an object yields `[key, value]` pairs: pin both with tests. JSONata uses
+  `$lookup(questions, question.chains_to)` and `questions.*`.
+* **A clean break.** Rewrite the seeds, fixtures, tests and
+  `notes/examples/20261008-but_not_recap.json`. Write the old-to-new rewrite of formula and template
+  text once, as a pure function. The importer uses it for old exports, read for good as 3a's old
+  grammar is. Production's stored formulas and templates (library widgets, widgetings' params,
+  columns, the quiz's recap fields, templateable texts) are rewritten by a backfill in a chain of
+  its own, `(Serial Deploy: bagshape)`, unless the thread finds a simpler way: ask before
+  choosing another.
+* Every hunt's git files change once, when the jsonball gains `label` and the rest: say so in
+  `human/`.
+* **Read, then retire,** the parked `20261009-cw_budgets-qnbag-parked` (thread 9's first try at
+  a keyed lookup), with `scripts/git-attic`.
+
+Depends on: 3c, and the full e2e run after it. Side by side with 11. Full e2e run.
+
+### 11. Optimistic updates (added 2026-10-09)
+
+*The Coach's text:* "orchestrate a thread -- now, next, later, your call -- to do optimistic
+updates. in your plan for that, make sure to remove any workarounds. Also: pause and consider if
+adding, then removing, code is actually easier than adding optimistic updates where useful".
+
+Gloss:
+* **Library first.** Use Convex's `withOptimisticUpdate` on the one `perform` mutation
+  (`src/state/use-hunt.ts`), by action kind. Cover only the kinds whose wait for the server shows:
+  editing a question, a column's retitle, relabel and width, an entry's widgeted, sorting and moving
+  questions, at least. Each update applies the same change the server makes, through the same pure
+  function wherever there is one. Keep every update in one module, so it moves with the quiz query
+  when the Coach's coming thread on what each update sends splits that query.
+* **Survey first, and put the survey in the thread file and the ready report.** Name each
+  workaround for the missing updates and which update removes it:
+  - the e2e `waitUntilSaved` calls that exist only for a race (sort out the legitimate ones);
+  - thread 9's sort-after-save wait;
+  - 5a's `retitledPatch` item and the title lost when two edits are sent at once (TODO);
+  - the relabel-then-edit race;
+  - the known flaky specs this explains.
+
+  Where keeping a workaround is simpler than the update that would replace it, say so and keep it:
+  that is the Coach's "adding, then removing" question.
+* **Remove every workaround its update replaces**, in this thread.
+* Measure of success: the race flakes stop recurring across the full e2e run.
+
+Depends on: 9, and the full e2e run after 3c. Side by side with 10 (the state layer, where 10 is
+`lib` and the models). Full e2e run.
 
 ## For the Coach
 
