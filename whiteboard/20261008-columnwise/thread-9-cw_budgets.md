@@ -1,113 +1,78 @@
 # Thread 9: Compute budgets (2026-10-09)
 
-Branch `20261009-cw_budgets`, PR filed at landing; see the report. Suites: `pnpm justify` green
-(typecheck, lint, 5,605 unit tests). No schema change; no e2e spec touched.
+Branch `20261009-cw_budgets`, PR filed at landing; see the report. Suites: `pnpm justify` green;
+e2e for sorting and the seeded sums green. No schema change.
 
 * **Built**:
-  - `src/lib/clock.ts`: `clockNow()` (`performance.now()`), the one clock every budget reads, and
-    `soonerOf`. Liquidry, the runner, JSONata and Templating read it.
-  - **S1, `src/lib/liquidry.ts`** (serves every Liquid renderer: field, column, recap and
+  - `src/lib/clock.ts`: `clockNow()` (`performance.now()`), the one clock every budget reads;
+    `Date.now()` stands still inside a Convex function.
+  - **S1, `src/lib/liquidry.ts`**, which serves every Liquid renderer (field, column, recap and
     `liquidize` templates, and the prompts once another container moves them to Liquid;
     `src/lib/ask/prompts.ts` untouched):
-    - `ClockedContext`: the render's deadline is read at every value read (`readProperty`), and
-      every context a filter spawns for an item is one too, so `where`, `reject`, `group_by`,
-      `has`, `find`, `map`, `sort` by a property are stopped *inside* their one call. No measurable
-      cost (a 300-question nested `where` takes ~100 ms either way).
-    - `RefusedFilters`: the six `*_exp` filters, refused as the template is read (a throwing getter
-      on the engine's filter table), the sentence naming the twin: "the filter where_exp works an
-      expression for every item of a list, which is not offered: use where, with a property and a
-      value, line:1, col:N". A `syntax` failure: a cell's `errored` sentence, never a throw.
-    - `ItemsMax` 100,000 (no one step may make or be handed more: a range, a filter's list, a
-      filter's text) and `AllocMax` 1,000,000 (Liquid's memory limit, was 10M). `heldTo` takes over
-      LiquidJS's render limit (as thread 7's `clocked` did) and its allocation limit (per-step cap,
-      clock, then Liquid's own count).
-    - `push`/`unshift`/`concat` charged for all they add (`sizeWithin`): otherwise a list can hold one
-      long thing many times over, which our `fillingOf` and Liquid's `stringify` then build in one
-      unclocked step. The app's own filters (`in_order`) charged as Liquid's are.
-  - **C1, `src/lib/templating.ts`**: `ColumnMs` (250, moved from `liquidize.ts`), `ColumnBudgetT`,
-    `columnBudget()`, `fillWithin(template, bag, budget)`: time left, spent fill by fill whenever each
-    is asked (a grid's lazy cells included; the time between cells is not counted); a `limit` stops
-    the column, later fills returning that failure with their own text as typed. Taken by
-    `Columns.textOfShown` (per run and column key, beside `TextedOf`'s memo) and by each templateable
-    source in `finishedQnsOf`; `filledQuiz` (the export) now reads `finishedQnsOf`.
-  - **JSONata, `src/lib/formulas.ts`**: the timebox reads `clockNow()`; `evaluate(formula, input,
-    deadline?)`, the sooner wins, a passed deadline stops at once. Deadlines thread through every
-    formulary's `input`, `JsonataFormulary.run`/`worked`, and `liquidize`'s `template_from` formula.
-  - **m1, `src/lib/formulary/runner.ts`**: `RunMs` (5000 since review; was 1000), the run's deadline; each live column's is the
-    sooner of its own and the run's; a live column begun after it reads "The quiz took too long to
-    work out, so this column was not: ...". An asked widgeting's inputs (`inputsOf`) stop at the
-    first that will not, as a live column does.
-  - **m2, `convex/writing/layout_actions.ts`** `paramsFor`: a widgeting whose widget is gone takes
-    params through `WidgetingValidators.openParams` (no reserved word, no formulary's own).
-  - **Flaky timing tests**: `Redos.firstRefusalOf(regexes, budgetMs, checkMs)`;
-    `tests/support/redos.ts` (`RoomyMs`, `roomy`); verdict tests in `redos.test.ts` pass `RoomyMs`;
-    `layout_actions`, `library_actions` and `hunts` tests `vi.mock` Redos with `roomy`. Production
-    budgets unchanged.
-  - Docs: the record's new §11 (and §3 amended); `notes/security.md` (an entry, and two stale lines
-    fixed); `whiteboard/TODO.md` (thread 7's JSONata item done; a thread 9 section);
+    - `ClockedContext` reads the deadline at every value read, and its spawned item contexts too, so
+      `where`, `has`, `map`, `sort` by a property and the rest stop *inside* their call. No measurable
+      cost.
+    - `RefusedFilters`: the six `*_exp` filters refused as the template is read, the sentence naming
+      the twin; a `syntax` failure, so an `errored` cell, never a throw.
+    - `ItemsMax` 100,000 per step (ranges, a filter's list or text) and `AllocMax` 1,000,000 all told
+      (Liquid's limit was 10M), by taking over LiquidJS's render and allocation limits (`heldTo`).
+      `push`/`unshift`/`concat` charged for all they add (`sizeWithin`); the app's filters charged.
+      The review added a capped `capture`.
+  - **C1, `src/lib/templating.ts`**: `ColumnMs` (250), `columnBudget()`, `fillWithin`: time left,
+    spent fill by fill whenever asked (the grid's lazy cells too); a `limit` stops the column. Taken by
+    `Columns.textOfShown` and each templateable source in `finishedQnsOf` (so `filledQuiz`).
+  - **JSONata**: the timebox reads `clockNow()`; `evaluate` takes a deadline, threaded through every
+    formulary's `input`, `run`/`worked`, and `template_from`'s formula.
+  - **m1**: `Runner.RunMs` 5000 (the browser's alone, see below); each live column's deadline is the
+    sooner of its own and the run's; a column begun after it says so; asked inputs stop at the first
+    that will not. `Columns.workedOf` holds a column's own formula to `RunMs` for its whole column.
+  - **m2**: `paramsFor` holds a gone widget's widgeting to `WidgetingValidators.openParams`.
+  - **Flaky timing tests**: recheck's verdict tests get `RoomyMs` (`tests/support/redos.ts`); the
+    mutation suites mock `Redos.firstRefusalOf` with it. Production budgets unchanged.
+  - **Sort on the client** (review, the Coach's ruling): `Sortings.sortedIdsOf`; `Workbench` sends
+    `sort_questions` with every question's id; the server refuses an order that is not exactly the
+    quiz's questions (`sortStale`) and commits it with `last_sortkey`. **No mutation runs a quiz.**
+    Tests sort through `sortAction` (`tests/support/convex.ts`); `Seen` carries the hunt's `wheel`.
+  - Docs: record §11, §4's sorts amended; `notes/security.md`; `whiteboard/TODO.md`;
     `human/20261009-cw_budgets.md`; the `liquidize` advice says no `*_exp`.
 
 * **Decisions taken**:
-  1. **The clock inside reads, not only caps.** A cap on ranges does not reach the worst case found:
-     a long property path read from each item (`qns | where: "a.a.a…"`, 1,700 segments) over a
-     modest list is elements × path in one call (2.4 s over 1,000 items, ~40 s over 100,000).
-  2. **Two caps**: per step 100k ("near FillBudget", as asked) and all told 1M (a tenth of Liquid's
-     default). 100k all told would refuse honest recaps that run `| upcase` or `| replace` over
-     every question's text.
-  3. **Column budgets are time left, not deadlines**, so the grid's cell-by-cell fills count only
-     their own time. The runner keeps deadlines (its loop is tight).
-  4. **JSONata has no column budget**: the seeded `butnot` formula (`qns[label = $$.qn.chains_to]`)
-     takes ~260 ms a column over 300 questions; 250 would stop honest columns. The run's second holds.
-  5. **`RunMs` is 5000** (*amended on review*; it was 1000, a mutation's whole second): the server
-     no longer runs the quiz to sort, so the run's bound is the browser's alone, and loose. A
-     column's own formula (`Columns.workedOf`) has as long for its whole column.
-  6. **Steadying recheck by room, not warm-up**: the flakes were recheck's wall-clock timeout on a
-     cold Scala.js first check (70-120 ms, 3-25 ms warm) multiplied by load; a warm-up shrinks it but
-     does not remove it. Proven green with 24 busy loops on 16 cores.
+  1. **The clock inside reads, not caps alone**: a long property path read from each item of a modest
+     list is elements × path in one call (2.4 s over 1,000 items), which no range cap reaches.
+  2. **Two caps**: 100k per step ("near FillBudget") and 1M all told; 100k all told would refuse honest
+     recaps running `| upcase` over every question's text.
+  3. **Column budgets are time left, not deadlines**, so lazily drawn cells count only their own time.
+  4. **JSONata has no tight column budget**: the seeded `butnot` formula takes ~260 ms a column over
+     300 questions.
+  5. **`RunMs` is 5000** (amended on review; it was 1000, a mutation's second): only the browser runs a
+     quiz now, so the bound is loose.
+  6. **Recheck steadied by room, not warm-up**: the flakes were a wall-clock timeout on a cold first
+     check (70-120 ms, 3-25 ms warm) times load. Green under 24 busy loops on 16 cores.
 
-* **Deviations**: none from the plan. One test changed meaning-preservingly: `recap.test.ts` used
-  `where_exp`; it now uses `where: "recap"`, and a new test pins the refusal.
+* **Deviations**: `recap.test.ts` used `where_exp`; now `where: "recap"`, with a test pinning the
+  refusal. `e2e/widgets.spec.ts` "sorting by a computed column…" waits for the save before sorting:
+  a marked workaround (below).
 
 * **Discoveries**:
-  - **Probed on lane 1's backend** (throwaway internal mutation, removed, `_generated` pushed back):
-    JSONata stopped at 101 ms with `Date.now()` moving 0; Liquid's long-path `where` over a 100k
-    range stopped at 257 ms against 250; the 99-character `where_exp` refused in 6 ms; `(1..3000000)
-    | where` refused in 6 ms. **A JSONata `[1..10000000]` runs a Convex mutation out of its 64 MB**
-    before any timebox is asked: in TODO.
-  - **A face** (a templateable field's cell, `faceOf`) fills outside any column's budget: not in
-    the plan's C1 list, a view change; in TODO with a design.
-  - Liquid's `capture` builds text uncounted (time-bounded only); `append` in a loop meets
-    `AllocMax` at about a hundred 200-character questions.
-  - LiquidJS internals now taken over: `Context.readProperty`, `spawn`, `renderLimit.check`,
-    `memoryLimit.use`, `engine.filters`. All pinned by tests (each fails without its hook: the
-    long-path test ran 40 s with the read check off); LiquidJS is pinned to 10.30.0.
+  - **Probed on lane 1's backend** (probe removed, `_generated` pushed back): JSONata stopped at
+    101 ms with `Date.now()` still; a long-path `where` stopped at 257 ms against 250; `where_exp` and
+    a 3M range refused in 6 ms. A JSONata `[1..10000000]` runs a mutation out of its 64 MB: in TODO.
+  - **A face** (`faceOf`, a templateable field's cell) fills outside any column's budget: a view
+    change, in TODO with a design.
+  - **The sort race**: the browser has no optimistic updates, so a sort clicked within a round trip of
+    an edit sorts the quiz as it was. The Coach accepted it; optimistic updates remove it, and the
+    e2e workaround with it (TODO).
+  - LiquidJS internals taken over (`readProperty`, `spawn`, `renderLimit.check`, `memoryLimit.use`,
+    the filter table), each pinned by a test that fails without it; LiquidJS pinned to 10.30.0.
 
-* **After review (the Coach's rulings)**:
-  - **B, sort on the client**: `Sortings.sortedIdsOf`; `Workbench` sends `sort_questions` with every
-    question's id in order; `Quiz.sortQuestions` checks the ids are exactly the quiz's questions
-    (`sortStale`) and commits them with `last_sortkey`. The library, place and stored reads there
-    are gone (`placeOfOpen`, `reorderQuiz`'s `reads`). **No mutation calls `runQuiz` now.** Tests
-    sort through `sortAction` (`tests/support/convex.ts`), as the browser does; `Seen` carries the
-    hunt's `wheel`. `descending` rides along, unstored, as the memory keeps only the sortkey.
-  - **C, loose limits**: `RunMs` 5000; `Columns.workedOf` holds a column's formula to `RunMs` for its
-    whole column (one deadline in its one pass). Record §4 (sorts) and §11 amended.
-  - **Open (blocking): a sort clicked within a round trip of an edit sorts the quiz as it was.**
-    The browser holds no optimistic state, so its run reads an edit only once the server echoes it;
-    the server used to sort after the edit committed. `e2e/widgets.spec.ts` "sorting by a computed
-    column…" types answers and sorts at once, and now gets `bb, '', '', a, ccc`. Choices: accept it
-    (the spec waits for the save first; a second click re-sorts), hold the sort in the browser until
-    its writes are in (new state in `Workbench`/`use-hunt`), or optimistic updates (the Coach's
-    coming thread on what each update sends). Recommended: accept now, fix with optimistic updates.
-  - **A, questions keyed by label (`qnbag`)**: built, then held by the orchestrator while the
-    Coach settles the bag's shape. Parked, unlanded, on the local branch
-    `20261009-cw_budgets-qnbag-parked` (`1b7661f`, on `4bfaa3f`): `qnbag` in every bag, reserved,
-    the five chained seeds rewritten to `qn.chains_to ? $lookup(qnbag, qn.chains_to)`. Rework or drop
-    it once the shape is known; nothing on this branch depends on it.
+* **Moved out**: questions keyed by label for the bag (the review's fix A) leaves this thread: the
+  Coach ruled a larger change, the bag shaped as the export with `question`/`questions`, a thread of
+  its own. A first cut is parked, unlanded, on the local branch `20261009-cw_budgets-qnbag-parked`
+  (`1b7661f`): it may be read, and should not be deleted.
 
-* **For thread 3c**: nothing here touches the column grammar; `shownOf`/`drawnOf` read as before,
-  the sorts too.
+* **For thread 3c**: `shownOf`/`drawnOf` and the sorts read as before.
 
 * **For the Coach**:
   - **Before deploying**: grep production for stored templates naming a `*_exp` filter
-    (`human/20261009-cw_budgets.md`); each would stop filling in.
+    (`human/20261009-cw_budgets.md`).
   - Tune `RunMs` (5 s) and `AllocMax` (1M) if a real quiz meets them.

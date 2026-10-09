@@ -304,6 +304,11 @@ column of fills, JSONata on the moving clock, `Runner.RunMs` (record §11). Left
   computed bound needs a hook JSONata does not offer.
 * **`RunMs` is five seconds**, the browser's alone since the sort moved there: loose on purpose.
   Tune it if a real quiz meets it, or a slow page asks for less.
+* **A sort clicked within a round trip of an edit sorts the quiz as it was.** The browser works a
+  sort out over its own run (the server only commits the order), and the browser has no optimistic
+  updates, so an edit reaches its run only once the server echoes it. The Coach accepted the race
+  (2026-10-09); optimistic updates on the quiz's dispatch remove it, and with it the
+  `waitUntilSaved` workaround in `e2e/widgets.spec.ts` ("sorting by a computed column…").
 * **A template building text by `append` in a loop** is charged its whole text again each turn,
   so meets `AllocMax` at about a hundred questions of 200 characters; `capture` builds the same
   text uncharged. Say so in the template advice if an author meets it.

@@ -18,6 +18,7 @@ Also worth a look, none blocking:
 * A sort is now worked out in the browser and the server commits the order it is sent
   (`sort_questions` carries every question's id); no mutation runs the quiz any more.
   `Runner.RunMs`, the browser's bound on a run, is a loose five seconds, and a column's own formula
-  has as long.
+  has as long. A sort clicked within a round trip of an edit sorts the quiz as it was (accepted;
+  optimistic updates remove it, `whiteboard/TODO.md`).
 * A face (a templateable field's cell in the grid) is still filled outside any column's budget, and
   a JSONata range of millions allocates in one step: both in `whiteboard/TODO.md`.
