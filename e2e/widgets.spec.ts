@@ -189,6 +189,8 @@ test('a new widget is written through the door beside the catalogue, and put to 
   await panel.getByRole('button', { name: '+ New widgeting…' }).click()
   // Putting a widget to work writes no formula itself: that is the widget editor's.
   await expect(panel.getByRole('textbox', { name: 'Formula', exact: true })).toHaveCount(0)
+  // The catalogue's list, opened above its box near the foot of the page, would cover the button.
+  await page.keyboard.press('Escape')
   await writeNewFormula(page, widget_label, '$length(qn.title)')
   // Made at once, its label the new widget's, with its column headed after it.
   await expect(grid(page).getByRole('columnheader', { name: titleOf(widget_label) })).toBeVisible()
