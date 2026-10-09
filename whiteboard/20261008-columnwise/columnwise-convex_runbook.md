@@ -68,12 +68,14 @@ checks the current list. It prints five sections, each `none` or a list of
 | **4. `*_exp` Liquid filters** | Rewrite each one **before merging thread 9's PR**, or its template stops filling in. Use the twin filter: `qns \| where_exp: "qn", "qn.recap != blank"` becomes `qns \| where: "recap"`. This check covers every table, including templateable question text. |
 | **5. Rows 3a's backfills have not rewritten** | Must be none before 3c merges. If there are any, go back to step 1, then export and check again. |
 
-## 4. Merge 5b and 9 (when their PRs are filed)
+## 4. Merge 5b (#202) and 9 (#206)
 
-* **Thread 5b** (run order and preview): an ordinary PR with no migration. Merge it whenever.
-* **Thread 9** (compute budgets): no migration, but section 4 above must be empty first. If the
-  export is more than a few hours old, export and check again just before merging. See
-  `human/20261009-cw_budgets.md` for the full list of places a stored template lives.
+* **#202, thread 5b** (run order and preview): an ordinary PR with no migration. Merge it
+  whenever.
+* **#206, thread 9** (compute budgets): no migration, but section 4 above must be empty first. If
+  the export is more than a few hours old, export and check again just before merging. See
+  `human/20261009-cw_budgets.md` for the full list of places a stored template lives. After it
+  deploys, a tab opened before the deploy can't sort until it's reloaded.
 
 ## 5. Merge 3c, the tightening, last
 

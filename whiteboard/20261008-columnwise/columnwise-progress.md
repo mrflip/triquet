@@ -18,12 +18,12 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 5a | folding editors | landed #199 |
 | 5b | run order in both places, row preview | landed #202 |
 | 8 | seeds pass (optional) | landed #200 |
-| 9 | compute budgets (added) | landing (second review fixed) |
+| 9 | compute budgets (added) | landed #206 |
 | 3c | columns tighten (last of the chain) | pending |
 | 10 | one bag shape (added) | pending: after 3c and a full e2e run |
 | 11 | optimistic updates (added) | pending: after 3c and a full e2e run |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). Next asked-for full run: thread 9 (asked: core libraries, security), the twelfth landing, or the sprint's end.
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). thread 9 (#206: full run, 279 passed, 7 flakes cleared alone). Next full runs: 3c's landing (then 10 and 11 start), and the sprint's end.
 
 ## What the threads have taught
 
@@ -275,6 +275,24 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   locks in TODO.
 * **For the Coach**: decisions 1-3 in `thread-5b-cw_runorder.md` (the menus at the panel's head;
   the run order as plain lines; the folded row's description snippet gone).
+
+### From thread 9 (compute budgets, #206)
+
+* **One clock** (`src/lib/clock.ts`, `clockNow()` on `performance.now()`) for every budget.
+  Liquid reads its deadline on each value read, the `*_exp` filters are refused, there are caps of
+  100k per step and 1M per render, and `{% capture %}` is capped too. A column's templates get
+  250 ms (`fillWithin`). `Runner.RunMs` is 5 s and binds only the browser, and `Columns.workedOf`
+  holds a column's formula to it.
+* **Sorts are worked out in the browser.** `sort_questions` carries `question_ids`, and the server
+  checks them (`sortStale`) and writes the order. **No mutation runs an author's formula or
+  template any more.**
+* **The sort-after-edit race was accepted (option 1)**, with three marked e2e waits (widgets,
+  ordering, client-first) that thread 11 removes. Typing in a cell and then clicking a header
+  always hits it.
+* *Reviews:* first `flagged` (ruled: sort on the client, loose limits, the keyed bag moved to
+  thread 10); second `fixed` (`9a6eed2`).
+* **Before deploying:** grep for `*_exp` (the runbook, section 4). Tabs opened before the deploy
+  can't sort until reloaded.
 
 ### From thread 9's review (flagged, ruled)
 

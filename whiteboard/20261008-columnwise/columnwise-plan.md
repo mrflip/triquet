@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **YOLO** from 2026-10-09 (normal before). Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode"; switched to YOLO on 2026-10-09 ("make good decisions, we'll fix them up later").
-**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b landed (#197-#202); 9 underway; then 3c; then a full e2e run; then 10 and 11.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b, 9 landed (#197-#202, #206); 3c underway; then a full e2e run; then 10 and 11.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -470,6 +470,9 @@ and in the sprint-end `human/` entry.
   in `entries.spec.ts` is called a load flake, after passing 3 of 3 runs on both the base and the
   branch. "Decision 5" is read as the thread file's `RunMs` decision, amended with the decision
   record's §11.
+* **Thread 9, by its worker:** `'whiteboard/**/*.mts'` is added to `eslint.config.mjs`'s global
+  ignores (in its own commit, `2b124c4`). The orchestrator's `prd_checks.mts` had broken every
+  lint run, because typed rules can't read a file outside the TypeScript project.
 
 ## For the Coach
 
