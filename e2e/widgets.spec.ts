@@ -72,8 +72,8 @@ test('a template fills in for every question, its widgeting giving one of its ow
   await expect(cellOf(page, 0, 'Blurb')).toContainText('Leon')
   await expect(cellOf(page, 0, 'Blurb')).toContainText('Trotsky')
 
-  // Its own template, typed in its panel's folded line, kept as the box is left.
-  await openManage(page)
+  // Its own template, typed in its panel's folded line in the Widgets panel, kept as the box is left.
+  await openPanel(page, 'Widgets')
   const widgeting = widgetingPanel(page, 'blurb')
   const template = widgeting.getByRole('textbox', { name: 'Template', exact: true })
   // A template that does not read is named beside its box, and not kept.
@@ -82,20 +82,17 @@ test('a template fills in for every question, its widgeting giving one of its ow
   await expect(widgeting.getByText(/^Template does not read as Liquid/)).toBeVisible()
   await template.fill('{{ qn.title }} / {{ qn.full_answer | upcase }}')
   await template.blur()
-  await closeManage(page)
   await expect(cellOf(page, 0, 'Blurb')).toHaveText('Leon / TROTSKY')
 
   // One read from the bag, picked where the panel unfolds.
   await firstRow.getByRole('textbox', { name: 'Notes' }).fill('Said by {{ qn.title }}')
   await page.getByLabel('Quiz name').click()
-  await openManage(page)
   await unfoldBy(widgeting, 'Widgeting blurb in full')
   await widgeting.getByRole('combobox', { name: 'Its template' }).click()
   await page.getByRole('option', { name: /^Read from the bag/ }).click()
   await widgeting.getByRole('combobox', { name: 'Read from' }).click()
   await page.getByRole('option', { name: 'notes', exact: true }).click()
   await expect(widgeting.getByRole('note', { name: 'Template of blurb' })).toContainText('Read from notes')
-  await closeManage(page)
   await expect(cellOf(page, 0, 'Blurb')).toHaveText('Said by Leon')
   await reloadOnceSaved(page)
   await expect(cellOf(page, 0, 'Blurb')).toHaveText('Said by Leon')
