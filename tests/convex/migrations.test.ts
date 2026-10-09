@@ -186,6 +186,21 @@ describe("the bagshape backfills", () => {
     for (const fn of BagshapeBackfills) { await tt.mutation(internal.migrations.run, { fn: `migrations:${fn}`, reset: true }); await tt.finishAllScheduledFunctions(vi.runAllTimers) }
     expect(await bagTextsIn(tt, ids)).to.deep.eq(once)
   })
+
+  it("leave a question's field its validator refuses once rewritten, and rewrite its others", async () => {
+    const { tt } = deployment()
+    const ids = await bagBeforeOctober(tt)
+    const grown = '{{qn.title}}'.repeat(300)
+    await tt.run(async (ctx) => {
+      await ctx.db.patch('quizzes', ids.quiz_id, { templateable: ['clueing', 'hint', 'byline'] })
+      await ctx.db.patch('questions', ids.question_id, { clueing: grown })
+    })
+    const quiet = vi.spyOn(console, 'warn').mockImplementation(() => null)
+    for (const fn of BagshapeBackfills) { await migrate(tt, `migrations:${fn}`) }
+    quiet.mockRestore()
+    const { fields } = await bagTextsIn(tt, ids)
+    expect(fields).to.deep.eq({ clueing: grown, hint: 'Not {{question.title}}' })
+  })
 })
 
 describe("migrations.runAll", () => {

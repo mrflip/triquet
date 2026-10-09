@@ -154,7 +154,7 @@ export const backfillBagshapeQuestions = migrations.define({
     const patch: Partial<Record<typeof TemplatableFieldVals[number], string>> = {}
     for (const fieldname of nominated) {
       const read = QuestionValidators[fieldname].safeParse(beforeOctoberTemplated(question[fieldname]))
-      if (! read.success) { leftAs('Question', question.label, read.error.message); return }
+      if (! read.success) { leftAs('Question', `${question.label}'s ${fieldname}`, read.error.message); continue }
       if (read.data !== question[fieldname]) { patch[fieldname] = read.data }
     }
     if (Object.keys(patch).length > 0) { await ctx.db.patch('questions', question._id, patch) }
