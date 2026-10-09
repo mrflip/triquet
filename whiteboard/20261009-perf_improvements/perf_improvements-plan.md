@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-09. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip), in chat, after an analysis of where the time goes (summarized under
 *Background*, below).
-**Status: planned.** `perf_improvements-progress.md`, beside this file, is newer than this plan
+**Status: threads 1, 2, 3 underway.** `perf_improvements-progress.md`, beside this file, is newer than this plan
 wherever the two disagree.
 
 **What the Coach wants by the end**, in priority order:
