@@ -36,6 +36,10 @@ and in the linked documents.
 If a guardrail looks wrong for the case at hand, say so and propose the alternative. Do not
 quietly route around it, and do not treat a convention you find inconvenient as optional.
 
+When you report on a PR, branch or commit in chat or in `human/`, link it in full the first time
+each message names it (`[#219](https://github.com/mrflip/triquet/pull/219)`): the Coach often
+reads from a phone, where a bare `#219` goes nowhere.
+
 ## Philosophy and Values
 
 The top three values while writing code are **empathy, safety and readability**.
