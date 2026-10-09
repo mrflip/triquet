@@ -16,12 +16,12 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 7 | `liquidize` formulary | landed #201 |
 | 6 | free regex (optional) | landed #198 |
 | 5a | folding editors | landed #199 |
-| 5b | run order in both places, row preview | landing (review fixed) |
+| 5b | run order in both places, row preview | landed #202 |
 | 8 | seeds pass (optional) | landed #200 |
 | 9 | compute budgets (added) | in review |
 | 3c | columns tighten (last) | pending |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). Next asked-for full run: the twelfth landing, or the sprint's end.
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `2ac1d65`). Next asked-for full run: thread 9 (asked: core libraries, security), the twelfth landing, or the sprint's end.
 
 ## What the threads have taught
 
@@ -257,6 +257,22 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   formulary); second `flagged` (ruled: land; the rest to thread 9). Thread 6's recheck timing
   tests (`redos.test.ts` "a word said twice, by a backreference"; `layout_actions.test.ts` "refuse
   a regular expression with a sentence naming it") flake under load 25+: thread 9 steadies them.
+
+### From thread 5b (run order and row preview, #202)
+
+* **Run order in both places**: the Widgets panel lists widgetings in run order, with the
+  new-widgeting menus (*+ New widgeting…*, *+ New quiz widgeting…*) at its head; the gear's dialog
+  says the run order as plain lines. A row preview above the columns shows one question's row.
+* **Catch-up with 7**: #201's `TemplateInForce` became a `liquidize` arm of `WidgetShown` in the
+  open panel; thread 7's template spec moved from the manage dialog to the Widgets panel
+  (`9abe7dd`).
+* **A real e2e failure, repaired**: near the foot of the page the Autocomplete's list opens above
+  its box and covers *+ New widgeting…*; the spec presses Escape first (`2ac1d65`).
+* *Review:* fixed (`705db76`: the new-widgeting picker renders only while the layout is revisable);
+  seven minor findings in the thread file; `ColumnsEditor`'s pickers staying mounted after the quiz
+  locks in TODO.
+* **For the Coach**: decisions 1-3 in `thread-5b-cw_runorder.md` (the menus at the panel's head;
+  the run order as plain lines; the folded row's description snippet gone).
 
 ### From thread 2's review (flagged, ruled)
 
