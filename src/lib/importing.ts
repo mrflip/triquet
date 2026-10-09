@@ -146,9 +146,10 @@ export type ImportOutcome = {
  * `{ status: 'missing' }`) empties it, as a question's own fields merge; a value not of the
  * entry's kind fails its question, as a field would. Under the label of a widgeting asked from its
  * cell, a value read the same way is carried as the bot's reply, filling the cell only where it
- * holds nothing, so a pasted reply never buries one asked here; a failure, or a reply that will
- * not read, carries nothing and is named in the question's line, and nothing at all is passed
- * over. What a question holds under a widgeting the quiz will not have is named in its line too.
+ * holds nothing, so a pasted reply never buries one asked here. A failure carries nothing, as
+ * nothing does: the cell is filled by asking. A reply that will not read carries nothing and is
+ * named in the question's line, and so is what a question holds under a widgeting the quiz will
+ * not have.
  *
  * Columns hold nothing but how the grid is laid out, so a paste that holds any makes the quiz's
  * columns its own (`columnsMerged`): each is added, or revised to the paste's title, source, width
@@ -613,20 +614,20 @@ function repliedFrom(bag: Record<string, unknown>, asked: ReadonlySet<string>): 
 type PastedReply =
   | { kind: 'carried', value: JsonT }
   | { kind: 'nothing' }
-  | { kind: 'refused', message: string, code: 'reply_failed' | 'reply_unreadable' }
+  | { kind: 'refused', message: string, code: 'reply_unreadable' }
 
 /**
  * One pasted asked cell, unwrapped: a reply as the export writes it (`{ status: 'ok', value }`) or
- * bare, held to what a cell may store; nothing for null, an empty text, an `ok` of null, or
- * `{ status: 'missing' }`; and a failure, which is not carried, since the cell is filled by asking.
+ * bare, held to what a cell may store; nothing for null, an empty text, an `ok` of null,
+ * `{ status: 'missing' }`, or a failure, which is not carried, since the cell is filled by asking;
+ * and anything else is not a reply.
  */
 function pastedReplyOf(raw: unknown): PastedReply {
   if (raw === null || raw === '') { return { kind: 'nothing' } }
   if (! EST.isPlainObject(raw) || ! Object.hasOwn(raw, 'status')) { return replyOf(raw) }
   const { status, value } = raw as { status?: unknown, value?: unknown }
   if (status === 'ok') { return (value ?? '') === '' ? { kind: 'nothing' } : replyOf(value) }
-  if (status === 'missing') { return { kind: 'nothing' } }
-  if (status === 'errored') { return { kind: 'refused', message: 'A failure is not carried: ask the bot again to fill the cell', code: 'reply_failed' } }
+  if (status === 'missing' || status === 'errored') { return { kind: 'nothing' } }
   return { kind: 'refused', message: `Not a reply this tool can read: no widgeted is "${String(status)}"`, code: 'reply_unreadable' }
 }
 

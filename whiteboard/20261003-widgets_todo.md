@@ -26,8 +26,10 @@ by label* (the bullet that follows "open PR #66"), and *Deferred*, *Staleness*.
    `convex/writing/quiz_actions.ts`) is the neighbour to follow; the difference is that an entry
    replaces and an `aibot` reply only fills.
    *Done 2026-10-09, thread `import_carries`*, for any widgeting whose formulary appends
-   (`store: 'append'`) rather than `aibot` by name. One departure: a `missing` cell carries nothing
-   and is not logged, being nothing to carry; a failure or an unreadable reply is logged.
+   (`store: 'append'`) rather than `aibot` by name. One departure, as #66 had it: a `missing` or
+   `errored` cell carries nothing and is not logged, there being nothing to carry (logging a
+   failure made a quiz's own export, pasted back, say so for every failed cell); only a reply that
+   will not read is logged.
 2. **Read old exports.** A pre-#69 export names the replies by field, not widgeting label:
    `guess` → `dumdum`, `clueing_ishes` → `numnum_clueing`, `hint_ishes` → `numnum_hint`, with
    `{ status: 'done', text }` / `{ status: 'done', items }` in place of `{ status: 'ok', value }`.

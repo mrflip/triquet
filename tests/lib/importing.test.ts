@@ -575,10 +575,16 @@ describe('importInto', () => {
       expect(issuesFor(outcome)).to.deep.eq([['merged', []], ['merged', []]])
     })
 
-    it("carries no failure, nor a reply that will not read, and says so, but still takes the question and its other replies", () => {
+    it("carries no failure, and says nothing of it: the cell is filled by asking", () => {
       const errored = { status: 'errored', value: null, err: { message: 'Overloaded', at: null, response: null } }
-      const outcome = read(askedQuiz(), [{ label: 'leon', clueing: 'Reworded', dumdum: errored, numnum_clueing: found }, { label: 'nantes', dumdum: { status: 'done', text: 'Nantes' } }])
-      expect(issuesFor(outcome)).to.deep.eq([['merged', ['dumdum reply_failed']], ['merged', ['dumdum reply_unreadable']]])
+      const outcome = read(askedQuiz(), [{ label: 'leon', dumdum: errored, numnum_clueing: found }])
+      expect(issuesFor(outcome)).to.deep.eq([['merged', []]])
+      expect(repliedFor(outcome, 'leon')).to.deep.eq({ numnum_clueing: found })
+    })
+
+    it("carries no reply that will not read, and says so, but still takes the question and its other replies", () => {
+      const outcome = read(askedQuiz(), [{ label: 'leon', clueing: 'Reworded', dumdum: { status: 'done', text: 'Leon' }, numnum_clueing: found }])
+      expect(issuesFor(outcome)).to.deep.eq([['merged', ['dumdum reply_unreadable']]])
       expect(repliedFor(outcome, 'leon')).to.deep.eq({ numnum_clueing: found })
       expect(patchFor(present(outcome.questions), 'leon')).to.deep.eq({ clueing: 'Reworded' })
     })

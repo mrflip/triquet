@@ -524,7 +524,7 @@ describe("a quiz's export, imported", () => {
     expect(Importing.importInto(owned, ballOf(owned), EntryLibrary).fieldActions).to.deep.eq([])
   })
 
-  it("into an empty quiz out of the whole hunt, sends every question in order with all it holds, every widgeting in run order, and what its entries hold", () => {
+  it("into an empty quiz out of the whole hunt, sends every question in order with all it holds, every widgeting in run order, what its entries hold, and what its bots replied", () => {
     const quiz = chainedQuiz()
     const empty = { ...Quiz.blank('Princes', 'princes'), questions: [], widgetings: [], columns: [] }
     const whole = Exporting.wholeOf(snapshot())
@@ -534,7 +534,7 @@ describe("a quiz's export, imported", () => {
     expect(outcome.widgetingActions).to.deep.eq(quiz.widgetings.map((widgeting) => ({ kind: 'add_widgeting', widgeting })))
     const [leon, nantes] = present(outcome.questions)
     const fields = _.pick(present(quiz.questions[0]), ['qnum', 'clueing', 'hint', 'title', 'alt_text', 'notes', 'full_answer', 'recap', 'viz'])
-    expect(leon).to.deep.eq({ label: 'leon', patch: { ...fields, chains_to: 'nantes' }, entered: { remark: 'Ask Flip.' } })
+    expect(leon).to.deep.eq({ label: 'leon', patch: { ...fields, chains_to: 'nantes' }, entered: { remark: 'Ask Flip.' }, replied: { numnum_clueing: SpottedItems } })
     expect(nantes).to.deep.include({ label: 'nantes', entered: { remark: null } })
   })
 })
