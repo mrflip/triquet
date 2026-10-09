@@ -168,6 +168,14 @@ const CategoriesKeyedAfter  = String.raw`\.(?:\*|(?:${CategoryLabelVals.join('|'
 const CategoriesKeyedBefore = String.raw`\$(?:lookup|keys|each|sift)\(\s*`
 const CategoriesWord = new RegExp(String.raw`(?:(?<![\w$.])|(?<=\$\.))(?<!${CategoriesKeyedBefore})categories(?!\w|${CategoriesKeyedAfter})`, 'g')
 
+/** The refs that picked a list before October 2026 (`qns`, the hunt's `categories`), each of which picks a collection keyed by label now */
+const ListedRefs: ReadonlySet<string> = new Set([QnsRef, 'categories'])
+
+// The whole of what a ref picked, `$`, where a formula over it reads it whole: not `$$`, nor a
+// variable or a function, nor already its values (`$.*`), a category by its label, or handed to a
+// function that reads an object by its keys, as a formula of today reads the categories.
+const PickedWhole = new RegExp(String.raw`(?<!\$)(?<!${CategoriesKeyedBefore})\$(?![\w$]|${CategoriesKeyedAfter})`, 'g')
+
 /** The lookup of the question whose label `field` of this one holds: nothing for none, since `$lookup` refuses a null key */
 const lookedUp = (field: string) => `(question.${field} ? $lookup(questions, question.${field}))`
 
@@ -343,6 +351,22 @@ export function beforeOctoberTemplate(template: string): string {
   return eachMarkup(template, markupOf)
 }
 
+/**
+ * A column's formula, or a `template_from`'s, as it reads what its ref picks now, the ref as it
+ * was (before `beforeOctoberRef`): where the ref picked a list that is keyed by label now (`qns`,
+ * `categories`), what read the list whole reads its values (`$` as `$.*`), so `$count($)` and the
+ * menu's old field presets (`$.title`) read as they did. Strings and comments are left; so is a
+ * formula over any other ref, which reads no bag.
+ *
+ * @example beforeOctoberPicked('$count($)', 'qns')  // => '$count($.*)'
+ * @example beforeOctoberPicked('$.label', 'categories')  // => '$.*.label'
+ * @example beforeOctoberPicked('$.masie', 'category_data')  // => '$.masie'
+ */
+export function beforeOctoberPicked(formula: string, ref: string): string {
+  if (! ListedRefs.has(ref)) { return formula }
+  return spliced(formula, FormulaVerbatim, (code) => code.replaceAll(PickedWhole, () => '$.*'))
+}
+
 /** Whether a widget's input formula hands its formula or template the whole bag: `$`, or none, which a `jsonata` or `liquidize` widget reads as `$` */
 function readsBag(input_formula: unknown): boolean {
   return typeof input_formula !== 'string' || ['', '$'].includes(input_formula.trim())
@@ -372,11 +396,12 @@ export function beforeOctoberWidgetTexts<WT extends Readonly<Record<string, unkn
 /**
  * A `liquidize` widgeting's params as they read the bag now: its own `template`, where its widget's
  * input is the whole bag (`readsBag`, from the widget's input formula; the widget's default when
- * the library holds none), and `template_from`'s ref (`beforeOctoberRef`). `template_from`'s
- * formula reads what its ref picks, not the bag, and is left; so is any other param.
+ * the library holds none), and `template_from`'s ref (`beforeOctoberRef`) with its formula, which
+ * reads what the ref picks, reading a list made keyed whole as its values (`beforeOctoberPicked`).
+ * Any other param is left.
  *
  * @example beforeOctoberParams({ template: '{{ qn.hint }}' }, '$')  // => { template: '{{ question.hint }}' }
- * @example beforeOctoberParams({ template_from: { ref: 'qns', formula: '$count($)' } }, '$')  // => { template_from: { ref: 'questions', formula: '$count($)' } }
+ * @example beforeOctoberParams({ template_from: { ref: 'qns', formula: '$count($)' } }, '$')  // => { template_from: { ref: 'questions', formula: '$count($.*)' } }
  */
 export function beforeOctoberParams<PT extends Readonly<Record<string, unknown>>>(params: PT, input_formula: unknown): PT {
   const { template, template_from } = params
@@ -384,22 +409,24 @@ export function beforeOctoberParams<PT extends Readonly<Record<string, unknown>>
   return {
     ...params,
     ...(typeof template === 'string' && readsBag(input_formula) && { template: beforeOctoberTemplate(template) }),
-    ...(typeof from?.ref === 'string' && { template_from: { ...from, ref: beforeOctoberRef(from.ref) } }),
+    ...(typeof from?.ref === 'string' && { template_from: { ...from, ref: beforeOctoberRef(from.ref), ...(typeof from.formula === 'string' && { formula: beforeOctoberPicked(from.formula, from.ref) }) } }),
   }
 }
 
 /**
- * A column as it reads the bag now: its ref (`beforeOctoberRef`) and its template, which is filled
- * in over the bag (`beforeOctoberTemplate`). Its formula reads what its ref picks, not the bag,
- * and is left; so is anything else.
+ * A column as it reads the bag now: its ref (`beforeOctoberRef`), its template, which is filled in
+ * over the bag (`beforeOctoberTemplate`), and its formula, which reads what its ref picks, reading
+ * a list made keyed whole as its values (`beforeOctoberPicked`). Anything else is as it was.
  *
- * @example beforeOctoberColumn({ source: 'qns', template: '{{ value }} of {{ qns.size }}' })  // => { source: 'questions', template: '{{ value }} of {{ questions.size }}' }
+ * @example beforeOctoberColumn({ source: 'qns', formula: '$count($)', template: '{{ value }} of {{ qns.size }}' })
+ *   // => { source: 'questions', formula: '$count($.*)', template: '{{ value }} of {{ questions.size }}' }
  */
 export function beforeOctoberColumn<CT extends Readonly<Record<string, unknown>>>(column: CT): CT {
-  const { source, template } = column
+  const { source, formula, template } = column
   return {
     ...column,
     ...(typeof source === 'string' && { source: beforeOctoberRef(source) }),
+    ...(typeof source === 'string' && typeof formula === 'string' && { formula: beforeOctoberPicked(formula, source) }),
     ...(typeof template === 'string' && { template: beforeOctoberTemplate(template) }),
   }
 }
@@ -433,6 +460,6 @@ export function beforeOctoberQuizTexts<QT extends Readonly<Record<string, unknow
 export function beforeOctoberTemplated(held: unknown): unknown {
   if (typeof held === 'string') { return beforeOctoberTemplate(held) }
   if (typeof held !== 'object' || held === null || Array.isArray(held)) { return held }
-  const { value } = held as Record<string, unknown>
-  return typeof value === 'string' ? { ...held, value: beforeOctoberTemplate(value) } : held
+  const { value: text } = held as Record<string, unknown>
+  return typeof text === 'string' ? { ...held, value: beforeOctoberTemplate(text) } : held
 }

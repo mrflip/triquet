@@ -117,16 +117,20 @@ export const backfillBagshapeWidgetings = migrations.define({
   },
 })
 
-/** Each column's ref and template (`beforeOctoberColumn`); its formula reads what its ref picks, not the bag */
+/**
+ * Each column's ref and template (`beforeOctoberColumn`), and its formula where its ref picked a
+ * list that is keyed now (`qns`, `categories`): what read the list whole reads its values
+ */
 export const backfillBagshapeColumns = migrations.define({
   table:      'columns',
   migrateOne: async (ctx, column) => {
     const rewritten = beforeOctoberColumn(column)
-    if (rewritten.source === column.source && rewritten.template === column.template) { return }
+    if (rewritten.source === column.source && rewritten.template === column.template && rewritten.formula === column.formula) { return }
     const source = ColumnValidators.source.safeParse(rewritten.source)
     const template = ColumnValidators.template.optional().safeParse(rewritten.template)
-    if (! source.success || ! template.success) { leftAs('Column', column.label, (source.error ?? template.error)?.message ?? ''); return }
-    await ctx.db.patch('columns', column._id, { source: source.data, template: template.data })
+    const formula = ColumnValidators.formula.optional().safeParse(rewritten.formula)
+    if (! source.success || ! template.success || ! formula.success) { leftAs('Column', column.label, (source.error ?? template.error ?? formula.error)?.message ?? ''); return }
+    await ctx.db.patch('columns', column._id, { source: source.data, template: template.data, formula: formula.data })
   },
 })
 

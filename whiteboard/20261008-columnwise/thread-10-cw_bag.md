@@ -80,8 +80,12 @@ landing (its result is in the report and the PR's Tests: line).
   10. **What reads an input of its own is left**: a widget's formula or template is rewritten only
      where its input formula is `$` (or absent); prompts never; JSONata strings never (so
      `{ 'qn': qn }` keeps its key).
-  11. **A column's formula, and `template_from`'s, are not rewritten**: they read what the ref
-     picks, never the bag.
+  11. **A column's formula, and `template_from`'s, read what the ref picks, never the bag**, so
+     they are rewritten only where that ref picked a list now keyed (`qns`, `categories`): their
+     bare `$` becomes `$.*` (`beforeOctoberPicked`), in the importer and the backfill alike, so
+     `$count($)` and the menu's old presets (`$.title`, `$.label`) read as before. A category read
+     by its label (`$.tv`), or `$` handed to `$lookup`/`$keys`/`$each`/`$sift`, is left, as a
+     formula of today reads it. (The orchestrator's call, after review.)
   12. **`notes/examples/20261008-but_not_recap.json` is not rewritten**: it is gitignored in the
      main checkout, which agents do not write, and the importer reads it as it is.
   13. **The backfills stay in `Backfills`** with no tightening to retire them; any later PR may.
@@ -95,13 +99,20 @@ landing (its result is in the report and the PR's Tests: line).
 
 * **Discoveries**:
   - JSONata `$count($)` over a keyed object is 1: a formula over the `questions` word wants
-    `$.*`. In the human/ note's list of what the rewrite cannot reach.
+    `$.*`, which `beforeOctoberPicked` now writes for a formula stored over `qns` or `categories`.
   - LiquidJS's `.size` counts an object's keys; `.first` reads nothing on one.
   - The git-attic report shows `20261009-cw_tighten` and `20261009-cw_optimistic` holding commits
     this branch's base lacks (the spine moved under it: `spine_test_split`, thread 11): expect a
     catch-up at landing. Thread 11 touches `src/state/` and views; this thread touched a few views'
     help copy (`QuizManageModal`, `RecapPanel`, `JsonataFields`, `LiquidizeFields`) and
     `src/state/widget-edit.ts`'s doc examples.
+
+* **Review** (`fixed`): `c42a5c5f` (the rewrite leaves today's `categories.<label>`, `categories.*`
+  and `$lookup(categories, ...)` alone; a library paste of today's formulas read nothing before)
+  and `4cbe5209` (`backfillBagshapeQuestions` leaves only a refused field, not the whole
+  question). Then, at the orchestrator's call, `beforeOctoberPicked` (decision 11) and the
+  rename of a bare `value` in `beforeOctoberTemplated`. The reviewer's other minor findings are
+  left as notes: they are in its report and the PR's review comment.
 
 * **For the Coach** (also in `human/20261009-cw_bag.md`):
   - Merge as a Serial Deploy (`bagshape`); before it, one grep for newly reserved quiz-tier

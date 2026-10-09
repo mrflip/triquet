@@ -170,7 +170,7 @@ describe("the bagshape backfills", () => {
       shout:   '$uppercase(question.title)',
       blurb:   '{{ question.title }}',
       params:  { template: '{{ question.hint }}' },
-      column:  { source: 'questions', template: '{{ value }} of {{ questions.size }}', formula: '$count($)' },
+      column:  { source: 'questions', template: '{{ value }} of {{ questions.size }}', formula: '$count($.*)' },
       head:    'Thanks, {{ question_label }}',
       fields:  { clueing: 'By {{question.byline}}', hint: 'Not {{qn.title}}' },
       cells:   ['{{ question.title }}!', '{{ qn.title }}?'],

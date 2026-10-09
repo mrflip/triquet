@@ -542,7 +542,10 @@ importer for good (as the grammar before October 2026 is) and by the `bagshape` 
 (`convex/migrations.ts`) over production's stored texts. A formula's words outside its strings
 and comments; a template's inside its tags and outputs only, so a templateable field's prose is
 never touched; a formula or template reading an input of its own (an `aibot` prompt, a widget
-whose input formula is not `$`), and a column's formula (it reads what its ref picks), are left.
+whose input formula is not `$`) is left, and so is a column's formula, or a `template_from`'s (it
+reads what its ref picks), but where that ref picked a list now keyed (`qns`, `categories`): there
+its bare `$` reads the values, `$.*` (`beforeOctoberPicked`), so `$count($)` and the menu's old
+presets read as they did.
 `qn` and `qns` stay reserved from every label, so text naming them can mean nothing else. The
 seeds' texts before and after are pinned (`fixtures/seeds-2026-10-09.json`): the rewrite of the
 old is exactly the new. What it cannot rewrite: `human/20261009-cw_bag.md`.

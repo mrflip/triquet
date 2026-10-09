@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as Recap from '../../src/lib/recap'
-import { beforeOctoberColumn, beforeOctoberFormula, beforeOctoberOf, beforeOctoberParams, beforeOctoberQuizTexts, beforeOctoberRef, beforeOctoberTemplate, beforeOctoberTemplated, beforeOctoberWidgetTexts, categoryDataLabelsFor, categoryDataOf, plainOf, relabelledSource, templateableFrom } from '../../src/models/before-october'
+import { beforeOctoberColumn, beforeOctoberFormula, beforeOctoberOf, beforeOctoberParams, beforeOctoberPicked, beforeOctoberQuizTexts, beforeOctoberRef, beforeOctoberTemplate, beforeOctoberTemplated, beforeOctoberWidgetTexts, categoryDataLabelsFor, categoryDataOf, plainOf, relabelledSource, templateableFrom } from '../../src/models/before-october'
 import { SeedWidgets } from '../../src/models/seeds'
 import { present } from '../support/present'
 
@@ -208,7 +208,8 @@ describe('beforeOctoberParams', () => {
   it("rewrites a template widgeting's own template where its widget reads the whole bag, and its template_from's ref", () => {
     expect(beforeOctoberParams({ template: '{{ qn.hint }}' }, '$')).to.deep.eq({ template: '{{ question.hint }}' })
     expect(beforeOctoberParams({ template: '{{ qn.hint }}' }, undefined)).to.deep.eq({ template: '{{ question.hint }}' })
-    expect(beforeOctoberParams({ template_from: { ref: 'qns', formula: '$count($)' } }, '$')).to.deep.eq({ template_from: { ref: 'questions', formula: '$count($)' } })
+    expect(beforeOctoberParams({ template_from: { ref: 'qns', formula: '$count($)' } }, '$')).to.deep.eq({ template_from: { ref: 'questions', formula: '$count($.*)' } })
+    expect(beforeOctoberParams({ template_from: { ref: 'dumdum', formula: '$.value' } }, '$')).to.deep.eq({ template_from: { ref: 'dumdum', formula: '$.value' } })
   })
 
   it("leaves a template over an input of its own, and any other param, as they were", () => {
@@ -216,9 +217,31 @@ describe('beforeOctoberParams', () => {
   })
 })
 
+describe('beforeOctoberPicked', () => {
+  const Cases: [string, string, string, string][] = [
+    // the doc examples:
+    ['$count($)',                  'qns',           '$count($.*)',                  'a list counted whole, as its values'],
+    ['$.label',                    'categories',    '$.*.label',                    "the menu's old field preset, over each"],
+    ['$.masie',                    'category_data', '$.masie',                      'a formula over any other ref, left'],
+    // the rest:
+    ['$[0].title & $$.x',          'qns',           '$.*[0].title & $$.x',          'a list read by position, and the root left'],
+    ['($n := $count($); $n)',      'qns',           '($n := $count($.*); $n)',      'a variable and a function, left'],
+    ["$ = '$'",                    'qns',           "$.* = '$'",                    'a string, left'],
+    ['$count($.*)',                'qns',           '$count($.*)',                  'its values, already'],
+    ['$.tv.title & $lookup($, \'tv\')', 'categories', "$.tv.title & $lookup($, 'tv')", 'a category by its label, as a formula of today reads it'],
+  ]
+  for (const [formula, ref, expected, describes] of Cases) {
+    it(`reads ${describes}`, () => {
+      expect(beforeOctoberPicked(formula, ref)).to.eq(expected)
+      expect(beforeOctoberPicked(expected, ref)).to.eq(expected)
+    })
+  }
+})
+
 describe('beforeOctoberColumn', () => {
   it('rewrites its ref and its template, and leaves its formula, which reads what its ref picks', () => {
-    expect(beforeOctoberColumn({ source: 'qns', formula: '$count($)', template: '{{ value }} of {{ qns.size }}' })).to.deep.eq({ source: 'questions', formula: '$count($)', template: '{{ value }} of {{ questions.size }}' })
+    expect(beforeOctoberColumn({ source: 'qns', formula: '$count($)', template: '{{ value }} of {{ qns.size }}' })).to.deep.eq({ source: 'questions', formula: '$count($.*)', template: '{{ value }} of {{ questions.size }}' })
+    expect(beforeOctoberColumn({ source: 'categories', formula: '$.label' })).to.deep.eq({ source: 'categories', formula: '$.*.label' })
     expect(beforeOctoberColumn({ source: 'clueing' })).to.deep.eq({ source: 'clueing' })
   })
 })
