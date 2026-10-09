@@ -7,7 +7,7 @@ run, and lives beside this file:
 - **`notes/git_hygiene-laptop.md`**, in the laptop's container (`$TQ_IS_SANDBOXED`, and no
   `$CLAUDE_CODE_REMOTE`): the spine, worktrees and lanes, `pnpm land`, sprints.
 - **`notes/git_hygiene-cloud.md`**, in a cloud session (`$CLAUDE_CODE_REMOTE` is `true`): one
-  branch per session, pushed as it goes.
+  branch and one PR per milestone, pushed as it goes.
 
 The rules that hold everywhere:
 

@@ -12,7 +12,7 @@ apply here.
   it. No Coach works in it and nobody else's work is uncommitted in it: work in it directly. It is
   lane 0, on the project's usual ports.
 * **The container is thrown away** when the session idles out or ends. Uncommitted work and
-  unpushed commits go with it. Push at every milestone (`notes/git_hygiene-cloud.md`).
+  unpushed commits go with it. Push as you go (`notes/git_hygiene-cloud.md`).
 * **Four cores, not sixteen.** Long suites take longer, and the e2e suite runs fewer workers (as
   many as the idle cores bear: `workersFor` in `e2e/environment.ts`).
 
@@ -46,10 +46,11 @@ If a command below fails for want of one of those, run the hook yourself:
 
 ## A thread, in the cloud
 
-One session, one thread: one branch, one PR, worked in the clone. `notes/git_hygiene-cloud.md`
-has each step, and `notes/git_hygiene.md` what holds everywhere. In short: branch from
-`origin/main`, commit and push at milestones, prove with `pnpm justify` and `pnpm e2e`, rebase
-onto `origin/main` (never merge it in), open the PR with the GitHub MCP tools, and see it through
+One branch and one PR per milestone, all worked in the clone: a session may file several.
+`notes/git_hygiene-cloud.md` has each step, and `notes/git_hygiene.md` what holds everywhere. In
+short: cut each milestone's branch from `origin/main` (or from the milestone it builds on),
+commit and push as you go, prove with `pnpm justify` and `pnpm e2e`, rebase onto `origin/main`
+(never merge it in), open the PR ready for review with the GitHub MCP tools, and see it through
 CI and review.
 
 `human/` and `whiteboard/` entries are committed on the thread's branch: there is no sweep to
