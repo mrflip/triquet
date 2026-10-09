@@ -1,5 +1,5 @@
 import { ValidatorKit } from '../src/lib/validator'
-import { QuestionWidgetLabel } from '../src/models/column'
+import { QuestionWidgetLabel } from '../src/models/before-october'
 import { DefaultWidgetings, SeedWidgets } from '../src/models/seeds'
 import type { Doc, Id } from './_generated/dataModel'
 import { zInternalMutation } from './functions'

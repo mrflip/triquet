@@ -5,7 +5,7 @@ import { RefusalNotices } from './notices'
 import { columnsShowing } from './columns'
 import * as UU from './useful'
 import * as Reporting from './vv/reporting'
-import { Column, namesFor, plainOf } from '../models/column'
+import { Column, namesFor } from '../models/column'
 import { AddedColumnWidthPx } from '../models/layout'
 import { DefaultTier, ReservedWidgetingLabels, Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../models/widgeting'
 import type { Formularykind, WidgetT } from '../models/widget'
@@ -117,12 +117,12 @@ function refused(issue: string, labelIssue = false): Extract<WidgetingPlan, { ok
 function newColumnFor(quiz: QuizT, label: string, width_px: number): HuntActionDNA {
   const columnLabel = Labelmaker.firstFree(label, new Set(quiz.columns.map((column) => column.label)))
   const column = Column.fill({ label: columnLabel, title: Labelmaker.titleize(label), source: label, width_px })
-  const before = quiz.columns.findIndex((each) => plainOf(each).source === 'alt_text')
+  const before = quiz.columns.findIndex((each) => each.source === 'alt_text')
   return before === -1 ? { kind: 'add_column', column } : { kind: 'add_column', column, onto_idx: before }
 }
 
 /**
- * The action adding a column that shows `source` (a ref in the plain grammar), at the end of the
+ * The action adding a column that shows `source` (a ref), at the end of the
  * grid: titled and labelled after what it shows, its label growing `_2`, `_3` while another
  * column has it, at the width a new column takes. The author changes the rest in its row, as it is
  * made.

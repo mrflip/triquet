@@ -38,11 +38,10 @@ describe('resolve', () => {
     expect(resolve('numnum_hint', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[1] })
   })
 
-  it('finds a word at the bag\'s top level, unless a widgeting for each question shadows it, as one before October 2026 did', () => {
+  it('finds a word at the bag\'s top level, which no widgeting may shadow', () => {
     expect(resolve('categories', widgetings)).to.deep.eq({ kind: 'word', word: 'categories' })
     expect(resolve('qns', widgetings)).to.deep.eq({ kind: 'word', word: 'qns' })
-    const old = Widgeting.fill({ label: 'categories', widget_label: 'categories' })
-    expect(resolve('categories', [old])).to.deep.eq({ kind: 'widgeting', widgeting: old })
+    expect(() => Widgeting.fill({ label: 'categories', widget_label: 'category_data' })).to.throw(/already answer to/)
   })
 
   it('finds a widgeting at the tier its ref names, and nothing at the other', () => {
@@ -50,12 +49,6 @@ describe('resolve', () => {
     expect(resolve('quiz.playtesters', [playtesters])).to.deep.eq({ kind: 'widgeting', widgeting: playtesters })
     expect(resolve('playtesters', [playtesters])).to.be.null
     expect(resolve('quiz.grand_total', widgetings)).to.be.null
-  })
-
-  it('reads the grammar before October 2026: a field by its prefix, a part as its widgeting', () => {
-    expect(resolve('question.clueing', widgetings)).to.deep.eq({ kind: 'field', field: 'clueing' })
-    expect(resolve('grand_total.masie', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[2] })
-    expect(resolve('gone.masie', widgetings)).to.be.null
   })
 
   it('finds a field with no widgetings at all', () => {
@@ -72,16 +65,16 @@ describe('columnsShowing', () => {
   const quiz = {
     widgetings,
     columns: [
-      columnOf('question.title', 100, 'title'),
+      columnOf('title', 100, 'title'),
       columnOf('grand_total', 78, 'grand_total'),
       columnOf('dumdum', 160, 'guess'),
-      columnOf('grand_total.masie', 78, 'grand_total_masie'),
+      { ...columnOf('grand_total', 78, 'grand_total_masie'), formula: '$.masie' },
       columnOf('gone', 78, 'gone'),
     ],
   }
   const labelsShowing = (label: string) => columnsShowing(quiz, label).map((column) => column.label)
 
-  it("finds every column showing a widgeting, whole or a part of it, in the quiz's order", () => {
+  it("finds every column showing a widgeting, whatever its formula makes of it, in the quiz's order", () => {
     expect(labelsShowing('grand_total')).to.deep.eq(['grand_total', 'grand_total_masie'])
     expect(labelsShowing('dumdum')).to.deep.eq(['guess'])
   })
@@ -101,7 +94,7 @@ describe('widgetingRemovalRefusal', () => {
     widgetings,
     columns: [
       Column.fill({ label: 'grand_total', title: 'Total', source: 'grand_total', width_px: 78 }),
-      Column.fill({ label: 'grand_total_masie', title: '', source: 'grand_total.masie', width_px: 78 }),
+      Column.fill({ label: 'grand_total_masie', title: '', source: 'grand_total', formula: '$.masie', width_px: 78 }),
       Column.fill({ label: 'guess', title: 'Guess', source: 'dumdum', width_px: 160 }),
     ],
   }
@@ -137,9 +130,9 @@ describe('specFor', () => {
     })
   }
 
-  it('carries the formula, and reads a part before October 2026 as the formula picking it', () => {
+  it('carries the formula, or null for none', () => {
     expect(specOf('grand_total', '$.value * 2').formula).to.eq('$.value * 2')
-    expect(specOf('grand_total.masie')).to.deep.include({ source: { kind: 'widgeting', widgeting: widgetings[2] }, formula: '$.masie' })
+    expect(specOf('grand_total', '$.masie')).to.deep.include({ source: { kind: 'widgeting', widgeting: widgetings[2] }, formula: '$.masie' })
     expect(specOf('grand_total').formula).to.be.null
   })
 
@@ -224,10 +217,6 @@ describe('qnumSortkeyOf', () => {
   it('is null for a quiz that shows no Q#, or shows it only through a formula', () => {
     expect(qnumSortkeyOf({ columns: [columnOf('title')] })).to.be.null
     expect(qnumSortkeyOf({ columns: [{ ...columnOf('qnum'), formula: '$number($)' }] })).to.be.null
-  })
-
-  it('names a Q# column written before October 2026', () => {
-    expect(qnumSortkeyOf({ columns: [columnOf('question.qnum', 60, 'q_number')] })).to.eq('column:q_number')
   })
 })
 

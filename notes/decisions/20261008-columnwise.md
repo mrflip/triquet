@@ -145,9 +145,10 @@ resolved against `qn` first and then the bag's top level.
   space stays its own. The two lookups never collide, because every top-level bag word is
   reserved from widgeting labels (§9).
 
-The grammar before October 2026 (`question.<field>`, `<widgeting>.<part>`) is read by the
-readers until 3c, and by the importer for good (§10). `QuestionWidgetLabel` and
-`WidgetingPartVals` leave the column grammar at 3c; `Estimates` keeps its own list of parts.
+The grammar before October 2026 (`question.<field>`, `<widgeting>.<part>`) was read by the
+readers until 3c, and is read by the importer for good (§10), from `src/models/before-october.ts`.
+Since 3c the column grammar knows no parts: `Estimates` keeps its own list (`Estimates.PartVals`),
+and a part column is named by its preset (`ColumnMenu`'s part presets carry their names).
 
 ### The formula (3a reads it, 3b authors it)
 
@@ -323,7 +324,7 @@ Two warnings:
 
 **Removal is one rule: a thing goes only once nothing shows or works it**, and the author clears
 references from the outside in. A widget is removed only while no widgeting works it (as now);
-a widgeting only while no column shows it, whole or a part, in either grammar until 3c; a column
+a widgeting only while no column shows it, whatever its formula makes of it; a column
 freely. `delete_widgeting` refuses instead of cascading to columns, on the server and in the
 browser (through the column model's `resolve`), with the sentence `ConfirmRemove`'s `refusal`
 carries. Deleting a quiz still cascades: that is the quiz going.
@@ -354,7 +355,7 @@ the model that will own it, and the thread that adds the fields holds them to it
 
 | group | words | derived from |
 |---|---|---|
-| bag's top level | `hunt`, `realm`, `quiz`, `qns`, `qn`, `qn_label`, `quiz_label`, `params`, `widgeting_label`; `categories` at 3c | the quiz bag's keys. `src/models/quiz-bag.ts` imports `quiz.ts`, which imports `widgeting.ts`, so the list sits beneath `widgeting.ts` and a test holds `QuizBagValidators.quizBag`'s shape to it |
+| bag's top level | `hunt`, `realm`, `categories`, `quiz`, `qns`, `qn`, `qn_label`, `quiz_label`, `params`, `widgeting_label`; and `category`, one of the `categories` (3c, a call made in YOLO) | the quiz bag's keys. `src/models/quiz-bag.ts` imports `quiz.ts`, which imports `widgeting.ts`, so the list sits beneath `widgeting.ts` and a test holds `QuizBagValidators.quizBag`'s shape to it |
 | recap bag | `number` | the recap's place-from-1 (`Templating.inOrder`) |
 | import | `forced_label` | the key an older export's question carries (`src/lib/jsonball.ts`) |
 | widgeted's keys | `status`, `value`, `err`, `message`, `result_meta`, `digest`, `stale` | `WidgetedT`, the widgeted row, and the deferred staleness pair |
@@ -365,8 +366,9 @@ the model that will own it, and the thread that adds the fields holds them to it
 the importer still reads it: a widgeting under it has its flat widgeted read as the question's
 label. `2026-10-widgets.md` still says it is reserved.
 
-`categories` waits for 3c: it is the seeded estimates widget's label until 3a renames it
-`category_data`, and the note in `patterns.ts` that exempts it goes then.
+`categories` joined at 3c, once 3a had renamed the seeded estimates widget `category_data`, and
+`category` with it; the note in `patterns.ts` that exempted both went then. Neither is a global
+word: a hunt, quiz, question or column may still be labelled either.
 
 ### Every label: `ReservedLabelGroups` (`src/lib/vv/patterns.ts`)
 
@@ -409,9 +411,12 @@ refused, with a sentence naming the word (thread 2). No seeded label may be a re
   column source and each nomination naming one); the source grammar (`question.<x>` to `<x>`;
   `<w>.<part>` to `<w>` with `formula: '$.<part>'`; a plain label left); `templated` copied to
   `templateable` in the plain form. Writers write the new from 3a on.
-* **Tighten (3c)**: `source` and a templateable source are a plain key or `quiz.<label>` only;
+* **Tighten (3c, done)**: `source` and a templateable source are a plain key or `quiz.<label>` only;
   `quizzes.templated` goes; the readers' fallbacks go; `categories` joins the reserved words, so
-  the integrity check refuses what the backfill missed.
+  the integrity check refuses what the backfill missed. The Convex schema holds `source` as a
+  string, so its push cannot refuse an old-grammar source: the row validator refuses it on the
+  row's next write, and the Coach's check of production (`prd_checks.mts`, section 5) finds any
+  before merging.
 * **What nothing rewrites**: an author's formula reading `qn.categories`, which reads `missing`
   afterwards. The ledger row says so; the Coach greps the raw export before 3a deploys.
   `Estimates.isEstimating` reads the entry kind, not the label, so the spread and the personas are

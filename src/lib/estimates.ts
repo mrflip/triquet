@@ -4,20 +4,57 @@
  *
  * A cell nobody has filled in is taken to draw on no category in particular, at medium, as a
  * question whose every estimate is blank is: so every question of the quiz has estimates, and the
- * personas a chance at it. The parts a column can show of such a widgeting (`WidgetingPartVals`)
- * are the estimates themselves and those chances; a formula reads them on the widgeted, as
- * `qn.<label>.masie`.
+ * personas a chance at it. The parts of such a widgeted (`PartVals`) are the estimates themselves
+ * and those chances; a formula reads them on the widgeted, as `qn.<label>.masie`, and a column
+ * shows one by the formula naming it, `$.masie`.
  */
 import { Estimate, EstimateValidators, type EstimatesT } from '../models/estimate'
 import { Category, type CategoryLabel } from '../models/category'
 import type { WidgetT } from '../models/widget'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
 import type { WidgetingT } from '../models/widgeting'
+import { PersonaLabelVals, PersonaTitles } from '../models/persona'
 import type { QuizRun } from './formulary/runner'
 import * as Personas from './personas'
 
 /** Everything a question's estimates come to: the estimates, each persona's chance at the question, and the three's average */
 export type EstimatePartsT = { estimates: EstimatesT } & Personas.PersonaChancesT
+
+/**
+ * The parts of a category-estimate entry's widgeted (`EstimatePartsT`), each a key a formula
+ * reads on it: its list of estimates, each persona's chance at the question, and the three's
+ * average. No widgeting may take one as its label.
+ */
+export const PartVals = ['estimates', ...PersonaLabelVals, 'average'] as const satisfies readonly (keyof EstimatePartsT)[]
+export type Part = typeof PartVals[number]
+
+/** The header a column showing one part goes by unless retitled */
+export const PartTitles: Readonly<Record<Part, string>> = {
+  estimates: 'Estimates',
+  ...PersonaTitles,
+  average:   'Average',
+}
+
+/**
+ * The formula that picks one part out of a category-estimate entry's widgeted: what a column
+ * showing that part says.
+ *
+ * @example partFormulaOf('masie')  // => '$.masie'
+ */
+export function partFormulaOf(part: Part): string {
+  return `$.${part}`
+}
+
+/**
+ * The part of a category-estimate entry's widgeted `formula` picks, when it does nothing else;
+ * null for any other formula, or none.
+ *
+ * @example partOf('$.average')        // => 'average'
+ * @example partOf('$.average * 100')  // => null
+ */
+export function partOf(formula: string | null | undefined): Part | null {
+  return PartVals.find((part) => formula === partFormulaOf(part)) ?? null
+}
 
 /** Every question's estimates under a quiz's category-estimate widgeting */
 export type QuizEstimatesT = {

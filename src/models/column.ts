@@ -3,7 +3,6 @@ import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 import * as CK from '../lib/vv/checks/strings'
-import { PersonaLabelVals, PersonaTitles } from './persona'
 import { ArchivedField, RankField, SecondaryField } from './question'
 
 /** The question fields a column can show and edit */
@@ -52,20 +51,6 @@ export const RefTitles: Readonly<Record<QuestionField | QuestionView | QuestionK
 }
 
 /**
- * The parts of a category-estimate entry's widgeted a column may show by a formula naming one,
- * `$.masie`: its list of estimates, each persona's chance at the question, and the three's average.
- */
-export const WidgetingPartVals = ['estimates', ...PersonaLabelVals, 'average'] as const
-export type WidgetingPart = typeof WidgetingPartVals[number]
-
-/** The header a column showing one part of a widgeting goes by unless retitled */
-export const WidgetingPartTitles: Readonly<Record<WidgetingPart, string>> = {
-  estimates: 'Estimates',
-  ...PersonaTitles,
-  average:   'Average',
-}
-
-/**
  * What a column's ref names: a question's own field, a view of it, a key it has in the bag, a word
  * at the bag's top level, or a widgeting by its label, run for each question or (`quiz.<label>`)
  * once for the whole quiz.
@@ -103,10 +88,10 @@ function isOneOf<VT extends string>(vals: readonly VT[], word: string): word is 
 }
 
 /**
- * What the plain ref `source` names, or null for one that is no ref. A label is taken as a
- * widgeting's, whether or not the quiz has one.
+ * What the ref `source` names, or null for one that is no ref. A label is taken as a widgeting's,
+ * whether or not the quiz has one.
  */
-function plainRefOf(source: string): Ref | null {
+function foundRefOf(source: string): Ref | null {
   if (isOneOf(QuestionFieldVals, source)) { return { kind: 'field', field: source } }
   if (isOneOf(QuestionViewVals, source)) { return { kind: 'view', view: source } }
   if (isOneOf(QuestionKeyVals, source)) { return { kind: 'key', key: source } }
@@ -117,76 +102,13 @@ function plainRefOf(source: string): Ref | null {
   return { kind: 'widgeting', label, tier: quizWide ? 'quiz' : 'question' }
 }
 
-// The grammar before October 2026. A column's source said `question.<field>` for a question's own
-// field or view, and `<widgeting>.<part>` for one part of what a category-estimate entry came to;
-// a quiz nominated what it templated the same way. Read by every reader until the columnwise
-// sprint's tightening, and by the importer for good: an export is a promise.
-
-/** What the grammar before October 2026 called the questions' own fields in a source: `question.title`. No widgeting may be labelled this. */
-export const QuestionWidgetLabel = 'question'
-
-/**
- * A source in the grammar before October 2026, read as the plain ref and formula it is now: a
- * question's field or view by its name, a part of a widgeting as the widgeting with a formula
- * naming the part. Null for a source that is not in that grammar.
- *
- * @example beforeOctoberOf('question.clueing')   // => { source: 'clueing', formula: null }
- * @example beforeOctoberOf('categories.masie')   // => { source: 'categories', formula: '$.masie' }
- * @example beforeOctoberOf('dumdum')             // => null
- */
-export function beforeOctoberOf(source: string): { source: string, formula: string | null } | null {
-  const [head = '', tail, ...more] = source.split('.')
-  if (tail === undefined || more.length > 0) { return null }
-  if (head === QuestionWidgetLabel) {
-    return isOneOf(QuestionFieldVals, tail) || isOneOf(QuestionViewVals, tail) ? { source: tail, formula: null } : null
-  }
-  if (`${head}.` === QuizRefPrefix || ! isOneOf(WidgetingPartVals, tail)) { return null }
-  return { source: head, formula: partFormulaOf(tail) }
-}
-
-/**
- * A column's source and formula in the plain grammar: as they are, or, for a source in the
- * grammar before October 2026, translated (`beforeOctoberOf`). What every reader of a column reads
- * through until the tightening, what a column is written as from October 2026, and what the
- * importer reads an older export's columns as.
- *
- * @example plainOf({ source: 'categories.average' })                // => { source: 'categories', formula: '$.average' }
- * @example plainOf({ source: 'dumdum', formula: '$.value.guess' })  // => { source: 'dumdum', formula: '$.value.guess' }
- */
-export function plainOf(column: { source: string, formula?: string }): { source: string, formula?: string } {
-  const translated = beforeOctoberOf(column.source)
-  const formula = translated?.formula ?? column.formula
-  return { source: translated?.source ?? column.source, ...(formula !== undefined && { formula }) }
-}
-
-/**
- * The formula that picks one part out of a category-estimate entry's widgeted: what a column
- * showing that part says.
- *
- * @example partFormulaOf('masie')  // => '$.masie'
- */
-export function partFormulaOf(part: WidgetingPart): string {
-  return `$.${part}`
-}
-
-/**
- * The part of a category-estimate entry's widgeted `formula` picks, when it does nothing else;
- * null for any other formula, or none.
- *
- * @example partOf('$.average')        // => 'average'
- * @example partOf('$.average * 100')  // => null
- */
-export function partOf(formula: string | null | undefined): WidgetingPart | null {
-  return WidgetingPartVals.find((part) => formula === partFormulaOf(part)) ?? null
-}
-
 export const ColumnValidators = Validator(({ obj, str, oneof, titleish, formulaish, textish, label, int, uint, bool, stamps, zid }) => {
   const columnLabel = label
     .describe('What the column is called within its quiz, unique there. It names the column in an export and in the quiz\'s sort memory.')
-  const source = str.refine((val) => plainRefOf(plainOf({ source: val }).source) !== null, `should name a question's field (such as clueing), its view (${QuestionViewVals.join(', ')}) or a key it has (${QuestionKeyVals.join(', ')}); a widgeting by a label that ${PA.Label.msg}, at most ${String(PA.Label.max)} characters, and none of the words the tool keeps for its own use; ${BagWordVals.join(', ')}; or ${QuizRefPrefix}<label> for a widgeting run once for the whole quiz`)
-    .describe(`What the column shows, its ref: one plain key in the bag's own words, found on the question first (a field such as \`clueing\`, the view \`butnot\`, a key such as \`rank\`, or a widgeting's label) and then at the bag's top level (${BagWordVals.join(', ')}); or \`${QuizRefPrefix}<label>\` for a widgeting run once for the whole quiz. The grammar before October 2026 (\`${QuestionWidgetLabel}.<field>\`, \`<widgeting>.<part>\`) is still read.`)
-  const ref = str.refine((val) => plainRefOf(val) !== null, `should name a question's field (such as clueing), its view (${QuestionViewVals.join(', ')}) or a key it has (${QuestionKeyVals.join(', ')}); a widgeting by a label that ${PA.Label.msg}, at most ${String(PA.Label.max)} characters, and none of the words the tool keeps for its own use; ${BagWordVals.join(', ')}; or ${QuizRefPrefix}<label> for a widgeting run once for the whole quiz`)
-    .describe(`A ref in the plain grammar alone, as anything new names a thing of the bag: one plain key, found on the question first and then at the bag's top level (${BagWordVals.join(', ')}); or \`${QuizRefPrefix}<label>\` for a widgeting run once for the whole quiz.`)
+  const ref = str.refine((val) => foundRefOf(val) !== null, `should name a question's field (such as clueing), its view (${QuestionViewVals.join(', ')}) or a key it has (${QuestionKeyVals.join(', ')}); a widgeting by a label that ${PA.Label.msg}, at most ${String(PA.Label.max)} characters, and none of the words the tool keeps for its own use; ${BagWordVals.join(', ')}; or ${QuizRefPrefix}<label> for a widgeting run once for the whole quiz`)
+    .describe(`A ref, as anything names a thing of the bag: one plain key in the bag's own words, found on the question first (a field such as \`clueing\`, the view \`butnot\`, a key such as \`rank\`, or a widgeting's label) and then at the bag's top level (${BagWordVals.join(', ')}); or \`${QuizRefPrefix}<label>\` for a widgeting run once for the whole quiz.`)
+  const source = ref
+    .describe(`What the column shows, its ref: one plain key in the bag's own words, found on the question first (a field such as \`clueing\`, the view \`butnot\`, a key such as \`rank\`, or a widgeting's label) and then at the bag's top level (${BagWordVals.join(', ')}); or \`${QuizRefPrefix}<label>\` for a widgeting run once for the whole quiz.`)
   const formula = formulaish
     .describe('JSONata worked out over what the ref picks, as the bag holds it: a field itself, or a widgeting\'s whole widgeted (`$.value.guess`, `$.masie`), and that only when the widgeted is `ok`. Absent, the column shows the field, or the widgeted\'s value: identity.')
   const template = textish.min(1)
@@ -214,10 +136,6 @@ export const ColumnValidators = Validator(({ obj, str, oneof, titleish, formulai
   }
 
   const column = obj(fields)
-    .refine((val) => val.formula === undefined || (beforeOctoberOf(val.source)?.formula ?? null) === null, {
-      message: 'A part of a widgeting, as the grammar before October 2026 names one, takes no formula beside it: name the widgeting, and pick the part in its formula',
-      path:    ['formula'],
-    })
     .describe('One column of a quiz\'s grid. A quiz keeps its columns in a list, which is the order they appear in, apart from its widgetings: a column only says what to show, and how.')
 
   const columnPatch = obj({
@@ -278,24 +196,19 @@ export class Column implements ColumnT {
 }
 
 /**
- * What a source names, read in the plain grammar or the one before October 2026, where a part of
- * a widgeting names the widgeting, whatever its label (its column's formula picks the part:
- * `plainOf`). A source that names nothing reads as the title, which no validated source does.
+ * What a source names. A source that names nothing reads as the title, which no validated source
+ * does.
  *
  * @param source - A validated column source.
  * @returns What it names.
  *
  * @example refOf('clueing')            // => { kind: 'field', field: 'clueing' }
- * @example refOf('question.clueing')   // => { kind: 'field', field: 'clueing' }
  * @example refOf('dumdum')             // => { kind: 'widgeting', label: 'dumdum', tier: 'question' }
  * @example refOf('quiz.playtesters')   // => { kind: 'widgeting', label: 'playtesters', tier: 'quiz' }
- * @example refOf('categories.masie')   // => { kind: 'widgeting', label: 'categories', tier: 'question' }
  * @example refOf('categories')         // => { kind: 'word', word: 'categories' }
  */
 export function refOf(source: string): Ref {
-  const translated = beforeOctoberOf(source)
-  if (translated !== null && translated.formula !== null) { return { kind: 'widgeting', label: translated.source, tier: 'question' } }
-  return plainRefOf(translated?.source ?? source) ?? { kind: 'field', field: 'title' }
+  return foundRefOf(source) ?? { kind: 'field', field: 'title' }
 }
 
 /**
@@ -309,13 +222,12 @@ export function widgetingSourceOf(label: string, tier: 'question' | 'quiz'): str
 }
 
 /**
- * The label of the widgeting `source` shows, run for each question or once for the whole quiz, in
- * either grammar; null when it shows a question's own field, view or key, or a word of the bag.
+ * The label of the widgeting `source` shows, run for each question or once for the whole quiz;
+ * null when it shows a question's own field, view or key, or a word of the bag.
  *
- * @example widgetingLabelOf('categories.average')  // => 'categories'
- * @example widgetingLabelOf('quiz.playtesters')    // => 'playtesters'
- * @example widgetingLabelOf('title')               // => null
- * @example widgetingLabelOf('question.title')      // => null
+ * @example widgetingLabelOf('category_data')     // => 'category_data'
+ * @example widgetingLabelOf('quiz.playtesters')  // => 'playtesters'
+ * @example widgetingLabelOf('title')             // => null
  */
 export function widgetingLabelOf(source: string): string | null {
   const ref = refOf(source)
@@ -323,32 +235,26 @@ export function widgetingLabelOf(source: string): string | null {
 }
 
 /**
- * The label and title a new column showing `source`, worked by `formula`, takes when the author
- * gives neither: a question's field, view or key, or a word of the bag, under its own name and
- * usual header; a widgeting under its label, titleized; and one part of a category-estimate entry
- * (`$.masie`) under both their names, headed by the part's.
+ * The label and title a new column showing `source` takes when the author gives neither: a
+ * question's field, view or key, or a word of the bag, under its own name and usual header; a
+ * widgeting under its label, titleized. What its formula makes of it is named by the preset the
+ * formula came from, if any (`ColumnMenu.namesOf`).
  *
  * @param source - A validated column source.
- * @param formula - Its formula, if any.
  * @returns The label and the title.
  *
- * @example namesFor('chains_to')                  // => { label: 'chains_to', title: 'Chains to' }
- * @example namesFor('clueing_full')               // => { label: 'clueing_full', title: 'Clueing Full' }
- * @example namesFor('category_data', '$.masie')   // => { label: 'category_data_masie', title: 'Masie' }
- * @example namesFor('quiz.playtesters')           // => { label: 'playtesters', title: 'Playtesters' }
+ * @example namesFor('chains_to')         // => { label: 'chains_to', title: 'Chains to' }
+ * @example namesFor('clueing_full')      // => { label: 'clueing_full', title: 'Clueing Full' }
+ * @example namesFor('quiz.playtesters')  // => { label: 'playtesters', title: 'Playtesters' }
  */
-export function namesFor(source: string, formula: string | null = null): { label: string, title: string } {
+export function namesFor(source: string): { label: string, title: string } {
   const ref = refOf(source)
   switch (ref.kind) {
-  case 'field': { return { label: ref.field, title: RefTitles[ref.field] } }
-  case 'view':  { return { label: ref.view, title: RefTitles[ref.view] } }
-  case 'key':   { return { label: ref.key, title: RefTitles[ref.key] } }
-  case 'word':  { return { label: ref.word, title: RefTitles[ref.word] } }
-  case 'widgeting': {
-    const part = partOf(formula ?? plainOf({ source }).formula)
-    if (part !== null) { return { label: `${ref.label}_${part}`, title: WidgetingPartTitles[part] } }
-    return { label: ref.label, title: Labelmaker.titleize(ref.label) }
-  }
+  case 'field':     { return { label: ref.field, title: RefTitles[ref.field] } }
+  case 'view':      { return { label: ref.view, title: RefTitles[ref.view] } }
+  case 'key':       { return { label: ref.key, title: RefTitles[ref.key] } }
+  case 'word':      { return { label: ref.word, title: RefTitles[ref.word] } }
+  case 'widgeting': { return { label: ref.label, title: Labelmaker.titleize(ref.label) } }
   }
 }
 
@@ -366,15 +272,15 @@ export type ColumnNamer = (source: string, formula: string | null) => { label: s
  * @param named - How a column is named for what it shows: `namesFor` unless told otherwise (the column menu's `namerOf` knows the presets' names).
  * @returns The patch, with a title when the header follows.
  *
- * @example retitledPatch({ title: 'Category Data', source: 'category_data', ... }, { formula: '$.masie' })  // => { formula: '$.masie', title: 'Masie' }
- * @example retitledPatch({ title: 'Remarks', source: 'notes', ... }, { source: 'hint' })                     // => { source: 'hint' }
+ * @example retitledPatch({ title: 'Notes', source: 'notes', ... }, { source: 'hint' })                                              // => { source: 'hint', title: 'Hint' }
+ * @example retitledPatch({ title: 'Remarks', source: 'notes', ... }, { source: 'hint' })                                            // => { source: 'hint' }
+ * @example retitledPatch({ title: 'Category Data', source: 'category_data', ... }, { formula: '$.masie' }, namerOf(quiz, library))  // => { formula: '$.masie', title: 'Masie' }
  */
 export function retitledPatch(column: Pick<ColumnT, 'title' | 'source' | 'formula'>, patch: ColumnPatch, named: ColumnNamer = namesFor): ColumnPatch {
   if (patch.title !== undefined || (patch.source === undefined && patch.formula === undefined)) { return patch }
-  const plain = plainOf(column)
-  if (column.title !== named(plain.source, plain.formula ?? null).title) { return patch }
-  const formula = patch.formula === undefined ? plain.formula ?? null : patch.formula
-  const { title } = named(patch.source ?? plain.source, formula)
+  if (column.title !== named(column.source, column.formula ?? null).title) { return patch }
+  const formula = patch.formula === undefined ? column.formula ?? null : patch.formula
+  const { title } = named(patch.source ?? column.source, formula)
   return title === column.title ? patch : { ...patch, title }
 }
 

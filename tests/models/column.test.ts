@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { BagWordVals, Column, ColumnValidators, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, RefTitles, WidgetingPartTitles, WidgetingPartVals, beforeOctoberOf, columnLabelOf, namesFor, partFormulaOf, partOf, plainOf, refOf, retitledPatch, sortkeyOf, widgetingLabelOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
+import { BagWordVals, Column, ColumnValidators, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, RefTitles, columnLabelOf, namesFor, refOf, retitledPatch, sortkeyOf, widgetingLabelOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
 
 const base = { label: 'clueing', title: 'Clueing', source: 'clueing', width_px: 330 }
 
@@ -32,22 +32,12 @@ describe('Column.fill', () => {
     ['a'.repeat(41),          false, 'a widgeting by a label longer than any label may be'],
     ['dum__dum',              false, 'a widgeting by a label with two underscores in a row'],
     ['dumdum_',               false, 'a widgeting by a label ending in an underscore'],
-    // The grammar before October 2026, still read:
-    ['question.title',        true,  'a question field, before October 2026'],
-    ['question.butnot',       true,  'a view of a question, before October 2026'],
-    ['question.butnot_ishes', false, 'the BUT NOT ishes as a view, which they no longer are'],
-    ['question.nonsense',     false, 'a question field there is not'],
-    ['question.',             false, 'a question with no field'],
-    ['question',              false, 'the questions\' own source name, which has no value of its own'],
-    ['question.rank',         false, 'a key of a question, which the old grammar never named'],
-    ['categories.masie',      true,  "a part of a widgeting: one persona's chance"],
-    ['categories.estimates',  true,  'a part of a widgeting: its list of estimates'],
-    ['categories.average',    true,  'a part of a widgeting: the personas\' average'],
-    ['categories.bogus',      false, 'a part no widgeting offers'],
-    ['categories.masie.more', false, 'a part of a part'],
-    ['question.masie',        false, 'a part of the questions themselves'],
-    ['.masie',                false, 'a part of no widgeting'],
-    [`${'a'.repeat(41)}.masie`, false, 'a part of a widgeting whose label is longer than any may be'],
+    ['question',              false, 'the questions themselves, which is no ref'],
+    // The grammar before October 2026, which only the importer reads (`before-october.ts`):
+    ['question.title',        false, 'a question field, before October 2026'],
+    ['question.butnot',       false, 'a view of a question, before October 2026'],
+    ['categories.masie',      false, "a part of a widgeting, before October 2026: one persona's chance"],
+    ['category_data.average', false, 'a part of a widgeting, before October 2026, under its label now'],
   ]
   for (const [source, ok, describes] of Sources) {
     it(`${ok ? 'takes' : 'refuses'} ${describes}`, () => {
@@ -96,7 +86,6 @@ describe('Column.fill', () => {
     [{ template: '' },             'an empty template'],
     [{ readout: 'html' },          'a readout there is not'],
     [{ collapsed: 'yes' },         'a collapse that is no yes-or-no'],
-    [{ source: 'categories.masie', formula: '$.average' }, 'a formula beside a part, before October 2026, which already picks one'],
   ]
   for (const [overrides, describes] of Extras) {
     it(`refuses ${describes}`, () => {
@@ -153,39 +142,8 @@ describe('refOf', () => {
     expect(refOf('quiz.playtesters')).to.deep.eq({ kind: 'widgeting', label: 'playtesters', tier: 'quiz' })
   })
 
-  it('reads the grammar before October 2026 as it reads now, a part naming its widgeting', () => {
-    expect(refOf('question.clueing')).to.deep.eq({ kind: 'field', field: 'clueing' })
-    expect(refOf('question.butnot')).to.deep.eq({ kind: 'view', view: 'butnot' })
-    expect(refOf('categories.masie')).to.deep.eq({ kind: 'widgeting', label: 'categories', tier: 'question' })
-    expect(refOf('cats_2.estimates')).to.deep.eq({ kind: 'widgeting', label: 'cats_2', tier: 'question' })
-  })
-})
-
-describe('beforeOctoberOf and plainOf', () => {
-  it('read a source in the grammar before October 2026 as its plain ref and formula', () => {
-    expect(beforeOctoberOf('question.clueing')).to.deep.eq({ source: 'clueing', formula: null })
-    expect(beforeOctoberOf('categories.masie')).to.deep.eq({ source: 'categories', formula: '$.masie' })
-  })
-
-  it('read nothing out of a plain source', () => {
-    expect(['dumdum', 'clueing', 'quiz.playtesters', 'quiz.masie', 'qns'].map((source) => beforeOctoberOf(source))).to.deep.eq([null, null, null, null, null])
-  })
-
-  it('write a column in the plain grammar, its formula kept', () => {
-    expect(plainOf({ source: 'categories.average' })).to.deep.eq({ source: 'categories', formula: '$.average' })
-    expect(plainOf({ source: 'question.title' })).to.deep.eq({ source: 'title' })
-    expect(plainOf({ source: 'dumdum', formula: '$.value.guess' })).to.deep.eq({ source: 'dumdum', formula: '$.value.guess' })
-  })
-})
-
-describe('partFormulaOf and partOf', () => {
-  it('write the formula picking a part out of a category-estimate entry, and read it back', () => {
-    expect(partFormulaOf('masie')).to.eq('$.masie')
-    expect(WidgetingPartVals.map((part) => partOf(partFormulaOf(part)))).to.deep.eq([...WidgetingPartVals])
-  })
-
-  it('read no part out of any other formula, or none', () => {
-    expect([partOf('$.average * 100'), partOf('$.value'), partOf(null), partOf(undefined)]).to.deep.eq([null, null, null, null])
+  it('reads a source that names nothing as the title', () => {
+    expect(refOf('question.clueing')).to.deep.eq({ kind: 'field', field: 'title' })
   })
 })
 
@@ -194,33 +152,29 @@ describe('widgetingSourceOf and widgetingLabelOf', () => {
     expect([widgetingSourceOf('dumdum', 'question'), widgetingSourceOf('playtesters', 'quiz')]).to.deep.eq(['dumdum', 'quiz.playtesters'])
   })
 
-  it("read the widgeting's label back out of either grammar, and nothing out of a question's own field, view or key, or a word", () => {
-    const sources = ['category_data', 'categories.average', 'quiz.playtesters', 'title', 'question.title', 'question.butnot', 'rank', 'categories']
-    expect(sources.map((source) => widgetingLabelOf(source))).to.deep.eq(['category_data', 'categories', 'playtesters', null, null, null, null, null])
-  })
-
-  it('take every part as a column did before October 2026', () => {
-    expect(WidgetingPartVals.every((part) => ColumnValidators.column.safeParse({ ...base, source: `cats.${part}` }).success)).to.be.true
+  it("read the widgeting's label back, and nothing out of a question's own field, view or key, or a word", () => {
+    const sources = ['category_data', 'quiz.playtesters', 'title', 'butnot', 'rank', 'categories']
+    expect(sources.map((source) => widgetingLabelOf(source))).to.deep.eq(['category_data', 'playtesters', null, null, null, null])
   })
 })
 
-/** A namer knowing one preset's names, `$.sum` heading its column *Summed*, and naming the rest as `namesFor` does */
+/** A namer knowing two presets' names, `$.sum` heading its column *Summed* and `$.masie` *Masie*, and naming the rest as `namesFor` does */
 function namedWithSum(source: string, formula: string | null): { label: string, title: string } {
-  return formula === '$.sum' ? { label: 'summed', title: 'Summed' } : namesFor(source, formula)
+  if (formula === '$.sum') { return { label: 'summed', title: 'Summed' } }
+  if (formula === '$.masie') { return { label: `${source}_masie`, title: 'Masie' } }
+  return namesFor(source)
 }
 
 describe('retitledPatch', () => {
   const RetitledCases: [Pick<ColumnT, 'title' | 'source' | 'formula'>, ColumnPatch, ColumnPatch, string][] = [
     // the doc examples:
-    [{ title: 'Category Data', source: 'category_data' },  { formula: '$.masie' }, { formula: '$.masie', title: 'Masie' }, 'a part picked: headed after the part'],
+    [{ title: 'Notes',         source: 'notes' },          { source: 'hint' },     { source: 'hint', title: 'Hint' },      'what it shows changed: headed after the new'],
     [{ title: 'Remarks',       source: 'notes' },          { source: 'hint' },     { source: 'hint' },                     'headed otherwise by the author: left as it is'],
     // the rest:
-    [{ title: 'Notes',         source: 'notes' },          { source: 'hint' },     { source: 'hint', title: 'Hint' },      'what it shows changed: headed after the new'],
-    [{ title: 'Masie',         source: 'category_data', formula: '$.masie' }, { formula: null }, { formula: null, title: 'Category Data' }, 'the formula taken off: headed after the whole'],
-    [{ title: 'Notes',         source: 'notes' },          { formula: '$uppercase($)' }, { formula: '$uppercase($)' },    'a formula that is no part: the header stays'],
+    [{ title: 'Category Data', source: 'category_data' },  { formula: '$.masie' }, { formula: '$.masie' },                 'a part picked, which `namesFor` does not name: the header stays'],
+    [{ title: 'Notes',         source: 'notes' },          { formula: '$uppercase($)' }, { formula: '$uppercase($)' },    'a formula: the header stays'],
     [{ title: 'Notes',         source: 'notes' },          { source: 'hint', title: 'Mine' }, { source: 'hint', title: 'Mine' }, 'a patch heading it itself'],
     [{ title: 'Notes',         source: 'notes' },          { width_px: 90 },       { width_px: 90 },                       'a patch that changes neither'],
-    [{ title: 'Hint',          source: 'question.hint' },  { source: 'notes' },    { source: 'notes', title: 'Notes' },    'the grammar before October 2026, read plain'],
   ]
   it.each(RetitledCases)('%j patched %j => %j: %s', (column, patch, expected) => {
     expect(retitledPatch(column, patch)).to.deep.eq(expected)
@@ -232,35 +186,31 @@ describe('retitledPatch', () => {
     expect(retitledPatch({ ...column, title: 'Summed', formula: '$.sum' }, { formula: null }, namedWithSum)).to.deep.eq({ formula: null, title: 'Numnum Hint' })
     expect(retitledPatch({ ...column, title: 'Summed', formula: '$.sum' }, { formula: null })).to.deep.eq({ formula: null })
   })
+
+  it('heads a column taking a part after the part, and after the whole once the formula is taken off, by a namer knowing the parts', () => {
+    expect(retitledPatch({ title: 'Category Data', source: 'category_data' }, { formula: '$.masie' }, namedWithSum)).to.deep.eq({ formula: '$.masie', title: 'Masie' })
+    expect(retitledPatch({ title: 'Masie', source: 'category_data', formula: '$.masie' }, { formula: null }, namedWithSum)).to.deep.eq({ formula: null, title: 'Category Data' })
+  })
 })
 
 describe('namesFor', () => {
-  const NamesCases: [string, string | null, { label: string, title: string }, string][] = [
+  const NamesCases: [string, { label: string, title: string }, string][] = [
     // the doc examples:
-    ['chains_to',         null,      { label: 'chains_to',           title: 'Chains to' },    'a question field, under its own name and usual header'],
-    ['clueing_full',      null,      { label: 'clueing_full',        title: 'Clueing Full' }, 'a widgeting, under its label titleized'],
-    ['category_data',     '$.masie', { label: 'category_data_masie', title: 'Masie' },        "a part of a widgeting, under both their names and headed by the part's"],
-    ['quiz.playtesters',  null,      { label: 'playtesters',         title: 'Playtesters' },  'a widgeting for the whole quiz, under its label'],
+    ['chains_to',         { label: 'chains_to',           title: 'Chains to' },    'a question field, under its own name and usual header'],
+    ['clueing_full',      { label: 'clueing_full',        title: 'Clueing Full' }, 'a widgeting, under its label titleized'],
+    ['quiz.playtesters',  { label: 'playtesters',         title: 'Playtesters' },  'a widgeting for the whole quiz, under its label'],
     // the rest:
-    ['hint',              null,      { label: 'hint',                title: 'Hint' },         'the hint, opted into on a lean quiz'],
-    ['alt_text',          null,      { label: 'alt_text',            title: 'Alt Text' },     'the alt text, its header as the grid always had it'],
-    ['butnot',            null,      { label: 'butnot',              title: 'BUT NOT' },      'the view of the chained-to hint, in capitals as always'],
-    ['rank',              null,      { label: 'rank',                title: 'Rank' },         'a key of the question'],
-    ['qns',               null,      { label: 'qns',                 title: 'Questions' },    'a word of the bag'],
-    ['cats',              '$.average', { label: 'cats_average',      title: 'Average' },      "the personas' average"],
-    ['cats',              '$.value',  { label: 'cats',               title: 'Cats' },         'a widgeting worked by a formula that picks no part'],
-    ['question.recap',    null,      { label: 'recap',               title: 'Recap' },        'a question field, before October 2026'],
-    ['categories.masie',  null,      { label: 'categories_masie',    title: 'Masie' },        'a part of a widgeting, before October 2026'],
+    ['hint',              { label: 'hint',                title: 'Hint' },         'the hint, opted into on a lean quiz'],
+    ['alt_text',          { label: 'alt_text',            title: 'Alt Text' },     'the alt text, its header as the grid always had it'],
+    ['butnot',            { label: 'butnot',              title: 'BUT NOT' },      'the view of the chained-to hint, in capitals as always'],
+    ['rank',              { label: 'rank',                title: 'Rank' },         'a key of the question'],
+    ['qns',               { label: 'qns',                 title: 'Questions' },    'a word of the bag'],
   ]
-  for (const [source, formula, expected, describes] of NamesCases) {
+  for (const [source, expected, describes] of NamesCases) {
     it(`names ${describes}`, () => {
-      expect(namesFor(source, formula)).to.deep.eq(expected)
+      expect(namesFor(source)).to.deep.eq(expected)
     })
   }
-
-  it("titles every part of a widgeting", () => {
-    expect(Object.keys(WidgetingPartTitles)).to.have.members([...WidgetingPartVals])
-  })
 
   it("titles every question field, view and key, and every word", () => {
     expect(Object.keys(RefTitles)).to.have.members([...QuestionFieldVals, ...QuestionViewVals, ...QuestionKeyVals, ...BagWordVals])

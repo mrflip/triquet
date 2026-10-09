@@ -4,7 +4,7 @@ import { mintId } from '../lib/ids'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 import { Question, QuestionValidators, type QuestionT } from './question'
-import { ColumnValidators, beforeOctoberOf, refOf, type ColumnSortkey, type ColumnT } from './column'
+import { ColumnValidators, refOf, type ColumnSortkey, type ColumnT } from './column'
 import { WidgetedValidators, type WidgetedHistoryT } from './widgeted'
 import { WidgetingValidators, type WidgetingT } from './widgeting'
 
@@ -176,16 +176,6 @@ function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgetings' | 'columns
 /** Whether `source` names one of a question's own fields that a quiz may nominate as templateable */
 export function isTemplatableField(source: string): source is TemplatableField {
   return (TemplatableFieldVals as readonly string[]).includes(source)
-}
-
-/**
- * What a quiz nominated as templateable, read from its `templated` in the grammar before October
- * 2026: a question's field named `question.<field>` by its name, a widgeting's label as it is.
- *
- * @example templateableFrom(['question.clueing', 'author'])  // => ['clueing', 'author']
- */
-export function templateableFrom(templated: readonly string[]): string[] {
-  return templated.map((source) => beforeOctoberOf(source)?.source ?? source)
 }
 
 /** Whether `label` is one the quiz itself answers to in the bag (`Quiz.bagKeys`), which a widgeting for the whole quiz, put beside them, cannot take */

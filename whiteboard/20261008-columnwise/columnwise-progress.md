@@ -19,7 +19,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 5b | run order in both places, row preview | landed #202 |
 | 8 | seeds pass (optional) | landed #200 |
 | 9 | compute budgets (added) | landed #206 |
-| 3c | columns tighten (last of the chain) | pending |
+| 3c | columns tighten (last of the chain) | landing (review fixed); full e2e |
 | 10 | one bag shape (added) | pending: after 3c and a full e2e run |
 | 11 | optimistic updates (added) | pending: after 3c and a full e2e run |
 

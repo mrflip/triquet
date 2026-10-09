@@ -2,7 +2,7 @@ import { expect } from 'vitest'
 import { authTables } from '@convex-dev/auth/server'
 import type { Doc, TableNames } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
-import { ColumnValidators, beforeOctoberOf, refOf } from '../../src/models/column'
+import { ColumnValidators, refOf } from '../../src/models/column'
 import type { Tester } from './convex'
 
 // Convex has no foreign keys and no unique indexes: every cascade and every uniqueness is code in
@@ -102,9 +102,9 @@ function unshowableSources(held: Held): string[] {
   ))
 }
 
-/** Whether `source`, written in the plain grammar, names something there is: a widgeting among `widgetings` at the tier it names, or anything else a ref names */
+/** Whether `source` names something there is: a widgeting among `widgetings` at the tier it names, or anything else a ref names */
 function isShowable(source: string, widgetings: readonly Doc<'widgetings'>[]): boolean {
-  if (beforeOctoberOf(source) !== null || ! ColumnValidators.source.safeParse(source).success) { return false }
+  if (! ColumnValidators.source.safeParse(source).success) { return false }
   const ref = refOf(source)
   if (ref.kind !== 'widgeting') { return true }
   return widgetings.some((widgeting) => widgeting.label === ref.label && widgeting.tier === ref.tier)

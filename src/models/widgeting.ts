@@ -2,11 +2,12 @@ import * as Z from 'zod'
 import _ from 'es-toolkit/compat'
 import { Validator } from '../lib/validator'
 import { ForcedLabelField, PositionField } from '../lib/jsonball'
+import * as Estimates from '../lib/estimates'
 import * as Labelmaker from '../lib/labelmaker'
 import { StampFieldnames } from '../lib/stamps'
 import * as UU from '../lib/useful'
 import * as PA from '../lib/vv/patterns'
-import { ColumnStageFieldnames, ColumnValidators, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals } from './column'
+import { ColumnStageFieldnames, ColumnValidators, QuestionViewVals } from './column'
 import { ArchivedField, PlaceField, Question, RankField, SecondaryField, VizField } from './question'
 import { StalenessFieldnames, WidgetedValidators } from './widgeted'
 import { EntryKindOncePerQuiz, EntryParamsOf, WidgetValidators, type WidgetT } from './widget'
@@ -33,18 +34,20 @@ const WidgetedKeys: readonly string[] = [
  * * **a question's own**: its exposed fields, its rank and its viz flags (archived, secondary),
  *   its place, viz and stamps in a jsonball, the views of it, the questions themselves, its
  *   place in a recap (`number`), and the label an older export overrode it with (`forced_label`);
- * * **the bag's top level** (`QuizBagKeys`), but for `categories`, which the library's
- *   category-estimate widget is labelled, and so every widgeting of it;
+ * * **the bag's top level** (`QuizBagKeys`), so a column's ref, found on the question first and
+ *   then there, never finds a widgeting where it means a word; and `category`, one of the
+ *   `categories`, so no widgeting reads as one;
  * * **a widgeted's keys**, so `qn.status` never sits beside `qn.foo.status`;
  * * **a column's fields**, so an export's columns and a bag never read alike;
- * * **a category-estimate widgeted's keys**: each persona's chance, the list and their average.
+ * * **a category-estimate widgeted's keys** (`Estimates.PartVals`): each persona's chance, the
+ *   list and their average.
  */
 export const ReservedWidgetingLabels: readonly string[] = _.uniq([
-  ...Question.exposed, RankField, ArchivedField, SecondaryField, PositionField, VizField, ...StampFieldnames, ...QuestionViewVals, QuestionWidgetLabel, PlaceField, ForcedLabelField,
-  ...QuizBagKeys.filter((key) => key !== 'categories'),
+  ...Question.exposed, RankField, ArchivedField, SecondaryField, PositionField, VizField, ...StampFieldnames, ...QuestionViewVals, 'question', PlaceField, ForcedLabelField,
+  ...QuizBagKeys, 'category',
   ...WidgetedKeys,
   ...Object.keys(ColumnValidators.column.shape), ...ColumnStageFieldnames,
-  ...WidgetingPartVals,
+  ...Estimates.PartVals,
 ])
 
 /**

@@ -474,7 +474,7 @@ describe("a category-estimate widgeting's parts", () => {
     const seeded = await seed(hunt)
     await seeded.act({ kind: 'add_widgeting', widgeting: Cats })
     await seeded.act({ kind: 'add_column', column: columnFor('cats', 'cats') })
-    await seeded.act({ kind: 'add_column', column: columnFor('masie', 'cats.masie') })
+    await seeded.act({ kind: 'add_column', column: { ...columnFor('masie', 'cats'), formula: '$.masie' } })
     return seeded
   }
 
@@ -483,16 +483,17 @@ describe("a category-estimate widgeting's parts", () => {
     expect(partColumnsOf(await read())).to.deep.eq([['cats', 'cats', undefined], ['masie', 'cats', '$.masie']])
   })
 
-  it("are written in the plain grammar however a browser names them, one from before October 2026 included", async () => {
+  it("take a part by its formula, and refuse one named in the grammar before October 2026", async () => {
     const { act, read } = await withParts()
-    await act({ kind: 'edit_column', label: 'cats', patch: { source: 'cats.average' } })
-    await act({ kind: 'edit_column', label: 'masie', patch: { source: 'cats', formula: null } })
+    await act({ kind: 'edit_column', label: 'cats', patch: { formula: '$.average' } })
+    await act({ kind: 'edit_column', label: 'masie', patch: { formula: null } })
+    await expect(act({ kind: 'edit_column', label: 'cats', patch: { source: 'cats.average' } })).rejects.toThrow(/should name a question's field/)
     expect(partColumnsOf(await read())).to.deep.eq([['cats', 'cats', '$.average'], ['masie', 'cats', undefined]])
   })
 
   it("are refused of a widgeting the quiz does not have", async () => {
     await expectRefused(await withParts(),
-      [{ kind: 'add_column', column: columnFor('gone_masie', 'gone.masie') }, 'sourceUnshowable'],
+      [{ kind: 'add_column', column: { ...columnFor('gone_masie', 'gone'), formula: '$.masie' } }, 'sourceUnshowable'],
       [{ kind: 'edit_column', label: 'masie', patch: { source: 'gone' } }, 'sourceUnshowable'])
   })
 

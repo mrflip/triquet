@@ -8,10 +8,10 @@ import * as UU from './useful'
 import * as Reporting from './vv/reporting'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
-import { ColumnValidators, plainOf, widgetingLabelOf, type ColumnPatch, type ColumnT } from '../models/column'
-import { CategoriesDescription, CategoriesWidgetLabel, categoryDataLabelsFor, relabelledSource } from '../models/before-october'
+import { ColumnValidators, widgetingLabelOf, type ColumnPatch, type ColumnT } from '../models/column'
+import { CategoriesDescription, CategoriesWidgetLabel, categoryDataLabelsFor, plainOf, relabelledSource, templateableFrom } from '../models/before-october'
 import { CategoryDataLabel, SeedWidgets } from '../models/seeds'
-import { QuizValidators, isTemplatableField, templateableFrom, type QuizT, type Sortkey } from '../models/quiz'
+import { QuizValidators, isTemplatableField, type QuizT, type Sortkey } from '../models/quiz'
 import { EntryFormulary } from './formulary/entry'
 import * as Formularies from './formulary/formularies'
 import { Widget, WidgetValidators, type EntryValueT, type EntryWidgetT, type WidgetT } from '../models/widget'
@@ -332,8 +332,8 @@ function templateableCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, showable
 
 /**
  * A pasted quiz with what an export from before October 2026 holds read as it is now, as the
- * backfills of the columnwise sprint read the rows (`convex/migrations.ts`), and for good, since
- * an export is a promise: the category-estimate entry `categories` as `category_data`, and each
+ * columnwise sprint's backfills rewrote the database's rows, and for good, since an export is a
+ * promise: the category-estimate entry `categories` as `category_data`, and each
  * widgeting labelled `categories` or `categories_<n>` as `category_data` or `category_data_<n>`,
  * or the first free label after it where the paste holds that already (`categoryDataLabelsFor`),
  * with each question's cell, column and nomination naming one; each column's source in the plain

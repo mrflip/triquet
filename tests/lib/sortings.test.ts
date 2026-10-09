@@ -217,9 +217,6 @@ describe('sortValueFor', () => {
     const run = runOf(quiz, [Widget.fill({ label: 'categories', formulary: 'entry', config: { entry_kind: 'estimates' } })])
     const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:masie', quiz, run), true)
     expect(answers(sorted)).to.deep.eq(['math', 'blank', 'art'])
-    const before = { ...quiz, columns: [Column.fill({ label: 'masie', title: 'Masie', source: 'cats.masie', width_px: 60 })] }
-    const sortedBefore = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:masie', before, run), true)
-    expect(answers(sortedBefore)).to.deep.eq(['math', 'blank', 'art'])
   })
 
   it("reads what a column came to, never the text its template dresses it in: 9% sorts before 10%", () => {

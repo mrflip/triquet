@@ -142,10 +142,10 @@ describe('quizBodyOf', () => {
     expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'title', width_px: 100, align: 'right' })
   })
 
-  it("writes each column in the plain grammar, its formula beside it, one held in the grammar before October 2026 included", () => {
+  it("writes each column as it is held, its formula beside it", () => {
     const chained = chainedQuiz()
     const columns = [
-      { label: 'title', title: 'Title', source: 'question.title', width_px: 100 },
+      { label: 'title', title: 'Title', source: 'title', width_px: 100 },
       { label: 'shout', title: 'Shout', source: 'title', formula: '$uppercase($)', width_px: 100 },
     ]
     const body = bodyOf({ ...chained, columns })
