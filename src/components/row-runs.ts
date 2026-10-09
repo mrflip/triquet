@@ -42,7 +42,9 @@ export type ReaskT = { widgeting_label: string, ofTarget: boolean }
  * What one question's row reads of a quiz's run: each column's cell (`CellRunT`), by its colkey,
  * and the template bag its templated boxes are filled in over. Two of these for one question are
  * the same to the row (`isSameRowRun`) when every cell is the same and every templated box of the
- * question fills in the same, whichever run they came from.
+ * question fills in the same, whichever run they came from. A row kept so keeps the bag it was drawn
+ * with, and a draft in it (one the server refused among them) fills in over that bag until the row
+ * is next drawn.
  */
 export type RowRunT = {
   cells: Readonly<Record<string, CellRunT>>
