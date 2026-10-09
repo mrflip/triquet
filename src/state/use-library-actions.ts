@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useConvex, useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type * as Actor from '../lib/actor'
@@ -13,6 +13,7 @@ import { useRaiseAlarm } from './alarms'
 import { useIdent } from './use-ident'
 import { holdThePage } from './page-hold'
 import * as HuntMirror from './hunt-mirror'
+import { showLibraryChanged } from './optimistic-library'
 
 export type LibraryActionsHandle = {
   /** Carry out what an admin did to the library; a change not kept raises an alarm */
@@ -48,13 +49,17 @@ export function libraryDenialOf(actor: Actor.ActorT, action: LibraryActionDNA): 
  * server would have said it.
  *
  * Changes from one browser are carried out in the order they were made, whichever mutation each
- * rides: a widget made here is in the library before a widgeting dispatched after it works it.
+ * rides: a widget made here is in the library before a widgeting dispatched after it works it. A
+ * widget written or revised is shown at once (`showLibraryChanged`), so an ask made straight after
+ * reads it as written; anything else once the server has it.
  *
  * @returns The dispatcher, and whether it is still writing.
  */
 export function useLibraryActions(): LibraryActionsHandle {
   const { actor } = useIdent()
-  const perform = useMutation(api.widgets.perform)
+  const performBare = useMutation(api.widgets.perform)
+  // Made once: `withOptimisticUpdate` makes a new mutation each time it is asked.
+  const perform = useMemo(() => performBare.withOptimisticUpdate(showLibraryChanged), [performBare])
   const convex = useConvex()
   const raise = useRaiseAlarm()
   const [writing, setWriting] = useState(0)
