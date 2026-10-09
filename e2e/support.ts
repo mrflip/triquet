@@ -34,7 +34,16 @@ const NoStorage = { cookies: [], origins: [] }
  * taken for a stolen one, and every token descended from it is revoked, the session with them. A
  * worker runs one test at a time, so each begins with the token the one before it was handed.
  */
-type KeptSessionT = { label: string, storageState: Exclude<BrowserContextOptions['storageState'], undefined> }
+type KeptSessionT = { label: string, storageState: StorageT }
+
+/** Browser storage as a context is handed it, or hands it back: cookies, and each origin's local storage */
+type StorageT = Exclude<BrowserContextOptions['storageState'], undefined>
+
+/** What Convex Auth's key for a session's refresh token begins with, in local storage: `__convexAuthRefreshToken_<backend>` */
+const RefreshTokenKey = '__convexAuthRefreshToken'
+
+/** How long a context's teardown waits for a page that opened the app to exchange the refresh token it began with */
+const TokenExchangeMs = 5000
 
 /**
  * The suite's `test`: Playwright's, with the page already at the workbench.
@@ -52,16 +61,20 @@ type KeptSessionT = { label: string, storageState: Exclude<BrowserContextOptions
  * that must stub a route before the first load, or is about the way in itself, says
  * `test.use({ startAt: null })` and goes there itself, in a fresh anonymous session
  * (`startHunt(page)` is the way in through the front door and the hunts list).
+ *
+ * `friend` is a second visitor kept the same way: a page in a browser of its own, open on nothing
+ * yet, signed in as a second ident each worker says it is once (`friendLabel`), on no hunt of the
+ * test's until a spec puts it on one (`putOnHunt`, in admin). A spec about a second visitor's way
+ * in, or that needs a visitor nobody has seen, walks the front door with `otherVisitor`.
  */
-export const test = base.extend<{ startAt: string | null, layout: LayoutT }, { keptSession: KeptSessionT }>({
+export const test = base.extend<{ startAt: string | null, layout: LayoutT, friend: Page, friendLabel: string }, { keptSession: KeptSessionT, keptFriend: KeptSessionT }>({
   startAt:     [FreshHunt, { option: true }],
   layout:      [{}, { option: true }],
   keptSession: [async ({ browser }, use, workerInfo) => {
-    const context = await browser.newContext({ baseURL: workerInfo.project.use.baseURL, storageState: NoStorage })
-    const label = await assumeIdent(await context.newPage())
-    const storageState = await context.storageState()
-    await context.close()
-    await use({ label, storageState })
+    await use(await sessionMadeAtFrontDoor(browser, workerInfo.project.use.baseURL))
+  }, { scope: 'worker' }],
+  keptFriend: [async ({ browser }, use, workerInfo) => {
+    await use(await sessionMadeAtFrontDoor(browser, workerInfo.project.use.baseURL))
   }, { scope: 'worker' }],
   storageState: async ({ startAt, keptSession, storageState }, use) => {
     await use(startAt === FreshHunt ? keptSession.storageState : storageState)
@@ -75,7 +88,16 @@ export const test = base.extend<{ startAt: string | null, layout: LayoutT }, { k
     }
     await use(page)
     // The session as this test leaves it, its refresh token the one now current, for the next test.
-    if (startAt === FreshHunt) { keptSession.storageState = await page.context().storageState() }
+    if (startAt === FreshHunt) { keptSession.storageState = await sessionLeftBy(page.context(), keptSession.storageState) }
+  },
+  friend: async ({ browser, keptFriend }, use) => {
+    const context = await browser.newContext({ storageState: keptFriend.storageState })
+    await use(await context.newPage())
+    keptFriend.storageState = await sessionLeftBy(context, keptFriend.storageState)
+    await context.close()
+  },
+  friendLabel: async ({ keptFriend }, use) => {
+    await use(keptFriend.label)
   },
 })
 export { expect } from '@playwright/test'
@@ -88,7 +110,55 @@ test.afterEach(async () => {
   await Promise.all(Others.splice(0).map(async (context) => { await context.close() }))
 })
 
-/** A page in a browser of its own: another visitor, signed in as a session of their own, on the same database */
+/**
+ * Say who a browser of the worker's own is at the front door, once, and keep the session it is
+ * left holding: what a worker's kept sessions begin as (`KeptSessionT`).
+ */
+async function sessionMadeAtFrontDoor(browser: Browser, baseURL: string | undefined): Promise<KeptSessionT> {
+  const context = await browser.newContext({ baseURL, storageState: NoStorage })
+  const label = await assumeIdent(await context.newPage())
+  const storageState = await context.storageState()
+  await context.close()
+  return { label, storageState }
+}
+
+/**
+ * The storage `context` leaves its session in, for the next test: once a page of it that opened
+ * the app on the refresh token `began` holds has exchanged that token for its own, should it have
+ * opened one. A test that ends a moment after its page first loads would otherwise hand on a token
+ * the server has already spent (`KeptSessionT`). One that never turns over within the wait (a page
+ * that opened only a page of no session's) is handed on as it stands.
+ */
+async function sessionLeftBy(context: BrowserContext, began: StorageT): Promise<StorageT> {
+  const before = refreshTokenIn(began)
+  if (before !== null) {
+    const opened = context.pages().filter((page) => page.url().startsWith('http'))
+    await Promise.all(opened.map(async (page) => { await tokenExchanged(page, before) }))
+  }
+  return await context.storageState()
+}
+
+/** Wait a while for `page` to keep a refresh token other than `before`, and go on regardless once the wait is up */
+async function tokenExchanged(page: Page, before: string): Promise<void> {
+  try {
+    await page.waitForFunction(({ spent, prefix }) => Object.keys(localStorage).every((key) => ! key.startsWith(prefix) || localStorage.getItem(key) !== spent), { spent: before, prefix: RefreshTokenKey }, { timeout: TokenExchangeMs })
+  } catch {
+    // Never exchanged: a page that opened only a page of no session's, which is handed on as it stands.
+  }
+}
+
+/** The refresh token Convex Auth keeps in `storage`, should it keep one */
+function refreshTokenIn(storage: StorageT): string | null {
+  if (typeof storage === 'string') { return null }
+  const entries = storage.origins.flatMap((origin) => origin.localStorage)
+  return entries.find((entry) => entry.name.startsWith(RefreshTokenKey))?.value ?? null
+}
+
+/**
+ * A page in a browser of its own: another visitor, signed in as nobody until they say who they are
+ * (`assumeIdent`), on the same database. For a spec about a visitor's own way in, or that needs one
+ * no other test has seen; `friend` is quicker where neither matters.
+ */
 export async function otherVisitor(browser: Browser): Promise<Page> {
   const context = await browser.newContext({ storageState: NoStorage })
   Others.push(context)
