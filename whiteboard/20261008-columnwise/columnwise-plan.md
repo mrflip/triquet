@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **YOLO** from 2026-10-09 (normal before). Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode"; switched to YOLO on 2026-10-09 ("make good decisions, we'll fix them up later").
-**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b, 9, 3c landed (#197-#202, #206, #209); the full e2e run done (3c's); 10 and 11 underway; then the sprint-end full e2e run.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: done (2026-10-09).** #191-#202, #206 and #209 are merged; #211 and #215 are open. **#209's production deploy failed**: see `human/20261009-sprint_columnwise_done.md`. `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through

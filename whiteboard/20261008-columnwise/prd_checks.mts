@@ -10,6 +10,7 @@ import * as Path from 'node:path'
 import { isUnreserved } from '../../src/lib/vv/patterns.ts'
 import { ReservedWidgetingLabels } from '../../src/models/widgeting.ts'
 import { ColumnValidators } from '../../src/models/column.ts'
+import { Quiz } from '../../src/models/quiz.ts'
 
 type RowT = Record<string, unknown> & { _id: string }
 
@@ -45,6 +46,7 @@ const hits: Record<string, string[]> = {
   categories: [],
   exp:        [],
   unwidened:  [],
+  quizwide:   [],
 }
 const say = (check: string, table: string, row: RowT, what: string) => {
   hits[check].push(`${table} ${row._id} ${String(row.label ?? '')}: ${what}`)
@@ -109,12 +111,20 @@ for (const table of ['widgets', 'widgetings']) {
   }
 }
 
+// 6. A widgeting for the whole quiz labelled as one of the quiz's own fields, which thread 10 (#215) reserves for it
+for (const row of rowsByTable.widgetings) {
+  if (row.tier === 'quiz' && typeof row.label === 'string' && (Quiz.bagKeys as readonly string[]).includes(row.label)) {
+    say('quizwide', 'widgetings', row, `quiz-tier label "${row.label}" is one of the quiz's own fields`)
+  }
+}
+
 const Titles: Record<string, string> = {
   reserved:   '1. Reserved labels and usernames (relabel each)',
   regex:      '2. regex params or config written before #198 (expect none)',
   categories: '3. Formulas or templates naming categories (look at each: one reading qn.categories now reads nothing)',
   exp:        '4. *_exp Liquid filters (rewrite each before thread 9 deploys)',
   unwidened:  '5. Rows 3a\'s backfills have not rewritten (must be none before 3c merges)',
+  quizwide:   '6. Quiz-tier widgetings labelled as a quiz field (must be none before #215 merges)',
 }
 for (const [check, lines] of Object.entries(hits)) {
   console.log(`\n${Titles[check]}: ${lines.length === 0 ? 'none' : String(lines.length)}`)

@@ -375,6 +375,15 @@ Built: the bag in the export's shape (`Bagged`, record section 12), the rewrite 
 * **butnot and the ishes as expressions** (the Coach): the seeded sums still look up the chained
   question as widgets; a column preset could do it once the expression can read another question.
 
+## From columnwise sprint, the e2e runs: `preparedExport` under load
+
+* The most frequent flake of the sprint's later runs fails in one place: `preparedExport`
+  (`e2e/support.ts`), where the Raw Export box never appears after *Prepare export* under load.
+  It hit entries "an entry rides the export", importing's partial paste and title specs, and two
+  panels specs, and passes alone every time. A change landing after the box is prepared withdraws
+  it. Thread 10's worker suspects a race with an optimistic update settling (#211). Look at
+  whether the box should survive a settle that changes nothing the export reads.
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and

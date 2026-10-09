@@ -8,22 +8,22 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 
 | Thread | Label | Status |
 |---|---|---|
-| 1 | design note and vocabulary | landed #191 (docs only, no review) |
-| 2 | entry families | landed #196 (the spine restarted: #191-#193 merged) |
-| 3a | columns widen (Serial Deploy) | landed #193 |
-| 4 | removal and commit model | landed #192 |
-| 3b | column expression authoring | landed #197 |
-| 7 | `liquidize` formulary | landed #201 |
-| 6 | free regex (optional) | landed #198 |
-| 5a | folding editors | landed #199 |
-| 5b | run order in both places, row preview | landed #202 |
-| 8 | seeds pass (optional) | landed #200 |
-| 9 | compute budgets (added) | landed #206 |
-| 3c | columns tighten (last of the chain) | landed #209 |
-| 10 | one bag shape (added) | landing (review fixed); full e2e |
+| 1 | design note and vocabulary | merged #191 (docs only, no review) |
+| 2 | entry families | merged #196 |
+| 3a | columns widen (Serial Deploy) | merged #193 |
+| 4 | removal and commit model | merged #192 |
+| 3b | column expression authoring | merged #197 |
+| 7 | `liquidize` formulary | merged #201 |
+| 6 | free regex (optional) | merged #198 |
+| 5a | folding editors | merged #199 |
+| 5b | run order in both places, row preview | merged #202 |
+| 8 | seeds pass (optional) | merged #200 |
+| 9 | compute budgets (added) | merged #206 |
+| 3c | columns tighten (last of the chain) | merged #209; **its production deploy failed** (see the done entry) |
+| 10 | one bag shape (added) | landed #215 |
 | 11 | optimistic updates (added) | landed #211 |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). thread 9 (#206: full run, 279 passed, 7 flakes cleared alone). thread 3c (#209: full run on e15f0db2, 281 passed, 7 flakes cleared alone; the run the Coach asked for before 10 and 11). thread 11 (#211: full run at load 38-58, 277 passed, 11 failed and each passed alone; most were server latency under load). Next full runs: 10's landing, and the sprint's end.
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). thread 9 (#206: full run, 279 passed, 7 flakes cleared alone). thread 3c (#209: full run on e15f0db2, 281 passed, 7 flakes cleared alone; the run the Coach asked for before 10 and 11). thread 11 (#211: full run at load 38-58, 277 passed, 11 failed and each passed alone; most were server latency under load). thread 10 (#215: full run, 286 passed, 3 flakes cleared alone, all three at `preparedExport`; this was the top as it stands, so it is the sprint-end run).
 
 ## What the threads have taught
 
@@ -275,6 +275,18 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   locks in TODO.
 * **For the Coach**: decisions 1-3 in `thread-5b-cw_runorder.md` (the menus at the panel's head;
   the run order as plain lines; the folded row's description snippet gone).
+
+### From thread 10 (one bag shape, #215, Serial Deploy: bagshape)
+
+* `Bagged` (`src/models/quiz-bag.ts`) builds each shared piece, and `Runner.baseBagOf` builds every
+  bag. `question` and `questions` are keyed by label; widgeteds are `{ status, value }`. Liquid
+  gains `values`. Section 12 of the decision record lists where the bag still departs from the
+  export.
+* The rewrite lives in `src/models/before-october.ts`: the importer applies it for good, and six
+  `bagshape` backfills apply it to production. A ref that was `qns` or `categories` reads `$` as
+  `$.*`.
+* *Review:* `fixed` (`categories` by label left alone; the question backfill leaves only the
+  refused field).
 
 ### From thread 11 (optimistic updates, #211)
 
