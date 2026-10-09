@@ -259,10 +259,6 @@ Built: columns lead, each widgeting a panel folded to its line, the dialogs reti
 * **A new widget written from the folding editor's doors is not told the widgeting it is for**
   (`NewWidgetDoor`): the widgeting is made after the widget, labelled as it. The widget editor's
   preview and advice prompt therefore name no widgeting there; *Edit the widget…* in a panel does.
-* **A refused widgeting relabel still retitles its column** (review): `planWidgetingEdit` sends the
-  relabel and the column's retitle as separate actions, so a relabel the server refuses (a race on
-  the label) leaves the column headed after a label it never took. One action carrying both, or the
-  retitle done in the reducer beside the relabel, would hold them together.
 * **A column's header follows what it shows only while it is the default one** (`retitledPatch`);
   a column label never follows a relabel. If authors want the label to follow too, it is the same
   rule one field over, but a column label is named by the quiz's sort memory.
@@ -320,9 +316,6 @@ and in the gear (*Run order*, lines to drag); one question's row previewed above
   door) are not unmounted when the layout stops being revisable, so a pick still dispatches; the
   server refuses it. The Widgets panel's picker was closed the same way in `705db76`: render each
   only while `revisable`.
-* **A change to the library, then an ask at once, can ask with the old widget** (`prompts.spec.ts`,
-  *a prompt opened from the library…*, a flake under load): the ask reads the library as last
-  loaded. A person cannot click that fast; the spec could wait until saved.
 
 ## From columnwise sprint, thread 3c: the tightening's review leftovers
 
