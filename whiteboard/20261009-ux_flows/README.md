@@ -3,7 +3,7 @@
 An exploration, not a plan: what the app's surfaces offer for each noun, how they are reached,
 how the nouns relate, and where the three pictures disagree. Nothing in the code was changed.
 Read at `ec3184a0` (origin/main after the columnwise sprint's thread 7, the folding editor and
-liquidize landed; thread 5b, the run order in the Widgets panel, still underway elsewhere).
+liquidize landed; thread 5b, the run order in the Widgets panel, open as #202; #203 has since put the library's import and export into its modal as well).
 
 * `notes/ux/obj_act_matrix.md` -- the matrix, one row per noun, one column per verb, each cell
   the surface, and the twelve holes it shows. Meant to live on and be kept current by threads.

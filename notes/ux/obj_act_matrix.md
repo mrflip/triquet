@@ -7,6 +7,11 @@ the policy that gates it is the action's row in `src/lib/approve.ts`. The nouns 
 page current when a thread adds, moves or retires a control: a PR that changes a surface changes
 its row.
 
+Two PRs open as this was written move rows: #203 (`import_carries`, beneath this branch) puts
+the library's export and import inside the library modal as well as the Library tab, and #202
+(`cw_runorder`, thread 5b) gives the Widgets panel the run order and the widgeting panel as its
+open state. Whoever lands the second should re-read the widgeting and library rows.
+
 The question this page answers for a reviewer is in `whiteboard/20261009-ux_flows/`: is each
 noun's set of controls orthogonal and complete, and is there a path from the noun to each of its
 concerns.
