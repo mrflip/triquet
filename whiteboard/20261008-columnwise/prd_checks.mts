@@ -105,7 +105,7 @@ for (const row of rowsByTable.columns) {
 }
 for (const table of ['widgets', 'widgetings']) {
   for (const row of rowsByTable[table]) {
-    if (typeof row.label === 'string' && /^categories(_\d+)?$/.test(row.label)) { say('unwidened', table, row, 'still labelled categories') }
+    if (typeof row.label === 'string' && /^categor(y|ies)(_\d+)?$/.test(row.label)) { say('unwidened', table, row, `still labelled ${row.label}`) }
   }
 }
 
