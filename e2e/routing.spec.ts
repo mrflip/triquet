@@ -272,6 +272,10 @@ test.describe('a hunt', () => {
     await manageDialog(page).getByRole('button', { name: 'Rename' }).click()
     await waitUntilSaved(page)
     await expect(whereYouAre(page).getByRole('link', { name: huntTitle })).toBeVisible()
+    // On a quiz, the crumbs go on to its realm, which opens the hunt's quizzes, and the quiz itself.
+    await expect(whereYouAre(page).getByRole('link', { name: 'home', exact: true })).toHaveAttribute('href', Routes.quizzesPath(hunt))
+    await page.getByLabel('Quiz name').fill('Crumbed quiz')
+    await expect(whereYouAre(page).getByRole('button', { name: 'Crumbed quiz' })).toHaveAttribute('aria-current', 'page')
 
     await page.goto(Routes.categoriesPath(hunt))
     await whereYouAre(page).getByRole('link', { name: huntTitle }).click()

@@ -5,7 +5,7 @@ import path from 'node:path'
 import type { Download, Page } from '@playwright/test'
 import { unzipSync } from 'fflate'
 import * as Routes from '../src/lib/routes'
-import { actDangerously, answerRemoval, expect, huntOf, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
+import { actDangerously, answerRemoval, expect, huntOf, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, switcherQuizzes, test, waitUntilSaved } from './support'
 
 /** The label of the quiz `page` is on, from its address */
 function quizLabelOf(page: Page): string {
@@ -289,7 +289,7 @@ test('a deleted quiz\'s files are removed in a commit, and its history keeps the
   await expect.poll(() => gitSays(page, 'ls-files', filepath)).toBe(filepath)
   await openManage(page)
   await actDangerously(page, 'Delete this quiz', label)
-  await expect(page.getByLabel('Open quiz').locator('option')).toHaveCount(1)
+  await expect(await switcherQuizzes(page)).toHaveCount(1)
 
   await expect.poll(() => gitSays(page, 'log', '--format=%s', '--', filepath)).toMatch(new RegExp(String.raw`^-${label}\n`))
   const git = await downloadedHistory(page)
