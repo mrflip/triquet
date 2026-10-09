@@ -3,11 +3,11 @@
 Kept by the orchestrator. Newer than `perf_improvements-plan.md` wherever the two disagree. Each
 worker writes its own `thread-<N>-<label>.md` beside this file.
 
-**Status: threads 1, 2 in review; thread 3 landing.**
+**Status: thread 2 in review; threads 1, 3 landing.**
 
 | # | Thread | Status | PR |
 |---|---|---|---|
-| 1 | spine_test_split | in review | |
+| 1 | spine_test_split | landing (skip-e2e) | |
 | 2 | e2e_load | in review | |
 | 3 | e2e_fixtures | landing (full e2e) | |
 | 4 | convex_reads | pending | |
