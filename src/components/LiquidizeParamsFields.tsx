@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { MenuItem, Stack, TextField } from '@mui/material'
 import { FormulaField } from './FormulaField'
 import { TemplateField } from './TemplateField'
+import { templateFromGist } from './widget-words'
 import { BagWordVals, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, widgetingSourceOf } from '../models/column'
 import type { LiquidizeParamsT, LiquidizeWidgetT } from '../models/widget'
 import type { JsonT } from '../models/widgeted'
@@ -64,20 +65,46 @@ export type LiquidizeParamsFieldsProps = {
   onChange: (params: Record<string, JsonT>) => void
 }
 
+export type LiquidizeTemplateLineProps = Omit<LiquidizeParamsFieldsProps, 'refs'> & {
+  /** The widgeting's label, which names the line */
+  label: string
+}
+
 /**
- * Where a `liquidize` widgeting's template comes from, and the template: its widget's, a template
- * of its own (`TemplateField`), or one read from the bag, a ref picked and a formula over what it
- * picks (`FormulaField`). Each field commits as it is left or picked, and says in its own sentence
- * what will not do. Picking another place for the template to come from lets go of what the
- * last one said, and says nothing new until the field beside it does.
+ * A `liquidize` widgeting's template on one line, as its panel folds to it: its own template in a
+ * box (`TemplateField`), its widget's showing through while it says none, committed as the box is
+ * left and emptied back to its widget's; or, when it reads its template from the bag, where from.
+ */
+export function LiquidizeTemplateLine({ label, widget, params, disabled, onChange }: Readonly<LiquidizeTemplateLineProps>) {
+  if (params.template_from !== undefined) {
+    return <div className={styles.microcopy} role="note" aria-label={`Template of ${label}`}>The template: {templateFromGist(params.template_from)}</div>
+  }
+  return (
+    <TemplateField
+      label="Template" committed={params.template ?? null} locked={disabled} placeholder={widget.formula}
+      helperText={params.template === undefined ? "Its widget's, until one of its own is typed here." : "Its own. Blank goes back to its widget's."}
+      onCommit={(template) => { onChange(template === null ? {} : { template }) }}
+    />
+  )
+}
+
+/**
+ * Where a `liquidize` widgeting's template comes from: its widget's, a template of its own (typed
+ * in its line, `LiquidizeTemplateLine`), or one read from the bag, a ref picked and a formula over
+ * what it picks (`FormulaField`). Each field commits as it is left or picked, and says in its own
+ * sentence what will not do. Picking another place for the template to come from lets go of what
+ * the last one said, and says nothing new until the field beside it does.
  */
 export function LiquidizeParamsFields({ widget, params, refs, disabled, onChange }: Readonly<LiquidizeParamsFieldsProps>) {
-  const [source, setSource] = useState<TemplateSourcekind>(templateSourceOf(params))
+  const said = templateSourceOf(params)
+  const [picked, setPicked] = useState<TemplateSourcekind>(said)
+  // What the params say wins; a place picked and not yet said shows only while they say nothing.
+  const source = said === 'widget' ? picked : said
   const from = params.template_from
   // A new place to take the template from lets go of what the old one said.
-  const pick = (picked: TemplateSourcekind) => {
-    if (picked !== source) { onChange({}) }
-    setSource(picked)
+  const pick = (next: TemplateSourcekind) => {
+    if (next !== source) { onChange({}) }
+    setPicked(next)
   }
   const putFrom = (ref: string, formula: string | undefined) => { onChange({ template_from: { ref, ...(formula !== undefined && { formula }) } }) }
 
@@ -93,11 +120,7 @@ export function LiquidizeParamsFields({ widget, params, refs, disabled, onChange
         <div className={styles.microcopy}>Its widget&apos;s template: <code>{widget.formula}</code></div>
       )}
       {source === 'own' && (
-        <TemplateField
-          label="Template" committed={params.template ?? null} locked={disabled} placeholder={widget.formula}
-          helperText="Liquid, filled in for each question over the bag, and shown as markdown. Blank goes back to its widget's."
-          onCommit={(template) => { onChange(template === null ? {} : { template }) }}
-        />
+        <div className={styles.microcopy}>Its own, typed in its line above: Liquid, filled in for each question over the bag, and shown as markdown.</div>
       )}
       {source === 'bag' && (
         <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', rowGap: 1.5, alignItems: 'flex-start' }}>

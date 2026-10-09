@@ -33,8 +33,9 @@ schema (`widgets.formulary` gains `liquidize`, its config `{}`): no chain, no ba
   - `src/lib/columns.ts` `readoutOf(spec, widget)`: a column showing a `liquidize` draws as markdown
     unless it says otherwise, its images linked (`drawnOf`); the readout menu says so.
   - Views: `LiquidizeFields.tsx` (the widget editor: template, input formula, preview over a real
-    question, the advice button); `LiquidizeParamsFields.tsx` (the widgeting dialog: *Its template*,
-    its widget's, its own, or *Read from* a ref with a formula); the Widgets panel's
+    question, the advice button); `LiquidizeParamsFields.tsx` in 5a's `WidgetingPanel`: folded,
+    `LiquidizeTemplateLine` (its own template, or where it is read from); open, *Its template*, its
+    widget's, its own, or *Read from* a ref with a formula; the Widgets panel's
     `TemplateInForce`; `FormularyWords.liquidize` (*Templates*); `templateFromGist`;
     `NewColumnWidthPx.liquidize` 220; `widget-edit.ts`'s `LiquidizeDraft`; `rows.ts`'s `widgetFrom`.
   - **`TemplateField.tsx` and `FormulaField.tsx`, copied from thread 3b's branch** (its `9cb83ae`),
@@ -67,12 +68,11 @@ schema (`widgets.formulary` gains `liquidize`, its config `{}`): no chain, no ba
   6. The widget's template is not checked as Liquid on the server, as a `jsonata` widget's formula is
      not: the widget editor names it as it is typed, and a cell says it once run. A widgeting's
      params are checked where written, server and planner, by `paramsOf`.
-  7. Picking another place for a template to come from, in the widgeting dialog, lets go of what
+  7. Picking another place for a template to come from, in the panel, lets go of what
      the last one said.
 
-* **Deviations**: none from the plan. The params editor for a `liquidize` widgeting sits in the
-  widgeting dialog beside thread 2's `EntryParams` (thread 4 asked for no new work there; without
-  it the params cannot be set). 5a lifts it into the folded line, as it does `EntryParamsFields`.
+* **Deviations**: none from the plan. The params editor was built in the widgeting dialog and moved
+  at landing into 5a's panel (below).
 
 * **Discoveries**:
   - **JSONata's timebox reads `Date.now()`** (`Formulas.evaluate`), so on the server a long formula
@@ -85,8 +85,11 @@ schema (`widgets.formulary` gains `liquidize`, its config `{}`): no chain, no ba
   in `ComputedFormularies` (which 3b's `computes` reads); the markdown default in `readoutOf`.
   Left: 3b's `ColumnRefField` and `ColumnMenu.refChoicesOf` could serve the *Read from* select in
   `LiquidizeParamsFields.tsx` in place of `templateRefsOf`.
-* **For 5a**: it retires the widgeting dialog `LiquidizeParamsFields` sits in. Its thread file says
-  how: `folded: 'template'` and a `'template'` arm in `FoldedLine`, the fields lifted as they are.
+* **Caught up with 5a, at landing (unreviewed)**: `folded: 'template'` on `LiquidizeFormulary` (and
+  in `Folded`); a `'template'` arm in `FoldedLine` drawing `LiquidizeTemplateLine`; the open panel
+  draws `LiquidizeParamsFields`, which no longer holds a template box of its own (the line does) and
+  now follows the params it is handed. The e2e sets the template in the folded line and the source
+  in the open panel.
 
 * **Handed to thread 9, *compute budgets*** (the Coach, on the second review; not fixed here): S1,
   untimed `*_exp` filters and huge ranges inside one filter's call; C1, a column's own template and

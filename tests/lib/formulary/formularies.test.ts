@@ -59,8 +59,8 @@ describe('paramsOf', () => {
     expect(paramsOf(blurbWidget).safeParse({ template: '{{ qn.hint }}' }).success).to.be.true
   })
 
-  it("says what each widgeting's folded line holds: a formula, nothing for a prompt, an entry's params", () => {
-    expect(Object.values(Formularies).map((formulary) => formulary.folded)).to.deep.eq(['formula', null, 'params'])
+  it("says what each widgeting's folded line holds: a formula, nothing for a prompt, an entry's params, a template", () => {
+    expect(Object.values(Formularies).map((formulary) => formulary.folded)).to.deep.eq(['formula', null, 'params', 'template'])
   })
 
   // Each formulary lets through only the reserved words its own params are named by.

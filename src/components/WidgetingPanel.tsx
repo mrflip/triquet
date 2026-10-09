@@ -7,6 +7,7 @@ import { ConfirmRemove } from './ConfirmRemove'
 import { EntryParamsFields } from './EntryParamsFields'
 import { ExplicitField } from './ExplicitField'
 import { FoldButton } from './FoldButton'
+import { LiquidizeParamsFields, LiquidizeTemplateLine, templateRefsOf } from './LiquidizeParamsFields'
 import { WidgetEditor } from './WidgetEditor'
 import { LayoutFoldkeys } from './layout-folds'
 import { useDraft } from './use-draft'
@@ -18,6 +19,7 @@ import * as ColumnMenu from '../lib/column-menu'
 import { columnsShowing, widgetingRemovalRefusal } from '../lib/columns'
 import { EntryFormulary } from '../lib/formulary/entry'
 import { formularyFor } from '../lib/formulary/formularies'
+import { LiquidizeFormulary } from '../lib/formulary/liquidize'
 import { planWidgetingEdit, type WidgetingEdit } from '../lib/widgeting-edit'
 import { Widget, type EntryWidgetT, type WidgetT } from '../models/widget'
 import type { WidgetingT, WidgetingTier } from '../models/widgeting'
@@ -68,9 +70,9 @@ export type WidgetingPanelProps = WidgetingPanelContext & {
 /**
  * One widgeting of the quiz, as a panel: folded, one row -- its label, what it works, and its
  * folded line, the few fields its formulary folds to (`formularyFor(widget).folded`: an entry's
- * params, a formula's formula, nothing for a prompt); open, the same row with more beneath it: its
- * label, which waits on its own *Relabel* button since columns and formulas name it; its
- * description; the widget it works, behind its door for whoever may change the library; the
+ * params, a formula's formula, a template's template, nothing for a prompt); open, the same row with
+ * more beneath it: its label, which waits on its own *Relabel* button since columns and formulas
+ * name it; its description; where a template's template comes from; the widget it works, behind its door for whoever may change the library; the
  * columns showing it, each to unfold; and its removal, refused while a column shows it.
  *
  * Every field commits as it is made. The widget itself is the library's, and an edit to it
@@ -122,6 +124,12 @@ export function WidgetingPanel({ widgeting, foldkeyOf, handle = null, tierMark =
             helperText="Names it within this quiz: its columns, and what later widgets and templates read it as." onCommit={relabel}
           />
           <DescriptionField widgeting={widgeting} locked={locked} revise={revise} />
+          {widget?.formulary === 'liquidize' && (
+            <LiquidizeParamsFields
+              widget={widget} params={LiquidizeFormulary.ownOf(widgeting)} refs={templateRefsOf(quiz.widgetings, widgeting.label)} disabled={locked}
+              onChange={(params) => { revise({ params }) }}
+            />
+          )}
           <WidgetLine widget={widget} widgeting={widgeting} changeable={changeable} onEditWidget={() => { setWidgetEditing(true) }} />
           <ShowingColumns widgeting={widgeting} columns={shown} beneath={beneath} {...context} />
           {locked ? null : (
@@ -156,13 +164,18 @@ type FoldedLineProps = {
 
 /**
  * A widgeting's folded line: the few fields its formulary folds to, an entry's params, a
- * formula's formula (the widget's, shown as it is: it is edited behind the widget's door), or
- * nothing for a prompt.
+ * formula's formula (the widget's, shown as it is: it is edited behind the widget's door), a
+ * template's own template, or nothing for a prompt.
  */
 function FoldedLine({ widget, widgeting, locked, revise }: Readonly<FoldedLineProps>) {
   switch (formularyFor(widget).folded) {
   case 'params': {
     return widget.formulary === 'entry' ? <FoldedParams widget={widget} widgeting={widgeting} locked={locked} revise={revise} /> : null
+  }
+  case 'template': {
+    return widget.formulary === 'liquidize'
+      ? <LiquidizeTemplateLine label={widgeting.label} widget={widget} params={LiquidizeFormulary.ownOf(widgeting)} disabled={locked} onChange={(params) => { revise({ params }) }} />
+      : null
   }
   case 'formula': {
     return (

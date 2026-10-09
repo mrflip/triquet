@@ -16,9 +16,10 @@ export type Store = 'append' | 'upsert'
 
 /**
  * What a widgeting's folded line holds, the few fields its panel shows while folded: an entry's
- * params, or its widget's formula. The full panel is the same line with more rows beneath it.
+ * params, its widget's formula, or a `liquidize` widgeting's template. The full panel is the same
+ * line with more rows beneath it.
  */
-export type Folded = 'params' | 'formula'
+export type Folded = 'params' | 'formula' | 'template'
 
 /**
  * What a widget's input formula came to over one bag: what the widget reads; nothing, meaning

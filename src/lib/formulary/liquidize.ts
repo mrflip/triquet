@@ -54,6 +54,8 @@ export class LiquidizeFormulary {
   static readonly refresh = 'live'
   static readonly store = null
   static readonly config = WidgetValidators.liquidizeConfig
+  /** Its widgeting folds to its template line */
+  static readonly folded = 'template'
   /**
    * How long one widgeting's whole column may take to fill in, all its questions told, in
    * milliseconds: a template filled for every question must not add up to a page that hangs, or
