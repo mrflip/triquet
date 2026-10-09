@@ -90,6 +90,9 @@ test('a new entry and its column are made in one go from + New column…, its se
   await settings.getByRole('textbox', { name: 'Least' }).fill('5')
   await settings.getByRole('textbox', { name: 'Least' }).press('Tab')
   await expect(column.getByRole('group', { name: 'Widgeting figure' })).toContainText('entry figure')
+  // Kept before the cell reads it, as `setParams` waits: params are not shown early, and a box
+  // that holds them as last loaded sends what they refuse, which the server refuses in its own words.
+  await waitUntilSaved(page)
   await closeManage(page)
   const box = cellOf(page, 0, 'Figure').getByRole('textbox', { name: 'Figure', exact: true })
   await box.fill('2')
