@@ -4,6 +4,8 @@ description: Cut a worktree for a new thread from the spine's top. Use when the 
 argument-hint: <branchlabel, or loose words>
 ---
 
+**Laptop only.** In a cloud session (`$CLAUDE_CODE_REMOTE` is `true`) there is no spine to cut from or land on: say so, and follow `notes/git_hygiene-cloud.md` instead.
+
 Cut the ground for a thread labelled `$ARGUMENTS`. If no label was given, stop and say one is
 needed; do not invent one.
 
@@ -11,7 +13,7 @@ needed; do not invent one.
    (`20260928-Fix the  Grid.` gives `fix_the_grid`).
 2. `pnpm worktree <label>`. It replays the spine onto `origin/main` if origin has moved, sweeps
    the Coach's notes, cuts `YYYYMMDD-<label>` from the top into a worktree with a lane of its
-   own, and installs its packages (`notes/git_hygiene.md`, *Starting*).
+   own, and installs its packages (`notes/git_hygiene-laptop.md`, *Starting*).
 3. Report what it printed: anything it replayed or swept, the worktree's root, the branch and
    what it was cut from, and the lane. Work on the thread happens from that root: every shell
    command begins `cd <root> && `, and every absolute path is built from it (CLAUDE.md, *Global

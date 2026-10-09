@@ -6,7 +6,7 @@
  * and touched runs waited their turn for the e2e lock beside it. `pnpm e2e:log` summarises it.
  *
  * Here too is the reading of Playwright's JSON report into an outcome per spec, and the tally that
- * carries a branch's e2e proof (`notes/git_hygiene.md`, *Finishing*) from a full run, or a touched
+ * carries a branch's e2e proof (`notes/git_hygiene-laptop.md`, *Finishing*) from a full run, or a touched
  * run over the branch's corner of the suite, through the reruns that repair it. `scripts/spine.ts`
  * runs the suite, keeps the tally and writes the log.
  */

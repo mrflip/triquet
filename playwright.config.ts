@@ -1,3 +1,4 @@
+import os from 'node:os'
 import { defineConfig, devices } from '@playwright/test'
 import * as Environment from './e2e/environment'
 
@@ -13,6 +14,8 @@ if (complaints.length > 0) {
 const port = process.env.PORT ?? '3002'
 const role = Environment.roleOf(process.env)
 const server = Environment.serverOf(process.env) as Environment.E2eServer
+const idleWorkers = Environment.workersFor(os.availableParallelism(), os.loadavg()[0] ?? 0)
+const localWorkers = process.env.TQ_E2E_WORKERS ? Number(process.env.TQ_E2E_WORKERS) : idleWorkers
 
 /**
  * End-to-end, kept to a thin layer: the handful of flows where a break is invisible to unit
@@ -32,16 +35,20 @@ export default defineConfig({
   retries:     process.env.CI ? 1 : 0,
   // One spec at a time on CI: a runner's few slow cores already carry the web server, Convex and the
   // browser, and a second worker there times specs out. CI goes wide by sharding instead. Locally,
-  // seven, a little under half this machine's sixteen cores, so several worktrees' suites can run
-  // at once, and no retry, so specs that collide over the one server they share fail here, the only
-  // place they run side by side. A spec that fails among the others is rerun alone (`pnpm e2e:rerun`).
-  workers:     process.env.CI ? 1 : 7,
+  // as many as the machine's idle cores bear (`workersFor`: seven on a quiet laptop, two in a cloud
+  // session's container, fewer under load), or TQ_E2E_WORKERS when it names a count, and no retry,
+  // so specs that collide over the one server they share fail here, the only place they run side
+  // by side. A spec that fails among the others is rerun alone (`pnpm e2e:rerun`).
+  workers:     process.env.CI ? 1 : localWorkers,
   // Under the dev server a route's first visit waits for it to compile, and a fresh page always
   // waits for its first reads.
   expect:      { timeout: 10_000 },
   use: {
     baseURL: `http://localhost:${port}`,
     trace:   'on-first-retry',
+    // A Chromium of the machine's own, where Playwright may not download the build it pins: a
+    // cloud session's container (.claude/hooks/session-start.sh sets it).
+    ...(process.env.TQ_CHROMIUM_PATH && { launchOptions: { executablePath: process.env.TQ_CHROMIUM_PATH } }),
   },
   projects: [
     // Checks that the suite has a server, build and database of its own, and warms the first page.

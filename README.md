@@ -45,7 +45,7 @@ Use these standard commands:
     scripts/convex_healthcheck dev          # does it answer, and does it hold this checkout's functions?
     pnpm run newb <label>                   # new branch named YYYYMMDD-<label>
     pnpm worktree <label>                   # an agent's thread: a worktree of its own, cut from the spine
-    pnpm land                               # ...and its branch, landed on the spine (notes/git_hygiene.md)
+    pnpm land                               # ...and its branch, landed on the spine (notes/git_hygiene-laptop.md)
 
 How a change reaches production, and what a schema change means for a deployment:
 `notes/deploy.md`.

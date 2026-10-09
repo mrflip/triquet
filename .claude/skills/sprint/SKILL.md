@@ -5,11 +5,13 @@ description: Orchestrate a sprint -- an ordered series of threads issued at once
 
 # Sprint orchestrator
 
+**Laptop only.** In a cloud session (`$CLAUDE_CODE_REMOTE` is `true`) there is no spine to cut from or land on: say so, and follow `notes/git_hygiene-cloud.md` instead.
+
 You run a **sprint**: the Coach hands you an ordered list of threads and walks away; you
 plan it, cut each thread a worktree, hand it to a fresh `thread-worker` subagent, put a fresh
 `thread-reviewer` over what it built, have the worker land it on the spine, and decide as each
 report comes in whether to continue, resume, or stop. Threads whose dependencies have landed run
-side by side. Definitions live in `notes/git_hygiene.md` (*The spine*, *A thread, start to
+side by side. Definitions live in `notes/git_hygiene-laptop.md` (*The spine*, *A thread, start to
 finish* and *Sprints*); the workers' own procedures are `.claude/agents/thread-worker.md` and
 `.claude/agents/thread-reviewer.md`. Read all three before your first sprint of a session.
 
@@ -133,7 +135,7 @@ reports; anything it may not decide comes back `flagged` for §4.
 **Land.** Resume the worker (SendMessage, same agent, so its context survives) with "Land
 it", and anything from the review it should know. It proves the branch (catch up, justify, the
 e2e suite, each failure repaired alone), bids with `pnpm land`, files the PR, removes its
-worktree, and reports `landed` with the PR number, or `blocked` (git_hygiene, *Finishing*). Then
+worktree, and reports `landed` with the PR number, or `blocked` (git_hygiene-laptop, *Finishing*). Then
 post the reviewer's PR comment (`gh pr comment <n>`, the text from its report) so the review
 sits on the PR.
 
@@ -252,10 +254,10 @@ the sprint is not done until a full run on the top is green. Then (or when the s
 good): set both documents' status lines and mirror them to the sprint doc; add a `human/YYYYMMDD-sprint_<name>_done.md` entry
 -- the sprint in a paragraph, its PRs in the order they landed with "stacked on" notes, YOLO
 decisions if any, and the open questions gathered in one place; `pnpm sweep`, then push the
-top (`git -C <main checkout> push`, borrowing gh's login per git_hygiene's *Filing the PR*)
+top (`git -C <main checkout> push`, borrowing gh's login per git_hygiene-laptop's *Filing the PR*)
 so the final documents reach its PR; then give the Coach the closing summary in chat, leading
 with what shipped, what the reviews fixed and left, and what needs their word. A PR the Coach
 merged under new SHAs (rebased on GitHub) stays open there although its work is on main: check
 each of the sprint's PRs with `gh pr view`, and name those for the Coach to close. Never merge
 anything; the PRs are the Coach's to land, top of the stack first or one at a time
-(git_hygiene, *Stacks*).
+(git_hygiene-laptop, *Stacks*).

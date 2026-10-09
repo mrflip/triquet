@@ -12,6 +12,10 @@ describe('Environment.complaintsAbout', () => {
     expect(Environment.complaintsAbout(Local)).to.deep.eq([])
   })
 
+  it('has nothing to say about a cloud session\'s container, which has no Doppler', () => {
+    expect(Environment.complaintsAbout({ ...Fit, CLAUDE_CODE_REMOTE: 'true' })).to.deep.eq([])
+  })
+
   it('has nothing to say about the e2e-agent role, beside a human\'s own run', () => {
     expect(Environment.complaintsAbout({ ...Local, PORT: '3003', CONVEX_ROLE: 'e2e-agent', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3403', NEXT_DIST_DIR: '.next-e2e-agent' })).to.deep.eq([])
   })
@@ -33,6 +37,7 @@ describe('Environment.complaintsAbout', () => {
     // where it runs:
     [{ ...Fit },                                    "Run the e2e suite with `pnpm test:e2e`, under Doppler's dev_e2e config", 'outside CI and outside Doppler'],
     [{ ...Fit, DOPPLER_CONFIG: 'dev_claude' },      "Run the e2e suite with `pnpm test:e2e`, under Doppler's dev_e2e config", 'under the agents\' Doppler config'],
+    [{ ...Fit, CLAUDE_CODE_REMOTE: 'false' },       "Run the e2e suite with `pnpm test:e2e`, under Doppler's dev_e2e config", 'with the cloud flag set false'],
     // settings left to next.config's defaults, which are a human's:
     [{ ...InCI, PORT: undefined },                  "PORT is not set: `pnpm test:e2e` gives it one, and so does the CI workflow", 'no web port'],
     [{ ...InCI, NEXT_PUBLIC_CONVEX_URL: '' },       "NEXT_PUBLIC_CONVEX_URL is not set: `pnpm test:e2e` gives it one, and so does the CI workflow", 'a blank database'],
@@ -99,4 +104,17 @@ describe('Environment.listing', () => {
       expect(JSON.stringify(listed)).not.to.contain('hunter2')
     })
   }
+})
+
+describe('Environment.workersFor', () => {
+  it('runs a little under half the idle cores', () => {
+    expect(Environment.workersFor(16, 0)).to.eq(7)
+    expect(Environment.workersFor(4, 0)).to.eq(2)
+  })
+
+  it('runs fewer as the load rises, and never fewer than one', () => {
+    expect(Environment.workersFor(16, 8)).to.eq(4)
+    expect(Environment.workersFor(4, 3)).to.eq(1)
+    expect(Environment.workersFor(4, 12)).to.eq(1)
+  })
 })
