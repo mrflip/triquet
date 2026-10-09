@@ -1,11 +1,66 @@
+import * as Estimates from '../lib/estimates'
 import * as Labelmaker from '../lib/labelmaker'
-import { QuizRefPrefix } from './column'
+import { QuestionFieldVals, QuestionViewVals, QuizRefPrefix } from './column'
 import { CategoryDataLabel } from './seeds'
 
-// What the tool called things before October 2026 that it calls otherwise now, as the backfills
-// (`convex/migrations.ts`) and the importer read them: the importer for good, since an export is
-// a promise. The column grammar's own reading is `column.ts`'s (`beforeOctoberOf`, `plainOf`), and
-// a quiz's nomination's `quiz.ts`'s (`templateableFrom`).
+// What the tool called things before October 2026 that it calls otherwise now, as the importer
+// reads them, for good: an export is a promise. A column's source said `question.<field>` for a
+// question's own field or view, and `<widgeting>.<part>` for one part of what a category-estimate
+// entry came to; a quiz nominated what it templated (`templated`) the same way; and the seeded
+// category-estimate entry, and the widgetings working it, were labelled `categories`. The
+// columnwise sprint's backfills rewrote the database's rows so (`notes/deploy.md`, the ledger's
+// `20261008-cw_widen`); nothing else reads this grammar.
+
+/** What the grammar before October 2026 called the questions' own fields in a source: `question.title` */
+export const QuestionWidgetLabel = 'question'
+
+/** Whether `word` is one of `vals` */
+function isOneOf(vals: readonly string[], word: string): boolean {
+  return vals.includes(word)
+}
+
+/**
+ * A source in the grammar before October 2026, read as the plain ref and formula it is now: a
+ * question's field or view by its name, a part of a widgeting as the widgeting with a formula
+ * naming the part. Null for a source that is not in that grammar.
+ *
+ * @example beforeOctoberOf('question.clueing')   // => { source: 'clueing', formula: null }
+ * @example beforeOctoberOf('categories.masie')   // => { source: 'categories', formula: '$.masie' }
+ * @example beforeOctoberOf('dumdum')             // => null
+ */
+export function beforeOctoberOf(source: string): { source: string, formula: string | null } | null {
+  const [head = '', tail, ...more] = source.split('.')
+  if (tail === undefined || more.length > 0) { return null }
+  if (head === QuestionWidgetLabel) {
+    return isOneOf(QuestionFieldVals, tail) || isOneOf(QuestionViewVals, tail) ? { source: tail, formula: null } : null
+  }
+  const part = `${head}.` === QuizRefPrefix ? null : Estimates.partOf(`$.${tail}`)
+  return part === null ? null : { source: head, formula: Estimates.partFormulaOf(part) }
+}
+
+/**
+ * A column's source and formula in the plain grammar: as they are, or, for a source in the
+ * grammar before October 2026, translated (`beforeOctoberOf`). What the importer reads an older
+ * export's columns as.
+ *
+ * @example plainOf({ source: 'categories.average' })                // => { source: 'categories', formula: '$.average' }
+ * @example plainOf({ source: 'dumdum', formula: '$.value.guess' })  // => { source: 'dumdum', formula: '$.value.guess' }
+ */
+export function plainOf(column: { source: string, formula?: string }): { source: string, formula?: string } {
+  const translated = beforeOctoberOf(column.source)
+  const formula = translated?.formula ?? column.formula
+  return { source: translated?.source ?? column.source, ...(formula !== undefined && { formula }) }
+}
+
+/**
+ * What a quiz nominated as templateable, read from its `templated` in the grammar before October
+ * 2026: a question's field named `question.<field>` by its name, a widgeting's label as it is.
+ *
+ * @example templateableFrom(['question.clueing', 'author'])  // => ['clueing', 'author']
+ */
+export function templateableFrom(templated: readonly string[]): string[] {
+  return templated.map((source) => beforeOctoberOf(source)?.source ?? source)
+}
 
 /**
  * What the seeded category-estimate entry was labelled before October 2026, and so the widgetings
@@ -14,7 +69,7 @@ import { CategoryDataLabel } from './seeds'
  */
 export const CategoriesWidgetLabel = 'categories'
 
-/** The description the seeded category-estimate entry had before October 2026, which the backfill rewrites as the seed's now */
+/** The description the seeded category-estimate entry had before October 2026, which an import writes as the seed's now */
 export const CategoriesDescription = "Which subject categories a question draws on, each at a difficulty: a pill for each. Columns can show the list, or Masie's, Artie's and Poppy's chances at the question and their average, read against the hunt's wheel (`categories.masie` and the like); a formula reads them as `qn.categories.masie`."
 
 /**
@@ -36,7 +91,7 @@ export function categoryDataOf(label: string): string | null {
  * What each of one quiz's widgeting `labels` from before October 2026 that `categoryDataOf`
  * relabels goes by now: its label there, or, where the quiz holds that already or another of them
  * is to take it, the first free label after it (`Labelmaker.firstFree`), so no two come to share
- * one. The rule `backfillCategoryDataWidgetings` (`convex/migrations.ts`) follows.
+ * one, as the backfill that rewrote the database's rows did.
  *
  * @example categoryDataLabelsFor(['categories', 'categories_2'])   // => Map { categories => category_data, categories_2 => category_data_2 }
  * @example categoryDataLabelsFor(['categories', 'category_data'])  // => Map { categories => category_data_2 }

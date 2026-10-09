@@ -1,7 +1,7 @@
 import * as Labelmaker from './labelmaker'
 import * as Estimates from './estimates'
 import { resolve, type Resolved } from './columns'
-import { BagWordVals, type BagWord, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, WidgetingPartTitles, WidgetingPartVals, namesFor, partFormulaOf, widgetingSourceOf, type ColumnNamer } from '../models/column'
+import { BagWordVals, type BagWord, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, namesFor, widgetingSourceOf, type ColumnNamer } from '../models/column'
 import { QuizBagValidators } from '../models/quiz-bag'
 import { SeedPresets } from '../models/seeds'
 import type { WidgetingT } from '../models/widgeting'
@@ -91,10 +91,14 @@ const fieldNamePresets: PresetSource = ({ shown }) => {
   return fields.map((field) => fieldPresetOf(field, whose))
 }
 
-/** The parts of a category-estimate entry's widgeted: its estimates, each persona's chance, their average */
+/** The parts of a category-estimate entry's widgeted: its estimates, each persona's chance, their average; a column taking one named after both, headed by the part's */
 const partPresets: PresetSource = ({ shown, widget }) => {
   if (shown.kind !== 'widgeting' || ! Estimates.isEstimating(widget)) { return [] }
-  return WidgetingPartVals.map((part) => ({ formula: partFormulaOf(part), title: WidgetingPartTitles[part] }))
+  const { label } = shown.widgeting
+  return Estimates.PartVals.map((part) => {
+    const title = Estimates.PartTitles[part]
+    return { formula: Estimates.partFormulaOf(part), title, names: { label: `${label}_${part}`, title } }
+  })
 }
 
 /** The reshapes the seeds offer for a widgeting of a seeded widget the library has: a number spotter's sums (`SeedPresets`) */
@@ -153,7 +157,7 @@ export function subjectOf(shown: Resolved, library: readonly WidgetT[]): PresetS
  */
 export function namesOf(source: string, formula: string | null, presets: readonly FormulaPreset[]): { label: string, title: string } {
   const taken = formula === null ? undefined : presets.find((preset) => preset.formula === formula)
-  return taken?.names ?? namesFor(source, formula)
+  return taken?.names ?? namesFor(source)
 }
 
 /**

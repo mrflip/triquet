@@ -115,9 +115,6 @@ const ModelNouns = [
  * or in a path, and so trouble that is cheap to refuse now and dear to unpick later: easier to
  * take a word off later than to add one. A word in two groups is harmless. What only one
  * namespace must avoid is that namespace's own list (`ReservedWidgetingLabels`).
- *
- * `category` and `categories` are not here, though categories are a noun of the tool: the
- * library's category-estimate widget is labelled `categories`, and so is every widgeting of it.
  */
 export const ReservedLabelGroups = {
   /** What rows carry beside their label, to say what and where they are and when they were made */

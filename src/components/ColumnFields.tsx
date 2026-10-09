@@ -11,7 +11,7 @@ import { useDraft } from './use-draft'
 import * as ColumnMenu from '../lib/column-menu'
 import * as Labelmaker from '../lib/labelmaker'
 import { isDrawnByEditor, resolve } from '../lib/columns'
-import { ColumnReadoutVals, ColumnValidators, WidthPxMax, plainOf, retitledPatch, type ColumnNamer, type ColumnPatch, type ColumnReadout, type ColumnT } from '../models/column'
+import { ColumnReadoutVals, ColumnValidators, WidthPxMax, retitledPatch, type ColumnNamer, type ColumnPatch, type ColumnReadout, type ColumnT } from '../models/column'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { HuntActionDNA } from '../models/actions'
@@ -103,7 +103,7 @@ export function RefPicker({ choices, label, onPick }: Readonly<RefPickerProps>) 
 export function ColumnFormulaField({ column, presets, locked, onCommit }: Readonly<ColumnFieldProps & { presets: readonly ColumnMenu.FormulaPreset[] }>) {
   return (
     <FormulaField
-      label="Formula" committed={plainOf(column).formula ?? null} presets={presets} locked={locked}
+      label="Formula" committed={column.formula ?? null} presets={presets} locked={locked}
       placeholder="The thing itself"
       helperText={presets.length > 0 ? 'Pick what to show of it, or work something out of it ($) in JSONata.' : 'JSONata over what it shows ($). Blank shows it as it is.'}
       onCommit={(formula) => { onCommit({ formula }) }}
@@ -180,11 +180,10 @@ export type ColumnStagesFieldsProps = ColumnFieldProps & {
  * whether it is collapsed.
  */
 export function ColumnStagesFields({ column, quiz, library, locked, onCommit }: Readonly<ColumnStagesFieldsProps>) {
-  const plain = plainOf(column)
-  const shown = resolve(plain.source, quiz.widgetings)
+  const shown = resolve(column.source, quiz.widgetings)
   const subject = shown === null ? null : ColumnMenu.subjectOf(shown, library)
   const presets = subject === null ? [] : ColumnMenu.presetsFor(subject)
-  const drawnByEditor = subject !== null && isDrawnByEditor({ source: subject.shown, formula: plain.formula ?? null, template: column.template ?? null }, subject.widget)
+  const drawnByEditor = subject !== null && isDrawnByEditor({ source: subject.shown, formula: column.formula ?? null, template: column.template ?? null }, subject.widget)
   return (
     <Stack spacing={1.5}>
       <ColumnFormulaField column={column} presets={presets} locked={locked} onCommit={onCommit} />
@@ -271,7 +270,7 @@ export function ColumnMoreFields({ column, quiz, library, sources, locked, besid
       {beside === undefined && <ColumnTitleField column={column} locked={locked} onCommit={onCommit} />}
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1.5 }}>
         <Box sx={{ ...shownUntil(beside?.source), width: 240 }}>
-          <ColumnRefField source={plainOf(column).source} choices={sources} locked={locked} onPick={(source) => { onCommit({ source }) }} />
+          <ColumnRefField source={column.source} choices={sources} locked={locked} onPick={(source) => { onCommit({ source }) }} />
         </Box>
         <Box sx={{ ...shownUntil(beside?.width), width: 96 }}>
           <ColumnWidthField column={column} locked={locked} onCommit={onCommit} />

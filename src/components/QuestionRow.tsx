@@ -14,7 +14,7 @@ import * as Runner from '../lib/formulary/runner'
 import * as Templating from '../lib/templating'
 import * as Estimates from '../lib/estimates'
 import { formularyFor } from '../lib/formulary/formularies'
-import { partOf, type ColumnAlign, type QuestionField } from '../models/column'
+import type { ColumnAlign, QuestionField } from '../models/column'
 import type { WidgetingT } from '../models/widgeting'
 import type { EntryValueT } from '../models/widget'
 import { ButnotPreview, ChainPicker } from './cells/chain'
@@ -157,7 +157,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       return <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />
     }
     const widgeted = shownOf(spec, run, templateable, question._id)
-    const part = Estimates.isEstimating(widgetOf(spec)) ? partOf(spec.formula) : null
+    const part = Estimates.isEstimating(widgetOf(spec)) ? Estimates.partOf(spec.formula) : null
     if (part !== null) { return <EstimatePartReadout part={part} widgeted={widgeted} label={spec.title} wide={wide} heightPx={heightPx} /> }
     return <WidgetedReadout widgeted={widgeted} label={spec.title} wide={wide} heightPx={heightPx} />
   }

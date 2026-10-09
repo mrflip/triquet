@@ -7,7 +7,6 @@ import { choicesFor, addable, usePills } from './use-pills'
 import * as Estimates from '../../lib/estimates'
 import { Category, CategoryLabelVals, type CategoryLabel } from '../../models/category'
 import { DifficultyGlyphs, type Difficulty, type EstimatesT } from '../../models/estimate'
-import type { WidgetingPart } from '../../models/column'
 import type { WidgetedT } from '../../models/widgeted'
 import styles from '../workbench.module.css'
 
@@ -121,7 +120,7 @@ function categoryOf(choice: string): CategoryLabel | null {
 
 export type EstimatePartReadoutProps = {
   /** Which part of the cell the column shows */
-  part:     WidgetingPart
+  part:     Estimates.Part
   /** What that part came to for this question */
   widgeted: WidgetedT
   label:    string

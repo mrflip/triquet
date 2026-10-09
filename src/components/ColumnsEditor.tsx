@@ -17,7 +17,7 @@ import * as ColumnMenu from '../lib/column-menu'
 import { alignAfter, headAlignOf, resolve } from '../lib/columns'
 import type { QuizRun } from '../lib/formulary/runner'
 import { newColumnShowing } from '../lib/widgeting-edit'
-import { plainOf, type ColumnAlign, type ColumnT } from '../models/column'
+import type { ColumnAlign, ColumnT } from '../models/column'
 import styles from './workbench.module.css'
 
 export type ColumnsEditorProps = Omit<WidgetingPanelContext, 'sources'> & {
@@ -122,7 +122,7 @@ function ColumnPanel({ column, handle, ...context }: Readonly<ColumnPanelProps>)
   const foldkey = LayoutFoldkeys.column(column.label)
   const columnName = column.title || column.label
   const locked = ! revisable
-  const shown = resolve(plainOf(column).source, quiz.widgetings)
+  const shown = resolve(column.source, quiz.widgetings)
   const widgeting = shown?.kind === 'widgeting' ? shown.widgeting : null
   const onRelabel = (label: string) => {
     folds.setOpen(LayoutFoldkeys.column(label), true)
@@ -138,7 +138,7 @@ function ColumnPanel({ column, handle, ...context }: Readonly<ColumnPanelProps>)
         </Box>
         <ColumnTitleField column={column} locked={locked} onCommit={commit} sx={{ flex: 1, minWidth: 140 }} />
         <ColumnRefField
-          source={plainOf(column).source} choices={sources} locked={locked} sx={{ ...hiddenUntil(RoomFor.source), width: 240, flexShrink: 0 }}
+          source={column.source} choices={sources} locked={locked} sx={{ ...hiddenUntil(RoomFor.source), width: 240, flexShrink: 0 }}
           onPick={(source) => { commit({ source }) }}
         />
         <Box sx={{ ...hiddenUntil(RoomFor.width), width: 96, flexShrink: 0 }}>

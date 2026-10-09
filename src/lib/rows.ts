@@ -10,8 +10,8 @@ import type { WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import type { HuntRole } from '../models/hunting'
 import { DefaultViz, Question, type QuestionT } from '../models/question'
-import { templateableFrom, type QuizT } from '../models/quiz'
-import { plainOf, type ColumnT } from '../models/column'
+import type { QuizT } from '../models/quiz'
+import type { ColumnT } from '../models/column'
 import type { WidgetT } from '../models/widget'
 import type { WidgetedHistoryT } from '../models/widgeted'
 import type { WidgetingT } from '../models/widgeting'
@@ -221,9 +221,8 @@ export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { sta
  */
 export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[], stored: StoredRows): QuizFrameT {
   return {
-    ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id', 'templated']),
+    ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id']),
     ...Stamps.of(quiz),
-    templateable: templateableOf(quiz),
     widgetings:   widgetings.map((row) => widgetingFrom(row)),
     columns:      columns.map((row) => columnFrom(row)),
     stored:     Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])),
@@ -231,25 +230,12 @@ export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetin
 }
 
 /**
- * What a quiz's row nominates as templateable: its `templateable`; or, for a row written before
- * the nomination was renamed that the backfill has not reached yet, its `templated`, read in the
- * plain grammar (`templateableFrom`).
+ * A column, from its row: its own fields, without the row's ids and place.
  *
- * @example templateableOf({ templated: ['question.clueing'] })  // => ['clueing']
- */
-export function templateableOf(quiz: Pick<Doc<'quizzes'>, 'templateable' | 'templated'>): string[] {
-  return quiz.templateable ?? templateableFrom(quiz.templated ?? [])
-}
-
-/**
- * A column, from its row: its fields, its source and formula in the plain grammar, a row written
- * in the grammar before October 2026 that the backfill has not reached yet read as it is now
- * (`plainOf`).
- *
- * @example columnFrom(row).source  // => 'clueing', for a row whose source is 'question.clueing'
+ * @example columnFrom(row).source  // => 'clueing'
  */
 export function columnFrom(row: Doc<'columns'>): ColumnT {
-  return { ..._.pick(row, ['label', 'title', 'width_px', 'align', 'template', 'readout', 'collapsed']), ...plainOf(row) }
+  return _.pick(row, ['label', 'title', 'source', 'width_px', 'align', 'formula', 'template', 'readout', 'collapsed'])
 }
 
 /**

@@ -712,7 +712,7 @@ describe('importInto: columns', () => {
   })
 
   it("refuses a column under a word the tool keeps for its own use, saying which word", () => {
-    const outcome = withColumns(laidOut(['title', 'question.title', 100]), { order: { position: 0, title: 'Order', source: 'question.qnum', width_px: 60 } })
+    const outcome = withColumns(laidOut(['title', 'title', 100]), { order: { position: 0, title: 'Order', source: 'question.qnum', width_px: 60 } })
     expect(outcome.columnLog).to.deep.include({ label: 'order', outcome: 'skipped', reason: "label «'order'» is a word the tool keeps for its own use, or ends in _id as a pointer does: add to it, as my_label or label_2" })
   })
 
@@ -820,7 +820,7 @@ describe("importInto: the quiz's own fields", () => {
 
 describe('importInto: what it sends', () => {
   it("sends the quiz's fields, then its widgetings, then its columns, then its questions", () => {
-    const outcome = read(laidOut(['title', 'question.title', 100]), {
+    const outcome = read(laidOut(['title', 'title', 100]), {
       title:      'Legends',
       questions:  { leon: { position: 0 } },
       widgetings: { points: { position: 0, widget_label: 'points' } },

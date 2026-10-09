@@ -53,10 +53,10 @@ describe('refChoicesOf', () => {
 })
 
 describe('presetsFor and subjectOf', () => {
-  it("offers a category-estimate entry's parts, each by the formula picking it", () => {
+  it("offers a category-estimate entry's parts, each by the formula picking it, naming a column taking one after both", () => {
     expect(formulasFor('category_data')).to.deep.eq(['$.estimates', '$.masie', '$.artie', '$.poppy', '$.average'])
     const masie = ColumnMenu.presetsFor(subjectFor('category_data'))[1]
-    expect(masie).to.deep.eq({ formula: '$.masie', title: 'Masie' })
+    expect(masie).to.deep.eq({ formula: '$.masie', title: 'Masie', names: { label: 'category_data_masie', title: 'Masie' } })
   })
 
   it('offers the field names of a word whose schema is known: the quiz, the hunt, the realm, each category, each question', () => {

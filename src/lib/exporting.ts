@@ -9,7 +9,6 @@ import { CategoryLabelVals, type WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import { Question } from '../models/question'
 import type { QuizT } from '../models/quiz'
-import { plainOf } from '../models/column'
 import type { RealmT } from '../models/realm'
 import { Widget, WidgetScopeVals, type WidgetT } from '../models/widget'
 
@@ -118,8 +117,7 @@ export function membersBall(place: Addresses.InHuntT, members: readonly MemberSo
  * `quiz` with its ids gone: its questions keyed by label in quiz order, the archived among them,
  * each with its viz, its chain named by the label of the question it points at (a chain to a
  * question the quiz does not hold named as none) and what each of the quiz's question widgetings
- * came to beside its own fields; its widgetings and columns keyed by label in their order, each
- * column's source and formula in the plain grammar (`plainOf`); and,
+ * came to beside its own fields; its widgetings and columns keyed by label in their order; and,
  * when it has any, what each widgeting run once for the whole quiz came to, under `widgeteds`. What
  * a quiz's ball holds at its key path.
  *
@@ -143,7 +141,7 @@ export function quizBodyOf(quiz: QuizT, run: Runner.QuizRun): Jsonball.QuizBodyT
     ...Stamps.isoStampsOf(quiz),
     questions:    questionsBodyOf(quiz, run),
     widgetings:   Jsonball.keyedOf(quiz.widgetings, (widgeting) => widgeting.label, ({ widget_label, description, params, tier }) => ({ widget_label, description, params, tier })),
-    columns:      Jsonball.keyedOf(quiz.columns, (column) => column.label, ({ label: _label, ...fields }) => ({ ...fields, ...plainOf(fields) })),
+    columns:      Jsonball.keyedOf(quiz.columns, (column) => column.label, ({ label: _label, ...fields }) => fields),
     ...quizWidgetedsBodyOf(quiz, run),
   }
 }

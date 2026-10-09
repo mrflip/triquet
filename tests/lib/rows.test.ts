@@ -3,7 +3,7 @@ import type { MigrationStatus } from '@convex-dev/migrations'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  assembledQuiz, backfillFrom, backfillsFrom, columnFrom, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, templateableOf, widgetFrom, widgetingFrom,
+  assembledQuiz, backfillFrom, backfillsFrom, columnFrom, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
   type CellRows, type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import * as Wheel from '../../src/lib/wheel'
@@ -193,28 +193,13 @@ describe('frameOf', () => {
       { label: 'qnum',    title: 'Q#',      source: 'qnum',    width_px: 60,  align: 'right' },
     ])
   })
-
-  it("reads a quiz written before its nomination was renamed by its `templated`, in the plain grammar", () => {
-    const older = _.omit(QuizRow, ['templateable'])
-    expect(frameOf({ ...older, templated: ['question.recap', 'dumdum'] }, [], [], new Map()).templateable).to.deep.eq(['recap', 'dumdum'])
-    expect(frameOf({ ...older, templated: ['question.recap'] }, [], [], new Map())).to.not.have.property('templated')
-  })
-})
-
-describe('templateableOf', () => {
-  it("is a quiz row's `templateable`, or else its `templated` read in the plain grammar, or else nothing", () => {
-    expect(templateableOf({ templateable: ['clueing'], templated: ['question.hint'] })).to.deep.eq(['clueing'])
-    expect(templateableOf({ templated: ['question.clueing'] })).to.deep.eq(['clueing'])
-    expect(templateableOf({})).to.deep.eq([])
-  })
 })
 
 describe('columnFrom', () => {
-  const ColumnRow: Doc<'columns'> = { _id: idOf('columns', 'col1'), _creationTime: 2, hunt_id, quiz_id, label: 'masie', title: 'Masie', source: 'categories.masie', width_px: 60, position: 0 }
+  const ColumnRow: Doc<'columns'> = { _id: idOf('columns', 'col1'), _creationTime: 2, hunt_id, quiz_id, label: 'masie', title: 'Masie', source: 'clueing', width_px: 60, position: 0 }
 
-  it('reads a row written in the grammar before October 2026 as it reads now', () => {
-    expect(columnFrom(ColumnRow)).to.deep.eq({ label: 'masie', title: 'Masie', source: 'categories', formula: '$.masie', width_px: 60 })
-    expect(columnFrom({ ...ColumnRow, source: 'question.title' }).source).to.eq('title')
+  it("is the row's own fields, without its ids and place", () => {
+    expect(columnFrom(ColumnRow)).to.deep.eq({ label: 'masie', title: 'Masie', source: 'clueing', width_px: 60 })
   })
 
   it("carries a column's formula, template, readout and collapse, where it has them", () => {

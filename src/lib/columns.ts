@@ -2,7 +2,7 @@ import * as Runner from './formulary/runner'
 import { clockNow } from './clock'
 import * as Templating from './templating'
 import { JsonataFormulary } from './formulary/jsonata'
-import { ColumnAlignVals, plainOf, refOf, sortkeyOf, type BagWord, type ColumnAlign, type ColumnReadout, type ColumnT, type QuestionField, type QuestionKey, type QuestionView } from '../models/column'
+import { ColumnAlignVals, refOf, sortkeyOf, type BagWord, type ColumnAlign, type ColumnReadout, type ColumnT, type QuestionField, type QuestionKey, type QuestionView } from '../models/column'
 import { Widgeted, type JsonT, type WidgetedT } from '../models/widgeted'
 import type { WidgetingT } from '../models/widgeting'
 import type { WidgetT } from '../models/widget'
@@ -65,8 +65,8 @@ export const CollapsedWidthPx = 20
 
 /**
  * What `source` shows, given the widgetings a quiz has: found on the question first, then at the
- * bag's top level. Read in the plain grammar or the one before October 2026 (`refOf`), in which a
- * quiz holds a widgeting called `categories` that the word must not hide.
+ * bag's top level. No widgeting may take a word of the bag as its label (`ReservedWidgetingLabels`),
+ * so the two never meet.
  *
  * @param source - A column's source.
  * @param widgetings - The quiz's widgetings.
@@ -78,27 +78,14 @@ export const CollapsedWidthPx = 20
  */
 export function resolve(source: string, widgetings: readonly WidgetingT[]): Resolved | null {
   const ref = refOf(source)
-  const widgetingAt = (label: string, tier: string) => widgetings.find((each) => each.tier === tier && each.label === label)
-  switch (ref.kind) {
-  case 'field':
-  case 'view':
-  case 'key': {
-    return ref
-  }
-  case 'word': {
-    const widgeting = widgetingAt(ref.word, 'question')
-    return widgeting ? { kind: 'widgeting', widgeting } : ref
-  }
-  case 'widgeting': {
-    const widgeting = widgetingAt(ref.label, ref.tier)
-    return widgeting ? { kind: 'widgeting', widgeting } : null
-  }
-  }
+  if (ref.kind !== 'widgeting') { return ref }
+  const widgeting = widgetings.find((each) => each.tier === ref.tier && each.label === ref.label)
+  return widgeting ? { kind: 'widgeting', widgeting } : null
 }
 
 /**
- * The columns of a quiz that show the widgeting labelled `label`, whole or a part of it: each
- * found through `resolve`, so a column counts in whichever grammar its source is written.
+ * The columns of a quiz that show the widgeting labelled `label`, whatever their formulas make of
+ * it: each found through `resolve`.
  *
  * @param quiz - The quiz's columns and widgetings.
  * @param label - The widgeting's label.
@@ -144,9 +131,8 @@ function headkindOf(source: Pick<Resolved, 'kind'>, widthPx: number, collapsed =
 
 /** Whether `column` shows the question's Q# as it is */
 function isQnum(column: Pick<ColumnT, 'source' | 'formula'>): boolean {
-  const plain = plainOf(column)
-  const ref = refOf(plain.source)
-  return ref.kind === 'field' && ref.field === 'qnum' && plain.formula === undefined
+  const ref = refOf(column.source)
+  return ref.kind === 'field' && ref.field === 'qnum' && column.formula === undefined
 }
 
 /**
@@ -184,17 +170,16 @@ export function alignAfter(align: ColumnAlign): ColumnAlign {
 }
 
 /**
- * A column as the grid draws it, its source and formula read in the plain grammar (`plainOf`).
+ * A column as the grid draws it.
  *
  * @param column - One of the quiz's columns.
  * @param widgetings - The quiz's widgetings, which the column may show.
  * @returns The spec, or null when the column shows a widgeting the quiz does not have.
  */
 export function specFor(column: ColumnT, widgetings: readonly WidgetingT[]): ColumnSpec | null {
-  const plain = plainOf(column)
-  const source = resolve(plain.source, widgetings)
+  const source = resolve(column.source, widgetings)
   if (! source) { return null }
-  const formula = plain.formula ?? null
+  const formula = column.formula ?? null
   const collapsed = column.collapsed ?? false
   return {
     colkey:    column.label,

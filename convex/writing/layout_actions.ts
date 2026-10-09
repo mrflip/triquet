@@ -1,11 +1,11 @@
 import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
-import { templateableOf, widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
+import { widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
 import { widgetingRemovalRefusal } from '../../src/lib/columns'
 import * as Formularies from '../../src/lib/formulary/formularies'
 import { Quiz, isTemplatableField } from '../../src/models/quiz'
-import { ColumnValidators, plainOf, refOf, sortkeyOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
+import { ColumnValidators, refOf, sortkeyOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
 import { Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../../src/models/widgeting'
 import type { LayoutActionT } from '../../src/models/actions'
 import { widgetForLabel } from '../reading'
@@ -50,8 +50,7 @@ async function writeRunOrder(db: Writer, ordered: readonly Doc<'widgetings'>[]):
 /**
  * Refuse a column `source` that names nothing the quiz can show: a widgeting it does not have at
  * the tier the source names (`<label>` for each question, `quiz.<label>` for the whole quiz). A
- * word of the bag, which a quiz from before October 2026 may also hold a widgeting under, is
- * always showable.
+ * word of the bag is always showable.
  */
 function refuseUnshowable(rows: LayoutRows, source: string): void {
   const ref = refOf(source)
@@ -121,9 +120,9 @@ export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, 
     if (renamedOnto === label) { return }
     for (const column of rows.columns) {
       const ref = refOf(column.source)
-      if (ref.kind === 'widgeting' && ref.label === label) { await updateColumn(db, column, { ...plainOf(column), source: widgetingSourceOf(renamedOnto, ref.tier) }) }
+      if (ref.kind === 'widgeting' && ref.label === label) { await updateColumn(db, column, { source: widgetingSourceOf(renamedOnto, ref.tier) }) }
     }
-    const templateable = templateableOf(rows.quiz)
+    const { templateable } = rows.quiz
     if (templateable.includes(label)) {
       await updateQuiz(db, rows.quiz, { templateable: templateable.map((source) => (source === label ? renamedOnto : source)) })
     }
@@ -161,7 +160,7 @@ export async function deleteWidgeting(db: Writer, open: OpenQuizT, label: string
     const refusal = widgetingRemovalRefusal({ columns: rows.columns, widgetings: rows.widgetings.map((row) => widgetingFrom(row)) }, label)
     if (refusal !== null) { refuse('widgetingShown', refusal) }
     await deleteWidgetingRows(db, held._id)
-    const templateable = templateableOf(rows.quiz)
+    const { templateable } = rows.quiz
     if (templateable.includes(label)) { await updateQuiz(db, rows.quiz, { templateable: templateable.filter((source) => source !== label) }) }
     await writeRunOrder(db, rows.widgetings.filter((widgeting) => widgeting._id !== held._id))
   })
@@ -192,7 +191,7 @@ export async function addColumn(db: Writer, open: OpenQuizT, column: ColumnT, on
       const position = idx < at ? idx : idx + 1
       if (held.position !== position) { await updateColumn(db, held, { position }) }
     }
-    await db.insert('columns', ColumnValidators.row({ ...column, ...plainOf(column), hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: at }))
+    await db.insert('columns', ColumnValidators.row({ ...column, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: at }))
   })
 }
 

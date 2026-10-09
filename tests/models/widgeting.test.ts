@@ -12,7 +12,8 @@ describe('ReservedWidgetingLabels', () => {
   })
 
   const Groups: [readonly string[], string][] = [
-    [['hunt', 'realm', 'quiz', 'qns', 'qn', 'qn_label', 'quiz_label', 'params', 'widgeting_label'],  "the bag's top-level keys"],
+    [['hunt', 'realm', 'categories', 'quiz', 'qns', 'qn', 'qn_label', 'quiz_label', 'params', 'widgeting_label'],  "the bag's top-level keys"],
+    [['category'],                                                                                      "one of the bag's categories"],
     [['status', 'value', 'err', 'message', 'result_meta', 'digest', 'stale'],                           "a widgeted's keys, and the two of its staleness"],
     [['source', 'formula', 'template', 'readout', 'collapsed', 'width_px', 'align'],                    "a column's fields, the stages it may say among them"],
     [['masie', 'artie', 'poppy', 'estimates', 'average'],                                               "a category-estimate widgeted's keys"],
@@ -23,8 +24,10 @@ describe('ReservedWidgetingLabels', () => {
     })
   }
 
-  it("leaves categories free, which the library's category-estimate widget and its widgetings are labelled", () => {
-    expect(ReservedWidgetingLabels).not.to.include('categories')
+  it("refuses a widgeting labelled categories, as one from before October 2026 was, with a sentence", () => {
+    const outcome = WidgetingValidators.widgeting.safeParse({ widget_label: 'category_data', label: 'categories' })
+    expect(outcome.success).to.be.false
+    expect(outcome.error?.issues[0]?.message).to.match(/a name a question, its cells or the bag already answer to/)
   })
 
   it("names each word once", () => {

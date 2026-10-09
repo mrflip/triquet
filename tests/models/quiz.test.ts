@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { BlankQuestionQty, DefaultQ1Preamble, Quiz, QuizValidators, isTemplatableField, templateableFrom } from '../../src/models/quiz'
+import { BlankQuestionQty, DefaultQ1Preamble, Quiz, QuizValidators, isTemplatableField } from '../../src/models/quiz'
 import { Question } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
 import * as Labelmaker from '../../src/lib/labelmaker'
@@ -74,7 +74,7 @@ describe('Quiz.fill', () => {
   const ReservedHeld: [object, string][] = [
     [{ widgetings: [{ widget_label: 'answer_letter_count', label: 'total' }] },                    'a widgeting under a word every label is kept from'],
     [{ widgetings: [{ widget_label: 'answer_letter_count', label: 'status' }] },                   'a widgeting under a word only widgetings are kept from'],
-    [{ columns: [{ label: 'order', title: 'Order', source: 'question.qnum', width_px: 60 }] },    'a column under a word every label is kept from'],
+    [{ columns: [{ label: 'order', title: 'Order', source: 'qnum', width_px: 60 }] },              'a column under a word every label is kept from'],
     [{ questions: [{ ...Question.blank(), label: 'name' }] },                                     'a question under a word every label is kept from'],
   ]
   for (const [overrides, describes] of ReservedHeld) {
@@ -129,7 +129,8 @@ describe('Quiz.fill', () => {
     [{ widgetings: [{ ...Widgeting, label: 'rank' }] },                                         'a widgeting labelled as the rank the bag adds'],
     [{ columns: [Col, { ...Col, title: 'Again' }] },                                            'two columns sharing a label'],
     [{ columns: [{ ...Col, source: 'nowhere' }] },                                              'a column showing a widgeting the quiz does not have'],
-    [{ columns: [{ ...Col, source: 'nowhere.masie' }] },                                        'a column showing a part of a widgeting the quiz does not have, before October 2026'],
+    [{ columns: [{ ...Col, source: 'question.title' }] },                                       'a column in the grammar before October 2026'],
+    [{ widgetings: [{ ...Widgeting, label: 'categories' }] },                                   'a widgeting labelled as the bag\'s categories, as one before October 2026 was'],
     [{ templateable: ['nowhere'] },                                                                'templating a widgeting the quiz does not have'],
     [{ templateable: ['recap', 'recap'] },                                       'templating one source twice'],
     [{ templateable: ['title'] },                                                         'templating a question field that holds no markdown'],
@@ -244,13 +245,6 @@ describe('Quiz.fill, with widgetings run once for the whole quiz', () => {
   it('takes a column showing one by its ref, `quiz.<label>`, and refuses one naming a widgeting it does not have for the whole quiz', () => {
     expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], columns: [{ label: 'thanks', title: 'Thanks', source: 'quiz.playtesters', width_px: 90 }] })).to.not.throw()
     expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], columns: [{ label: 'gone', title: 'Gone', source: 'quiz.nowhere', width_px: 90 }] })).to.throw(/does not have for the whole quiz/)
-  })
-})
-
-describe('templateableFrom', () => {
-  it("reads a nomination in the grammar before October 2026 as it reads now: a field by its name, a widgeting's label as it is", () => {
-    expect(templateableFrom(['question.clueing', 'author'])).to.deep.eq(['clueing', 'author'])
-    expect(templateableFrom([])).to.deep.eq([])
   })
 })
 

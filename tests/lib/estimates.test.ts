@@ -8,6 +8,7 @@ import { Widgeted, type JsonT, type WidgetedHistoryT } from '../../src/models/wi
 import { Widgeting } from '../../src/models/widgeting'
 import type { EstimatesT } from '../../src/models/estimate'
 import { runOf } from '../support/runs'
+import { present } from '../support/present'
 
 const DefaultOrder = Wheel.orderOf(Wheel.defaultWheel())
 const Estimating = Widget.fill({ label: 'categories', formulary: 'entry', config: { entry_kind: 'estimates' } })
@@ -114,4 +115,21 @@ describe("chanceTextOf", () => {
       expect(Estimates.chanceTextOf(chance)).to.eq(expected)
     })
   }
+})
+
+describe('PartVals, PartTitles, partFormulaOf and partOf', () => {
+  it('name every part a cell comes to, and title each', () => {
+    const parts = present(Estimates.partsOf(DefaultOrder, Widgeted.missing))
+    expect(Object.keys(parts)).to.have.members([...Estimates.PartVals])
+    expect(Object.keys(Estimates.PartTitles)).to.have.members([...Estimates.PartVals])
+  })
+
+  it('write the formula picking a part, and read it back', () => {
+    expect(Estimates.partFormulaOf('masie')).to.eq('$.masie')
+    expect(Estimates.PartVals.map((part) => Estimates.partOf(Estimates.partFormulaOf(part)))).to.deep.eq([...Estimates.PartVals])
+  })
+
+  it('read no part out of any other formula, or none', () => {
+    expect([Estimates.partOf('$.average'), Estimates.partOf('$.average * 100'), Estimates.partOf('$.value'), Estimates.partOf(null), Estimates.partOf(undefined)]).to.deep.eq(['average', null, null, null, null])
+  })
 })
