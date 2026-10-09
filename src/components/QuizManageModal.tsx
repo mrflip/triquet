@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, IconButton, Link, List, ListItem, ListItemText, Stack, Tooltip, Typography } from '@mui/material'
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import UnarchiveOutlinedIcon from '@mui/icons-material/UnarchiveOutlined'
 import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
+import { ConfirmRemove } from './ConfirmRemove'
 import { DangerZone, type DangerousAct } from './DangerZone'
 import { ExplicitField } from './ExplicitField'
 import { InfoTip } from './InfoTip'
@@ -54,7 +54,7 @@ export type QuizManageModalProps = {
   onDeleteQuiz:  () => void
   /** Delete this quiz, the hunt's last, with the hunt, and go back to the hunts list */
   onDeleteHunt:  () => void
-  /** Delete one question of this quiz, an archived one, at once */
+  /** Delete one question of this quiz, an archived one, once its delete button has asked */
   onDeleteQuestion: (question_id: string) => void
 }
 
@@ -262,8 +262,7 @@ type ArchivedQuestionsProps = {
 
 /**
  * The quiz's archived questions, which no other screen shows: each by its title and the start of
- * its clueing, with a button to bring it back to the grid and one to delete it, which asks nothing
- * first.
+ * its clueing, with a button to bring it back to the grid and one to delete it, which asks first.
  */
 function ArchivedQuestions({ questions, revisable, onUnarchive, onDelete }: Readonly<ArchivedQuestionsProps>) {
   return (
@@ -284,18 +283,16 @@ function ArchivedQuestions({ questions, revisable, onUnarchive, onDelete }: Read
                   <Stack direction="row">
                     <Tooltip title="Un-archive: back to the grid">
                       <span>
-                        <IconButton aria-label={`Un-archive ${named}`} disabled={! revisable} onClick={() => { onUnarchive(question._id) }}>
+                        <IconButton size="small" aria-label={`Un-archive ${named}`} disabled={! revisable} onClick={() => { onUnarchive(question._id) }}>
                           <UnarchiveOutlinedIcon fontSize="small" />
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title="Delete, at once and for good">
-                      <span>
-                        <IconButton aria-label={`Delete ${named}`} color="error" disabled={! revisable} onClick={() => { onDelete(question._id) }}>
-                          <DeleteOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
+                    <ConfirmRemove
+                      form="icon" act="Delete" noun={named} disabled={! revisable}
+                      question={`Delete “${named}” for good? It cannot be brought back.`}
+                      onConfirm={() => { onDelete(question._id) }}
+                    />
                   </Stack>
                 )}
                 sx={{ pr: 10 }}

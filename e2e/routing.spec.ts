@@ -3,7 +3,7 @@ import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import * as Routes from '../src/lib/routes'
 import { putOnHunt } from './admin'
-import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openPanel, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
+import { addMember, answerRemoval, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openPanel, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
 
 // The tests about the front door, the hunts list, or making a hunt go in by themselves
 // (`startAt: null`); the rest begin at the fixture's fresh hunt, with the fixture's friend for a
@@ -671,6 +671,7 @@ test.describe('a link handed to a friend', () => {
 
     const members = await openPanel(page, 'Members')
     await members.getByRole('button', { name: `Remove ${label}` }).click()
+    await answerRemoval(page, 'Yes, remove')
     await expect(friend.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
     await expect(friend.getByLabel('Quiz name')).toBeHidden()
   })
@@ -683,6 +684,7 @@ test.describe('a link handed to a friend', () => {
     await expect(friend).toHaveURL(`${path}/!playtest`)
 
     await members.getByRole('button', { name: `Remove ${label}` }).click()
+    await answerRemoval(page, 'Yes, remove')
     await expect(friend.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
     await addMember(page, label, 'Smith')
     await expect(members.getByRole('row').filter({ hasText: label })).toHaveCount(1)
