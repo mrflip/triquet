@@ -478,6 +478,14 @@ and in the sprint-end `human/` entry.
   Both branches were pushed with leases; #206's tree is unchanged.
 * **3c, by the orchestrator:** `category` is reserved too, beside `categories` (the Coach's
   open call).
+* **3c, by its worker:**
+  - `category` and `categories` are reserved from widgeting labels only. As global words, they
+    would refuse the next save of any hunt, quiz, question or column labelled `categories`, which
+    is the default whole-estimates column's label.
+  - `question` stays reserved, written out as the word.
+  - 3a's `shadowedBy` item is closed.
+  - A part column is named by its menu preset, so `column.ts` knows nothing of parts.
+  - The importer's old-grammar parts list is the live `Estimates.PartVals`.
 
 ## For the Coach
 
