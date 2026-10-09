@@ -3,7 +3,7 @@
 The orchestrator's document. Newer than `little_fixes_b-plan.md` wherever the two disagree. Each
 worker writes its own `thread-<N>-<label>.md` beside this file.
 
-**Status: threads 1, 3, 4 landed (#212, #214, #216); 2 landing (full e2e, the closing proof).**
+**Status: done, 2026-10-09. All four threads landed: #212, #214, #216, #217 (one stack, on #204). Closing proof: full e2e, 293 passed, 0 failed, on thread 2's landing. See `human/20261009-sprint_little_fixes_b_done.md`.**
 
 Sprint doc (live mirror): https://claude.ai/code/artifact/8cc61164-58c9-4990-b805-f640ae8d3d7b
 
@@ -12,7 +12,7 @@ Sprint doc (live mirror): https://claude.ai/code/artifact/8cc61164-58c9-4990-b80
 | Thread | Label | Status |
 |---|---|---|
 | 1. Gearbox: (i), entries note, remove-with-confirm, unique ids | lfb_gearbox | landed #212 |
-| 2. Gearbox: rows line up, icon grammar | lfb_rows | landing |
+| 2. Gearbox: rows line up, icon grammar | lfb_rows | landed #217 |
 | 3. Panels: fold cycle, raw export, quiz export, tabs | lfb_panels | landed #214 |
 | 4. Top bar, account, small removals, percent | lfb_topbar | landed #216 |
 
@@ -23,6 +23,8 @@ Sprint doc (live mirror): https://claude.ai/code/artifact/8cc61164-58c9-4990-b80
 *Review:* thread 3 (#214) -- **fixed**, two `fix:` commits: an imported quiz entry is now checked against the params the same paste revises its widgeting to (`quizEntriesCarried`); SpreadPanel's placeholder shares its one fold. Left, minor: a copy of a quiz with no questions imports nothing (`importInto`, predates the thread). Its `--touched` also reached the whole suite (285 + 5 rerun green). Flakes: `entries` (typed entry kept), `panels` (tabs in order; Copy; LL Export), `routing` (reviewer made smith).
 
 *Review:* thread 4 (#216) -- **fixed**, three `fix:` commits: `entryParamsIssues` lays the kind's preset beneath the params it checks (a Percent at `{ min: 120 }` is refused); QuizRoute names no quiz to a visitor refused its mode; the account-menu spec says Escape to the menu. Left, minor: a Percent may be rebounded (worker's decision); the number field blocks typing past its max before the params widen (existing). The reviewer was refused a read-only grep of `use-hunt.ts` / `hunting.ts` by the permission check and did not work round it. Proved by the **full suite** (the sprint's second full run): 288 + 4 rerun green, plus three spec `fix:` commits (the switcher's menu reopens after a remount). Flakes: `importing` (explicit null), `panels` (LL Export's mode), `reviews` (smith's note folded), `widgets` (a column added for anything). Cosmetic: switching quizzes remounts the route, so the quiz crumb blinks and an open switcher closes.
+
+*Review:* thread 2 (#217) -- **fixed**, one `fix:` commit: the readout toggle's tooltip said "as" twice. Checked sound: Templated is one state with the Templates section; the readout cycle round-trips with the select; `foldTo`'s Collapse wait. Left, minor: toggling Templated on two columns within one round trip can lose the first nomination (`set_templateable` sends the whole list; the Templates section had the race already; needs an optimistic update or add/remove actions); the folded toggle's unset wording is less specific than the select's. Proved by the **full suite**, the sprint's closing proof: 293 passed, 0 failed, no flakes, on `517b529c`.
 
 
 * *Orchestrator:* **Thread 1 built `InfoTip` and `ConfirmRemove` as the standards** (`notes/views.md` names them). `InfoTip` (`src/components/InfoTip.tsx`): an (i) icon button with a Tooltip, one dense size; `Explained` wraps a field with one; `ExplicitField` takes `about`. `ConfirmRemove`: a text form and a bin form, same size, whose confirm is a Popover over the button (Keep where the button was). Threads 2 and 3 use these; e2e specs answer it with the helper `answerRemoval`.
