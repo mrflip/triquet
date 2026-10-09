@@ -57,6 +57,7 @@ export const AppNotices = {
   showingQuestions:     "A secondary question is an alternate: its title is shown in italics with (alt) after it, and it sorts after its peers. An archived one leaves the grid, the playtest and the exports; un-archive it from the gear's Archived questions.",
   noArchivedQuestions:  'No questions are archived.',
   importSentToLocked:   'This quiz is locked, so the paste sent here from another quiz was not read. Unlock it and paste again.',
+  libraryReadOnly:      'Only an admin of this deployment can change the library, so here it is only to copy out.',
 } as const
 
 /** Why the server refused a change, or a request, in the author's language: one per `failurekind` */
@@ -235,4 +236,5 @@ export const CellNotices = {
   chainTargetUnnamed: '(no title yet)',
   chainTargetArchived: '(archived)',
   truncated:         '· cut short',
+  imported:          'imported',
 } as const

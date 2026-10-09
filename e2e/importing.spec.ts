@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addColumns, cellOf, closeManage, expect, exportedQuizzes, grid, manageDialog, newQuiz, openManage, openPanel, openQuiz, preparedExport, showTab, test, unfoldBy, waitUntilSaved } from './support'
+import { addColumns, cellOf, closeManage, expect, exportedQuizzes, grid, manageDialog, newQuiz, openManage, openPanel, openQuiz, preparedExport, showTab, stubAsk, test, unfoldBy, waitUntilSaved } from './support'
 
 /** The Import box, its tab brought to the front */
 async function importBox(page: Page) {
@@ -22,6 +22,11 @@ async function runImport(page: Page, payload: unknown) {
 /** The value of the field `name` in the row at `rowIdx` */
 function fieldAt(page: Page, name: string, rowIdx: number) {
   return grid(page).locator('tbody').getByRole('textbox', { name, exact: true }).nth(rowIdx)
+}
+
+/** The guess cell of the row at `rowIdx`: dumdum's column */
+function guessCell(page: Page, rowIdx: number) {
+  return page.getByRole('button', { name: 'Ask Dumdum' }).nth(rowIdx)
 }
 
 /** The label of the question at `rowIdx` of the quiz titled "Quiz one", as the Raw Export box has the hunt */
@@ -199,4 +204,24 @@ test('importing is refused while the quiz is locked', async ({ page }) => {
   await fillImport(page, '[{"label":"anyone","clueing":"Sneaked in"}]')
   await page.getByRole('button', { name: 'Lock quiz' }).click()
   await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeDisabled()
+})
+
+test.describe("what a bot replied", () => {
+  test.use({ layout: { widgetings: ['dumdum'] } })
+
+  test("a reply carried in fills its empty cell, marked imported, and never one already asked here", async ({ page }) => {
+    await stubAsk(page, { ok: true, value: { guess: 'Asked here', explanation: '' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
+    await guessCell(page, 0).dblclick()
+    await expect(guessCell(page, 0)).toContainText('Asked here')
+
+    await runImport(page, [
+      { label: await labelAt(page, 0), dumdum: { status: 'ok', value: { guess: 'Pasted over', explanation: '' } } },
+      { label: await labelAt(page, 1), clueing: 'Which city?', dumdum: { status: 'ok', value: { guess: 'Nantes', explanation: '' } } },
+    ])
+    await expect(page.getByText(/2 bot replies carried, into cells holding none/)).toBeVisible()
+    await expect(guessCell(page, 1)).toContainText('Nantes')
+    await expect(guessCell(page, 1)).toContainText('imported')
+    await expect(guessCell(page, 0)).toContainText('Asked here')
+    await expect(guessCell(page, 0)).not.toContainText('Pasted over')
+  })
 })

@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, IconButton, Stack } from '@mui/material'
+import { Accordion, AccordionDetails, AccordionSummary, Button, Dialog, DialogActions, DialogContent, IconButton, Stack } from '@mui/material'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { ClosableTitle } from './ClosableTitle'
 import { WidgetEditor } from './WidgetEditor'
+import { LibraryForm } from './panels/LibraryForm'
 import { FormularyWords } from './widget-words'
 import { Widget, type WidgetT } from '../models/widget'
 import type { ShallowHuntT } from '../lib/rows'
@@ -29,7 +31,8 @@ type Editing = { kind: 'held', label: string } | { kind: 'new' } | null
 
 /**
  * The library -- the widgets every hunt's quizzes can put to work -- listed, each with a gear that
- * opens it in the widget editor, and a door to write a new one, for whoever may change it. An edit
+ * opens it in the widget editor, and a door to write a new one, for whoever may change it; and,
+ * folded beneath, the library to copy out and a box to paste one back (`LibraryForm`). An edit
  * here changes every quiz that works the widget, in every hunt; which quizzes work it is each
  * quiz's own business, in its widgetings.
  */
@@ -57,6 +60,12 @@ export function LibraryModal({ onClose, hunt, library, quiz, changeable, dispatc
             </Stack>
           ))}
         </Stack>
+        <Accordion disableGutters variant="outlined" sx={{ mt: 2 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>Export or import the library</AccordionSummary>
+          <AccordionDetails>
+            <LibraryForm library={library} changeable={changeable} dispatch={dispatch} />
+          </AccordionDetails>
+        </Accordion>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between' }}>
         {changeable ? <Button size="small" variant="outlined" onClick={() => { setEditing({ kind: 'new' }) }}>+ New widget…</Button> : <span />}

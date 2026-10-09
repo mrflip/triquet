@@ -149,8 +149,9 @@ function AskedBody({ widgeted, meta, notice, open }: Readonly<Pick<WidgetedAskCe
   )
 }
 
-/** How a value was come by, in a few words: its tier, whether it was cut short, about how many tokens */
+/** How a value was come by, in a few words: carried in by an import, or its tier, whether it was cut short, about how many tokens */
 function metalineOf(meta: Readonly<Record<string, JsonT>>): string {
+  if (meta.imported === true) { return CellNotices.imported }
   const tier = typeof meta.model_tier_applied === 'string' ? meta.model_tier_applied : ''
   const truncated = meta.truncated === true ? ` ${CellNotices.truncated}` : ''
   const tokens = typeof meta.approx_tokens === 'number' ? ` · ~${String(meta.approx_tokens)} tok` : ''

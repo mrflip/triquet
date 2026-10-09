@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
-import { DrawnReadout, WidgetedReadout } from '../../../src/components/cells/readouts'
+import { describe, expect, it, vi } from 'vitest'
+import { DrawnReadout, WidgetedAskCell, WidgetedReadout } from '../../../src/components/cells/readouts'
 import { CellNotices } from '../../../src/lib/notices'
-import { Widgeted } from '../../../src/models/widgeted'
+import { Widgeted, type JsonT } from '../../../src/models/widgeted'
 import type { ColumnReadout } from '../../../src/models/column'
 import { renderedText } from '../../support/rendering'
 
@@ -60,5 +60,20 @@ describe('DrawnReadout', () => {
     expect(renderedText(<DrawnReadout drawn={okDrawn('')} readout="code" wide heightPx={100} />)).to.eq(CellNotices.nothingExpressed)
     const failed = { widgeted: Widgeted.errored({ message: 'no', at: null, response: null }), text: '', issue: null }
     expect(renderedText(<DrawnReadout drawn={failed} readout="plain" wide heightPx={100} />)).to.include('no')
+  })
+})
+
+/** The text an asked cell holding `value`, `ok`, draws, its row's `result_meta` being `meta` */
+function askedText(value: string, meta: Record<string, JsonT>): string {
+  return renderedText(<WidgetedAskCell widgeted={Widgeted.ok(value)} meta={meta} label="Dumdum" asking={false} askable locked={false} notice={null} heightPx={100} onAsk={vi.fn()} />)
+}
+
+describe('WidgetedAskCell', () => {
+  it("says beneath a value how it was come by: its tier, whether it was cut short, and about how many tokens", () => {
+    expect(askedText('Leon', { model_tier_applied: 'quick', approx_tokens: 84, truncated: true })).to.eq(`Leonquick ${CellNotices.truncated} · ~84 tok`)
+  })
+
+  it("says a reply carried in by an import was imported, rather than asked here", () => {
+    expect(askedText('Leon', { imported: true })).to.eq(`Leon${CellNotices.imported}`)
   })
 })

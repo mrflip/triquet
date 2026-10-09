@@ -336,6 +336,18 @@ test('a widget written in the library itself chooses its formulary first', async
   await expect(page.getByRole('group', { name: `Widget ${widget_label}` })).toContainText('prompt')
 })
 
+test("the library is copied out and pasted back from its own dialog, a widget it lacks added", async ({ page }) => {
+  const widget_label = freshWidgetLabel('carried')
+  await page.getByRole('button', { name: 'Widget library' }).click()
+  const library = page.getByRole('dialog', { name: 'Widget library' })
+  await library.getByRole('button', { name: 'Export or import the library' }).click()
+  await expect(library.getByRole('textbox', { name: 'Library export' })).toHaveValue(/"dumdum"/)
+  await library.getByRole('textbox', { name: 'Import library' }).fill(JSON.stringify({ widgets: { pub: { [widget_label]: { formulary: 'jsonata', formula: '1' } } } }))
+  await library.getByRole('button', { name: 'Import library' }).click()
+  await expect(library.getByText(/1 added, 0 revised/)).toBeVisible()
+  await expect(library.getByRole('group', { name: `Widget ${widget_label}` })).toBeVisible()
+})
+
 test('a template written in the library is previewed over a real question as it is typed', async ({ page }) => {
   const widget_label = freshWidgetLabel('card')
   await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Title' }).fill('Leon')

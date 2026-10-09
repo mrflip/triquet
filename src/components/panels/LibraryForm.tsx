@@ -7,6 +7,7 @@ import { ReadonlyBox } from './ReadonlyBox'
 import * as Exporting from '../../lib/exporting'
 import * as Importing from '../../lib/importing'
 import * as UU from '../../lib/useful'
+import { AppNotices } from '../../lib/notices'
 import type { LibraryLogEntry } from '../../lib/importing'
 import type { LibraryActionDNA } from '../../models/actions'
 import type { WidgetT } from '../../models/widget'
@@ -22,10 +23,11 @@ export type LibraryFormProps = {
 }
 
 /**
- * The Library tab: the library of widgets on its own, apart from any hunt, to copy out; and a box
- * to paste one back, merged by label, for whoever may change it. Widgets the library lacks are
- * added, those it holds are revised, and one whose formulary differs is skipped and named in the
- * log. Nothing is removed.
+ * The library of widgets on its own, apart from any hunt, to copy out; and a box to paste one
+ * back, merged by label, for whoever may change it, or a line saying who may when the reader
+ * cannot. Widgets the library lacks are added, those it holds are revised, and one whose formulary
+ * differs is skipped and named in the log. Nothing is removed. Shown in the Library tab of the
+ * Export / Import panel, and in the library's own dialog.
  */
 export function LibraryForm({ library, changeable, dispatch }: Readonly<LibraryFormProps>) {
   const [pasted, setPasted] = useState('')
@@ -44,7 +46,7 @@ export function LibraryForm({ library, changeable, dispatch }: Readonly<LibraryF
   return (
     <>
       <ReadonlyBox label="Library export" text={UU.jsonify(Exporting.libraryBall(library))} rows={6} dense />
-      {changeable && <LibraryImport pasted={pasted} summary={summary} log={log} onPaste={setPasted} onImport={runImport} />}
+      {changeable ? <LibraryImport pasted={pasted} summary={summary} log={log} onPaste={setPasted} onImport={runImport} /> : <p className={styles.microcopy}>{AppNotices.libraryReadOnly}</p>}
     </>
   )
 }
