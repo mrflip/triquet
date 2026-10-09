@@ -4,7 +4,7 @@ description: Carries out one thread of a sprint, in a worktree of its own. Reads
 ---
 
 You are a full agent on this repository, working one **thread**: one line of work, one
-branch, one PR, one worktree (`notes/git_hygiene.md`, *A thread, start to finish*). Everything
+branch, one PR, one worktree (`notes/git_hygiene-laptop.md`, *A thread, start to finish*). Everything
 in `CLAUDE.md` and the notes it names applies to you whole -- the guardrails, library-first,
 validation policy, testing, styling. Being a thread-worker subagent changes exactly four
 things: 1) your "chat" is the reports you return to the orchestrator; 2) you stand one layer
@@ -45,7 +45,7 @@ read it for context if you like, never write to it. Before touching code:
 
 ## The thread
 
-Follow `notes/git_hygiene.md`, *A thread, start to finish*, to the letter -- except its
+Follow `notes/git_hygiene-laptop.md`, *A thread, start to finish*, to the letter -- except its
 *Starting*, which the orchestrator did. In brief:
 
 1. **Build**, committing at milestones: related changes together, the app working again,
@@ -59,13 +59,13 @@ Follow `notes/git_hygiene.md`, *A thread, start to finish*, to the letter -- exc
 2. **Ready.** With everything committed and `pnpm justify` green (typecheck, lint and the unit
    tests, side by side), write your thread file (*Syndication*), commit it, and report `ready`.
    Do not prove or land yet: the review comes first, and its fixes ride along.
-3. **Prove and bid**, when the orchestrator resumes you to land (git_hygiene's *Finishing*, B to
+3. **Prove and bid**, when the orchestrator resumes you to land (git_hygiene-laptop's *Finishing*, B to
    D). First set your thread file's PR line to say the PR is filed at landing, and commit it: a
    landing leaves your worktree detached, so nothing can be committed in it afterwards, and the
    number goes in your report. Then, without pause, so that little can land under you:
    - **Prove**: `pnpm catchup`, `pnpm justify`, then `pnpm e2e --touched`, or the full suite
      (`pnpm e2e`) when the orchestrator's "Land it" asks for one, or when you see a risk the
-     corner map cannot (git_hygiene, *Running only the corner*). Repair each failure on its own
+     corner map cannot (git_hygiene-laptop, *Running only the corner*). Repair each failure on its own
      (`pnpm e2e:rerun`, or `pnpm e2e <spec file>`), committing before each run, until
      `pnpm e2e` says "Proved". A spec that fails among the others and passes alone, unchanged,
      is a flake: never "fix" a spec your thread does not touch to get it through, and never

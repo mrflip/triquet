@@ -113,7 +113,7 @@ reach the skill only through the objects and refs that every checkout shares. He
    the worktree is dropped, with a line in your report.
 3. **Prove it.** `pnpm justify` (typecheck, lint and the unit tests, side by side), on the
    worktree's own lane. Not the whole e2e suite: the worker proves the branch by e2e after your
-   review, your fixes included (git_hygiene, *Finishing*). Where a fix touches what a spec
+   review, your fixes included (git_hygiene-laptop, *Finishing*). Where a fix touches what a spec
    covers, run that spec alone (`pnpm e2e <spec file>`). A spec your fixes do not touch that
    times out (Convex "Function execution timed out") is the machine's load: rerun it alone
    before calling anything red. Stop only processes you started, by PID. A fix that turns a

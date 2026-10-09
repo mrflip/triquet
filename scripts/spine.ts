@@ -1,7 +1,7 @@
 /**
  * The spine: the one stack of landed branches, checked out in the main checkout at its top. Agents
  * cut their worktrees from the top, prove their branches there, and bid to land them on it; the
- * Coach watches it and merges it (`notes/git_hygiene.md`, *The spine* and *Finishing*).
+ * Coach watches it and merges it (`notes/git_hygiene-laptop.md`, *The spine* and *Finishing*).
  *
  *   node scripts/spine.ts worktree <label> [--no-install]   a worktree for a new thread, cut from the top, its e2e build cache seeded
  *   node scripts/spine.ts worktree --remove                 this worktree, removed and its lane freed: it must be clean
@@ -246,7 +246,7 @@ export function gitOk(cwd: string, ...args: string[]): boolean {
   return spawnSync('git', args, { cwd, encoding: 'utf8' }).status === 0
 }
 
-/** git push, borrowing gh's login for the one push (`notes/git_hygiene.md`, *Filing the PR*) */
+/** git push, borrowing gh's login for the one push (`notes/git_hygiene-laptop.md`, *Filing the PR*) */
 export const PushArgs = ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '--quiet']
 
 /**

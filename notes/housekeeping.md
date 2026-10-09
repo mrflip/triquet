@@ -1,7 +1,7 @@
 # Housekeeping
 
 Occasional chores, for when the clutter starts to annoy. None of this is part of a thread's
-routine: that is `notes/git_hygiene.md`.
+routine: that is `notes/git_hygiene-laptop.md`.
 
 ## Retiring stray branches
 

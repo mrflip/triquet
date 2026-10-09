@@ -284,7 +284,7 @@ Settled; reach for these before writing the equivalent.
   invisible to unit tests (the grid, autosave and reload survival, routing, the history store).
   Its web-first assertions are the e2e style; see `notes/testing.md`.
 * **proper-lockfile** for the e2e lock, which lets one full or touched `pnpm e2e` run at a time in
-  a container (`scripts/spine.ts`, `underE2eLock`; `notes/git_hygiene.md`, *One full run at a
+  a container (`scripts/spine.ts`, `underE2eLock`; `notes/git_hygiene-laptop.md`, *One full run at a
   time*). It takes the lock with the process's lifetime: it keeps a lock fresh while its holder
   lives, frees it on exit, and lets a waiter take over one gone stale, so there is no file to
   remember to remove. Widely used, small (three dependencies), and settled at 4.1.2 since 2022.
