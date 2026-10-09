@@ -13,11 +13,11 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
 | 3b | column expression authoring | landed #197 |
-| 7 | `liquidize` formulary | rework (review flagged; Coach ruled: stop + column budget, per-formulary allowlist) |
+| 7 | `liquidize` formulary | second review (rework built) |
 | 6 | free regex (optional) | landed #198 |
 | 5a | folding editors | landing (review fixed) |
 | 5b | run order in both places, row preview | pending |
-| 8 | seeds pass (optional) | underway |
+| 8 | seeds pass (optional) | landing (review clean; full e2e, the eighth) |
 | 3c | columns tighten (last) | pending |
 
 Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). Next asked-for full run: the eighth landing.
