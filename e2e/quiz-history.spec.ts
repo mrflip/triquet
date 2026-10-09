@@ -293,6 +293,7 @@ test('a deleted quiz\'s files are removed in a commit, and its history keeps the
   await expect.poll(() => quizLabelOf(page)).not.toBe(label)
   await expect(page.getByLabel('Quiz name')).toBeVisible()
   await expect(await switcherQuizzes(page)).toHaveCount(1)
+  await page.keyboard.press('Escape')
 
   await expect.poll(() => gitSays(page, 'log', '--format=%s', '--', filepath)).toMatch(new RegExp(String.raw`^-${label}\n`))
   const git = await downloadedHistory(page)
