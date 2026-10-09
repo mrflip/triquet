@@ -53,7 +53,7 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   onEnterQuiz: (widgeting_label: string, value: EntryValueT | null) => void
 }
 
-/** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, the quiz's own entries, ways to get the work back out, the widgets the quiz puts to work in run order (where each is put to work and edited), and the recap note */
+/** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, the recap note, ways to get the work back out, the widgets the quiz puts to work in run order (where each is put to work and edited), and the quiz's own entries */
 export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, dispatch, folds, onImport, onImportElsewhere, onQ1Preamble, onRecapHead, onRecapTail, onRecapTemplate, onEnterQuiz }: Readonly<PanelsProps>) {
   const labels = { org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
@@ -64,7 +64,7 @@ export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, ru
 
       <MembersPanel members={hunt.members} claims={claims} labels={labels} carryOut={carryOut} saveNotice={saveNotice} />
 
-      <QuizEntriesPanel run={run} locked={! offers.reviseQuestions} onEnter={onEnterQuiz} />
+      <RecapPanel quiz={quiz} run={run} revisable={offers.reviseQuiz} onRecapHead={onRecapHead} onRecapTail={onRecapTail} onRecapTemplate={onRecapTemplate} />
 
       <ExportImportPanel quiz={quiz} hunt={hunt} library={library} offers={offers} run={run} changeLibrary={changeLibrary} onImport={onImport} onImportElsewhere={onImportElsewhere} onQ1Preamble={onQ1Preamble} />
 
@@ -73,7 +73,7 @@ export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, ru
         dispatch={dispatch} changeLibrary={changeLibrary} folds={folds}
       />
 
-      <RecapPanel quiz={quiz} run={run} revisable={offers.reviseQuiz} onRecapHead={onRecapHead} onRecapTail={onRecapTail} onRecapTemplate={onRecapTemplate} />
+      <QuizEntriesPanel run={run} locked={! offers.reviseQuestions} onEnter={onEnterQuiz} />
     </PanelsRow>
   )
 }
