@@ -62,7 +62,7 @@ export function WidgetsPanel({ run, ...props }: Readonly<WidgetsPanelProps>) {
   return (
     <Panel
       title="Widgets"
-      blurb="What this quiz puts to work, in run order: each reads what those above it came to. Drag a handle to move one; its triangle opens the whole of it. A prompt is shown exactly as it is filled in and sent when you ask -- your own model usage, read as evidence about your own questions."
+      about="What this quiz puts to work, in run order: each reads what those above it came to. Drag a handle to move one; its triangle opens the whole of it. A prompt is shown exactly as it is filled in and sent when you ask -- your own model usage, read as evidence about your own questions."
       wide
     >
       <Stack spacing={1}>

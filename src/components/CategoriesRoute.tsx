@@ -73,7 +73,7 @@ function CategoriesScreen({ hunt, onArrange, unsaved }: Readonly<CategoriesScree
     : 'How the smiths have arranged the subject categories round the wheel: neighbours are kin, and opposites far apart.'
   return (
     <main className={styles.page} data-unsaved={unsaved ? 'true' : 'false'}>
-      <Panel title={`Categories of ${hunt.title}`} blurb={blurb}>
+      <Panel title={`Categories of ${hunt.title}`} about={blurb}>
         <CategoryWheel wheel={hunt.wheel} title="Category wheel" onArrange={onArrange} outside={personaAdornmentsOf(Wheel.orderOf(hunt.wheel))} />
         <p className={styles.microcopy}>
           Masie, Artie and Poppy sit at the triangle&rsquo;s corners. Each gets most questions in the

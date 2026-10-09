@@ -103,7 +103,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved }: Readon
         </Stack>
         <Box sx={{ mt: 4 }}>
           {phase === 'shared'
-            ? <ReviewsPanel questions={quiz.questions} reviews={others} title="Other reviews" blurb={AppNotices.othersReviewsBlurb} />
+            ? <ReviewsPanel questions={quiz.questions} reviews={others} title="Other reviews" about={AppNotices.othersReviewsBlurb} />
             : <p className={styles.microcopy}>{AppNotices.othersReviewsHidden}</p>}
         </Box>
       </Box>

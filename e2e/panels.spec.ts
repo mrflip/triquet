@@ -228,7 +228,9 @@ test("the Category spread panel says how to begin when the quiz has no category 
 test('a panel under the quiz starts folded to its title bar, opens, and folds again, and one beside others widens to the whole row', async ({ page }) => {
   const panel = page.getByRole('region', { name: 'Members' })
   const fold = panel.getByRole('button', { name: 'Show this panel' })
-  const blurb = panel.getByText('Who is on this hunt.')
+  const blurb = panel.getByRole('table', { name: 'Members of this hunt' })
+  // What the panel is stays a hover away on its title bar, folded or not.
+  await expect(panel.getByRole('button', { name: 'About Members' })).toBeVisible()
   await expect(fold).toHaveAttribute('aria-expanded', 'false')
   await expect(blurb).toBeHidden()
   await fold.click()

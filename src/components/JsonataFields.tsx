@@ -1,6 +1,7 @@
 'use client'
 
-import { Stack, TextField } from '@mui/material'
+import { Box, Stack, TextField } from '@mui/material'
+import { Explained } from './InfoTip'
 import { CopyButton } from './CopyButton'
 import { JsonFold } from './JsonFold'
 import { PreviewPicker } from './PreviewPicker'
@@ -56,25 +57,32 @@ export function JsonataFields({ hunt, library, openQuiz, draft, onChange, labelE
     <Stack spacing={1.5}>
       {labelEditable
         ? (
-          <TextField
-            size="small" label="Widget label" value={draft.label} sx={{ maxWidth: 320 }}
-            error={labelIssue !== null} helperText={labelIssue ?? 'What the widget is called in the library, for choosing it again. It cannot be changed afterward.'}
-            onChange={(event) => { onChange({ label: event.target.value }) }}
-          />
+          <Box sx={{ maxWidth: 320 }}>
+            <Explained topic="the widget label" about="What the widget is called in the library, for choosing it again. It cannot be changed afterward.">
+              <TextField
+                size="small" label="Widget label" value={draft.label}
+                error={labelIssue !== null} helperText={labelIssue}
+                onChange={(event) => { onChange({ label: event.target.value }) }}
+              />
+            </Explained>
+          </Box>
         )
         : <div><strong>{draft.label}</strong> <span className={styles.microcopy}>widget</span></div>}
-      <TextField
-        size="small" label="Widget description" value={draft.description}
-        helperText="What it works out, for whoever is choosing between widgets."
-        onChange={(event) => { onChange({ description: event.target.value }) }}
-      />
-      <TextField
-        size="small" multiline minRows={4} maxRows={16} label="Formula" value={draft.formula}
-        error={syntaxIssue !== null || (lengthIssue !== null && draft.formula !== '')}
-        helperText={syntaxIssue ?? (draft.formula === '' ? 'A JSONata formula, evaluated once per question.' : lengthIssue ?? undefined)}
-        slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
-        onChange={(event) => { onChange({ formula: event.target.value }) }}
-      />
+      <Explained topic="the widget description" about="What it works out, for whoever is choosing between widgets.">
+        <TextField
+          size="small" label="Widget description" value={draft.description}
+          onChange={(event) => { onChange({ description: event.target.value }) }}
+        />
+      </Explained>
+      <Explained topic="the formula" about="A JSONata formula, evaluated once per question.">
+        <TextField
+          size="small" multiline minRows={4} maxRows={16} label="Formula" value={draft.formula}
+          error={syntaxIssue !== null || (lengthIssue !== null && draft.formula !== '')}
+          helperText={syntaxIssue ?? (draft.formula === '' ? null : lengthIssue)}
+          slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
+          onChange={(event) => { onChange({ formula: event.target.value }) }}
+        />
+      </Explained>
       <PreviewPicker preview={preview} />
       <PreviewResult preview={outcome} />
       {bag && (

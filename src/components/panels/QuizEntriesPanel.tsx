@@ -35,7 +35,7 @@ export function QuizEntriesPanel({ run, locked, onEnter }: Readonly<QuizEntriesP
   return (
     <Panel
       title="Quiz entries"
-      blurb="What this quiz's own widgetings came to: entries typed here, formulas worked out over every question. Formulas and templates read each as quiz.<label>."
+      about="What this quiz's own widgetings came to: entries typed here, formulas worked out over every question. Formulas and templates read each as quiz.<label>."
     >
       {steps.length === 0 && <p className={styles.microcopy}>Nothing runs once for the whole quiz yet: add a quiz widgeting from the gear.</p>}
       <Stack spacing={1.5} sx={{ mt: 1 }}>

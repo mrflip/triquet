@@ -32,7 +32,7 @@ export type MembersPanelProps = Pick<HuntHandle, 'carryOut' | 'saveNotice'> & {
  */
 export function MembersPanel({ members, claims, labels, carryOut, saveNotice }: Readonly<MembersPanelProps>) {
   return (
-    <Panel title="Members" blurb="Who is on this hunt. Smiths work on its quizzes and say who else is on it; reviewers playtest them. Put someone on by the ident label they chose; putting them on again changes their role.">
+    <Panel title="Members" about="Who is on this hunt. Smiths work on its quizzes and say who else is on it; reviewers playtest them. Put someone on by the ident label they chose; putting them on again changes their role.">
       <TableContainer>
         <Table size="small" aria-label="Members of this hunt" sx={{ '& th, & td': { px: 1 } }}>
           <TableHead>

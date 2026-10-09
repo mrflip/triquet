@@ -1,6 +1,7 @@
 'use client'
 
 import { Box, Stack, TextField } from '@mui/material'
+import { Explained } from './InfoTip'
 import { CopyButton } from './CopyButton'
 import { JsonFold } from './JsonFold'
 import { PreviewPicker } from './PreviewPicker'
@@ -58,32 +59,41 @@ export function LiquidizeFields({ hunt, library, openQuiz, draft, onChange, labe
     <Stack spacing={1.5}>
       {labelEditable
         ? (
-          <TextField
-            size="small" label="Widget label" value={draft.label} sx={{ maxWidth: 320 }}
-            error={labelIssue !== null} helperText={labelIssue ?? 'What the widget is called in the library, for choosing it again. It cannot be changed afterward.'}
-            onChange={(event) => { onChange({ label: event.target.value }) }}
-          />
+          <Box sx={{ maxWidth: 320 }}>
+            <Explained topic="the widget label" about="What the widget is called in the library, for choosing it again. It cannot be changed afterward.">
+              <TextField
+                size="small" label="Widget label" value={draft.label}
+                error={labelIssue !== null} helperText={labelIssue}
+                onChange={(event) => { onChange({ label: event.target.value }) }}
+              />
+            </Explained>
+          </Box>
         )
         : <div><strong>{draft.label}</strong> <span className={styles.microcopy}>widget</span></div>}
-      <TextField
-        size="small" label="Widget description" value={draft.description}
-        helperText="What it writes, for whoever is choosing between widgets."
-        onChange={(event) => { onChange({ description: event.target.value }) }}
-      />
-      <TextField
-        size="small" multiline minRows={4} maxRows={16} label="Template" value={draft.formula}
-        error={templateIssue !== null || templateLong !== null}
-        helperText={templateIssue ?? templateLong ?? 'Liquid, filled in once per question and shown as markdown: {{ question.title }}, {% if question.hint %}…{% endif %}. A widgeting may give one of its own.'}
-        slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
-        onChange={(event) => { onChange({ formula: event.target.value }) }}
-      />
-      <TextField
-        size="small" multiline maxRows={6} label="Input formula" value={draft.input_formula}
-        error={inputIssue !== null}
-        helperText={inputIssue ?? 'A JSONata expression coming to the object the template is filled in from: `$`, the whole bag, reads as a formula would. Nothing means no text for that question.'}
-        slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
-        onChange={(event) => { onChange({ input_formula: event.target.value }) }}
-      />
+      <Explained topic="the widget description" about="What it writes, for whoever is choosing between widgets.">
+        <TextField
+          size="small" label="Widget description" value={draft.description}
+          onChange={(event) => { onChange({ description: event.target.value }) }}
+        />
+      </Explained>
+      <Explained topic="the template" about={"Liquid, filled in once per question and shown as markdown: {{ question.title }}, {% if question.hint %}…{% endif %}. A widgeting may give one of its own."}>
+        <TextField
+          size="small" multiline minRows={4} maxRows={16} label="Template" value={draft.formula}
+          error={templateIssue !== null || templateLong !== null}
+          helperText={templateIssue ?? templateLong}
+          slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
+          onChange={(event) => { onChange({ formula: event.target.value }) }}
+        />
+      </Explained>
+      <Explained topic="the input formula" about="A JSONata expression coming to the object the template is filled in from: `$`, the whole bag, reads as a formula would. Nothing means no text for that question.">
+        <TextField
+          size="small" multiline maxRows={6} label="Input formula" value={draft.input_formula}
+          error={inputIssue !== null}
+          helperText={inputIssue}
+          slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
+          onChange={(event) => { onChange({ input_formula: event.target.value }) }}
+        />
+      </Explained>
       <PreviewPicker preview={preview} />
       {outcome && <FilledPreview preview={outcome} />}
       {bag && draft.input_formula.trim() === '$' && (

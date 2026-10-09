@@ -1,6 +1,7 @@
 'use client'
 
-import { MenuItem, Stack, TextField } from '@mui/material'
+import { Box, MenuItem, Stack, TextField } from '@mui/material'
+import { Explained } from './InfoTip'
 import { EntryParamsFields } from './EntryParamsFields'
 import { EntryKindWords } from './widget-words'
 import { EntryFormulary } from '../lib/formulary/entry'
@@ -30,25 +31,33 @@ export function EntryFields({ draft, onChange, labelEditable, labelIssue }: Read
     <Stack spacing={1.5}>
       {labelEditable
         ? (
-          <TextField
-            size="small" label="Widget label" value={draft.label} sx={{ maxWidth: 320 }}
-            error={labelIssue !== null} helperText={labelIssue ?? 'What the widget is called in the library, for choosing it again. It cannot be changed afterward.'}
-            onChange={(event) => { onChange({ label: event.target.value }) }}
-          />
+          <Box sx={{ maxWidth: 320 }}>
+            <Explained topic="the widget label" about="What the widget is called in the library, for choosing it again. It cannot be changed afterward.">
+              <TextField
+                size="small" label="Widget label" value={draft.label}
+                error={labelIssue !== null} helperText={labelIssue}
+                onChange={(event) => { onChange({ label: event.target.value }) }}
+              />
+            </Explained>
+          </Box>
         )
         : <div><strong>{draft.label}</strong> <span className={styles.microcopy}>widget</span></div>}
-      <TextField
-        size="small" label="Widget description" value={draft.description}
-        helperText="What is typed into it, for whoever is choosing between widgets."
-        onChange={(event) => { onChange({ description: event.target.value }) }}
-      />
-      <TextField
-        select size="small" label="Entry kind" value={entry_kind} disabled={! labelEditable} sx={{ maxWidth: 520 }}
-        helperText={labelEditable ? 'What its cells take. It cannot be changed afterward: the values typed hang on it.' : 'What its cells take, fixed once the widget was made.'}
-        onChange={(event) => { onChange({ config: { entry_kind: event.target.value as EntryKind } }) }}
-      >
-        {offered.map((kind) => <MenuItem key={kind} value={kind}>{EntryKindWords[kind]}</MenuItem>)}
-      </TextField>
+      <Explained topic="the widget description" about="What is typed into it, for whoever is choosing between widgets.">
+        <TextField
+          size="small" label="Widget description" value={draft.description}
+          onChange={(event) => { onChange({ description: event.target.value }) }}
+        />
+      </Explained>
+      <Box sx={{ maxWidth: 520 }}>
+        <Explained topic="the entry kind" about={labelEditable ? 'What its cells take. It cannot be changed afterward: the values typed hang on it.' : 'What its cells take, fixed once the widget was made.'}>
+          <TextField
+            select size="small" label="Entry kind" value={entry_kind} disabled={! labelEditable}
+            onChange={(event) => { onChange({ config: { entry_kind: event.target.value as EntryKind } }) }}
+          >
+            {offered.map((kind) => <MenuItem key={kind} value={kind}>{EntryKindWords[kind]}</MenuItem>)}
+          </TextField>
+        </Explained>
+      </Box>
       <div className={styles.microcopy}>What every widgeting of it starts from; each may say otherwise for its own quiz.</div>
       <EntryParamsFields
         entry_kind={entry_kind} params={defaults} inherited={{}} validator={EntryFormulary.paramsOf({ config: { entry_kind } })} disabled={false}

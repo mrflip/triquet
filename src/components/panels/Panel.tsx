@@ -6,6 +6,7 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import clsx from 'clsx'
 import { FoldButton } from '../FoldButton'
+import { InfoTip } from '../InfoTip'
 import { isShowing, useFold, type FoldT } from '../use-fold'
 import styles from '../workbench.module.css'
 
@@ -14,7 +15,10 @@ const InPanelsRow = createContext(false)
 
 export type PanelProps = {
   title:     string
-  blurb:     string
+  /** What the panel says up front, shown as it opens: a page's message (no such quiz, not on the hunt) */
+  blurb?:    string
+  /** What the panel is and does, behind the (i) beside its heading (`InfoTip`) */
+  about?:    ReactNode
   /** Spans the whole row of panels at rest, for content too broad for one column of them */
   wide?:     boolean
   /** Takes two columns of the row, where the row has room for two */
@@ -27,7 +31,8 @@ export type PanelProps = {
 }
 
 /**
- * One titled section with its explanatory microcopy; `wide` spans the whole row of panels, for
+ * One titled section, explained behind the (i) beside its heading (`about`), or saying its message
+ * up front (`blurb`) where what it says is news rather than explanation; `wide` spans the whole row of panels, for
  * content too broad for one column of them, and `double` two columns of it, where the row has
  * room for two.
  *
@@ -45,7 +50,7 @@ export type PanelProps = {
  * anonymous box they have to arrow through the grid to reach. Its ids are React's (`useId`),
  * drawn from its place in the tree, so two panels of one title never share one.
  */
-export function Panel({ title, blurb, wide = false, double = false, fold: foldHeld, onFoldChange, children }: Readonly<PanelProps>) {
+export function Panel({ title, blurb, about, wide = false, double = false, fold: foldHeld, onFoldChange, children }: Readonly<PanelProps>) {
   const inRow = useContext(InPanelsRow)
   const bigOffered = inRow && ! wide
   const held = foldHeld === undefined || onFoldChange === undefined ? undefined : { fold: foldHeld, setFold: onFoldChange }
@@ -61,7 +66,9 @@ export function Panel({ title, blurb, wide = false, double = false, fold: foldHe
       <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
         <FoldButton open={isShowing(fold)} onOpenChange={toggle} label="Show this panel" controls={bodyId} />
         {/* A double-click turns the fold on; the buttons beside it are the keyboard's way to the same */}
-        <Box component="h2" className={styles.panelHeading} id={headingId} onDoubleClick={cycle} sx={{ flex: '1 1 auto', userSelect: 'none' }}>{title}</Box>
+        <Box component="h2" className={styles.panelHeading} id={headingId} onDoubleClick={cycle} sx={{ flex: '0 1 auto', userSelect: 'none' }}>{title}</Box>
+        {about === undefined ? null : <InfoTip topic={title}>{about}</InfoTip>}
+        <Box sx={{ flex: '1 1 auto' }} />
         {bigOffered && (
           <IconButton size="small" aria-label="Widen this panel to the whole row" aria-pressed={big} onClick={embiggen} sx={{ p: 0.25, color: 'text.secondary' }}>
             <WidenFace fontSize="small" />
@@ -69,7 +76,7 @@ export function Panel({ title, blurb, wide = false, double = false, fold: foldHe
         )}
       </Stack>
       <Collapse in={isShowing(fold)} id={bodyId}>
-        <p className={styles.microcopy}>{blurb}</p>
+        {blurb === undefined ? null : <p className={styles.microcopy}>{blurb}</p>}
         {children}
       </Collapse>
     </section>
