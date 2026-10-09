@@ -20,6 +20,10 @@ describe('Liquidry.sizeWithin', () => {
     expect(Liquidry.sizeWithin({ one: long, other: long }, 10_000)).to.eq(2003)
     expect(Liquidry.sizeWithin(Array.from({ length: 1000 }, () => long), 10_000)).to.eq(10_001)
   })
+
+  it("counts a list of more items than a function may be handed as arguments", () => {
+    expect(Liquidry.sizeWithin(Array.from({ length: 600_000 }, () => 0), 500_000)).to.eq(500_001)
+  })
 })
 
 describe('Liquidry.rendererFor', () => {

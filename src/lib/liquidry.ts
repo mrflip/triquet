@@ -235,10 +235,13 @@ export function sizeWithin(val: unknown, max: number): number {
       size += held.length
     } else if (Array.isArray(held)) {
       size += 1
-      pending.push(...(held as unknown[]).slice(0, max - size + 1))
+      const items = (held as unknown[]).slice(0, max - size + 1)
+      // Pushed one by one: a spread of this many is past what a browser takes as arguments.
+      for (const item of items) { pending.push(item) }
     } else if (typeof held === 'object' && held !== null) {
       size += 1
-      pending.push(...Object.values(held as Record<string, unknown>).slice(0, max - size + 1))
+      const vals = Object.values(held as Record<string, unknown>).slice(0, max - size + 1)
+      for (const item of vals) { pending.push(item) }
     } else {
       size += 1
     }
