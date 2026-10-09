@@ -13,16 +13,17 @@ apply here.
   lane 0, on the project's usual ports.
 * **The container is thrown away** when the session idles out or ends. Uncommitted work and
   unpushed commits go with it. Push at every milestone (`notes/git_hygiene-cloud.md`).
-* **Four cores, not sixteen.** Long suites take longer; the e2e suite runs two workers here.
+* **Four cores, not sixteen.** Long suites take longer, and the e2e suite runs fewer workers (as
+  many as the idle cores bear: `workersFor` in `e2e/environment.ts`).
 
 ## What the session hook did
 
 1. Pointed `/workspace/triquet` at the clone.
 2. Installed the packages from the lockfile.
 3. Installed the Doppler CLI, if the environment holds a `DOPPLER_TOKEN_*` for it.
-4. Set, for the session: `TQ_IS_SANDBOXED=true`; `TQ_E2E_WORKERS=2`; and `TQ_CHROMIUM_PATH`, the
-   container's own Chromium, when Playwright's pinned build is missing (you may not run
-   `playwright install` here).
+4. Set, for the session: `TQ_IS_SANDBOXED=true`, and `TQ_CHROMIUM_PATH`, the container's own
+   Chromium, when Playwright's pinned build is missing (you may not run `playwright install`
+   here).
 
 If a command below fails for want of one of those, run the hook yourself:
 `CLAUDE_CODE_REMOTE=true .claude/hooks/session-start.sh`.

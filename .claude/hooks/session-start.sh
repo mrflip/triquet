@@ -9,9 +9,8 @@
 #   2. Packages installed from the lockfile (the container is cached after this hook, so a later
 #      session's install has little to do).
 #   3. The Doppler CLI, but only when the environment holds a DOPPLER_TOKEN_* for it to use.
-#   4. For the rest of the session (CLAUDE_ENV_FILE): TQ_IS_SANDBOXED, the container's own
-#      Chromium when Playwright's pinned build is missing (TQ_CHROMIUM_PATH), and an e2e worker
-#      count for four cores (TQ_E2E_WORKERS).
+#   4. For the rest of the session (CLAUDE_ENV_FILE): TQ_IS_SANDBOXED, and the container's own
+#      Chromium when Playwright's pinned build is missing (TQ_CHROMIUM_PATH).
 #
 # Everything but the notes writes to stderr. Safe to run again.
 set -euo pipefail
@@ -37,7 +36,6 @@ fi
 if [[ -n "${CLAUDE_ENV_FILE:-}" ]]; then
   {
     echo 'export TQ_IS_SANDBOXED=true'
-    echo "export TQ_E2E_WORKERS=${TQ_E2E_WORKERS:-2}"
     # Where Playwright would keep the Chromium it pins, from its own dry run
     pinned="$(pnpm exec playwright install --dry-run chromium 2> /dev/null | sed -n 's/^ *Install location: *//p' | head -1)"
     if [[ ! -d "$pinned" && -x /opt/pw-browsers/chromium ]]; then

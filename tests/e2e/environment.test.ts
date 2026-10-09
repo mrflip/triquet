@@ -105,3 +105,16 @@ describe('Environment.listing', () => {
     })
   }
 })
+
+describe('Environment.workersFor', () => {
+  it('runs a little under half the idle cores', () => {
+    expect(Environment.workersFor(16, 0)).to.eq(7)
+    expect(Environment.workersFor(4, 0)).to.eq(2)
+  })
+
+  it('runs fewer as the load rises, and never fewer than one', () => {
+    expect(Environment.workersFor(16, 8)).to.eq(4)
+    expect(Environment.workersFor(4, 3)).to.eq(1)
+    expect(Environment.workersFor(4, 12)).to.eq(1)
+  })
+})

@@ -55,6 +55,25 @@ export function serverOf(env: Env): string {
 type Env = Readonly<Record<string, string | undefined>>
 
 /**
+ * How many workers the suite runs locally: a little under half the cores that sit idle, and never
+ * fewer than one. Specs share one web server and one Convex backend, and too many workers for the
+ * machine time them out; whatever else is running (another checkout's server, a build) counts
+ * against the idle cores through the load average.
+ *
+ * @param cores - The cores this process may use, ordinarily `os.availableParallelism()`.
+ * @param load - The one-minute load average, ordinarily `os.loadavg()[0]`.
+ * @returns The worker count.
+ *
+ * @example workersFor(16, 0)  // => 7, a quiet laptop
+ * @example workersFor(4, 0)   // => 2, a cloud session's container
+ * @example workersFor(16, 8)  // => 4
+ * @example workersFor(4, 6)   // => 1
+ */
+export function workersFor(cores: number, load: number): number {
+  return Math.max(1, Math.round((cores - load) * 0.45))
+}
+
+/**
  * Everything wrong with `env` as a place to run the e2e suite, one sentence each.
  *
  * Outside CI and a cloud session's container (`CLAUDE_CODE_REMOTE`), each a machine of its own
