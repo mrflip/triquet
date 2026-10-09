@@ -25,7 +25,7 @@ concerns.
 | hunt page | `/~org/hunt`, `HuntRoute` (`screen="hunt"`) |
 | quizzes page | `/~org/hunt/quizzes`, `HuntRoute` (`screen="quizzes"`) |
 | wheel | `/~org/hunt/categories`, `CategoriesRoute` |
-| top bar | `SiteHeader`, on every page: the crumbs (logo, ~org, hunt, realm, the quiz's switcher), on the workbench *New quiz* and *Lock quiz* |
+| top bar | `SiteHeader`, on every page: the crumbs (logo, ~org, hunt, realm, the quiz's switcher), on the workbench *New quiz* and *Lock quiz*, and the account menu (`AccountMenu`) |
 | workbench | `/…/quiz/!edit`, `Workbench`: header, toolbar, grid, panels, beneath the top bar |
 | playtest | `/…/quiz/!playtest`, `ReviewScreen` |
 | gear | `QuizManageModal`, from the header's gear |
@@ -46,7 +46,7 @@ such verb, by decision or by omission (the Notes column says which).
 
 | Noun | Read, list | Create | Edit | Relabel | Reorder | Delete, archive | Bulk in, out | Home today | Policy | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| ident | header byline | gate (`assume_ident`) | hunts: name, in place (`retitle_ident`) | none | | none | | hunts | own | `/~org` is the ident's address and holds no editor. *Be someone else* at hunts. |
+| ident | top bar's account menu; hunts | gate (`assume_ident`) | name, in place: hunts, and the account menu (`retitle_ident`, one component, `IdentTitle`) | none | | none | | hunts | own | `/~org` is the ident's address and holds no editor. *Be someone else* at hunts and in the account menu. |
 | hunt | hunts; hunt page; breadcrumb | hunts *+ New hunt* | title: hunt gear (explicit Save) **and** gear › Hunt (explicit Rename) | hunt gear **and** gear › Hunt | | gear › Danger, only as its last quiz goes (`delete_hunt`) | Raw Export (whole hunt, from a quiz); Full History | hunt page | `mayChangeHunt` | Its own page edits nothing of it but the branch. Two editors of one field, by different mechanisms. |
 | branch | hunt page › Branch | | hunt page, explicit Switch (`rebranch_hunt`) | | | | | hunt page | `mayChangeHunt` | Not shown in the gear's History. |
 | categories (wheel) | wheel; panels › Spread (as a chart) | | wheel, drag and double-click (`arrange_categories`) | | | | in the hunt's balls | wheel | `mayChangeHunt` | Linked from hunts, hunt page, gear › Hunt. Not from the Spread panel, which draws it. |

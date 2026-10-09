@@ -639,6 +639,12 @@ export async function newQuiz(page: Page): Promise<void> {
   await expect(page.getByLabel('Quiz name')).not.toHaveValue(title)
 }
 
+/** The header's account menu, opened: who you are, then links to your hunts, to being someone else, and to About */
+export async function openAccount(page: Page): Promise<Locator> {
+  await page.getByRole('banner').getByRole('button', { name: 'Account' }).click()
+  return page.getByRole('dialog', { name: 'Account' })
+}
+
 /**
  * The quizzes the header's switcher lists, each a menu item named by its title, a locked one
  * marked: the switcher opened to list them. Close it with Escape, or pick one.

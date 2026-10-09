@@ -78,7 +78,7 @@ test('the site header stands above the failure, and its way home still works', a
   await page.goto(`/~${org}/${hunt}`)
   await expect(failure(page)).toBeVisible()
   const header = page.getByRole('banner')
-  await expect(header.getByRole('link', { name: 'About' })).toBeVisible()
+  await expect(header.getByRole('button', { name: 'Account' })).toBeVisible()
   await header.getByRole('link', { name: 'Triquet' }).click()
   await expect(page).toHaveURL(/\/my\/hunts$/)
   await expect(failure(page)).toHaveCount(0)
