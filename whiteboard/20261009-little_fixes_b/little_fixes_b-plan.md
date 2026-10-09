@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-09. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip) in chat, as one list of seventeen small asks; the orchestrator grouped
 them into four threads ("I don't want a ton of PRs": unrelated asks may share a PR as separate
-commits). **Status: threads 1 and 3 landed (#212, #214); 2 underway, 4 in review.** `little_fixes_b-progress.md`, beside this file, is newer than this
+commits). **Status: threads 1 and 3 landed (#212, #214); 2 underway, 4 landing (full e2e).** `little_fixes_b-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
 
 ## Read first
