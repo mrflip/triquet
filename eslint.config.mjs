@@ -71,6 +71,9 @@ export default defineConfig([
     // CLAUDE.md: staged past-project files, not code this project runs.
     'aside/**',
     'relics/**',
+    // Whiteboard scripts a person runs by hand (`npx tsx whiteboard/.../prd_checks.mts`): outside
+    // the TypeScript project, so lint's typed rules cannot read them.
+    'whiteboard/**/*.mts',
   ]),
 
   // == [1. Stock Next.js + TypeScript defaults] ==
