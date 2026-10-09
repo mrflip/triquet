@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Link, Stack } from '@mui/material'
 import * as Actor from '../lib/actor'
 import * as Approve from '../lib/approve'
 import { AppNotices } from '../lib/notices'
@@ -15,7 +14,6 @@ import { useIdent } from '../state/use-ident'
 import { useShowHunt } from '../state/shown'
 import { CategoryWheel } from './CategoryWheel'
 import { NoSuchHunt } from './HuntRoute'
-import NextLink from './NextLink'
 import { NotOnHunt } from './NotOnHunt'
 import { Panel } from './panels/Panel'
 import { personaAdornmentsOf } from './PersonaCard'
@@ -68,7 +66,7 @@ type CategoriesScreenProps = {
   unsaved:   boolean
 }
 
-/** The hunt's wheel of categories, with the way back to the hunts */
+/** The hunt's wheel of categories; the way back to the hunts is the header's */
 function CategoriesScreen({ hunt, onArrange, unsaved }: Readonly<CategoriesScreenProps>) {
   const blurb = onArrange
     ? 'Arrange the subject categories round the wheel so that neighbours are kin and opposites are far apart. Every change is kept as you make it.'
@@ -84,9 +82,6 @@ function CategoriesScreen({ hunt, onArrange, unsaved }: Readonly<CategoriesScree
           no hard ones), falling off evenly between. A question of no category in particular they
           take as halfway.
         </p>
-        <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-          <Link component={NextLink} href={Routes.huntsPath()}>Your hunts</Link>
-        </Stack>
       </Panel>
     </main>
   )

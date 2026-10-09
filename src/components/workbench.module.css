@@ -417,7 +417,6 @@ textarea.veiled {
   text-transform: uppercase;
 }
 
-.pillQuiet { background: var(--surface-sunk); color: var(--muted) }
 .pillWarn  { background: var(--accent-soft);  color: var(--accent-ink) }
 .pillBad   { background: var(--bad-soft);     color: var(--bad) }
 .pillGood  { background: var(--good-soft);    color: var(--good) }
