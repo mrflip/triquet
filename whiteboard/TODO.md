@@ -308,8 +308,11 @@ column of fills, JSONata on the moving clock, `Runner.RunMs` (record §11). Left
   sort out over its own run (the server only commits the order), and the browser has no optimistic
   updates, so an edit reaches its run only once the server echoes it. The Coach accepted the race
   (2026-10-09); optimistic updates on the quiz's dispatch remove it, and with it the
-  `waitUntilSaved` workarounds in `e2e/widgets.spec.ts` ("sorting by a computed column…") and
-  `e2e/ordering.spec.ts` (its `fillQuiz`).
+  `waitUntilSaved` workarounds in `e2e/widgets.spec.ts` ("sorting by a computed column…"),
+  `e2e/ordering.spec.ts` (its `fillQuiz`) and `e2e/client-first.spec.ts` (its sort).
+* **A refused sort leaves its arrow wrong** (for the optimistic-updates thread): `Workbench.onSort`
+  sets the sort mark before it dispatches, so a sort the server refuses (`sortStale`) keeps the
+  arrow it set, and the next click on that head flips the direction from there.
 * **A template building text by `append` in a loop** is charged its whole text again each turn,
   so meets `AllocMax` at about a hundred questions of 200 characters; `capture` builds the same
   text uncharged. Say so in the template advice if an author meets it.
