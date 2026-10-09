@@ -65,8 +65,8 @@ type FormularyFacts = {
   readonly config:       Z.ZodType
   /** Whether the widget is well-formed: null when it is, else one sentence for the author */
   check:  (widget: WidgetT) => string | null
-  /** What the widget reads: its input formula worked out over `bag` */
-  input:  (widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag) => InputOutcome
+  /** What the widget reads: its input formula worked out over `bag`, by `deadline` (a `clockNow()` reading) when it is given one */
+  input:  (widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag, deadline?: number) => InputOutcome
 }
 
 /** What a formulary with a formula answers besides: the help it offers in writing one, and the params its widgetings may hand on */
@@ -83,7 +83,7 @@ export type LiveFormulary = FormularyFacts & FormulaFacts & {
   readonly store:   null
   /** How long one widgeting's whole column may take to work out, in milliseconds; null for no bound beyond each cell's own */
   readonly columnMs: number | null
-  /** What it comes to for one question, worked out by `deadline` (a `Templating.clockNow()` reading) when it is given one */
+  /** What it comes to for one question, worked out by `deadline` (a `clockNow()` reading: its column's, or its run's, whichever is sooner) when it is given one */
   run: (widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: WidgetingT | null, bag: QuizBag, deadline?: number) => LiveRun
 }
 

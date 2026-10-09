@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { dragOnto, expect, fillRows, grid, reloadOnceSaved, stepBy, test, valuesOf } from './support'
+import { dragOnto, expect, fillRows, grid, reloadOnceSaved, stepBy, test, valuesOf, waitUntilSaved } from './support'
 
 /** Fill the first `pairs.length` questions with a Q# and a title, clearing the rest */
 async function fillQuiz(page: Page, pairs: [string, string][]): Promise<void> {
@@ -12,6 +12,9 @@ async function fillQuiz(page: Page, pairs: [string, string][]): Promise<void> {
     await titles.nth(idx).fill('')
   }
   await page.getByLabel('Quiz name').click()
+  // Workaround, until optimistic updates: the browser sorts its own run, which reads an edit only
+  // once the server echoes it, so a sort clicked at once would sort the titles as they were.
+  await waitUntilSaved(page)
 }
 
 /** The titles, top to bottom, once the grid is on screen */

@@ -1,5 +1,5 @@
 import type { Locator } from '@playwright/test'
-import { addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, openPanel, preparedExport, reloadOnceSaved, showTab, test } from './support'
+import { addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, openPanel, preparedExport, reloadOnceSaved, showTab, test, unfoldBy, widgetingPanel } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
@@ -88,19 +88,24 @@ test('a refused clipboard falls back to selecting the whole text, never to silen
 
 test('the Widgets panel lists the quiz\'s widgetings in run order, each with its counts, and opens to its prompt verbatim', async ({ page }) => {
   const panel = await openPanel(page, 'Widgets')
-  // A fresh quiz starts lean, and the panel says how to put a widget to work.
+  // A fresh quiz starts lean, and the panel says so.
   await expect(panel).toContainText('This quiz puts no widgets to work yet')
   await addWidgetings(page, ['dumdum', 'numnum_clueing', 'numnum_hint', 'butnot_ishes'])
-  const folds = panel.getByRole('button', { expanded: false })
-  await expect(folds.first()).toContainText('dumdum')
-  await expect(folds.nth(3)).toContainText('butnot_ishes')
+  await openPanel(page, 'Widgets')
+  await expect.poll(() => runOrderShown(panel)).toEqual(['Widgeting dumdum', 'Widgeting numnum_clueing', 'Widgeting numnum_hint', 'Widgeting butnot_ishes'])
   // A fresh quiz's questions are blank: nothing asked, every formula's sum missing.
   await expect(panel.getByRole('group', { name: 'Cells of dumdum' })).toHaveText(/^\d+ blank$/)
-  await panel.getByRole('button', { name: /^dumdum/ }).click()
-  await expect(panel.getByRole('textbox', { name: 'Prompt: dumdum' })).toHaveValue(/\{\{clueing\}\}/)
-  await expect(panel.getByRole('textbox', { name: 'Input formula: dumdum' })).toHaveValue(/qn\.clueing/)
-  await expect(panel.getByRole('button', { name: 'Copy a prompt for a chatbot' })).toBeVisible()
+  const dumdum = widgetingPanel(page, 'dumdum')
+  await unfoldBy(dumdum, 'Widgeting dumdum in full')
+  await expect(dumdum.getByRole('textbox', { name: 'Prompt: dumdum' })).toHaveValue(/\{\{clueing\}\}/)
+  await expect(dumdum.getByRole('textbox', { name: 'Input formula: dumdum' })).toHaveValue(/qn\.clueing/)
+  await expect(dumdum.getByRole('button', { name: 'Copy a prompt for a chatbot' })).toBeVisible()
 })
+
+/** The widgetings of the Widgets panel's run order, as their rows are named, in order */
+async function runOrderShown(panel: Locator): Promise<(string | null)[]> {
+  return await panel.getByRole('list', { name: 'Widgetings' }).getByRole('group', { name: /^Widgeting / }).evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+}
 
 test.describe('with answer_reversed at work', () => {
   test.use({ layout: { widgetings: ['answer_reversed'] } })
@@ -112,39 +117,32 @@ test.describe('with answer_reversed at work', () => {
     await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('stressed')
     await page.getByLabel('Quiz name').click()
     await expect(counts).toHaveText(/^1 current • \d+ blank$/)
-    await panel.getByRole('button', { name: /^answer_reversed/ }).click()
+    await unfoldBy(widgetingPanel(page, 'answer_reversed'), 'Widgeting answer_reversed in full')
     await expect(panel.getByRole('textbox', { name: 'Formula: answer_reversed' })).toHaveValue(/\$reverse/)
   })
 
-  test('a folded widgeting gives up its description, then its widget, then how its cells stand, as the list narrows', async ({ page }) => {
-    const panel = await openPanel(page, 'Widgets')
-    const summary = panel.getByRole('button', { name: /^answer_reversed/ })
-    const description = summary.getByText('The full answer written backward.')
-    const widget = summary.getByText('formula answer_reversed')
-    const counts = panel.getByRole('group', { name: 'Cells of answer_reversed' })
-    await expect(description).toBeVisible()
-    await expect(widget).toBeVisible()
-    await expect(counts).toBeVisible()
-
-    await page.setViewportSize({ width: 860, height: 900 })
-    await expect(description).toBeHidden()
-    await expect(widget).toBeVisible()
-    await page.setViewportSize({ width: 640, height: 900 })
-    await expect(widget).toBeHidden()
+  test('a folded widgeting keeps its label, what it works and its line, and gives up how its cells stand as the list narrows', async ({ page }) => {
+    await openPanel(page, 'Widgets')
+    const row = widgetingPanel(page, 'answer_reversed')
+    const counts = row.getByRole('group', { name: 'Cells of answer_reversed' })
     await expect(counts).toBeVisible()
     await page.setViewportSize({ width: 420, height: 900 })
     await expect(counts).toBeHidden()
-    await expect(summary).toContainText('answer_reversed')
+    await expect(row).toContainText('answer_reversed formula answer_reversed')
+    await expect(row.getByRole('textbox', { name: 'Formula', exact: true })).toHaveValue(/\$reverse/)
   })
 
-  test('a widgeting\'s description is a snippet while folded, and gives way to the whole of it when open', async ({ page }) => {
-    const panel = await openPanel(page, 'Widgets')
-    const summary = panel.getByRole('button', { name: /^answer_reversed/ })
-    const snippet = summary.getByText('The full answer written backward.')
-    await expect(snippet).toHaveCSS('text-overflow', 'ellipsis')
-    await summary.click()
-    await expect(snippet).toBeHidden()
-    await expect(panel).toContainText('The widget: The full answer written backward.')
+  test('a widgeting is edited in the Widgets panel, as it would be beneath its column: its description, and the widget it works', async ({ page }) => {
+    await openPanel(page, 'Widgets')
+    const panel = widgetingPanel(page, 'answer_reversed')
+    await unfoldBy(panel, 'Widgeting answer_reversed in full')
+    await expect(panel).toContainText('The full answer written backward.')
+    await panel.getByRole('textbox', { name: 'Widgeting description' }).fill('For the palindrome round.')
+    await panel.getByRole('textbox', { name: 'Widgeting label' }).focus()
+    await reloadOnceSaved(page)
+    await openPanel(page, 'Widgets')
+    await unfoldBy(widgetingPanel(page, 'answer_reversed'), 'Widgeting answer_reversed in full')
+    await expect(widgetingPanel(page, 'answer_reversed').getByRole('textbox', { name: 'Widgeting description' })).toHaveValue('For the palindrome round.')
   })
 })
 

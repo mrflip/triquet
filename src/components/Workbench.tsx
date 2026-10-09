@@ -26,6 +26,7 @@ import * as Runner from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Rank from '../lib/rank'
 import * as Routes from '../lib/routes'
+import * as Sortings from '../lib/sortings'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import { Question, type QuestionViz } from '../models/question'
 import type { QuizT } from '../models/quiz'
@@ -69,7 +70,8 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
   const [chainDescending, setChainDescending] = useState(true)
   const [managing, setManaging] = useState(false)
-  // Kept here, outside the manage dialog, so its panels stay as they were left across a reopen.
+  // Kept here, outside the manage dialog, so its panels stay as they were left across a reopen;
+  // the Widgets panel's widgetings keep theirs here too, beside them.
   const layoutFolds = useFoldSet(quiz._id)
   const [editingLibrary, setEditingLibrary] = useState(false)
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
@@ -115,7 +117,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   const onSort = (sortkey: SortMark['sortkey']) => {
     const descending = sortMark?.sortkey === sortkey ? ! sortMark.descending : false
     setSortMark({ sortkey, descending })
-    dispatch({ kind: 'sort_questions', sortkey, descending })
+    dispatch({ kind: 'sort_questions', sortkey, descending, question_ids: Sortings.sortedIdsOf(sortkey, quiz, run, descending) })
   }
 
   return (
@@ -165,8 +167,8 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           dispatch={dispatch}
           changeLibrary={librarian.dispatch}
           folds={layoutFolds}
+          run={run}
           onOpen={goTo}
-          onEditLibrary={() => { setEditingLibrary(true) }}
           onRetitleHunt={(title) => { dispatch({ kind: 'retitle_hunt', title }) }}
           onRelabelHunt={(label) => {
             // Followed once it has landed, and not at all when it was refused (the label taken):
@@ -277,6 +279,8 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         carryOut={carryOut}
         saveNotice={saveNotice}
         changeLibrary={librarian.dispatch}
+        dispatch={dispatch}
+        folds={layoutFolds}
         onImport={(actions) => {
           void HuntMirror.markedChange(hunt, quiz, 'import', () => {
             for (const action of actions) { dispatch(action) }

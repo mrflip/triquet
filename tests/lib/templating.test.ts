@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as Templating from '../../src/lib/templating'
 import * as Bbjank from '../../src/lib/bbjank'
 import * as Markdown from '../../src/lib/markdown'
@@ -162,7 +162,7 @@ describe("fill", () => {
 
   it("stops a range of a hundred million numbers, by what it allocates", () => {
     const filled = Templating.fill('{% for nn in (1..100000000) %}{% endfor %}', bag)
-    expect(filled.issue).to.match(/^memory alloc limit exceeded/)
+    expect(filled.issue).to.eq('This template makes too long a list or text at once: a range of more than 100,000, perhaps.')
     expect(filled.failkind).to.eq('limit')
   })
 
@@ -386,6 +386,46 @@ describe("finishedQnsOf", () => {
 
   it("is the run's own questions when nothing is nominated", () => {
     expect(Templating.finishedQnsOf(run, [])).to.eq(run.qnsAfter)
+  })
+})
+
+describe("fillWithin", () => {
+  it("fills in as fill does, spending the fill's time from the column's budget, per the doc examples", () => {
+    const budget = Templating.columnBudget()
+    expect(Templating.fillWithin('By {{ qn.author }}', bag, budget)).to.deep.eq(Templating.fill('By {{ qn.author }}', bag))
+    expect(budget.leftMs).to.be.below(Templating.ColumnMs)
+    expect(Templating.fillWithin('{{ qn.title }}', bag, { leftMs: 0, stopped: null }).failkind).to.eq('limit')
+  })
+
+  it("stops its column at a limit, every later fill saying the same at once, its own text as typed", () => {
+    const budget = Templating.columnBudget()
+    const runaway = Templating.fillWithin('{% for aa in (1..100000000) %}{% endfor %}', bag, budget)
+    expect(runaway.failkind).to.eq('limit')
+    expect(Templating.fillWithin('By {{ qn.author }}', bag, budget)).to.deep.eq({ markdown: 'By {{ qn.author }}', issue: runaway.issue, failkind: 'limit' })
+  })
+
+  it("leaves its column going past a template that does not read, which may differ question by question", () => {
+    const budget = Templating.columnBudget()
+    expect(Templating.fillWithin('{% if x %}', bag, budget).failkind).to.eq('syntax')
+    expect(Templating.fillWithin('By {{ qn.author }}', bag, budget).markdown).to.eq('By Ada')
+  })
+})
+
+describe("finishedQnsOf, each source held to one budget of time", () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it("leaves a source's later questions as typed once its fills run out its time, and every other source filling on", () => {
+    const many = Array.from({ length: 300 }, (_unused, idx) => questionWith({ title: `T${String(idx)}`, qnum: String(idx + 1), clueing: '{% for aa in (1..100) %}{% endfor %}{{ qn.title }}', hint: '{{ qn.qnum }}' }))
+    const quiz = { ...Quiz.blank('Many'), questions: many, templateable: ['clueing', 'hint'] }
+    const manyRun = runOf(quiz, [])
+    // A clock that moves a hundredth of a millisecond each time it is read, so a fill's time is how often it is asked.
+    let tick = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => { tick += 0.01; return tick })
+    const finished = Templating.finishedQnsOf(manyRun, ['clueing', 'hint'])
+    const firstStopped = finished.findIndex((qn) => qn.clueing !== qn.title)
+    expect(firstStopped).to.be.above(0)
+    expect(finished.slice(firstStopped).every((qn) => qn.clueing === many[0]?.clueing)).to.be.true
+    expect(finished.every((qn, idx) => qn.hint === String(idx + 1))).to.be.true
   })
 })
 

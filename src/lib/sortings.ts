@@ -45,6 +45,22 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
 }
 
 /**
+ * The quiz's questions, by id, in the order a sort by `sortkey` puts them (`sortQuestions` over
+ * `sortValueFor`): what the browser, which runs the quiz, hands the server to commit.
+ *
+ * @param sortkey - Which column was clicked.
+ * @param quiz - The quiz's questions, every one, in their committed order, and its columns and widgetings.
+ * @param run - The quiz, run.
+ * @param descending - Whether to reverse the present values; absences stay at the bottom.
+ * @returns Every question's id, sorted.
+ *
+ * @example sortedIdsOf('column:title', quiz, run, false)  // => [ann._id, zed._id]
+ */
+export function sortedIdsOf(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgetings' | 'templateable'>, run: Runner.QuizRun, descending: boolean): string[] {
+  return sortQuestions(quiz.questions, sortValueFor(sortkey, quiz, run), descending).map((question) => question._id)
+}
+
+/**
  * How a given column reads a question, for the quiz it belongs to.
  *
  * A column with nothing to show for a question reads as absent, which sinks that question to

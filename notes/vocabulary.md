@@ -66,15 +66,19 @@ code does not say so yet, the record names the thread that makes it.
   Fixed once made, as its widget is. Not a bot's **model tier**, which is a widget's config. A
   `quiz` widgeting's widgeted sits in every later bag as `quiz.<label>`, so it may not take a name
   the quiz itself answers to there (`Quiz.exposed`); a column shows it only by the ref
-  `quiz.<label>`, and it is shown and typed into in the **Quiz entries** panel. The gear lists both
-  tiers in one **Widgetings** list, each row marked *each question* or *whole quiz*.
+  `quiz.<label>`, and it is shown and typed into in the **Quiz entries** panel. The run order lists
+  both tiers in one list, each row marked *each question* or *whole quiz*.
 * **run order** -- a quiz's widgetings in the order they run: every entry first, as it reads
   nothing, and then the rest by position, the two tiers mixed as the author placed them. Each
   widgeting's bag holds the widgeteds of the widgetings before it, so the order is the dependency
   order: a `quiz` widgeting runs once over the questions as the
   widgetings before it left them, and a `question` widgeting reads every `quiz` one before it as
   `quiz.<label>`. A new widgeting goes last, whichever its tier; `move_widgeting` counts the one
-  list. (Until October 2026 a fixed *questions pivot* kept the tiers apart.)
+  list. (Until October 2026 a fixed *questions pivot* kept the tiers apart.) It has two homes, each
+  the entries at its head, never dragged, and the rest below, dragged by their handles
+  (`RunOrderList`): the **Widgets** panel below the grid, each row a widgeting panel, where a
+  widgeting is put to work (*+ New widgeting…*, *+ New quiz widgeting…*) and one no column shows
+  is edited; and the manage dialog's *Run order*, the drag list alone.
 * **ok**, **errored**, **missing** -- the three states of a widgeted, and the only ones. `ok` has a
   value; `errored` has only a failure; `missing` has neither, and is never stored: it is a cell with
   no row, or an input or formula that came to nothing (shown as a muted dash; never zero). An
@@ -102,7 +106,9 @@ code does not say so yet, the record names the thread that makes it.
   **folded line** (the few fields its formulary folds to: an entry's params, a formula's formula
   read-only, nothing for a prompt), unfolding to the **widgeting panel**: the same line with more
   rows (its label, its description, the widget behind its door, the columns showing it, its
-  removal). The run order's rows are the same panel. It replaced the column and widgeting dialogs
+  removal). The rows of the Widgets panel's run order are the same panel. Above the columns, the
+  **row preview**: one question's row of the grid, picked from a select, drawn read-only from the
+  columns as they are kept. It replaced the column and widgeting dialogs
   (the **widgeting editor**, retired by the columnwise sprint). A label, which other things name,
   waits on its own *Relabel* and says so while it waits.
 * **widget editor** -- the library's dialog for one widget: its formulary (chosen once, when it is

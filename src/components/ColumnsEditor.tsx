@@ -8,17 +8,22 @@ import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight'
 import { ColumnIssue, ColumnMoreFields, ColumnRefField, ColumnTitleField, ColumnWidthField, RefPicker, useColumnCommit } from './ColumnFields'
 import { FoldButton } from './FoldButton'
 import { NewWidgetDoor, NewWidgetingPicker } from './NewWidgeting'
+import { RowPreview } from './RowPreview'
 import { SortableList } from './SortableList'
 import { WidgetingPanel, type WidgetingPanelContext } from './WidgetingPanel'
 import { LayoutFoldkeys, madeFoldkeys } from './layout-folds'
 import { hiddenUntil } from './room'
 import * as ColumnMenu from '../lib/column-menu'
 import { alignAfter, headAlignOf, resolve } from '../lib/columns'
+import type { QuizRun } from '../lib/formulary/runner'
 import { newColumnShowing } from '../lib/widgeting-edit'
 import { plainOf, type ColumnAlign, type ColumnT } from '../models/column'
 import styles from './workbench.module.css'
 
-export type ColumnsEditorProps = Omit<WidgetingPanelContext, 'sources'>
+export type ColumnsEditorProps = Omit<WidgetingPanelContext, 'sources'> & {
+  /** The quiz, run: what its widgetings came to, for the row preview */
+  run: QuizRun
+}
 
 /** How a new column is being added: showing something the quiz has, as a new entry, or as a new widget */
 type Adding = 'ref' | 'entry' | 'widget' | null
@@ -38,14 +43,15 @@ const AlignIcons: Readonly<Record<ColumnAlign, React.ReactNode>> = {
 const RoomFor = { label: '@800', source: '@620', width: '@400' } as const
 
 /**
- * A quiz's columns, leading: every one listed in the order the grid shows them, dragged into a
+ * A quiz's columns, leading, one question's row of the grid previewed above them as they stand
+ * (`RowPreview`): every one listed in the order the grid shows them, dragged into a
  * new order by its handle, each a panel (`ColumnPanel`) whose row holds its title, what it shows,
  * its width and its alignment, unfolding to the rest of it; beneath it, the panel of the widgeting
  * it shows, folded to that widgeting's line. *+ New column…* adds one showing something the quiz
  * has, or a new entry to type into, or (for whoever may change the library) a new widget, each at
  * once. The list measures its own width, not the window's, to decide what its rows have room for.
  */
-export function ColumnsEditor(props: Readonly<ColumnsEditorProps>) {
+export function ColumnsEditor({ run, ...props }: Readonly<ColumnsEditorProps>) {
   const { quiz, revisable, changeable, dispatch, folds } = props
   const sources = ColumnMenu.refChoicesOf(quiz)
   const context = { ...props, sources }
@@ -57,6 +63,7 @@ export function ColumnsEditor(props: Readonly<ColumnsEditorProps>) {
 
   return (
     <Stack spacing={1} sx={{ containerType: 'inline-size' }}>
+      <RowPreview quiz={quiz} run={run} />
       {quiz.columns.length === 0 && <p className={styles.microcopy}>This quiz shows no columns.</p>}
       <SortableList
         label="Columns"

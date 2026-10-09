@@ -7,13 +7,16 @@ import type { Id } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
 import { huntingFor, libraryOf, realmsOf, wholeHuntOf } from '../../convex/reading'
 import * as Actor from '../../src/lib/actor'
+import * as Runner from '../../src/lib/formulary/runner'
+import * as Sortings from '../../src/lib/sortings'
 import { mintId } from '../../src/lib/ids'
 import { widgetFrom } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import type { WidgetT } from '../../src/models/widget'
 import type { AffirmsT, HuntActionDNA, HuntAffirmsT, LibraryActionDNA, QuizAffirmsT } from '../../src/models/actions'
 import type { HuntRole } from '../../src/models/hunting'
-import type { QuizT } from '../../src/models/quiz'
+import type { QuizT, Sortkey } from '../../src/models/quiz'
+import type { WheelT } from '../../src/models/category'
 import { present } from './present'
 import { seedHuntRows } from './seed'
 
@@ -46,6 +49,8 @@ export function huntHolding(quizzes: readonly QuizT[]): HuntT {
 /** A seeded hunt as a test reads it back: the hunt, its home realm's quizzes, the library, and which quiz the test has open */
 export type Seen = {
   hunt:         HuntT
+  /** How the hunt arranges its categories, as its row holds it: absent for the default wheel */
+  wheel?:       WheelT
   quizzes:      QuizT[]
   library:      WidgetT[]
   open_quiz_id: string
@@ -146,7 +151,9 @@ export async function seedHunt(tt: Tester, hunt: HuntT, { openIdx = 0, smith: sm
     const now = await wholeHunt(tt, hunt_id)
     const rows = await tt.run(async (ctx) => await libraryOf(ctx.db))
     const library = rows.map((row) => widgetFrom(row))
-    return { hunt: now, quizzes: present(now.realms[0]).quizzes, library, open_quiz_id: open.quiz_id }
+    const huntRow = await tt.run(async (ctx) => await ctx.db.get('hunts', hunt_id))
+    const wheel = huntRow?.wheel
+    return { hunt: now, ...(wheel && { wheel }), quizzes: present(now.realms[0]).quizzes, library, open_quiz_id: open.quiz_id }
   }
   const act = async (action: HuntActionDNA, by: Session | Tester = smith) => {
     const { action: affirms } = await affirmsOf(tt, isIdentified(by) ? by : smith, open)
@@ -176,6 +183,19 @@ export async function affirmsOf(tt: Tester, by: Pick<Identified, 'ident_id'>, pl
 /** The quiz a seeded test has open, as `seen` has it */
 export function openOf(seen: Seen): QuizT {
   return present(seen.quizzes.find((quiz) => quiz._id === seen.open_quiz_id), 'the open quiz')
+}
+
+/**
+ * The `sort_questions` action a browser sends for `seen`'s open quiz: its questions in the order
+ * a sort by `sortkey` puts them, worked out over the browser's run of the quiz, as `Workbench` does.
+ *
+ * @example await act(sortAction(await read(), 'column:title', false))
+ */
+export function sortAction(seen: Seen, sortkey: Sortkey, descending: boolean): HuntActionDNA {
+  const quiz = openOf(seen)
+  const realm = present(seen.hunt.realms.find((each) => each.quizzes.some((held) => held._id === quiz._id)), 'the open quiz\'s realm')
+  const run = Runner.runQuiz(Runner.sourceOf(quiz, seen.library, Runner.placeOf({ ...seen.hunt, ...(seen.wheel && { wheel: seen.wheel }) }, realm)))
+  return { kind: 'sort_questions', sortkey, descending, question_ids: Sortings.sortedIdsOf(sortkey, quiz, run, descending) }
 }
 
 /** How long a test's session lasts: longer than any test */

@@ -42,7 +42,7 @@ const Actions: HuntActionDNA[] = [
   { kind: 'edit_question', question_id, patch: { recap: 'Leon was his pen name.' } },
   { kind: 'add_question' },
   { kind: 'delete_questions', question_ids: [question_id] },
-  { kind: 'sort_questions', sortkey: 'column:qnum', descending: false },
+  { kind: 'sort_questions', sortkey: 'column:qnum', descending: false, question_ids: [] },
   { kind: 'renumber_qnums' },
   { kind: 'move_question', question_id, onto_idx: 0 },
   { kind: 'set_chain', question_id, chains_to: null },

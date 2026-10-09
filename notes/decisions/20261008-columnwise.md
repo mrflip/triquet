@@ -111,12 +111,11 @@ A `jsonata` widget's twin with Liquid. `src/lib/formulary/liquidize.ts`, `Liquid
   time, `Liquidry.RenderMs`; our counted budgets; Liquid's allocation limit) stops its column,
   every later question reading the same failure, as a `jsonata` timeout does; and the whole column
   has one budget of time for all its fills (`LiquidizeFormulary.columnMs`, 250 ms), so many
-  medium-slow fills cannot add up to the same harm. The budget is asked between a template's
-  pieces and at every turn of a loop, never inside one filter's call: a slow filter, or a huge
-  range handed to one, runs to its end first (thread 9, *compute budgets*, takes that on, with a
-  column's own template, the templateable fills and a cap per run). Time is read on `performance.now()`, which
-  moves inside a Convex mutation where `Date.now()` stands still. A template that will not read
-  costs only its own cell: one read from the bag differs question by question.
+  medium-slow fills cannot add up to the same harm. The clock is read inside a filter's call too,
+  and the column's own template, the templateable fills and the run as a whole are budgeted alike:
+  §11. Time is read on `performance.now()` (`Clock.clockNow`), which moves inside a Convex
+  mutation where `Date.now()` stands still. A template that will not read costs only its own cell:
+  one read from the bag differs question by question.
 * **One fill path.** Through `Templating.fill`, shared with the templateable nomination (§5),
   which is "liquidize this source over the finished bag, in place". Whether the nomination is
   rebuilt internally as a `liquidize` is the worker's call; it is not a row change.
@@ -210,7 +209,10 @@ The grid's TSV is built from the column specs (`specsFor`), so every stage lives
 sheet carries what the column shows: the ref, the formula, the template. The raw export carries
 rows, not the grid, and is untouched; nothing imports the sheet. **A sort reads the value the
 formula came to**, never the template's text, under the existing rules (`Sortings.sortValueOf`):
-a number dressed by a template still sorts as a number.
+a number dressed by a template still sorts as a number. *Amended by thread 9:* a sort is worked out
+in the browser, over the run it already holds (`Sortings.sortedIdsOf`); the `sort_questions` action
+carries the order, every question's id, and the server checks it holds exactly the quiz's questions
+(`sortStale` otherwise) and commits it with the sortkey. No mutation runs the quiz.
 
 ### The source menu (3b)
 
@@ -306,6 +308,16 @@ Two warnings:
   (`retitledPatch`; `planWidgetingEdit`), and a header the author wrote stays. Whatever is made
   arrives open. *+ New widgeting…* and *+ New quiz widgeting…* stay beside the run order, the
   catalogue made at once as it is picked, until 5b moves them.
+* *As built (5b):* **the run order's two homes share one list** (`RunOrderList`, split by
+  `runOrderListsOf`, a drop placed by `runOrderIdxOf`). The *Widgets* panel's rows are widgeting
+  panels, each folded row adding how its cells stand, its open rows the widget's formula or
+  prompt verbatim and the advice button; its old description snippet went with its old row. The
+  dialog's *Run order* rows are lines (handle, label, what it works, tier mark, description), with
+  nothing to unfold. **The new-widgeting menus live at the head of the *Widgets* panel**, the one
+  place every widgeting, columnless or not, is edited; the dialog's *Widget library…* button went
+  with them (the toolbar keeps the door). The **row preview** sits above the column list,
+  `QuestionRow` under the grid's own heads (`ColumnHead`), from the stored quiz and the screen's
+  run only, so a draft (an unchecked `regex` among them) never reaches it.
 
 ## 8. Removal, and the commit model (thread 4; 5a everywhere)
 
@@ -413,6 +425,50 @@ paste from before the sprint translates on the way in, as the backfill does: its
 and nominations (`question.<x>`, `<w>.<part>`), its `templated`, its `categories` widget and
 widgetings. Named in the code as "the grammar before October 2026", so the someday scan in
 `whiteboard/TODO.md` finds each such reading. The exporter writes only the plain form.
+
+## 11. Compute budgets (thread 9)
+
+Every place an author's template or formula is worked, or a model's reply read as one, is bounded
+in time, on `Clock.clockNow()` (`performance.now()`), which moves inside a Convex function where
+`Date.now()` stands still. Only the browser runs a quiz now (a sort is worked out there, §4 *The
+sheet and the sorts*), so the bounds on a run are the browser's, and loose.
+
+* **Liquid** (`Liquidry`, every renderer of the app: field, column, recap and `liquidize`
+  templates, and the prompts once they move to Liquid). The render's clock is read at every piece
+  and every turn of a loop, and at every value read (`ClockedContext`), so a filter working through
+  a list (`where`, `has`, `map`, `sort` by a property), or a long path read from each item, is
+  stopped inside its one call. The `*_exp` filters are refused as the template is read, as
+  `include` is, the sentence naming the twin (`where_exp` → `where`): one item's expression may be
+  a template of filters, a list's length squared of work. No one step may make or be handed more
+  than `ItemsMax` (100,000: a range, a list a filter is handed, a text a filter makes), nor a
+  render more than `AllocMax` (1,000,000) all told, where Liquid's own default was 10,000,000;
+  `push`, `unshift` and `concat` are charged for everything they add, so no list holds one long
+  thing many times over; the app's own filters are charged as Liquid's are.
+* **A column of fills** has `Templating.ColumnMs` (250 ms) all told, spent fill by fill
+  (`Templating.fillWithin`, a `ColumnBudgetT`), whenever each is asked: in one pass, or cell by
+  cell as the grid draws them, the time between cells not counted. A limit stops the column; every
+  later fill says the same, its own text as typed. A `liquidize` widgeting's column, a column's own
+  template (`Columns.textOfShown`), and each templateable source (`finishedQnsOf`, and through it
+  the export's `filledQuiz`) each has one.
+* **JSONata** (`Formulas.evaluate`): its timebox (`TimeboxMs`, 100 ms a formula) reads the moving
+  clock, and it takes a deadline, the sooner wins. A formula's column has no budget of its own: a
+  formula reading every question for each (`qns[label = $$.qn.chains_to]`, as the seeded `butnot`
+  sums do) takes about a quarter second over 300 questions, so a tight column's bound would stop
+  honest columns. A widgeting's column of formulas is held by the run's bound; a column's own
+  formula (`Columns.workedOf`, worked out apart from the run, for the grid and the sorts) has a
+  bound of the same length, `Runner.RunMs`, for its whole column, and stops there as at a timeout.
+* **The run** (`Runner.RunMs`, 5000 ms): the most a run's live columns may take all told, a loose
+  bound on how long one change may hang a page. *Amended:* it was a second, a mutation's whole
+  time, while the server ran the quiz to sort; that left a sort no headroom, and stopped a
+  300-question classic layout's chained sums. A column under way when it runs out is stopped as at
+  its own bound; a column begun after reads that the quiz took too long to work out. Input
+  formulas, and a `template_from`'s formula, are worked out by the same deadline; an asked
+  widgeting's inputs stop at the first that will not.
+* **Not bounded here**: a face (a templateable field's cell in the grid, `faceOf`) fills its own
+  text with `RenderMs`, cell by cell, outside any column's budget; one runaway text costs its own
+  cell a second at each draw. And a JSONata range of millions (`[1..10000000]`) allocates in one
+  step before any timebox is asked (in a mutation, past its 64 MB; no mutation runs one now). Both
+  in `whiteboard/TODO.md`.
 
 ## Superseded in `2026-10-widgets.md`
 

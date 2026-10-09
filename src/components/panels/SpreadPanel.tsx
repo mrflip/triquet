@@ -51,9 +51,9 @@ export function SpreadPanel({ run }: Readonly<SpreadPanelProps>) {
     return (
       <Panel title="Category spread" blurb={Blurb}>
         <p className={styles.microcopy}>
-          This quiz has no category estimate entry yet. Put one to work from the gear, under
-          Widgetings (the library&apos;s <strong>categories</strong> widget is one), and its spread
-          round the wheel shows here.
+          This quiz has no category estimate entry yet. Put one to work as a new column from the
+          gear, or from the Widgets panel (the library&apos;s <strong>Categories</strong> widget is
+          one), and its spread round the wheel shows here.
         </p>
       </Panel>
     )

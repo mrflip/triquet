@@ -30,7 +30,12 @@ export class JsonataFormulary {
   /** Its widgeting folds to the widget's formula, one line */
   static readonly folded = 'formula'
   static readonly config = WidgetValidators.jsonataConfig
-  /** No bound on a whole column: each formula has its own timebox (`Formulas.TimeboxMs`) */
+  /**
+   * No bound on a whole column of its own: each formula has its own timebox (`Formulas.TimeboxMs`),
+   * and the first that runs past it stops the column. A formula reading every question for each
+   * (`qns[label = $$.qn.chains_to]`) takes about a quarter second over 300 questions, so a column's
+   * bound would stop honest columns; the run's bound (`Runner.RunMs`) holds them all.
+   */
   static readonly columnMs = null
 
   /**
@@ -64,12 +69,13 @@ export class JsonataFormulary {
    *
    * @param widget - Its input formula.
    * @param bag - The question's bag, as the widgeting sees it.
-   * @returns What it came to.
+   * @param deadline - A `clockNow()` reading by which it must be worked out, as its column's or its run's budget says; none but the formula's own timebox when absent.
+   * @returns What it came to; a timeout `stops` the rest of its column.
    *
    * @example JsonataFormulary.input({ input_formula: 'qn.title' }, bag)  // => { status: 'ok', input: 'Leon' }
    */
-  static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag): InputOutcome {
-    const outcome = Formulas.evaluate(widget.input_formula, bag)
+  static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag, deadline?: number): InputOutcome {
+    const outcome = Formulas.evaluate(widget.input_formula, bag, deadline)
     if (! outcome.ok) { return { status: 'errored', message: `The input formula: ${outcome.message}`, stops: outcome.failkind === 'timeout' } }
     return outcome.val === undefined ? { status: 'missing' } : { status: 'ok', input: outcome.val }
   }
@@ -82,15 +88,16 @@ export class JsonataFormulary {
    * @param widget - Its formula and its input formula.
    * @param widgeting - The widgeting working it, whose params the bag already holds.
    * @param bag - The question's bag, as the widgeting sees it.
+   * @param deadline - A `clockNow()` reading by which it must be worked out, as its run's budget says; none but each formula's own timebox when absent.
    * @returns The widgeted, and whether it should stop the rest of its column.
    *
    * @example JsonataFormulary.run({ formula: '6 * 7', input_formula: '$' }, null, bag).widgeted  // => { status: 'ok', value: 42, err: null }
    */
-  static run(widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: WidgetingT | null, bag: QuizBag): LiveRun {
-    const input = this.input(widget, bag)
+  static run(widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: WidgetingT | null, bag: QuizBag, deadline?: number): LiveRun {
+    const input = this.input(widget, bag, deadline)
     if (input.status === 'missing') { return { widgeted: Widgeted.missing, stops: false } }
     if (input.status === 'errored') { return { widgeted: failed(input.message), stops: input.stops } }
-    return this.worked(widget.formula, input.input)
+    return this.worked(widget.formula, input.input, deadline)
   }
 
   /**
@@ -100,12 +107,13 @@ export class JsonataFormulary {
    *
    * @param formula - JSONata.
    * @param input - What it reads.
+   * @param deadline - A `clockNow()` reading by which it must be worked out; none but the formula's own timebox when absent.
    * @returns The widgeted, and whether the formula would not stop, so the rest of its column should read the same failure rather than wait on it again.
    *
    * @example JsonataFormulary.worked('$.masie', { status: 'ok', value: [], err: null, masie: 0.5 }).widgeted  // => { status: 'ok', value: 0.5, err: null }
    */
-  static worked(formula: string, input: unknown): LiveRun {
-    const outcome = Formulas.evaluate(formula, input)
+  static worked(formula: string, input: unknown, deadline?: number): LiveRun {
+    const outcome = Formulas.evaluate(formula, input, deadline)
     if (! outcome.ok) { return { widgeted: failed(outcome.message), stops: outcome.failkind === 'timeout' } }
     return { widgeted: reading(outcome.val), stops: false }
   }

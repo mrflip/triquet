@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as Clock from '../../src/lib/clock'
 import * as Formulas from '../../src/lib/formulas'
 
 describe('Formulas.evaluate', () => {
@@ -44,6 +45,30 @@ describe('Formulas.evaluate', () => {
     if (outcome.ok) { return }
     expect(outcome.failkind).to.eq('timeout')
     expect(Date.now() - beganAt).to.be.lessThan(2000)
+  })
+
+  describe('on a clock that moves where Date.now() stands still, as inside a Convex mutation', () => {
+    afterEach(() => { vi.restoreAllMocks() })
+
+    it('stops a long formula past its timebox, though Date.now() never moves', () => {
+      vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
+      const beg = Clock.clockNow()
+      const outcome = Formulas.evaluate('$count([1..10000000].($ + 1))', {})
+      expect(outcome).to.deep.eq({ ok: false, failkind: 'timeout', message: 'The formula took too long to finish' })
+      // Stopped near its timebox, not at the end of ten million turns; the margin is for a machine under load.
+      expect(Clock.clockNow() - beg).to.be.below(2000)
+    })
+
+    it('stops a formula at a deadline sooner than its timebox, and at once when it has passed', () => {
+      const beg = Clock.clockNow()
+      expect(Formulas.evaluate('$count([1..10000000].($ + 1))', {}, beg + 10)).to.deep.include({ ok: false, failkind: 'timeout' })
+      expect(Clock.clockNow() - beg).to.be.below(Formulas.TimeboxMs + 1000)
+      expect(Formulas.evaluate('a + 1', { a: 2 }, Clock.clockNow() - 1)).to.deep.eq({ ok: false, failkind: 'timeout', message: 'The formula took too long to finish' })
+    })
+
+    it('works a formula out as ever before a later deadline', () => {
+      expect(Formulas.evaluate('a + 1', { a: 2 }, Clock.clockNow() + 60_000)).to.deep.eq({ ok: true, val: 3 })
+    })
   })
 
   it('stops a formula that recurses without end past the depth it allows', () => {

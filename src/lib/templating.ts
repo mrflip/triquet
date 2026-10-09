@@ -3,6 +3,7 @@ import * as UU from './useful'
 import * as Labelmaker from './labelmaker'
 import * as Liquidry from './liquidry'
 import * as Shaping from './shaping'
+import { clockNow } from './clock'
 import type { QuizBag, QuizRun } from './formulary/runner'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
 import { TemplatableFieldVals, isTemplatableField, type QuizT } from '../models/quiz'
@@ -54,7 +55,61 @@ export type FilledT = {
   failkind: Liquidry.RenderFailkind | null
 }
 
-export { FillBudget, FilledMax, RenderMs, ShapedMax, clockNow } from './liquidry'
+export { AllocMax, FillBudget, FilledMax, ItemsMax, RenderMs, ShapedMax } from './liquidry'
+export { clockNow } from './clock'
+
+/**
+ * How long one column of fills may take, all told, in milliseconds: a quarter of a second. A
+ * 300-question column of ordinary templates fills in well inside it (each takes a fraction of a
+ * millisecond), and it is a quarter of the second Convex gives a mutation, which a sort runs the
+ * quiz in. A `liquidize` widgeting's column, a column's own template, and each templateable
+ * source the quiz nominates, each has this much (`ColumnBudgetT`).
+ */
+export const ColumnMs = 250
+
+/**
+ * What one column of fills has left: the time it may still take, in milliseconds, and the failure
+ * that stopped it, once a limit has. Spent fill by fill, each fill's own time, whenever it is
+ * asked for: in one pass over the questions, or cell by cell as a grid draws them. Made by
+ * `columnBudget`, spent by `fillWithin`; it changes as it is spent.
+ */
+export type ColumnBudgetT = {
+  leftMs:  number
+  stopped: FilledT | null
+}
+
+/**
+ * A column's budget, unspent: `ColumnMs` to fill all its questions in.
+ *
+ * @example fillWithin('{{ qn.title }}', bag, columnBudget()).markdown  // => 'Leon'
+ */
+export function columnBudget(): ColumnBudgetT {
+  return { leftMs: ColumnMs, stopped: null }
+}
+
+/**
+ * `template` filled in over `bag` (`fill`), as one fill of a column whose time is `budget`: by
+ * what the column has left, its time spent from it. A fill stopped by a limit (the column's time
+ * run out, or a budget of the fill's own) stops the column: every later fill of it comes back as
+ * that failure, its template as typed, at once, as a formula that will not stop does.
+ *
+ * @param template - One question's text, or the column's template.
+ * @param bag - What it reads.
+ * @param budget - The column's (`columnBudget`), spent as it fills.
+ * @returns The fill, or why it could not be filled in, as `fill` says it.
+ *
+ * @example fillWithin('{{ qn.title }}', bag, budget)                          // => { markdown: 'Leon', issue: null, failkind: null }
+ * @example fillWithin('{{ qn.title }}', bag, { leftMs: 0, stopped: null }).failkind  // => 'limit'
+ */
+export function fillWithin(template: string, bag: TemplateBag | Readonly<Record<string, unknown>>, budget: ColumnBudgetT): FilledT {
+  if (budget.stopped !== null) { return { ...budget.stopped, markdown: template } }
+  const beg = clockNow()
+  const filled = fill(template, bag, beg + budget.leftMs)
+  // The budget is the column's own, and is spent as each of its fills is.
+  budget.leftMs -= clockNow() - beg
+  if (filled.failkind === 'limit') { budget.stopped = filled }
+  return filled
+}
 
 /** A filter of the app's: a value, as it would fill in, shaped */
 export type HelperT = Liquidry.ShaperT
@@ -201,7 +256,9 @@ const FinishedOf = new WeakMap<QuizRun, Map<string, readonly Record<string, unkn
  * Every question of the run as the finished bag holds it: as the last widgeting left it, with
  * each source `templateable` names filled in over the question's own template bag (`bagOf`): a
  * field, or a text entry's widgeted's value. The one place a templateable source is filled; made
- * once per run. Anything else named, or not text, is left as it is.
+ * once per run. Anything else named, or not text, is left as it is. Each source is a column of
+ * fills with `ColumnMs` for them all (`fillWithin`): once a limit stops it, its later questions'
+ * texts stay as typed, as a text that will not fill does.
  *
  * @param run - The quiz, run.
  * @param templateable - What the quiz nominates as templateable.
@@ -216,7 +273,8 @@ export function finishedQnsOf(run: QuizRun, templateable: readonly string[]): re
   const key = templateable.join('\n')
   const held = known.get(key)
   if (held !== undefined) { return held }
-  const finished = run.qnsAfter.map((qn, idx) => filledQnOf(templateable, qn, bagOf(run, run.frame.question_ids[idx] ?? null)))
+  const budgets = new Map(templateable.map((source) => [source, columnBudget()]))
+  const finished = run.qnsAfter.map((qn, idx) => filledQnOf(templateable, qn, bagOf(run, run.frame.question_ids[idx] ?? null), budgets))
   known.set(key, finished)
   return finished
 }
@@ -296,14 +354,15 @@ export function imagesLinkedIn(val: unknown): unknown {
 
 /**
  * One question of a bag with each of its texts `templateable` names filled in over `bag`, its
- * own: a field (`clueing`) or a text entry, whose widgeted's value is filled in. Anything else
- * named, or not text, is left as it is.
+ * own, out of its source's budget: a field (`clueing`) or a text entry, whose widgeted's value is
+ * filled in. Anything else named, or not text, is left as it is.
  */
-function filledQnOf(templateable: readonly string[], qn: Record<string, unknown>, bag: TemplateBag): Record<string, unknown> {
+function filledQnOf(templateable: readonly string[], qn: Record<string, unknown>, bag: TemplateBag, budgets: ReadonlyMap<string, ColumnBudgetT>): Record<string, unknown> {
   const filled = templateable.flatMap((source): [string, unknown][] => {
     const held = qn[source]
-    if (isTemplatableField(source)) { return typeof held === 'string' ? [[source, fill(held, bag).markdown]] : [] }
-    return isWidgeted(held) && typeof held.value === 'string' ? [[source, { ...held, value: fill(held.value, bag).markdown }]] : []
+    const filledIn = (text: string) => fillWithin(text, bag, budgets.get(source) ?? columnBudget()).markdown
+    if (isTemplatableField(source)) { return typeof held === 'string' ? [[source, filledIn(held)]] : [] }
+    return isWidgeted(held) && typeof held.value === 'string' ? [[source, { ...held, value: filledIn(held.value) }]] : []
   })
   return filled.length === 0 ? qn : { ...qn, ...Object.fromEntries(filled) }
 }
@@ -351,8 +410,9 @@ export function templatableSources(quiz: Pick<QuizT, 'widgetings' | 'templateabl
 
 /**
  * `quiz` with each of its questions' templateable fields filled in over its run, for an export to
- * read as it reads any quiz. A field that cannot be filled keeps its text as typed. Widgetings'
- * cells are left as they are.
+ * read as it reads any quiz: as the finished bag holds them (`finishedQnsOf`), each field a column
+ * of fills with `ColumnMs` for them all. A field that cannot be filled keeps its text as typed.
+ * Widgetings' cells are left as they are.
  *
  * @param quiz - The quiz, as run.
  * @param run - Its run.
@@ -363,9 +423,10 @@ export function templatableSources(quiz: Pick<QuizT, 'widgetings' | 'templateabl
 export function filledQuiz(quiz: QuizT, run: QuizRun): QuizT {
   const fields = TemplatableFieldVals.filter((field) => templates(quiz, field))
   if (fields.length === 0) { return quiz }
+  const finished = finishedQnsOf(run, fields)
   const questions = quiz.questions.map((question): QuestionT => {
-    const bag = bagOf(run, question._id)
-    const filled = Object.fromEntries(fields.map((field) => [field, fill(question[field], bag).markdown]))
+    const qn = finished[run.frame.question_ids.indexOf(question._id)] ?? {}
+    const filled = Object.fromEntries(fields.map((field) => [field, typeof qn[field] === 'string' ? qn[field] : question[field]]))
     return { ...question, ...filled }
   })
   return { ...quiz, questions }

@@ -9,10 +9,11 @@ import { ColumnsEditor } from './ColumnsEditor'
 import { DangerZone, type DangerousAct } from './DangerZone'
 import { ExplicitField } from './ExplicitField'
 import NextLink from './NextLink'
+import { RunOrderLine, RunOrderList } from './RunOrder'
 import { TemplateableEditor } from './TemplateableEditor'
-import { WidgetingsEditor } from './WidgetingsEditor'
 import type { WorkbenchOffersT } from './offers'
 import type { FoldSet } from './use-folds'
+import type { QuizRun } from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
 import * as HuntMirror from '../state/hunt-mirror'
 import { AppNotices } from '../lib/notices'
@@ -40,10 +41,10 @@ export type QuizManageModalProps = {
   changeLibrary: (action: LibraryActionDNA) => void
   /** Which of the columns' and widgetings' panels are open, kept by the screen so they stay so across a reopen */
   folds:     FoldSet
+  /** The quiz, run: what its widgetings came to, for the columns' row preview */
+  run:       QuizRun
   /** Go to another quiz of the realm */
   onOpen:    (quiz: Labelmaker.Labelled) => void
-  /** Open the library for editing */
-  onEditLibrary: () => void
   /** Give the hunt a new title: what it is called on screen */
   onRetitleHunt: (title: string) => void
   /** Give the hunt a new label, which the address then follows */
@@ -58,9 +59,9 @@ export type QuizManageModalProps = {
 
 /**
  * The gear icon's modal: editing this quiz's own label (top), its columns, each with the widgeting
- * it shows folded beneath it, its widgetings for each question and those run once for the whole
- * quiz, in run order, which of its fields are templateable, its
- * history,
+ * it shows folded beneath it and one question's row previewed above them, the run order of its
+ * widgetings for each question and those run once for the whole quiz (put to work and edited in
+ * the *Widgets* panel below the grid), which of its fields are templateable, its history,
  * a quick way to open any other quiz in the realm by name, the hunt's title and label, the quiz's
  * archived questions, each to un-archive or delete, and, fenced off at the foot, deleting the quiz
  * -- or, when it is the hunt's last, the quiz and its hunt.
@@ -69,7 +70,7 @@ export type QuizManageModalProps = {
  * closes it. A label, which other things name, waits for its own *Relabel* button, as the hunt's
  * title and label wait for theirs.
  */
-export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, folds, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt, onDeleteQuestion }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, folds, run, onOpen, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt, onDeleteQuestion }: Readonly<QuizManageModalProps>) {
   const [noted, setNoted] = useState<string | null>(null)
   const huntLabel = hunt.label
   const quizLabel = quiz.label
@@ -143,29 +144,33 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
           <section>
             <Typography variant="h6" component="h3">Columns</Typography>
             <p className={styles.microcopy}>
-              The grid&apos;s columns in the order they appear. Drag a handle to move one; its triangle
-              unfolds the rest of it. Beneath a column showing a widgeting, that widgeting&apos;s line,
-              unfolding to the whole of it. Every change is kept as it is made; a label waits for its
-              own <em>Relabel</em>.
+              The grid&apos;s columns in the order they appear, with one question&apos;s row as the grid
+              draws it from them. Drag a handle to move one; its triangle unfolds the rest of it. Beneath
+              a column showing a widgeting, that widgeting&apos;s line, unfolding to the whole of it.
+              Every change is kept as it is made; a label waits for its own <em>Relabel</em>.
             </p>
             <ColumnsEditor
               hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary}
-              dispatch={dispatch} changeLibrary={changeLibrary} folds={folds}
+              dispatch={dispatch} changeLibrary={changeLibrary} folds={folds} run={run}
             />
           </section>
 
           <section>
-            <Typography variant="h6" component="h3">Widgetings</Typography>
+            <Typography variant="h6" component="h3">Run order</Typography>
             <p className={styles.microcopy}>
-              The widgets of the library this quiz puts to work, in run order: each one reads what those
-              above it came to. One for <em>each question</em> runs for every question and a column shows
-              it. One for the <em>whole quiz</em> runs once -- an entry typed into the Quiz entries panel
-              (the playtesters, the winners), or a formula over the questions as those above it left
-              them -- and those below read it as <code>{'quiz.<label>'}</code>. Templates read them all.
+              The widgets of the library this quiz puts to work, its widgetings, in the order they run:
+              each one reads what those above it came to. Drag a handle to move one. One for
+              <em> each question</em> runs for every question and a column shows it. One for the
+              <em> whole quiz</em> runs once -- an entry typed into the Quiz entries panel (the
+              playtesters, the winners), or a formula over the questions as those above it left them --
+              and those below read it as <code>{'quiz.<label>'}</code>. Templates read them all. Each is
+              put to work, and edited, in the <em>Widgets</em> panel below the grid, or beneath a column
+              showing it.
             </p>
-            <WidgetingsEditor
-              hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary}
-              dispatch={dispatch} changeLibrary={changeLibrary} folds={folds} onEditLibrary={onEditLibrary}
+            {quiz.widgetings.length === 0 && <p className={styles.microcopy}>This quiz puts no widgets to work yet.</p>}
+            <RunOrderList
+              quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch}
+              rowOf={(widgeting, handle) => <RunOrderLine widgeting={widgeting} widget={library.find((each) => each.label === widgeting.widget_label) ?? null} handle={handle} />}
             />
           </section>
 

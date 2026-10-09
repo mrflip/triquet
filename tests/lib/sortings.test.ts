@@ -104,6 +104,16 @@ const sizedQuiz = (questions: QuestionT[]) => ({
   templateable: [],
 })
 
+describe('sortedIdsOf', () => {
+  it("is every question's id, every one, in the order the sort puts them, for the browser to hand the server", () => {
+    const questions = questionsOf(['3', 'c'], ['1', 'a'], ['2', 'b'])
+    const quiz = { ...quizOf(questions), templateable: [] }
+    const ids = (descending: boolean) => Sortings.sortedIdsOf('column:qnum', quiz, runHolding(quiz, {}), descending)
+    expect(ids(false)).to.deep.eq([1, 2, 0].map((idx) => present(questions[idx])._id))
+    expect(ids(true)).to.deep.eq([0, 2, 1].map((idx) => present(questions[idx])._id))
+  })
+})
+
 describe('sortValueFor', () => {
   it('reads a column that cannot be ordered -- one that holds prose -- as having nothing to say', () => {
     const questions = questionsOf(['1', 'a'], ['2', 'b'])

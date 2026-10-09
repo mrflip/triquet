@@ -1,73 +1,104 @@
 'use client'
 
-import { Fragment } from 'react'
-import { Accordion, AccordionDetails, AccordionSummary, Box, Stack } from '@mui/material'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { Fragment, useState } from 'react'
+import { Box, Button, Stack } from '@mui/material'
 import _ from 'es-toolkit/compat'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
 import { CopyButton } from '../CopyButton'
+import { NewWidgetingPicker } from '../NewWidgeting'
+import { RunOrderList } from '../RunOrder'
+import { WidgetingPanel, type WidgetingPanelContext } from '../WidgetingPanel'
+import { LayoutFoldkeys } from '../layout-folds'
 import { hiddenUntil } from '../room'
 import { EntryKindWords, FormularyWords, NoCellsLine, StatusJoint, paramsGist, statusPhrases, templateFromGist } from '../widget-words'
+import * as ColumnMenu from '../../lib/column-menu'
 import { EntryFormulary } from '../../lib/formulary/entry'
 import { LiquidizeFormulary } from '../../lib/formulary/liquidize'
-import { LiquidizeDefaultInput, type LiquidizeWidgetT } from '../../models/widget'
+import { LiquidizeDefaultInput, type LiquidizeWidgetT, type WidgetT } from '../../models/widget'
 import { Formularies } from '../../lib/formulary/formularies'
 import * as Runner from '../../lib/formulary/runner'
 import * as Rank from '../../lib/rank'
 import { Question } from '../../models/question'
-import type { QuizT } from '../../models/quiz'
+import type { WidgetingT, WidgetingTier } from '../../models/widgeting'
 import styles from '../workbench.module.css'
 
 /**
- * How wide the list of widgetings must be for a folded one to show each of its lesser fields, as
- * MUI's container-query shorthand. Its description goes first as it narrows, then the widget it
- * works, then how its cells stand; its own label always stays.
+ * How wide the list of widgetings must be for a widgeting's row to say how its cells stand, as
+ * MUI's container-query shorthand; its label, what it works and its folded line always stay.
  */
-const RoomFor = { description: '@900', widget: '@720', status: '@520' } as const
+const RoomFor = { status: '@520' } as const
 
-/** How wide a folded widgeting's fields are, so each lines up with the one above it */
-const WidthFor = { label: 190, widget: 190, status: 230 } as const
+/** What the picker putting a widget to work is called, at each tier */
+const NewLabels: Readonly<Record<WidgetingTier, string>> = {
+  question: 'A new widgeting, for each question',
+  quiz:     'A new widgeting, for the whole quiz',
+}
 
-export type WidgetsPanelProps = {
-  quiz: QuizT
+export type WidgetsPanelProps = Omit<WidgetingPanelContext, 'sources'> & {
   /** The quiz, run: its widgetings in run order, and what each came to */
-  run:  Runner.QuizRun
+  run: Runner.QuizRun
 }
 
 /**
- * The quiz's widgetings in run order (the entries first, then the rest by their positions, both
- * tiers mixed as the author placed them), each folded to a line of fields that line up down the
- * list: its label, the widget it works, how its cells stand (`statusLine`) and a snippet of its
- * description. Open, the descriptions in full, the widget's formula or prompt exactly as it
- * stands, placeholders and all, or the template a `liquidize` widgeting fills in (its own, its
- * widget's, or where in the bag it is read from), and the button that copies a prompt asking a
- * chatbot for help -- or, for an entry, what kind of value is typed into it, and what its params
- * let a cell hold. The
- * list measures its own width, not the window's, to decide which fields there is room for
- * (`RoomFor`).
+ * The quiz's widgetings in run order (`RunOrderList`: the entries first, then the rest by their
+ * positions, both tiers mixed as the author placed them, dragged into a new order by their
+ * handles), each its widgeting panel (`WidgetingPanel`), folded to its row: its label, what it
+ * works, its tier, how its cells stand (`statusLine`, given way as the list narrows, `RoomFor`)
+ * and its folded line. Open, the whole panel, where a widgeting no column shows is edited, with
+ * the widget's formula or prompt exactly as it stands, placeholders and all, and the button that
+ * copies a prompt asking a chatbot for help -- or, for an entry, what is typed into it. At its
+ * head, the catalogue to put another widget to work, for each question (with its column) or once
+ * for the whole quiz, made as it is picked and arriving open.
  */
-export function WidgetsPanel({ quiz, run }: Readonly<WidgetsPanelProps>) {
+export function WidgetsPanel({ run, ...props }: Readonly<WidgetsPanelProps>) {
+  const { quiz, library, revisable, dispatch } = props
+  const context = { ...props, sources: ColumnMenu.refChoicesOf(quiz) }
+  const [adding, setAdding] = useState<WidgetingTier | null>(null)
   // The advice is shown a real question: the lowest-numbered, as the widget editor's preview starts on.
   const [sample] = Rank.inRankOrder(Question.unarchived(quiz.questions))
+  const widgetOf = (widgeting: WidgetingT) => library.find((each) => each.label === widgeting.widget_label) ?? null
+
   return (
     <Panel
       title="Widgets"
-      blurb="What this quiz puts to work, in run order: each reads what those above it came to. A prompt is shown exactly as it is filled in and sent when you ask -- your own model usage, read as evidence about your own questions."
+      blurb="What this quiz puts to work, in run order: each reads what those above it came to. Drag a handle to move one; its triangle opens the whole of it. A prompt is shown exactly as it is filled in and sent when you ask -- your own model usage, read as evidence about your own questions."
       wide
     >
-      {run.steps.length === 0 && <p className={styles.microcopy}>This quiz puts no widgets to work yet: add one from the gear, under Widgetings.</p>}
-      <Box sx={{ containerType: 'inline-size' }}>
-        {run.steps.map((step) => (
-          <WidgetingFold
-            key={step.widgeting.label}
-            step={step}
-            counts={Runner.statusCounts(run, step.widgeting.label)}
-            sampleOf={() => (sample ? Runner.bagsAt(run, step.widgeting).get(sample._id) ?? null : null)}
+      <Stack spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
+          <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setAdding('question') }}>+ New widgeting…</Button>
+          <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setAdding('quiz') }}>+ New quiz widgeting…</Button>
+        </Stack>
+        {adding !== null && revisable && <NewWidgetingPicker key={adding} tier={adding} entriesOnly={false} label={NewLabels[adding]} {...props} onDone={() => { setAdding(null) }} />}
+        {quiz.widgetings.length === 0 && <p className={styles.microcopy}>This quiz puts no widgets to work yet.</p>}
+        <Box sx={{ containerType: 'inline-size' }}>
+          <RunOrderList
+            quiz={quiz} library={library} revisable={revisable} dispatch={dispatch}
+            rowOf={(widgeting, handle) => (
+              <WidgetingPanel
+                widgeting={widgeting} handle={handle} tierMark foldkeyOf={LayoutFoldkeys.widgeting} {...context}
+                aside={<CellsLine label={widgeting.label} counts={Runner.statusCounts(run, widgeting.label)} />}
+              >
+                <WidgetShown
+                  widgeting={widgeting} widget={widgetOf(widgeting)}
+                  sampleOf={() => (sample ? Runner.bagsAt(run, widgeting).get(sample._id) ?? null : null)}
+                />
+              </WidgetingPanel>
+            )}
           />
-        ))}
-      </Box>
+        </Box>
+      </Stack>
     </Panel>
+  )
+}
+
+/** How a widgeting's cells stand, on its row, where there is room for it */
+function CellsLine({ label, counts }: Readonly<{ label: string, counts: Runner.StatusCounts }>) {
+  return (
+    <Box role="group" aria-label={`Cells of ${label}`} sx={{ ...hiddenUntil(RoomFor.status), width: 230, flexShrink: 0, pt: 1, fontSize: 13 }}>
+      <StatusSentence counts={counts} />
+    </Box>
   )
 }
 
@@ -87,85 +118,54 @@ function StatusSentence({ counts }: Readonly<{ counts: Runner.StatusCounts }>) {
   )
 }
 
-type WidgetingFoldProps = {
-  step:     Runner.RunStep
-  counts:   Runner.StatusCounts
+type WidgetShownProps = {
+  widgeting: WidgetingT
+  /** The widget it works; null when the library no longer holds it */
+  widget:    WidgetT | null
   /** The bag the widgeting reads for the question the advice is shown, made only when it is asked for */
-  sampleOf: () => Runner.QuizBag | null
+  sampleOf:  () => Runner.QuizBag | null
 }
 
 /**
- * One widgeting, folded to a line, opening to its widget's formula or prompt. Folded, the line
- * ends in a one-line snippet of its description (the widgeting's own, or failing that its
- * widget's), which gives way to the descriptions in full as it opens.
+ * What a widgeting's open panel shows of its widget here: for an entry, where it is typed and
+ * what its cells may hold; otherwise the widget's formula or prompt exactly as it stands (and a
+ * prompt's input formula), or the template a `liquidize` widgeting fills in (its own, its
+ * widget's, or where in the bag it is read from), read-only, and the button that copies a prompt
+ * asking a chatbot for help with it.
  */
-function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>) {
-  const { widgeting, widget } = step
-  const summaryId = `widgeting-${widgeting.label}-summary`
-  const noun = widget ? FormularyWords[widget.formulary].noun : 'widget'
-  const description = widgeting.description || (widget?.description ?? '')
-  const once = widgeting.tier === 'quiz' ? ', once for the quiz' : ''
-  const works = widget ? `${noun} ${widget.label}${once}` : `works ${widgeting.widget_label}, which the library no longer holds`
+function WidgetShown({ widgeting, widget, sampleOf }: Readonly<WidgetShownProps>) {
+  if (! widget) { return null }
+  if (widget.formulary === 'entry') {
+    const typed = widgeting.tier === 'quiz' ? 'Typed into the Quiz entries panel, one value for the whole quiz.' : 'Typed into its cells, one value per question.'
+    return <p className={styles.microcopy}>{typed} {_.compact([`${EntryKindWords[widget.config.entry_kind]}.`, paramsGist(EntryFormulary.inForce(widget, widgeting))]).join(' ')}</p>
+  }
+  const { noun } = FormularyWords[widget.formulary]
   return (
-    <Accordion disableGutters slotProps={{ transition: { unmountOnExit: true } }}>
-      <AccordionSummary
-        expandIcon={<ExpandMoreIcon />} id={summaryId} aria-controls={`widgeting-${widgeting.label}-details`}
-        sx={{ '& .MuiAccordionSummary-content': { minWidth: 0 }, '&.Mui-expanded [data-snippet]': { visibility: 'hidden' } }}
-      >
-        <Stack direction="row" spacing={2} sx={{ alignItems: 'baseline', flex: 1, minWidth: 0 }}>
-          <Box component="strong" sx={{ width: WidthFor.label, flexShrink: 0, overflowWrap: 'anywhere' }}>{widgeting.label}</Box>
-          <Box className={styles.microcopy} sx={{ ...hiddenUntil(RoomFor.widget), width: WidthFor.widget, flexShrink: 0, overflowWrap: 'anywhere' }}>
-            {works}
-          </Box>
-          <Box role="group" aria-label={`Cells of ${widgeting.label}`} sx={{ ...hiddenUntil(RoomFor.status), width: WidthFor.status, flexShrink: 0, fontSize: 13 }}>
-            <StatusSentence counts={counts} />
-          </Box>
-          <Box
-            data-snippet className={styles.microcopy}
-            sx={{ ...hiddenUntil(RoomFor.description), flex: 1, minWidth: 0, maxWidth: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-          >
-            {description}
-          </Box>
-        </Stack>
-      </AccordionSummary>
-      <AccordionDetails>
-        {widgeting.description === '' ? null : <p className={styles.microcopy}>In this quiz: {widgeting.description}</p>}
-        {widget?.formulary === 'entry' && (
+    <Box>
+      {widget.formulary === 'liquidize'
+        ? <TemplateInForce widget={widget} widgeting={widgeting} noun={noun} />
+        : (
           <>
-            {widget.description === '' ? null : <p className={styles.microcopy}>The widget: {widget.description}</p>}
-            <p className={styles.microcopy}>{widgeting.tier === 'quiz' ? 'Typed into the Quiz entries panel, one value for the whole quiz.' : 'Typed into its cells, one value per question.'} {_.compact([`${EntryKindWords[widget.config.entry_kind]}.`, paramsGist(EntryFormulary.inForce(widget, widgeting))]).join(' ')}</p>
+            <div className={styles.microcopy}>{widget.formulary === 'aibot' ? 'The prompt, placeholders and all: each {{name}} is filled in from that key of the input' : 'The formula'}</div>
+            <ReadonlyBox label={`${_.upperFirst(noun)}: ${widgeting.label}`} text={widget.formula} rows={widget.formulary === 'aibot' ? 10 : 4} />
           </>
         )}
-        {widget && widget.formulary !== 'entry' && (
-          <>
-            {widget.description === '' ? null : <p className={styles.microcopy}>The widget: {widget.description}</p>}
-            {widget.formulary === 'liquidize'
-              ? <TemplateInForce widget={widget} widgeting={widgeting} noun={noun} />
-              : (
-                <>
-                  <div className={styles.microcopy}>{widget.formulary === 'aibot' ? 'The prompt, placeholders and all: each {{name}} is filled in from that key of the input' : 'The formula'}</div>
-                  <ReadonlyBox label={`${_.upperFirst(noun)}: ${widgeting.label}`} text={widget.formula} rows={widget.formulary === 'aibot' ? 10 : 4} />
-                </>
-              )}
-            {widget.formulary === 'aibot' && (
-              <>
-                <div className={styles.microcopy}>The input formula: what the prompt is filled in from, for each question</div>
-                <ReadonlyBox label={`Input formula: ${widgeting.label}`} text={widget.input_formula} rows={2} />
-              </>
-            )}
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 1 }}>
-              <CopyButton textOf={() => Formularies[widget.formulary].advice(widget, widgeting, sampleOf())}>Copy a prompt for a chatbot</CopyButton>
-            </Stack>
-          </>
-        )}
-      </AccordionDetails>
-    </Accordion>
+      {widget.formulary === 'aibot' && (
+        <>
+          <div className={styles.microcopy}>The input formula: what the prompt is filled in from, for each question</div>
+          <ReadonlyBox label={`Input formula: ${widgeting.label}`} text={widget.input_formula} rows={2} />
+        </>
+      )}
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 1 }}>
+        <CopyButton textOf={() => Formularies[widget.formulary].advice(widget, widgeting, sampleOf())}>Copy a prompt for a chatbot</CopyButton>
+      </Stack>
+    </Box>
   )
 }
 
 type TemplateInForceProps = {
   widget:    LiquidizeWidgetT
-  widgeting: Runner.RunStep['widgeting']
+  widgeting: WidgetingT
   noun:      string
 }
 

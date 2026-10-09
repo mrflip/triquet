@@ -65,6 +65,10 @@ export type WidgetingPanelProps = WidgetingPanelContext & {
   tierMark?: boolean
   /** The column it is drawn beneath, which its list of the columns showing it leaves out */
   beneath?:  ColumnT
+  /** More of its first row, after its tier mark: what the place drawing it says of it at a glance */
+  aside?:    React.ReactNode
+  /** More of its open rows, after the widget it works: what the place drawing it shows of the widget */
+  children?: React.ReactNode
 }
 
 /**
@@ -78,7 +82,7 @@ export type WidgetingPanelProps = WidgetingPanelContext & {
  * Every field commits as it is made. The widget itself is the library's, and an edit to it
  * changes every quiz that works it, so it is never edited here: the door opens the widget editor.
  */
-export function WidgetingPanel({ widgeting, foldkeyOf, handle = null, tierMark = false, beneath, ...context }: Readonly<WidgetingPanelProps>) {
+export function WidgetingPanel({ widgeting, foldkeyOf, handle = null, tierMark = false, beneath, aside = null, children = null, ...context }: Readonly<WidgetingPanelProps>) {
   const { hunt, quiz, library, revisable, changeable, dispatch, changeLibrary, folds } = context
   const [widgetEditing, setWidgetEditing] = useState(false)
   const restId = useId()
@@ -112,7 +116,8 @@ export function WidgetingPanel({ widgeting, foldkeyOf, handle = null, tierMark =
         <Box sx={{ pt: 1, width: 220, flexShrink: 0, overflowWrap: 'anywhere' }}>
           <strong>{widgeting.label}</strong> <span className={styles.microcopy}>{widgetingNote(widgeting, widget)}</span>
         </Box>
-        {tierMark && <Chip size="small" variant="outlined" label={TierMarks[widgeting.tier]} sx={{ mt: 1 }} />}
+        {tierMark && <TierChip tier={widgeting.tier} />}
+        {aside}
         <Box sx={{ flex: '1 1 320px', minWidth: 0 }}>
           {widget && <FoldedLine widget={widget} widgeting={widgeting} locked={locked} revise={revise} />}
         </Box>
@@ -131,6 +136,7 @@ export function WidgetingPanel({ widgeting, foldkeyOf, handle = null, tierMark =
             />
           )}
           <WidgetLine widget={widget} widgeting={widgeting} changeable={changeable} onEditWidget={() => { setWidgetEditing(true) }} />
+          {children}
           <ShowingColumns widgeting={widgeting} columns={shown} beneath={beneath} {...context} />
           {locked ? null : (
             <Box>
@@ -152,6 +158,11 @@ export function WidgetingPanel({ widgeting, foldkeyOf, handle = null, tierMark =
       )}
     </Stack>
   )
+}
+
+/** A widgeting's tier, marked on its row in the run order */
+export function TierChip({ tier }: Readonly<{ tier: WidgetingTier }>) {
+  return <Chip size="small" variant="outlined" label={TierMarks[tier]} sx={{ mt: 1 }} />
 }
 
 type FoldedLineProps = {

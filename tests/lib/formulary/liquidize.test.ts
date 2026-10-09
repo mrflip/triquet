@@ -210,8 +210,9 @@ describe('LiquidizeFormulary', () => {
     })
 
     it("stops at its column's deadline, and with it the rest of its column", () => {
+      // Its input formula, worked out by the same deadline, is stopped first.
       const ran = LiquidizeFormulary.run(blurb, null, bagFor(leon), Templating.clockNow() - 1)
-      expect(ran).to.deep.eq({ widgeted: failed('The template: This template takes too long to fill in: a loop inside a loop, perhaps.'), stops: true })
+      expect(ran).to.deep.eq({ widgeted: failed('The input formula: The formula took too long to finish'), stops: true })
     })
 
     it('fills in as ever before its deadline', () => {

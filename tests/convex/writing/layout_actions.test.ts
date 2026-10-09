@@ -1,17 +1,24 @@
 import _ from 'es-toolkit/compat'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { BlankJsonataDraft, draftOf, planNewWidget, planWidgetEdit, type JsonataDraft } from '../../../src/state/widget-edit'
 import { planWidgetingEdit } from '../../../src/lib/widgeting-edit'
 import * as Wheel from '../../../src/lib/wheel'
 import { Question } from '../../../src/models/question'
+import { Widgeting } from '../../../src/models/widgeting'
 import { Hunt, type HuntT } from '../../../src/models/hunt'
 import type { HuntActionDNA } from '../../../src/models/actions'
 import type { WidgetedRecordingDNA } from '../../../src/models/widgeted'
 import { present } from '../../support/present'
-import { huntHolding, openOf, openTester, refusedAs, seedHunt, type Seeded, type Seen } from '../../support/convex'
+import { huntHolding, openOf, openTester, refusedAs, seedHunt, type Seeded, type Seen, sortAction } from '../../support/convex'
 import { classicHunt } from '../../support/layouts'
 import { expectSound } from '../../support/soundness'
 import { noticeOf } from '../../../src/lib/refusals'
+
+// recheck's verdicts are timed by the wall clock; a busy machine would refuse a pattern for time (`tests/support/redos.ts`).
+vi.mock('../../../src/lib/redos', async (importOriginal) => {
+  const Support = await import('../../support/redos')
+  return Support.roomy(await importOriginal())
+})
 
 /** A fresh hunt with its quiz laid out as every new quiz was before they started lean */
 function standard(locked = false): HuntT {
@@ -236,7 +243,7 @@ describe("delete_widgeting", () => {
 
   it("keeps the quiz's sort memory, which names a column", async () => {
     const { act, read } = await unshown(await seed(), 'hint_full')
-    await act({ kind: 'sort_questions', sortkey: 'column:clueing_full', descending: false })
+    await act(sortAction(await read(), 'column:clueing_full', false))
     await act({ kind: 'delete_widgeting', label: 'hint_full' })
     expect(quizOf(await read()).last_sortkey).to.eq('column:clueing_full')
   })
@@ -337,7 +344,7 @@ describe("edit_column", () => {
 
   it("renames a column, carrying the quiz's sort memory with it", async () => {
     const { act, read } = await seed()
-    await act({ kind: 'sort_questions', sortkey: 'column:title', descending: false })
+    await act(sortAction(await read(), 'column:title', false))
     await act({ kind: 'edit_column', label: 'title', patch: { label: 'nickname' } })
     expect(quizOf(await read()).last_sortkey).to.eq('column:nickname')
   })
@@ -371,7 +378,7 @@ describe("delete_column", () => {
 
   it("forgets a sort memory that named it", async () => {
     const { act, read } = await seed()
-    await act({ kind: 'sort_questions', sortkey: 'column:hint_full', descending: false })
+    await act(sortAction(await read(), 'column:hint_full', false))
     await act({ kind: 'delete_column', label: 'hint_full' })
     expect(quizOf(await read()).last_sortkey).to.be.null
   })
@@ -436,7 +443,7 @@ describe("sort_questions by a column that shows a jsonata widgeting", () => {
     const { act, read } = await seed(standardWith(['ccc', 'a', 'bb'].map((full_answer) => ({ ...Question.blank(), full_answer }))))
     await act({ kind: 'add_widgeting', widgeting: { widget_label: 'answer_letter_count', label: 'letters' } })
     await act({ kind: 'add_column', column: { label: 'letters', title: 'Letters', source: 'letters', width_px: 78 } })
-    await act({ kind: 'sort_questions', sortkey: 'column:letters', descending: false })
+    await act(sortAction(await read(), 'column:letters', false))
     const after = quizOf(await read())
     expect(after.questions.map((question) => question.full_answer)).to.deep.eq(['a', 'bb', 'ccc'])
     expect(after.last_sortkey).to.eq('column:letters')
@@ -448,7 +455,7 @@ describe("sort_questions by a column that shows a jsonata widgeting", () => {
     await actOnLibrary({ kind: 'add_widget', widget: { label: 'placed', formulary: 'jsonata', formula: 'qn.full_answer = hunt.title ? 0 : qn.full_answer = realm.title ? 1 : 2' } })
     await act({ kind: 'add_widgeting', widgeting: { widget_label: 'placed', label: 'placed' } })
     await act({ kind: 'add_column', column: { label: 'placed', title: 'Placed', source: 'placed', width_px: 78 } })
-    await act({ kind: 'sort_questions', sortkey: 'column:placed', descending: false })
+    await act(sortAction(await read(), 'column:placed', false))
     expect(quizOf(await read()).questions.map((question) => question.full_answer)).to.deep.eq(['Lakeside', 'Home', 'x'])
   })
 })
@@ -505,14 +512,14 @@ describe("a category-estimate widgeting's parts", () => {
     const [art, tv] = quizOf(await seeded.read()).questions.map((question) => question._id)
     await seeded.act({ kind: 'enter_widgeted', entered: { question_id: present(art), widgeting_label: 'cats', value: [{ category: 'art', difficulty: 'easy' }] } })
     await seeded.act({ kind: 'enter_widgeted', entered: { question_id: present(tv), widgeting_label: 'cats', value: [{ category: 'tv', difficulty: 'easy' }] } })
-    await seeded.act({ kind: 'sort_questions', sortkey: 'column:masie', descending: true })
+    await seeded.act(sortAction(await seeded.read(), 'column:masie', true))
     expect(quizOf(await seeded.read()).questions.map((question) => question.title)).to.deep.eq(['art', 'tv', 'none'])
     // Masie keeps slot 0; put TV there, and she knows it best.
     await seeded.tt.run(async (ctx) => {
       const hunt = present(await ctx.db.query('hunts').first())
       await ctx.db.patch('hunts', hunt._id, { wheel: Wheel.placed(Wheel.defaultWheel(), 'tv', 0) })
     })
-    await seeded.act({ kind: 'sort_questions', sortkey: 'column:masie', descending: true })
+    await seeded.act(sortAction(await seeded.read(), 'column:masie', true))
     expect(quizOf(await seeded.read()).questions.map((question) => question.title)).to.deep.eq(['tv', 'art', 'none'])
   })
 })
@@ -607,6 +614,16 @@ describe("a widgeting's params", () => {
     const held = await seeded.read()
     await expect(seeded.act({ kind: 'edit_widgeting', label: 'grade', patch: { params: { integer: 'yes' } } })).rejects.toThrow()
     expect(await seeded.read()).to.deep.eq(held)
+  })
+
+  it("are held, for a widgeting whose widget is gone, as a formula's are: any names but the reserved words, no formulary's own among them", async () => {
+    const orphan = Widgeting.fill({ label: 'orphan', widget_label: 'no_such_widget', params: { min: 1 } })
+    const seeded = await seed(huntHolding([{ ...standardQuiz(), widgetings: [...standardQuiz().widgetings, orphan] }]))
+    await expectRefused(seeded,
+      [{ kind: 'edit_widgeting', label: 'orphan', patch: { params: { min: 2 } } },              'invalid'],
+      [{ kind: 'edit_widgeting', label: 'orphan', patch: { params: { template: '{{ qn.title }}' } } }, 'invalid'])
+    await seeded.act({ kind: 'edit_widgeting', label: 'orphan', patch: { params: { size: 3 } } })
+    expect(paramsOf(await seeded.read(), 'orphan')).to.deep.eq({ size: 3 })
   })
 
   it("keep a text's regular expression recheck finds safe, and refuse, writing nothing, one it does not", async () => {

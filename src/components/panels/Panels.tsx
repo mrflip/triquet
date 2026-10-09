@@ -9,6 +9,7 @@ import { ReviewsPanel } from './ReviewsPanel'
 import { SpreadPanel } from './SpreadPanel'
 import { WidgetsPanel } from './WidgetsPanel'
 import type { WorkbenchOffersT } from '../offers'
+import type { FoldSet } from '../use-folds'
 import type * as Actor from '../../lib/actor'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT, ShallowRealmT } from '../../lib/rows'
@@ -30,8 +31,12 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   offers:    WorkbenchOffersT
   /** The quiz, run: what its widgetings came to */
   run:       QuizRun
-  /** Carry out a change to the library, from the Library tab's import (`useLibraryActions`) */
+  /** Carry out a change to the library, from the Library tab's import or a widgeting's door to the widget editor (`useLibraryActions`) */
   changeLibrary: (action: LibraryActionDNA) => void
+  /** Carry out a change to the quiz, from the Widgets panel's widgetings */
+  dispatch:  (action: HuntActionDNA) => void
+  /** Which of the Widgets panel's widgetings are open, kept with the manage dialog's panels */
+  folds:     FoldSet
   /** Fold what the Import tab read into the quiz: its own fields, its widgetings, its columns, then its questions, as actions in order */
   onImport:  (actions: readonly HuntActionDNA[]) => void
   /** Send a hunt pasted into the Import tab, none of whose quizzes matches this one, to the quiz it belongs to */
@@ -48,8 +53,8 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   onEnterQuiz: (widgeting_label: string, value: EntryValueT | null) => void
 }
 
-/** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, the quiz's own entries, ways to get the work back out, the widgets the quiz puts to work, and the recap note */
-export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport, onImportElsewhere, onQ1Preamble, onRecapHead, onRecapTail, onRecapTemplate, onEnterQuiz }: Readonly<PanelsProps>) {
+/** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, the quiz's own entries, ways to get the work back out, the widgets the quiz puts to work in run order (where each is put to work and edited), and the recap note */
+export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, dispatch, folds, onImport, onImportElsewhere, onQ1Preamble, onRecapHead, onRecapTail, onRecapTemplate, onEnterQuiz }: Readonly<PanelsProps>) {
   const labels = { org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
     <PanelsRow>
@@ -63,7 +68,10 @@ export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, ru
 
       <ExportImportPanel quiz={quiz} hunt={hunt} library={library} offers={offers} run={run} changeLibrary={changeLibrary} onImport={onImport} onImportElsewhere={onImportElsewhere} onQ1Preamble={onQ1Preamble} />
 
-      <WidgetsPanel quiz={quiz} run={run} />
+      <WidgetsPanel
+        hunt={hunt} quiz={quiz} library={library} run={run} revisable={offers.reviseLayout} changeable={offers.changeLibrary}
+        dispatch={dispatch} changeLibrary={changeLibrary} folds={folds}
+      />
 
       <RecapPanel quiz={quiz} run={run} revisable={offers.reviseQuiz} onRecapHead={onRecapHead} onRecapTail={onRecapTail} onRecapTemplate={onRecapTemplate} />
     </PanelsRow>

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CollapsedWidthPx, GutterWidthPx, alignAfter, alignOf, columnsShowing, drawnOf, gridWidthPx, headAlignOf, isDrawnByEditor, isTypedInto, qnumSortkeyOf, readoutOf, resolve, shownOf, specFor, specsFor, templatedTextOf, widgetingRemovalRefusal } from '../../src/lib/columns'
 import { Column, type ColumnAlign } from '../../src/models/column'
 import { classicLayout } from '../support/layouts'
@@ -7,6 +7,7 @@ import { Widget } from '../../src/models/widget'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { Widgeted, type JsonT, type WidgetedHistoryT } from '../../src/models/widgeted'
+import * as Runner from '../../src/lib/formulary/runner'
 import { runOf } from '../support/runs'
 import { present } from '../support/present'
 
@@ -456,5 +457,58 @@ describe('drawnOf and templatedTextOf', () => {
   it('leaves what the column came to, for the sorts, to the formula alone', () => {
     const spec = specWith('cats', { formula: '$round($.artie * 100)', template: '{{ value }}%' })
     expect(shownOf(spec, run, [], placed._id)).to.deep.eq(Widgeted.ok(90))
+  })
+})
+
+describe("a column's template, held to one budget of time for the whole column", () => {
+  const many: QuestionT[] = Array.from({ length: 300 }, (_unused, idx) => ({ ...Question.blank(), label: `q_${String(idx)}`, qnum: String(idx + 1), title: `T${String(idx)}` }))
+  // A fresh run for each test: what a column draws is made once per run.
+  const freshRun = () => runOf({ ...Quiz.blank('Many'), questions: many }, [])
+  const spec = present(specFor({ ...columnOf('title'), template: '{% for aa in (1..100) %}{% endfor %}{{ value }}' }, []))
+
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it("stops every cell after the fill that ran out the column's time, each saying the same, its template as typed", () => {
+    // A clock that moves a hundredth of a millisecond each time it is read, so a fill's time is how often it is asked.
+    let tick = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => { tick += 0.01; return tick })
+    const run = freshRun()
+    const cells = many.map((question) => drawnOf(spec, run, [], question._id))
+    const firstStopped = cells.findIndex((cell) => cell.issue !== null)
+    expect(cells[0]?.text).to.eq('T0')
+    expect(firstStopped).to.be.above(0)
+    expect(cells.slice(0, firstStopped).every((cell) => cell.issue === null)).to.be.true
+    expect(cells.slice(firstStopped).every((cell) => cell.issue === 'This template takes too long to fill in: a loop inside a loop, perhaps.' && cell.text === spec.template)).to.be.true
+  })
+
+  it("counts only the time its fills take, not the time between the cells as a grid draws them", () => {
+    let now = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const run = freshRun()
+    const cells = many.map((question) => {
+      now += 1000
+      return drawnOf(spec, run, [], question._id)
+    })
+    expect(cells.every((cell, idx) => cell.text === `T${String(idx)}`)).to.be.true
+  })
+})
+
+describe("a column's formula, held to a loose budget of time for the whole column", () => {
+  const many: QuestionT[] = Array.from({ length: 300 }, (_unused, idx) => ({ ...Question.blank(), label: `q_${String(idx)}`, qnum: String(idx + 1), title: `T${String(idx)}` }))
+  // Each question's formula reads the clock some two thousand times: twenty ticking milliseconds, well inside its own timebox.
+  const spec = present(specFor({ ...columnOf('title'), formula: '$count([1..1000].($ + 1)) > 0 ? $' }, []))
+
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it(`stops every question after the one that ran out the column's ${String(Runner.RunMs)} ms, each reading the same failure`, () => {
+    let tick = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => { tick += 0.01; return tick })
+    const run = runOf({ ...Quiz.blank('Many'), questions: many }, [])
+    const cells = many.map((question) => shownOf(spec, run, [], question._id))
+    const firstStopped = cells.findIndex((cell) => cell.status === 'errored')
+    expect(cells[0]).to.deep.eq(Widgeted.ok('T0'))
+    expect(firstStopped).to.be.above(0)
+    expect(cells.slice(firstStopped).every((cell) => cell === cells[firstStopped])).to.be.true
+    expect(cells[firstStopped]).to.deep.eq(Widgeted.errored({ message: 'The formula took too long to finish', at: null, response: null }))
   })
 })

@@ -284,11 +284,60 @@ Built: `LiquidizeFormulary` (`src/lib/formulary/liquidize.ts`), its params, the 
   (`$.value.<key>` for each key the last reply held) would save the typing.
 * **The widget editor previews the widget's own template**, never a widgeting's own or one read
   from the bag; the grid shows those.
-* **JSONata's timebox reads a clock that stands still on the server.** `Formulas.evaluate` times a
-  formula with `Date.now()`, which does not move inside a Convex mutation (thread 7 probed it), so a
-  formula column run by `sortQuestions` is stopped only by its depth guard, never by
-  `TimeboxMs`. `Liquidry.clockNow` (`performance.now()`) moves there; one line to use it. And a
-  whole column of formulas has no budget of its own, as a column of templates now does.
+
+## From columnwise sprint, thread 9: compute budgets
+
+Built: the clock read inside Liquid's filters, `*_exp` refused, `ItemsMax`/`AllocMax`, a budget per
+column of fills, JSONata on the moving clock, `Runner.RunMs` (record §11). Left:
+
+* **A face fills outside any column's budget.** A templateable field's cell in the grid
+  (`faceOf` in `cells/markdown.tsx`, through `useFace`) fills its draft over `Templating.bagOf`
+  with `RenderMs`, at every draw, cell by cell; a column of runaway texts costs a second a cell.
+  The fix: a face whose draft is the stored text reads the budgeted fill `finishedQnsOf` already
+  made (keeping each fill's `issue`), and only the cell being typed fills alone. A view change
+  (`QuestionRow`, `GrowingField`, `StretchField`, `EntryCell`), so left for a thread in views.
+* **A JSONata range of millions allocates in one step.** `[1..10000000]` (JSONata's own cap is
+  1e7) allocates before any timebox is asked: in a Convex mutation, "ran out of memory (maximum
+  memory usage: 64 MB)" (probed 2026-10-09; no mutation runs a quiz since the sort moved to the
+  browser); in a browser, 80 MB.
+  A compile-time walk of the AST could refuse a range with literal bounds past `ItemsMax`; a
+  computed bound needs a hook JSONata does not offer.
+* **`RunMs` is five seconds**, the browser's alone since the sort moved there: loose on purpose.
+  Tune it if a real quiz meets it, or a slow page asks for less.
+* **A sort clicked within a round trip of an edit sorts the quiz as it was.** The browser works a
+  sort out over its own run (the server only commits the order), and the browser has no optimistic
+  updates, so an edit reaches its run only once the server echoes it. The Coach accepted the race
+  (2026-10-09); optimistic updates on the quiz's dispatch remove it, and with it the
+  `waitUntilSaved` workarounds in `e2e/widgets.spec.ts` ("sorting by a computed column…"),
+  `e2e/ordering.spec.ts` (its `fillQuiz`) and `e2e/client-first.spec.ts` (its sort).
+* **A refused sort leaves its arrow wrong** (for the optimistic-updates thread): `Workbench.onSort`
+  sets the sort mark before it dispatches, so a sort the server refuses (`sortStale`) keeps the
+  arrow it set, and the next click on that head flips the direction from there.
+* **A template building text by `append` in a loop** is charged its whole text again each turn,
+  so meets `AllocMax` at about a hundred questions of 200 characters; `capture` builds the same
+  text uncharged. Say so in the template advice if an author meets it.
+
+## From columnwise sprint, thread 5b: the run order's two homes, the row preview
+
+Built: the run order in the Widgets panel (widgeting panels, the new-widgeting menus at its head)
+and in the gear (*Run order*, lines to drag); one question's row previewed above the columns. Left:
+
+* **An edit made within a round trip of a relabel is addressed to the old label** and refused
+  (`useColumnCommit`, `WidgetingPanel`'s `revise`: each sends the label as last loaded). Seen as an
+  e2e flake under load (`widgets.spec.ts`, *a column can be added for anything…*: relabel, then
+  width and title at once, the title lost). The same cure as 5a's `retitledPatch` item: optimistic
+  updates on the quiz's dispatch, or actions addressed by id.
+* **The Widgets panel draws every widgeting's panel even while it is folded** (`Panel` keeps its
+  content mounted, so a draft survives), each re-rendered on every change to the quiz. Cheap at a
+  dozen widgetings; if a quiz grows many, mount the rows only while the panel is open.
+* **The gear's new-column pickers stay mounted after the quiz locks** (5b's review): open
+  *+ New column…*'s pickers in `ColumnsEditor` (the ref picker, the entry catalogue, the widget
+  door) are not unmounted when the layout stops being revisable, so a pick still dispatches; the
+  server refuses it. The Widgets panel's picker was closed the same way in `705db76`: render each
+  only while `revisable`.
+* **A change to the library, then an ask at once, can ask with the old widget** (`prompts.spec.ts`,
+  *a prompt opened from the library…*, a flake under load): the ask reads the library as last
+  loaded. A person cannot click that fast; the spec could wait until saved.
 
 ## Git refs
 

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as Runner from '../../../src/lib/formulary/runner'
+import * as Templating from '../../../src/lib/templating'
 import * as Wheel from '../../../src/lib/wheel'
 import { Widget, type WidgetT } from '../../../src/models/widget'
 import { classicLayout } from '../../support/layouts'
@@ -694,5 +695,58 @@ describe('inRunOrder', () => {
 
   it("tells an entry's step from any other, per the doc examples", () => {
     expect([remark, guess, gone].map((step) => Runner.isEntryStep(step))).to.deep.eq([true, false, false])
+  })
+})
+
+/** Enough widgetings of the `looping` widget, each spending its column's whole time, to spend the run's */
+function loopedPastTheRun(): WidgetingT[] {
+  return Array.from({ length: Math.ceil(Runner.RunMs / Templating.ColumnMs) + 2 }, (_unused, idx) => Widgeting.fill({ label: `looped_${String(idx)}`, widget_label: 'looping' }))
+}
+
+/** A clock that moves a hundredth of a millisecond each time it is read, so a run's time is how often it is asked */
+function ticking() {
+  let tick = 0
+  vi.spyOn(performance, 'now').mockImplementation(() => { tick += 0.01; return tick })
+}
+
+describe('a run as a whole, held to one budget of time', () => {
+  const many: QuestionT[] = Array.from({ length: 300 }, (_unused, idx) => ({ ...Question.blank(), label: `q_${String(idx)}`, qnum: String(idx + 1), title: `T${String(idx)}` }))
+  const library = [
+    Widget.fill({ label: 'looping', formulary: 'liquidize', formula: '{% for aa in (1..100) %}{% endfor %}{{ qn.title }}' }),
+    Widget.fill({ label: 'counting', formulary: 'jsonata', formula: '$count(qns)' }),
+    Widget.fill({ label: 'asking', formulary: 'aibot', formula: 'Say {{ count }}', input_formula: "{ 'count': $count([1..100000].($ + 1)) }", config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 10 } }),
+  ]
+
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it(`works out no column begun once the run has spent its ${String(Runner.RunMs)} ms, each of its cells saying so`, () => {
+    ticking()
+    const looped = loopedPastTheRun()
+    const run = runOf({ ...Quiz.blank('Many'), questions: many, widgetings: [...looped, Widgeting.fill({ label: 'counted', widget_label: 'counting' })] }, library)
+    const counted = many.map((question) => Runner.widgetedOf(run, 'counted', question._id))
+    expect(counted.every((cell) => cell.status === 'errored' && cell.err.message.startsWith('The quiz took too long to work out, so this column was not'))).to.be.true
+    expect(Runner.widgetedOf(run, 'looped_0', present(many[0])._id)).to.deep.eq(Widgeted.ok('T0'))
+  })
+
+  it("works out every column as ever while the run has time", () => {
+    const run = runOf({ ...Quiz.blank('Many'), questions: many, widgetings: [Widgeting.fill({ label: 'counted', widget_label: 'counting' })] }, library)
+    expect(many.every((question) => Runner.widgetedOf(run, 'counted', question._id).value === 300)).to.be.true
+  })
+
+  it("stops working out what each question would be asked once one input formula will not stop, every later one reading the same", () => {
+    ticking()
+    const run = runOf({ ...Quiz.blank('Many'), questions: many, widgetings: [Widgeting.fill({ label: 'asked', widget_label: 'asking' })] }, library)
+    const inputs = many.map((question) => Runner.inputOf(run, 'asked', question._id))
+    expect(inputs[0]).to.deep.eq({ status: 'errored', message: 'The input formula: The formula took too long to finish', stops: true })
+    expect(inputs.every((input) => input === inputs[0])).to.be.true
+  })
+
+  it("says what each question would be asked of a widgeting begun once the run has spent its time, as a live column begun then does, never blaming its own input formula", () => {
+    ticking()
+    const lightly = Widget.fill({ label: 'asking_lightly', formulary: 'aibot', formula: 'Say {{ title }}', input_formula: "{ 'title': qn.title }", config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 10 } })
+    const looped = loopedPastTheRun()
+    const run = runOf({ ...Quiz.blank('Many'), questions: many, widgetings: [...looped, Widgeting.fill({ label: 'asked', widget_label: 'asking_lightly' })] }, [...library, lightly])
+    const inputs = many.map((question) => Runner.inputOf(run, 'asked', question._id))
+    expect(inputs.every((input) => input.status === 'errored' && input.message.startsWith('The quiz took too long to work out, so this column was not'))).to.be.true
   })
 })

@@ -1,10 +1,11 @@
 import jsonata from 'jsonata'
 import * as PA from './vv/patterns'
+import { clockNow } from './clock'
 
 /** Most characters a formula may have */
 export const FormulaMax = PA.Formulaish.max
 
-/** How long one evaluation may run before it is stopped */
+/** How long one evaluation may run before it is stopped, in milliseconds, on a clock that moves inside a Convex mutation (`clockNow`) */
 export const TimeboxMs = 100
 
 /** How deeply one evaluation may nest before it is stopped */
@@ -47,20 +48,26 @@ export function check(formula: string): string | null {
  * `formula` applied to `bag`, never throwing: whatever goes wrong comes back as an outcome.
  *
  * A formula that will not stop -- a recursion that never ends, say -- is halted after
- * `TimeboxMs` (or `DepthMax` levels deep) and reported as a timeout, so a bad formula spoils a
- * cell rather than freezing the page.
+ * `TimeboxMs` (or at `deadline`, when that is sooner; or `DepthMax` levels deep) and reported as a
+ * timeout, so a bad formula spoils a cell rather than freezing the page. The time is read on a
+ * clock that moves inside a Convex mutation, so a formula the server works (a sort) is stopped
+ * there too.
  *
  * @param formula - JSONata source.
  * @param input - The JSON document the formula reads: an object's top-level keys are what the formula names directly.
+ * @param deadline - A `clockNow()` reading by which it must be worked out, as its column's or its run's budget says; none but `TimeboxMs` when absent.
  * @returns The value it came to (undefined when it found nothing), or why it failed.
  *
  * @example evaluate('a + 1', { a: 2 })  // => { ok: true, val: 3 }
  * @example evaluate('nope.nada', {})    // => { ok: true, val: undefined }
+ * @example evaluate('a + 1', { a: 2 }, clockNow() - 1)  // => { ok: false, failkind: 'timeout', message: 'The formula took too long to finish' }
  */
-export function evaluate(formula: string, input: unknown): FormulaOutcome {
+export function evaluate(formula: string, input: unknown, deadline = Infinity): FormulaOutcome {
   const compiled = compile(formula)
   if ('message' in compiled) { return { ok: false, failkind: 'syntax', message: compiled.message } }
-  boxed(compiled.expression)
+  // A deadline already past stops the formula before it is begun.
+  if (clockNow() >= deadline) { return { ok: false, failkind: 'timeout', message: OverTime } }
+  boxed(compiled.expression, deadline)
   try {
     return { ok: true, val: compiled.expression.evaluate(input) }
   } catch (err) {
@@ -87,13 +94,19 @@ function compile(formula: string): Compilation {
 /** Raised from inside the evaluator to stop a runaway formula */
 class TimeboxStop extends Error {}
 
-/** `expression` set to be stopped if it runs too long or nests too deep, starting the clock now */
-function boxed(expression: jsonata.Expression): void {
-  const startedAt = Date.now()
+/** Said of a formula stopped for taking longer than it may */
+const OverTime = 'The formula took too long to finish'
+
+/**
+ * `expression` set to be stopped if it nests too deep, or runs past `TimeboxMs` from now or past
+ * `deadline`, whichever is sooner, on a clock that moves inside a Convex mutation
+ */
+function boxed(expression: jsonata.Expression, deadline: number): void {
+  const stopAt = Math.min(deadline, clockNow() + TimeboxMs)
   let depth = 0
   const stopIfRunaway = () => {
     if (depth > DepthMax) { throw new TimeboxStop('The formula nests too deeply -- check for a recursion that never ends') }
-    if (Date.now() - startedAt > TimeboxMs) { throw new TimeboxStop('The formula took too long to finish') }
+    if (clockNow() > stopAt) { throw new TimeboxStop(OverTime) }
   }
   expression.assign('__evaluate_entry', () => { depth += 1; stopIfRunaway() })
   expression.assign('__evaluate_exit', () => { depth -= 1; stopIfRunaway() })

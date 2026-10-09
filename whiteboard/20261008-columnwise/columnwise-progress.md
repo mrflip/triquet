@@ -13,15 +13,17 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
 | 3b | column expression authoring | landed #197 |
-| 7 | `liquidize` formulary | landing (second review flagged; Coach: land, budgets to thread 9) |
+| 7 | `liquidize` formulary | landed #201 |
 | 6 | free regex (optional) | landed #198 |
 | 5a | folding editors | landed #199 |
-| 5b | run order in both places, row preview | underway |
+| 5b | run order in both places, row preview | landed #202 |
 | 8 | seeds pass (optional) | landed #200 |
-| 9 | compute budgets (added) | pending (after 7) |
-| 3c | columns tighten (last) | pending |
+| 9 | compute budgets (added) | landed #206 |
+| 3c | columns tighten (last of the chain) | pending |
+| 10 | one bag shape (added) | pending: after 3c and a full e2e run |
+| 11 | optimistic updates (added) | pending: after 3c and a full e2e run |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). Next asked-for full run: the twelfth landing, or the sprint's end.
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). thread 9 (#206: full run, 279 passed, 7 flakes cleared alone). Next full runs: 3c's landing (then 10 and 11 start), and the sprint's end.
 
 ## What the threads have taught
 
@@ -231,6 +233,82 @@ preplan, and take its numbered decisions as settled. Those that most shape later
 * **`pnpm lane` is shadowed** by pnpm 12's own `lane` command (it says "All packages are on the
   main lane"): `pnpm run lane` or `node scripts/lanes.ts lane` give the project's lane. CLAUDE.md
   still says `pnpm lane` (the Coach's).
+
+### From thread 7 (`liquidize`, #201)
+
+* **`LiquidizeFormulary`** (`src/lib/formulary/liquidize.ts`): either tier, `live`, stores nothing,
+  input `$`; the template from the widget's `formula`, the widgeting's `template`, or
+  `template_from: { ref, formula }` (a ref in the plain grammar, `ColumnValidators.ref`; no formula
+  reads as a column with none does, the field or a widgeting's `value`: the Coach may overrule).
+  Text out; blank is `missing`, unreadable is `errored`. Seed `blurb` (*Template*).
+* **Limits** (`src/lib/liquidry.ts`): `failkind` `syntax` | `runtime` | `limit`; a `limit` stops
+  the column (`stops: true`). **Column budget 250 ms** (`columnMs` on the formulary; the runner's
+  `deadlineOf` per column per run), on **`clockNow()` (`performance.now()`)**: `Date.now()` stands
+  still inside a Convex mutation, so LiquidJS's own `renderLimit` never fired on the server;
+  `clocked` replaces its check (in 10.30.0, `Render.renderTemplates` only; pinned by the exact
+  version and a test). A render past its deadline stops before parsing (`d01e061`).
+  **The budget holds between pieces and loop turns, not inside one filter call: thread 9.**
+  `thread-7-budgets.md` has the probe table.
+* **Allowlists per formulary**: `jsonata` and `aibot` params through `WidgetingValidators.openParams`
+  (no reserved word); entry and liquidize their strict validators' keys; the row validator allows
+  `FormularyParamnames` (every formulary's param names).
+* `readoutOf(spec, widget)`: a liquidize column defaults to markdown, images linked.
+* **In 5a's panel** (catch-up `2f9535e`, unreviewed, small): `folded: 'template'`;
+  `LiquidizeTemplateLine` in `FoldedLine`; `LiquidizeParamsFields` in the open panel.
+* *Reviews:* first `flagged` (ruled: stop on a limit plus a column budget; one allowlist per
+  formulary); second `flagged` (ruled: land; the rest to thread 9). Thread 6's recheck timing
+  tests (`redos.test.ts` "a word said twice, by a backreference"; `layout_actions.test.ts` "refuse
+  a regular expression with a sentence naming it") flake under load 25+: thread 9 steadies them.
+
+### From thread 5b (run order and row preview, #202)
+
+* **Run order in both places**: the Widgets panel lists widgetings in run order, with the
+  new-widgeting menus (*+ New widgeting…*, *+ New quiz widgeting…*) at its head; the gear's dialog
+  says the run order as plain lines. A row preview above the columns shows one question's row.
+* **Catch-up with 7**: #201's `TemplateInForce` became a `liquidize` arm of `WidgetShown` in the
+  open panel; thread 7's template spec moved from the manage dialog to the Widgets panel
+  (`973868d`).
+* **A real e2e failure, repaired**: near the foot of the page the Autocomplete's list opens above
+  its box and covers *+ New widgeting…*; the spec presses Escape first (`0964306`).
+* *Review:* fixed (`705db76`: the new-widgeting picker renders only while the layout is revisable);
+  seven minor findings in the thread file; `ColumnsEditor`'s pickers staying mounted after the quiz
+  locks in TODO.
+* **For the Coach**: decisions 1-3 in `thread-5b-cw_runorder.md` (the menus at the panel's head;
+  the run order as plain lines; the folded row's description snippet gone).
+
+### From thread 9 (compute budgets, #206)
+
+* **One clock** (`src/lib/clock.ts`, `clockNow()` on `performance.now()`) for every budget.
+  Liquid reads its deadline on each value read, the `*_exp` filters are refused, there are caps of
+  100k per step and 1M per render, and `{% capture %}` is capped too. A column's templates get
+  250 ms (`fillWithin`). `Runner.RunMs` is 5 s and binds only the browser, and `Columns.workedOf`
+  holds a column's formula to it.
+* **Sorts are worked out in the browser.** `sort_questions` carries `question_ids`, and the server
+  checks them (`sortStale`) and writes the order. **No mutation runs an author's formula or
+  template any more.**
+* **The sort-after-edit race was accepted (option 1)**, with three marked e2e waits (widgets,
+  ordering, client-first) that thread 11 removes. Typing in a cell and then clicking a header
+  always hits it.
+* *Reviews:* first `flagged` (ruled: sort on the client, loose limits, the keyed bag moved to
+  thread 10); second `fixed` (`9a6eed2`).
+* **Before deploying:** grep for `*_exp` (the runbook, section 4). Tabs opened before the deploy
+  can't sort until reloaded.
+
+### From thread 9's review (flagged, ruled)
+
+* *Reviewer:* `RunMs` (1 s) stops the classic layout's butnot columns from about 200 questions,
+  and leaves the server sort no headroom under Convex's 1 s mutation limit; column formulas
+  (`workedOf`) sit outside every budget. Root causes: `sort_questions` runs the whole quiz on the
+  server, and `ButnotHint` (`qns[label = $$.qn.chains_to]`) is O(n²).
+* **The Coach ruled:**
+  - Every bag also carries the questions keyed by label, generic, so the butnot lookup is O(1).
+    `qns` stays the ordered list. No code defending butnot or the ishes, which are to become
+    expressions later.
+  - Sort on the client: the browser sends the order, the server checks it and writes it.
+  - Loose time limits.
+  - Be judicious: the Coach is opening a separate thread on sending the whole quiz on every
+    update.
+  - Done in thread 9.
 
 ### From thread 2's review (flagged, ruled)
 

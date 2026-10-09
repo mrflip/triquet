@@ -87,14 +87,16 @@ export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: Widge
 }
 
 /**
- * `params` held to the widget `held` works, when the library holds it: a widgeting of a widget
- * gone is held to no more than any widgeting's. A regular expression among them that `held` did not
- * already hold is held to recheck's verdict (`refuseRiskyRegexes`).
+ * `params` held to the widget `held` works, when the library holds it. A widgeting of a widget
+ * gone, whose formulary is not known, is held as a formula's are (`WidgetingValidators.openParams`):
+ * any few settings, by names that are none of the reserved words, no formulary's own among them. A
+ * regular expression among them that `held` did not already hold is held to recheck's verdict
+ * (`refuseRiskyRegexes`).
  */
 async function paramsFor(db: Writer, held: Doc<'widgetings'>, params: WidgetingPatch['params']): Promise<WidgetingPatch['params']> {
   if (params === undefined) { return undefined }
   const row = await widgetForLabel(db, held.widget_label)
-  const checked = row ? Formularies.paramsOf(widgetFrom(row)).parse(params) : params
+  const checked = row ? Formularies.paramsOf(widgetFrom(row)).parse(params) : WidgetingValidators.openParams.parse(params)
   refuseRiskyRegexes([checked], [held.params])
   return checked
 }
