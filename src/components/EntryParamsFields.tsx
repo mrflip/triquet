@@ -54,7 +54,7 @@ export function EntryParamsFields({ entry_kind, params, inherited, validator, di
   if (layout === 'stack') { return <Stack spacing={1.5} role="group" aria-label={label}>{fields}</Stack> }
   return (
     <Stack direction="row" role="group" aria-label={label} sx={{ flexWrap: 'wrap', gap: 1.5, alignItems: 'flex-start' }}>
-      {fields.map((field) => <Box key={field.key} sx={{ flex: '1 1 150px', minWidth: 130, maxWidth: 320 }}>{field}</Box>)}
+      {fields.map((field) => <Box key={field.key} sx={field.key === 'regex' ? { flex: '2 1 380px', minWidth: 300, maxWidth: 600 } : { flex: '1 1 150px', minWidth: 130, maxWidth: 320 }}>{field}</Box>)}
     </Stack>
   )
 }

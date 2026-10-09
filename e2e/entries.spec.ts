@@ -188,27 +188,26 @@ test.describe('the seeded families', () => {
 
   test('a regular expression that could take too long to match is refused beside its field, and by the server', async ({ page }) => {
     await openManage(page)
-    await manageDialog(page).getByRole('button', { name: 'Edit widgeting memo' }).click()
-    const editor = page.getByRole('dialog', { name: 'Widgeting: memo' })
-    const regex = editor.getByRole('group', { name: 'Settings' }).getByRole('textbox', { name: 'Regular expression' })
+    const settings = settingsOf(page, 'memo')
+    const regex = settings.getByRole('textbox', { name: 'Regular expression' })
     await regex.fill('^(a+)+$')
     await regex.blur()
-    await expect(editor).toContainText('Could take far too long to match some texts (twice as long for each character more), around «')
-    await editor.getByRole('button', { name: 'Apply' }).click()
+    await expect(settings).toContainText('Could take far too long to match some texts (twice as long for each character more), around «')
     await expect(page.getByRole('alert').filter({ hasText: 'The pattern «/^(a+)+$/» could take far too long' })).toBeVisible()
   })
 
   test('a regular expression that will not compile is said so beside its field, kept as typed, and not applied', async ({ page }) => {
     await openManage(page)
-    await manageDialog(page).getByRole('button', { name: 'Edit widgeting memo' }).click()
-    const editor = page.getByRole('dialog', { name: 'Widgeting: memo' })
-    const regex = editor.getByRole('group', { name: 'Settings' }).getByRole('textbox', { name: 'Regular expression' })
+    const settings = settingsOf(page, 'memo')
+    const regex = settings.getByRole('textbox', { name: 'Regular expression' })
     await regex.fill('(a')
     await regex.blur()
     await expect(regex).toHaveValue('(a')
-    await expect(editor).toContainText('will not compile: Unterminated group')
-    await editor.getByRole('button', { name: 'Apply' }).click()
-    await expect(editor.getByRole('alert')).toContainText('Its params will not do')
+    await expect(settings).toContainText('will not compile: Unterminated group')
+    await closeManage(page)
+    await reloadOnceSaved(page)
+    await openManage(page)
+    await expect(settingsOf(page, 'memo').getByRole('textbox', { name: 'Regular expression' })).toHaveValue('')
   })
 
   test('the entries head the run order, run first wherever they were placed, and are never dragged', async ({ page }) => {
