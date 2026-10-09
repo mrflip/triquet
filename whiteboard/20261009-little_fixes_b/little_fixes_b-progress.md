@@ -3,7 +3,7 @@
 The orchestrator's document. Newer than `little_fixes_b-plan.md` wherever the two disagree. Each
 worker writes its own `thread-<N>-<label>.md` beside this file.
 
-**Status: threads 1, 3, 4 landed (#212, #214, #216); 2 in review.**
+**Status: threads 1, 3, 4 landed (#212, #214, #216); 2 landing (full e2e, the closing proof).**
 
 Sprint doc (live mirror): https://claude.ai/code/artifact/8cc61164-58c9-4990-b805-f640ae8d3d7b
 
@@ -12,7 +12,7 @@ Sprint doc (live mirror): https://claude.ai/code/artifact/8cc61164-58c9-4990-b80
 | Thread | Label | Status |
 |---|---|---|
 | 1. Gearbox: (i), entries note, remove-with-confirm, unique ids | lfb_gearbox | landed #212 |
-| 2. Gearbox: rows line up, icon grammar | lfb_rows | in review |
+| 2. Gearbox: rows line up, icon grammar | lfb_rows | landing |
 | 3. Panels: fold cycle, raw export, quiz export, tabs | lfb_panels | landed #214 |
 | 4. Top bar, account, small removals, percent | lfb_topbar | landed #216 |
 
