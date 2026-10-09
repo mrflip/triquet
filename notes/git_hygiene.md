@@ -7,7 +7,9 @@ run, and lives beside this file:
 - **`notes/git_hygiene-laptop.md`**, in the laptop's container (`$TQ_IS_SANDBOXED`, and no
   `$CLAUDE_CODE_REMOTE`): the spine, worktrees and lanes, `pnpm land`, sprints.
 - **`notes/git_hygiene-cloud.md`**, in a cloud session (`$CLAUDE_CODE_REMOTE` is `true`): one
-  branch and one PR per milestone, pushed as it goes.
+  branch and one PR per thread, pushed as it goes.
+
+Where this file and those differ on how to do something, the place's own file is right.
 
 The rules that hold everywhere:
 
@@ -57,7 +59,7 @@ How the branch gets pushed and the PR opened differs by place (`-laptop`, `-clou
 - **Body**: follow recent PRs (#35 is a good model):
   - What changed, in short paragraphs or bullets with **bold lead-ins**.
   - A **Tests:** line naming the suites run and their counts.
-  - "Stacked on #N", naming the PR of the branch you landed on (on the laptop, the landing says which), or "Follows #N".
+  - "Stacked on #N", naming the unmerged PR your branch stands on, or "Follows #N" for a merged one.
   - An *Open questions* list when minor questions remain. Put them in chat too, and in
     an entry under `human/` or the thread's `/whiteboard` directory where CLAUDE.md asks for that.
     A PR description is easy to miss.
@@ -69,8 +71,8 @@ before filing, rather than filing and hoping.
 
 Going without a run is cheap to get wrong: CI runs the whole suite on the PR, and a red e2e there
 brings the Coach back to the session that landed it, to ask for help. The call is yours, then, and
-it is a call, not a ritual either way. When a skip tempts you over app code, run the corner instead
-(`pnpm e2e --touched`: `-laptop`, *Running only the corner*).
+it is a call, not a ritual either way. What to run instead of a skip, and how much, is the
+place's own file's to say.
 
 The question is whether any spec could behave differently because of this branch. A spec drives the
 running app in a browser, so the branch has to reach the app, or what starts the app, to be noticed.
@@ -84,8 +86,8 @@ running app in a browser, so the branch has to reach the app, or what starts the
 * an agent's or a skill's definition (`.claude/`), the lint configuration, and documents beside them
   (documents alone need no flag at all).
 
-**Never skip, whatever it looks like** (run the whole suite, or at least the corner), the
-exceptions to those exceptions:
+**Never skip, whatever it looks like** (run e2e as your place's file says), the exceptions to
+those exceptions:
 
 * **Anything in `src/`, `convex/`, `e2e/`, `fixtures/` or `public/`**, the dependencies (`package.json`, the
   lockfile), and the configuration of the app, Playwright, CI or the build. A `.md` under `src/`
@@ -109,9 +111,8 @@ suite on every push.
 
 ## Rebase conflicts
 
-A rebase conflict, whenever a branch is rebased onto a newer base (on the laptop, a catch-up or
-a bid; in the cloud, `origin/main`): fix the straightforward ones yourself, `git rebase
---continue`, `pnpm justify` again, and carry on.
+A rebase conflict, whenever a branch is rebased onto a newer base: fix the straightforward ones
+yourself, `git rebase --continue`, check the result as your place's file says, and carry on.
 
 - `pnpm-lock.yaml`: take the base's version, then run `pnpm install`.
 - `convex/_generated/`: push to your backend again (`scripts/convex_dev agent`, or `pnpm dev:agent`) and take what it writes.
@@ -146,12 +147,11 @@ Delete the tag once the PR merges.
 
 - Always with an explicit lease, `--force-with-lease=<branch>:<sha>`, naming the commit you expect
   origin to hold. A bare `--force-with-lease` checks against the remote-tracking ref, which any
-  other checkout's `git fetch` moves: in a repository many worktrees share, it protects nothing.
-  `--force-if-includes` is no better here, since the reflogs are shared too. Never plain `--force`.
+  other fetch moves, so it protects nothing against a push you have not seen. Never plain
+  `--force`.
 - A lease refused as `stale info` for a branch origin has deleted (merged PRs' branches are) was
   taken from a stale remote-tracking ref: `git fetch --prune origin`, then look again.
-- On the laptop, a spine branch may be pushed by anyone (`-laptop`, *The spine*); the scripts do
-  it. An unlanded branch is pushed only by its own agent.
+- Whose branches you may push, and rewrite, is the place's own file's to say.
 
 ## Merging (Coach only)
 
@@ -190,7 +190,6 @@ not the list of what to delete: stray local branches are retired with `scripts/g
 
 GitHub deletes head branches automatically on merge. `fetch.prune` is unset in the containers, so
 a bare `git fetch` keeps their remote-tracking refs, stale; `git fetch --prune origin` drops them.
-The spine's scripts fetch with `--prune`.
 
 ## Before discarding anything
 
@@ -201,5 +200,3 @@ put a branch on it. If you can't tell what it would discard, stop and ask. To cl
 branches and worktrees, use `notes/housekeeping.md`, which keeps every branch it retires as a tag.
 
 Anything that touches `main` directly: stop and ask Coach.
-
-On the laptop, never in the main checkout: everything uncommitted there is the Coach's.

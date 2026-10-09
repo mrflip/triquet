@@ -196,7 +196,9 @@ It is one lock per container, not per machine: runs in two containers still over
 
 ### When e2e is not worth running
 
-The judgment is `notes/git_hygiene.md`, *When e2e is not worth running*. To skip, bid with the
+The judgment is `notes/git_hygiene.md`, *When e2e is not worth running*. When a skip tempts you
+over app code, run the corner instead (`pnpm e2e --touched`); where the shared file says never to
+skip, run the whole suite or at least the corner. To skip, bid with the
 sentence: `pnpm land --skip-e2e "unit tests of the session script only"`.
 It still needs a justify at the branch's present patch-id. A proof the branch already has stands
 over the reason. When it refuses for want of a proof it says whether e2e could notice any path the
@@ -221,7 +223,14 @@ If the main checkout won't switch, because a file your branch changes holds the 
 uncommitted edit, the bid stops with nothing changed and names the file. Tell the Coach;
 never stash, commit or overwrite their edit.
 
-A rebase conflict at a catch-up or a bid: `notes/git_hygiene.md`, *Rebase conflicts*.
+A rebase conflict at a catch-up or a bid: resolve it as `notes/git_hygiene.md`, *Rebase
+conflicts*, says, then `pnpm justify` again before you bid.
+
+Whose branches may be pushed: a spine branch by anyone (the scripts do it); an unlanded branch
+only by its own agent. A bare `--force-with-lease` protects nothing here, where every worktree's
+fetch moves the shared remote-tracking refs, and `--force-if-includes` is no better, since the
+reflogs are shared too. Never write in the main checkout: everything uncommitted there is the
+Coach's.
 
 ### Filing the PR
 

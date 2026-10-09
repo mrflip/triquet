@@ -18,7 +18,7 @@ apply here.
 * **Waiting is the expensive part.** The full e2e suite takes about twenty minutes here, and CI
   runs it in about five on every push. A bug that CI or a later pass catches costs less than
   making the Coach wait between prompts. Prove locally what a quick run can tell you, and leave
-  the full gate to CI: `notes/git_hygiene-cloud.md`, *Prove the milestone, cheaply*.
+  the full gate to CI: `notes/git_hygiene-cloud.md`, *Prove the thread, cheaply*.
 
 ## What the session hook did
 
@@ -50,9 +50,9 @@ If a command below fails for want of one of those, run the hook yourself:
 
 ## A thread, in the cloud
 
-One branch and one PR per milestone, all worked in the clone: a session may file several.
+One branch and one PR per thread, all worked in the clone: a session may file several.
 `notes/git_hygiene-cloud.md` has each step, and `notes/git_hygiene.md` what holds everywhere. In
-short: cut each milestone's branch from `origin/main` (or from the milestone it builds on),
+short: cut each thread's branch from `origin/main` (or from the thread it builds on),
 commit and push as you go, prove cheaply (the corner or the smoke tier; CI runs the rest), rebase
 onto `origin/main` (never merge it in), open the PR ready for review with the GitHub MCP tools,
 and see it through CI and review.

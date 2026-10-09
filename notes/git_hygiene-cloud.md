@@ -1,31 +1,32 @@
 # Git hygiene in the cloud
 
 How work runs in a cloud session (`$CLAUDE_CODE_REMOTE` is `true`): one clone, and **one branch
-and one PR per milestone**, so a session may file several. What holds everywhere (history,
+and one PR per thread**, so a session may file several. What holds everywhere (history,
 commits, conflicts, what goes in a PR, merging) is `notes/git_hygiene.md`; read it too. The laptop
 follows `notes/git_hygiene-laptop.md`, and nothing in it applies here: there is no spine, no
 worktree, no lane but 0, and no main checkout of the Coach's.
 
-A **milestone** is a piece of work the Coach could review and merge on its own: a set of related
-changes, with the app working and the proof green. Within the session you have standing
-permission to commit, push each milestone's branch, and open its PR without asking.
+A **thread** is what CLAUDE.md calls one: a line of work the Coach could review and merge on its
+own. (A *milestone* is still the smaller thing it is everywhere: a point worth committing at.)
+Within the session you have standing permission to commit, push each thread's branch, and open
+its PR without asking.
 
-## 1. Branch, once per milestone
+## 1. Branch, once per thread
 
-Work in the clone (`$CLAUDE_PROJECT_DIR`). Cut each milestone's branch, named like the laptop's
-(`YYYYMMDD-<branchlabel>`, a label for that milestone):
+Work in the clone (`$CLAUDE_PROJECT_DIR`). Cut each thread's branch, named like the laptop's
+(`YYYYMMDD-<branchlabel>`, a label for that thread):
 
-* **from `origin/main`**, when it does not need an earlier milestone's work that is not merged yet:
+* **from `origin/main`**, when it does not need an earlier thread's work that is not merged yet:
 
   ```
   git fetch origin main && git switch -c YYYYMMDD-<branchlabel> origin/main
   ```
 
-* **from the previous milestone's branch**, when it builds on it: `git switch -c
+* **from the previous thread's branch**, when it builds on it: `git switch -c
   YYYYMMDD-<branchlabel>` from there. That makes a stack: its PR shows the lower one's commits
   until that merges, and step 4 says how to keep it current.
 
-If the session was given a branch to work on, its first milestone uses it.
+If the session was given a branch to work on, its first thread uses it.
 
 ## 2. Commit and push as you go
 
@@ -50,7 +51,7 @@ Only such a branch may be rebased or force-pushed. One holding a commit from any
 Coach, another session) takes only plain new commits on top; ask before rewriting it. A blank or
 foreign trailer counts as someone else's.
 
-## 3. Prove the milestone, cheaply
+## 3. Prove the thread, cheaply
 
 **Why the bar is lower here.** The Coach uses cloud sessions from a small machine. A full local
 e2e run takes about twenty minutes, often five times as long as the change it checks, and the
@@ -94,22 +95,22 @@ Before opening the PR, and whenever `main` has moved under an open one:
 ```
 git fetch origin main
 git rebase origin/main            # a stacked branch: rebase the top of the stack with --update-refs
-pnpm justify
+# re-run the checks of step 3 that the rebase could have upset
 git push --force-with-lease=<branch>:<the sha origin holds> origin <branch>
 ```
 
 Never merge `main` into a branch, on any PR, yours or not: CI rejects a merge commit. Conflicts
-are handled as `notes/git_hygiene.md`, *Rebase conflicts*, says. Once a lower milestone merges,
+are handled as `notes/git_hygiene.md`, *Rebase conflicts*, says. Once a lower thread merges,
 rebase the ones above it onto `origin/main` and push each with its lease.
 
 ## 5. File the PR
 
 With the GitHub MCP tools (`gh` is not logged in here), against `main`, **ready for review, not
 as a draft**, with the title and body `notes/git_hygiene.md`, *Filing the PR*, describes. Write
-"Stacked on #N" when the branch was cut from an unmerged milestone's, "Follows #N" when it
+"Stacked on #N" when the branch was cut from an unmerged thread's, "Follows #N" when it
 builds on a merged one. Ask in chat first when a *significant* question hangs.
 
-Then start the next milestone (step 1).
+Then start the next thread (step 1).
 
 ## 6. See each PR through
 
