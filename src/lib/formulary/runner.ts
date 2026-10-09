@@ -493,11 +493,16 @@ function columnOf(step: RunStep, bags: readonly QuizBag[], questions: readonly Q
   }
 }
 
+/** What the input of a widgeting asked from the cell reads as, begun after its run's time ran out */
+const inputRunOver: InputOutcome = { status: 'errored', message: RunOverMessage, stops: true }
+
 /**
  * What each question's ask of a widgeting asked from the cell would be put, its input formula
  * worked out by `runDeadline`: one that will not stop stops the rest, each reading the same failure.
+ * Begun after the run's time ran out, every one reads that the run ran out, as a live column does.
  */
 function inputsOf(formulary: Formulary, widget: WidgetT, bags: readonly QuizBag[], runDeadline: number): InputOutcome[] {
+  if (clockNow() >= runDeadline) { return bags.map(() => inputRunOver) }
   const inputs: InputOutcome[] = []
   let stopped: InputOutcome | null = null
   for (const bag of bags) {
