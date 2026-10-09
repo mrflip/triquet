@@ -158,6 +158,15 @@ describe("edit_widgeting", () => {
     ])
   })
 
+  it("heads a column still headed after a renamed widgeting's old label after its new one, and leaves one headed otherwise", async () => {
+    const { act, read } = await seed()
+    await act({ kind: 'add_column', column: { label: 'hint_again', title: 'Hint Full', source: 'hint_full', width_px: 100 } })
+    await act({ kind: 'edit_column', label: 'hint_full', patch: { title: 'Total hints' } })
+    await act({ kind: 'edit_widgeting', label: 'hint_full', patch: { label: 'hint_sum' } })
+    const showing = quizOf(await read()).columns.filter((column) => column.source === 'hint_sum')
+    expect(showing.map((column) => [column.label, column.title])).to.deep.eq([['hint_full', 'Total hints'], ['hint_again', 'Hint Sum']])
+  })
+
   it("keeps what a renamed widgeting stored, under its new label", async () => {
     const { act, read } = await withStored()
     await act({ kind: 'edit_widgeting', label: 'dumdum', patch: { label: 'quick_guess' } })
