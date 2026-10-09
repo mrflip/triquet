@@ -47,11 +47,13 @@ export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
   const quizzes = realm?.quizzes ?? null
   const realmLabel = realm?.label ?? null
   const opensIn = hunt && (mode ?? Hunting.modeFor(hunt.role))
+  // A visitor refused the mode is shown no quiz, and the switcher would only lead to more refusals.
+  const mayOpen = claims !== null && opensIn !== null && Hunting.mayOpen(claims, opensIn)
   const { _id: quiz_id = null, label: quizLabel = null, title: quizTitle = null, locked = false } = quiz ?? {}
   useShowQuiz(useMemo(() => {
-    if (quizzes === null || realmLabel === null || opensIn === null || quiz_id === null || quizLabel === null || quizTitle === null) { return null }
+    if (! mayOpen || quizzes === null || realmLabel === null || quiz_id === null || quizLabel === null || quizTitle === null) { return null }
     return { realm: realmLabel, quizzes, mode: opensIn, quiz: { _id: quiz_id, label: quizLabel, title: quizTitle, locked } }
-  }, [quizzes, realmLabel, opensIn, quiz_id, quizLabel, quizTitle, locked]))
+  }, [mayOpen, quizzes, realmLabel, opensIn, quiz_id, quizLabel, quizTitle, locked]))
 
   useEffect(() => {
     if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
