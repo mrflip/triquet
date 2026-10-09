@@ -3,7 +3,7 @@
 Kept by the orchestrator. Newer than `perf_improvements-plan.md` wherever the two disagree. Each
 worker writes its own `thread-<N>-<label>.md` beside this file.
 
-**Status: thread 6 underway; thread 2 and thread 4's tally wait for the Coach; threads 1, 3, 4, 5 landed.**
+**Status: thread 6 landing (full e2e, the sprint-end proof if nothing lands after); thread 2 and thread 4's tally wait for the Coach; threads 1, 3, 4, 5 landed.**
 
 | # | Thread | Status | PR |
 |---|---|---|---|
@@ -12,7 +12,7 @@ worker writes its own `thread-<N>-<label>.md` beside this file.
 | 3 | e2e_fixtures | landed | #207 |
 | 4 | convex_reads | landed (questions.open half); tally on local branch `20261009-convex_reads_tally` | #210 |
 | 5 | render_caches | landed | #213 |
-| 6 | stable_rows | underway (lane 1) | |
+| 6 | stable_rows | landing (full e2e) | |
 
 ## Waiting on the Coach
 
@@ -24,6 +24,8 @@ worker writes its own `thread-<N>-<label>.md` beside this file.
 
 * *Orchestrator:* **Thread 3 (e2e_fixtures)** added `testing:putOnHunt` and its helper `putOnHunt(hunt, label, role)` in `e2e/admin.ts`, plus a worker-scoped second visitor (`friend`, `friendLabel` fixtures in `e2e/support.ts`). A spec that needs a second person on a hunt should use these, not the Members panel. Measured: routing 298 to 250 test-seconds, reviews 83 to 53. Its `thread-3-measurements.md` holds runs to compare against.
 * *Orchestrator:* **Thread 5 (render_caches)**, ready: Liquid parse cache by template text (bounded Map; liquidjs's `cache` covers only file templates); timebox reads the clock every 256 steps (117,143 to 1,853 reads per run; overshoot 0.14 ms median, 4.1 ms worst); `bagOf`/`filledBagOf`/`bagOver` stable per run and question (WeakMap); `useFace` memoized, `MarkdownText`/`MarkdownFace` in `memo`; `ChainPicker` options shared per `questions` array; panels and Export/Import tabs **mount on first open and stay mounted** (`mountOnEnter`, not `unmountOnExit`, to keep pastes, forms, sorts). Measured: `runQuiz` 49 to 36-39 ms; Workbench first render 210 to 125-131 ms. **For thread 6:** reuse `tests/support/big-quiz.ts` (`bigQuiz()`) and `tests/components/Workbench.bench.tsx`; the unit tests have no DOM, so counting re-renders needs `happy-dom` or an e2e probe. **Faster renders expose specs that race the server** (one in `widgets.spec` fixed); expect more as thread 6 lands. `showTab` (`e2e/support.ts`) now opens Export/Import by title.
+* *Orchestrator:* **Thread 6 (stable_rows)**, ready: one committed title on a 40-question quiz went from 3 Workbench renders / 121 row renders (292-307 ms) to 1 / 1 (72-98 ms); one bot ask from 4 / 160 to 1 / 3. Counts asserted in `tests/components/QuizRoute.dom.test.tsx` (new `dom` Vitest project, happy-dom, render counting only). The `preparedExport` flake was a click during the panel's Collapse opening, not identity churn; `foldTo` now waits for `.MuiCollapse-entered`. `unsaved` is read by `ScreenMain`; `asking` per row via `useAskingIn`.
+* *Orchestrator:* **Thread 6** *Review:* clean. Left (minor): comparing templated boxes by filled text (a recorded decision) also lets a refused draft fill over an older bag, and the console's template report name a quiz's old label after a relabel; two concurrent asks of one cell share a spinner (pre-existing).
 * *Orchestrator:* **Thread 5 landed, #213.** Full run 286/288; flakes `entries` (+ New column alarm text) and `panels` (`preparedExport`), both passed alone. *Review:* fixed. `Templating.fill` now renders over a copy of its bag (Liquid's increment/decrement wrote into the shared cached bag; **any cache handing out a shared object must not let a consumer mutate it**). `TabbedPanel` records a shown tab as built by label (an index shift used to unmount it). Left (minor): `useFace` keeps a fill that failed only on time until text or run changes. **For thread 6:** `panels.spec`'s `preparedExport` beforeEach flakes because `useWholeHunt` withdraws the export whenever the `hunt` or `openQuiz` identity changes; stable identities should end it, and thread 6 should check.
 * *Orchestrator:* **Thread 4 landed, #210** (questions.open half; full run 284/288, four flakes at load 48 that passed alone). It rebased over columnwise #209 in `rows.ts`, keeping the spine's `frameOf`/`columnFrom`. *Review:* clean. Left (minor): tabs open across the deploy show saved bot cells empty until reloaded (functions go live before pages; nothing lost; noted in the PR); the tally's first count stops at the cap.
 * *Orchestrator:* **Thread 4 (convex_reads)**: a question's reading now carries `stored` keyed by **widgeting id**; the frame gains `widgeting_ids` (label to id); `quizFromSeen` relabels in run order, in `rows.ts` only. `QuizT`/`QuestionT` unchanged. **For thread 6:** a per-question cache must also depend on the frame's `widgeting_ids` and `widgetings`, since a widgeting renamed changes only the frame. Reads: `questions.open` 7 docs/6 ranges to 4/4 on the fixture; hunt creation 17+N to 19. `tests/support/counting.ts` counts docs and ranges read, for any later read test.
