@@ -332,6 +332,13 @@ describe("bagOf", () => {
     expect(Templating.bagOf(rerun, first._id)).to.deep.eq(bag)
   })
 
+  it("is left as it was by a fill that counts, so the next fill over it counts afresh and still reads question", () => {
+    const shared = Templating.bagOf(run, first._id)
+    expect(Templating.fill('{% increment n %}{% decrement question %}', shared).markdown).to.eq('0-1')
+    expect(Templating.fill('{% increment n %}|{{ question.title }}', shared).markdown).to.eq('0|One')
+    expect(shared).not.to.have.property('n')
+  })
+
   it("holds what each widgeting for the whole quiz came to, as quiz.<label>, which a recap's head fills in", () => {
     const entered = { ...TwoQuiz, stored: { playtesters: typed('Ada and Grace') }, widgetings: [Widgeting.fill({ widget_label: 'authors', label: 'playtesters', tier: 'quiz' }), ...TwoQuiz.widgetings] }
     const quizBag = Templating.bagOf(runOf(entered, Library), null)

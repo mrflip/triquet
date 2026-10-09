@@ -194,7 +194,9 @@ const Renderer = Liquidry.rendererFor({ fillingOf, shapers: Helpers, filters: { 
  * @example fill('{% for x in questions %}{% endfor %}', bag, clockNow()).failkind  // => 'limit'
  */
 export function fill(template: string, bag: TemplateBag | Readonly<Record<string, unknown>>, deadline?: number): FilledT {
-  const { text, issue, failkind } = Renderer.render(template, bag, deadline)
+  // Rendered over a copy: Liquid's increment and decrement write their counters into the scope's
+  // top, and the bag is the one every fill of its question shares (`bagOf`).
+  const { text, issue, failkind } = Renderer.render(template, { ...bag }, deadline)
   return { markdown: text, issue, failkind }
 }
 
