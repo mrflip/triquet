@@ -4,6 +4,7 @@ import { renderToString } from 'react-dom/server'
 import { Workbench } from '../../src/components/Workbench'
 import * as Runner from '../../src/lib/formulary/runner'
 import { SeedWidgets } from '../../src/models/seeds'
+import { NoAsks } from '../../src/state/use-asking'
 import { bigHuntFor, bigQuiz, smithClaimsOn } from '../support/big-quiz'
 
 /*
@@ -15,9 +16,9 @@ import { bigHuntFor, bigQuiz, smithClaimsOn } from '../support/big-quiz'
  */
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: EST.noop, replace: EST.noop }) }))
-vi.mock('../../src/state/use-asking', () => ({ useAsking: () => ({ asking: () => false, ask: EST.noop }) }))
+vi.mock('../../src/state/use-asking', async (importOriginal) => ({ ...await importOriginal<typeof import('../../src/state/use-asking')>(), useAsking: () => ({ asks: NoAsks, ask: EST.noop }) }))
 vi.mock('../../src/state/use-bots', () => ({ useBots: () => ({ unavailableNotice: () => null }) }))
-vi.mock('../../src/state/use-library-actions', () => ({ useLibraryActions: () => ({ dispatch: EST.noop, unsaved: false }) }))
+vi.mock('../../src/state/use-library-actions', () => ({ useLibraryActions: () => ({ dispatch: EST.noop }) }))
 // Its markdown is compiled by Next, which the bench has not.
 vi.mock('../../src/content/full-history.md', () => ({ default: () => null }))
 vi.mock('../../src/state/use-whole-hunt', () => ({ useWholeHunt: () => ({ whole: null, asking: false, failed: false, prepare: EST.noop }) }))
@@ -36,7 +37,7 @@ test('a quiz of forty questions', async ({ bench }) => {
       renderToString(
         <Workbench
           hunt={hunt} realm={realm} quiz={quiz} library={SeedWidgets} claims={claims} reviews={[]}
-          dispatch={EST.noop} carryOut={() => Promise.resolve(true)} unsaved={false} saveNotice={null}
+          dispatch={EST.noop} carryOut={() => Promise.resolve(true)} saveNotice={null}
         />,
       )
     }),

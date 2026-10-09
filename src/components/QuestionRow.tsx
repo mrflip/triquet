@@ -1,22 +1,20 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { Box, Checkbox, IconButton } from '@mui/material'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import clsx from 'clsx'
-import { GutterWidthPx, drawnOf, isDrawnByEditor, readoutOf, shownOf, type ColumnSpec } from '../lib/columns'
+import { GutterWidthPx, type ColumnSpec } from '../lib/columns'
 import { openOnEntry } from './FoldButton'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
 import { DrawnReadout, WidgetedAskCell, WidgetedReadout } from './cells/readouts'
 import { EntryCell } from './cells/entry'
 import { EstimatePartReadout } from './cells/estimates'
-import * as Runner from '../lib/formulary/runner'
-import * as Templating from '../lib/templating'
-import * as Estimates from '../lib/estimates'
-import { formularyFor } from '../lib/formulary/formularies'
+import type * as Templating from '../lib/templating'
 import type { ColumnAlign, QuestionField } from '../models/column'
-import type { WidgetingT } from '../models/widgeting'
 import type { EntryValueT } from '../models/widget'
+import { useAskingIn, type AsksT } from '../state/use-asking'
+import { isSameRowRun, type CellRunT, type ReaskT, type RowRunT } from './row-runs'
 import { ButnotPreview, ChainPicker } from './cells/chain'
 import { useReorderable } from './use-reorder'
 import { Question, type QuestionPatch, type QuestionT } from '../models/question'
@@ -47,43 +45,39 @@ export const FoldedRowPx = 30
 
 export type QuestionRowProps = {
   question:    QuestionT
-  /** Every question in the quiz, for the columns that read across them */
-  questions:   QuestionT[]
+  /** The hint of the question this one chains to, for its BUT NOT; null when it chains to none */
+  targetHint:  string | null
   locked:      boolean
   gripShown:   boolean
   /** Whether this question is checked, in batch mode, where the button to change how it is shown shows too; null outside it, where its grip shows instead */
   checked:     boolean | null
-  onCheck:     (on: boolean) => void
-  /** Asks to change how this question is shown (its viz); the asking is the caller's */
-  onViz:       () => void
+  onCheck:     (question_id: string, on: boolean) => void
+  /** Asks to change how a question is shown (its viz); the asking is the caller's */
+  onViz:       (question_id: string) => void
   resizeToken: number
   /** Whether the row is folded, each of its boxes one line high until a text box in it is entered */
   folded:      boolean
-  /** Opens the row, as the author clicks or tabs into one of its text boxes */
-  onUnfold:    () => void
+  /** Opens a question's row, as the author clicks or tabs into one of its text boxes */
+  onUnfold:    (question_id: string) => void
   /** Where this question sits in the grid, and how many there are, so its grip can move it */
   idx:         number
   count:       number
   /** Told which question moved, and the index it lands on once it has been lifted out */
   onMove:      (question_id: string, onto_idx: number) => void
-  onChain:     (chains_to: string | null) => void
+  onChain:     (question_id: string, chains_to: string | null) => void
   /** The quiz's columns, in the order they appear */
-  specs:       ColumnSpec[]
-  /** The quiz, run: what each widgeting came to for each question of the quiz */
-  run:         Runner.QuizRun
+  specs:       readonly ColumnSpec[]
+  /** What this question's cells came to in the quiz's run, and what its templated boxes are filled in over (`rowRunOf`) */
+  rowRun:      RowRunT
   /** The sources the quiz nominates as templateable (`clueing`, a widgeting's label): their boxes show them filled in */
   templateable: readonly string[]
-  /** Whether an ask for this question's cell of the widgeting labelled so is in flight */
-  asking:      (widgeting_label: string) => boolean
-  /** Why the widgeting labelled so cannot be asked at all, when it cannot; null when it can */
-  unavailableNotice: (widgeting_label: string) => string | null
-  /** Ask the widgeting labelled so about this question */
-  onAsk:       (widgeting_label: string) => void
-  /** Ask the widgeting labelled so about the chained-to question, for the BUT NOT Full Sum shortcut */
-  onAskTarget: (widgeting_label: string) => void
-  onEdit:      (patch: QuestionPatch) => void
-  /** Put what was typed into this question's cell of the entry widgeting labelled so; null empties it */
-  onEnter:     (widgeting_label: string, value: EntryValueT | null) => void
+  /** The screen's asks in flight, of which the row reads its own (`useAskingIn`) */
+  asks:        AsksT
+  /** Ask the widgeting labelled so about a question */
+  onAsk:       (question_id: string, widgeting_label: string) => void
+  onEdit:      (question_id: string, patch: QuestionPatch) => void
+  /** Put what was typed into a question's cell of the entry widgeting labelled so; null empties it */
+  onEnter:     (question_id: string, widgeting_label: string, value: EntryValueT | null) => void
 }
 
 /**
@@ -98,68 +92,57 @@ export type QuestionRowProps = {
  * Folded, every box is one line high and shows the first line of what it holds, ending in an
  * ellipsis, and the lines beneath a box (the title's label) are put away. The boxes go on
  * measuring themselves, so the row opens straight to the height it would have had.
+ *
+ * Drawn again only when something it shows has changed (`isSameRowProps`): its question, its
+ * cells in the quiz's run, how its templated boxes fill in, or the grid's own state. Every
+ * function it is handed takes the question's id, so the grid hands every row the same ones.
  */
-export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onViz, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, run, templateable, asking, unavailableNotice, onAsk, onAskTarget, onEdit, onEnter }: Readonly<QuestionRowProps>) {
+export const QuestionRow = memo(function QuestionRow({ question, targetHint, locked, gripShown, checked, onCheck, onViz, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, rowRun, templateable, asks, onAsk, onEdit, onEnter }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
   const batching = checked !== null
   const grippable = gripShown && ! batching && ! locked
-  const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey: QuestionListkey, itemkey: question._id, idx, count, disabled: ! grippable, onMove })
+  const { _id: question_id } = question
+  const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey: QuestionListkey, itemkey: question_id, idx, count, disabled: ! grippable, onMove })
+  const asking = useAskingIn(asks, question_id)
   const questionName = question.title || 'this question'
 
   const heightPx = folded ? FoldedRowPx : Math.min(Math.max(clueingNaturalPx, hintNaturalPx, RowFloorPx), RowCapPx)
 
-  const commit = useCallback((patch: QuestionPatch) => { onEdit(patch) }, [onEdit])
+  const commit = useCallback((patch: QuestionPatch) => { onEdit(question_id, patch) }, [onEdit, question_id])
   /** What the box showing `source` is filled in over, when the quiz templates it; null when it does not */
-  const bagFor = (source: string): Templating.TemplateBag | null => (templateable.includes(source) ? Templating.bagOf(run, question._id) : null)
-  const chainTarget = questions.find((other) => other._id === question.chains_to) ?? null
+  const bagFor = (source: string): Templating.TemplateBag | null => (templateable.includes(source) ? rowRun.bag : null)
 
-  /** The label of the quiz's widgeting working the `aibot` widget `widget_label`, if it has one */
-  const labelWorking = (widget_label: string): string | null => (
-    run.steps.find((step) => step.widget?.formulary === 'aibot' && step.widget.label === widget_label)?.widgeting.label ?? null
-  )
-  const reextractFor = (widget_label: string) => {
+  /** Ask again what a double-click on a cell asks, unless the quiz is locked */
+  const reaskFor = (reask: ReaskT) => {
     if (locked) { return }
-    const clueing = labelWorking('numnum_clueing')
-    const hint = labelWorking('numnum_hint')
-    if (widget_label === 'clueing_full' && clueing !== null) { onAsk(clueing) }
-    if (widget_label === 'hint_full' && hint !== null) { onAsk(hint) }
-    if (widget_label === 'butnot_full' && hint !== null) { onAskTarget(hint) }
-  }
-  /** The widget of the widgeting a column shows, when it shows one the library has */
-  const widgetOf = (spec: ColumnSpec) => (spec.source.kind === 'widgeting' ? Runner.stepOf(run, spec.source.widgeting.label)?.widget ?? null : null)
-
-  /**
-   * What a column shows for this question: nothing while it is collapsed; a question's field, an
-   * entry's cell or a bot's asked from the cell, each in its own editor, while the column is typed
-   * into (`isDrawnByEditor`); anything else read-only, by its readout
-   */
-  const bodyOf = (spec: ColumnSpec): React.ReactNode => {
-    const { source } = spec
-    if (spec.collapsed) { return null }
-    if (isDrawnByEditor(spec, widgetOf(spec))) {
-      if (source.kind === 'field') { return fieldBody(source.field) }
-      if (source.kind === 'widgeting') { return widgetingBody(source.widgeting, spec) }
-    }
-    return readoutBody(spec)
+    if (! reask.ofTarget) { onAsk(question_id, reask.widgeting_label) } else if (question.chains_to !== null) { onAsk(question.chains_to, reask.widgeting_label) }
   }
 
-  /**
-   * What a column shows read-only: by its readout when it names one or has a template; else as the
-   * cells choose, the chained-to hint as the BUT NOT preview, one part of a category-estimate entry
-   * (`$.masie`) as the part is drawn, anything else as a worked-out cell is
-   */
-  const readoutBody = (spec: ColumnSpec): React.JSX.Element => {
+  /** What a column shows for this question: nothing while it is collapsed; a question's field, an entry's cell or a bot's asked from the cell, each in its own editor; anything else read-only */
+  const bodyOf = (spec: ColumnSpec, cellRun: CellRunT): React.ReactNode => {
     const wide = spec.widthPx >= WideReadoutPx
-    const readout = readoutOf(spec, widgetOf(spec))
-    if (readout !== null) { return <DrawnReadout drawn={drawnOf(spec, run, templateable, question._id)} readout={readout} wide={wide} heightPx={heightPx} /> }
-    if (spec.source.kind === 'view' && spec.formula === null) {
-      return <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />
+    switch (cellRun.kind) {
+    case 'collapsed': { return null }
+    case 'field':     { return fieldBody(cellRun.field) }
+    case 'entry': {
+      const { widget, widgeting, widgeted } = cellRun
+      return <EntryCell widget={widget} widgeting={widgeting} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} onEnter={(value) => { onEnter(question_id, widgeting.label, value) }} bag={bagFor(widgeting.label)} />
     }
-    const widgeted = shownOf(spec, run, templateable, question._id)
-    const part = Estimates.isEstimating(widgetOf(spec)) ? Estimates.partOf(spec.formula) : null
-    if (part !== null) { return <EstimatePartReadout part={part} widgeted={widgeted} label={spec.title} wide={wide} heightPx={heightPx} /> }
-    return <WidgetedReadout widgeted={widgeted} label={spec.title} wide={wide} heightPx={heightPx} />
+    case 'ask': {
+      const label = spec.source.kind === 'widgeting' ? spec.source.widgeting.label : ''
+      return (
+        <WidgetedAskCell
+          widgeted={cellRun.widgeted} meta={question.stored[label]?.ok?.result_meta ?? null} label={spec.title} asking={asking(label)} askable={cellRun.askable}
+          locked={locked} notice={cellRun.notice} heightPx={heightPx} onAsk={() => { onAsk(question_id, label) }}
+        />
+      )
+    }
+    case 'drawn':    { return <DrawnReadout drawn={cellRun.drawn} readout={cellRun.readout} wide={wide} heightPx={heightPx} /> }
+    case 'butnot':   { return <ButnotPreview target={targetHint === null ? null : { hint: targetHint }} chained={question.chains_to !== null} heightPx={heightPx} /> }
+    case 'estimate': { return <EstimatePartReadout part={cellRun.part} widgeted={cellRun.widgeted} label={spec.title} wide={wide} heightPx={heightPx} /> }
+    case 'widgeted': { return <WidgetedReadout widgeted={cellRun.widgeted} label={spec.title} wide={wide} heightPx={heightPx} /> }
+    }
   }
 
   /** One of the question's own fields, in the box it is edited in */
@@ -187,7 +170,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       return <GrowingField label="Hint" committed={question.hint} locked={locked} onCommit={(hint) => { commit({ hint }) }} heightPx={heightPx} onNatural={setHintNaturalPx} resizeToken={resizeToken} bag={bagFor('hint')} />
     }
     case 'chains_to': {
-      return <ChainPicker question={question} questions={questions} locked={locked} onChain={onChain} />
+      return <ChainPicker question={question} locked={locked} onChain={(chains_to) => { onChain(question_id, chains_to) }} />
     }
     case 'qnum': {
       return <QnumField label="Q#" committed={question.qnum} locked={locked} onCommit={(qnum) => { commit({ qnum }) }} />
@@ -207,40 +190,22 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     }
   }
 
-  /** What a widgeting typed into or asked from the cell came to: an entry in its cell's editor, a bot's asked from the cell */
-  const widgetingBody = (widgeting: WidgetingT, spec: ColumnSpec): React.JSX.Element => {
-    const { label } = widgeting
-    const widgeted = Runner.widgetedOf(run, label, question._id)
-    const widget = widgetOf(spec)
-    if (widget?.formulary === 'entry') {
-      return <EntryCell widget={widget} widgeting={widgeting} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} onEnter={(value) => { onEnter(label, value) }} bag={bagFor(label)} />
-    }
-    if (widget === null || formularyFor(widget).refresh !== 'click') { return readoutBody(spec) }
+  /** The cell for one column */
+  const cell = (spec: ColumnSpec) => {
+    const cellRun = rowRun.cells[spec.colkey]
+    const { reask } = cellRun ?? { reask: null }
     return (
-      <WidgetedAskCell
-        widgeted={widgeted} meta={question.stored[label]?.ok?.result_meta ?? null} label={spec.title} asking={asking(label)} askable={Runner.inputOf(run, label, question._id).status === 'ok'}
-        locked={locked} notice={unavailableNotice(label)} heightPx={heightPx} onAsk={() => { onAsk(label) }}
-      />
+      <td
+        key={spec.colkey}
+        className={clsx(styles.cell, alignClassOf(spec.align))}
+        style={{ width: `${String(spec.widthPx)}px` }}
+        data-colname={spec.title}
+        onDoubleClick={reask ? () => { reaskFor(reask) } : undefined}
+      >
+        {cellRun ? bodyOf(spec, cellRun) : null}
+      </td>
     )
   }
-
-  /** Whether a double-click on the column's cell may re-ask: a widgeting's, never an entry's, which is typed into */
-  const asksOnDoubleClick = (spec: ColumnSpec): boolean => (
-    spec.source.kind === 'widgeting' && Runner.stepOf(run, spec.source.widgeting.label)?.widget?.formulary !== 'entry'
-  )
-
-  /** The cell for one column */
-  const cell = (spec: ColumnSpec) => (
-    <td
-      key={spec.colkey}
-      className={clsx(styles.cell, alignClassOf(spec.align))}
-      style={{ width: `${String(spec.widthPx)}px` }}
-      data-colname={spec.title}
-      onDoubleClick={! spec.collapsed && asksOnDoubleClick(spec) ? () => { reextractFor(spec.source.kind === 'widgeting' ? spec.source.widgeting.widget_label : '') } : undefined}
-    >
-      {bodyOf(spec)}
-    </td>
-  )
 
   return (
     <tr
@@ -252,7 +217,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
         folded && styles.rowFolded,
       )}
       data-folded={folded || undefined}
-      onFocus={folded ? openOnEntry(onUnfold) : undefined}
+      onFocus={folded ? openOnEntry(() => { onUnfold(question_id) }) : undefined}
     >
       <td className={styles.cell} style={{ width: `${String(GutterWidthPx)}px` }}>
         <div className={styles.gutter}>
@@ -261,9 +226,9 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
               <Checkbox
                 size="small" sx={{ p: 0.25 }} checked={checked}
                 slotProps={{ input: { 'aria-label': `Select ${questionName}` } }}
-                onChange={(event) => { onCheck(event.target.checked) }}
+                onChange={(event) => { onCheck(question_id, event.target.checked) }}
               />
-              <IconButton size="small" sx={{ p: 0.25 }} aria-label={`Change how ${questionName} is shown`} onClick={onViz}>
+              <IconButton size="small" sx={{ p: 0.25 }} aria-label={`Change how ${questionName} is shown`} onClick={() => { onViz(question_id) }}>
                 <VisibilityOutlinedIcon fontSize="small" />
               </IconButton>
             </>
@@ -289,5 +254,15 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       {specs.map((spec) => cell(spec))}
     </tr>
   )
-}
+}, isSameRowProps)
 
+/**
+ * Whether a row handed `next` draws what it drew from `prev`: every prop the very same, but its
+ * row run, which need only draw the same (`isSameRowRun`): a run of the quiz in which nothing of
+ * this question came out otherwise leaves its row as it is.
+ */
+export function isSameRowProps(prev: Readonly<QuestionRowProps>, next: Readonly<QuestionRowProps>): boolean {
+  return (Object.keys(next) as (keyof QuestionRowProps)[]).every((propname) => (
+    propname === 'rowRun' ? isSameRowRun(prev.rowRun, next.rowRun) : Object.is(prev[propname], next[propname])
+  ))
+}

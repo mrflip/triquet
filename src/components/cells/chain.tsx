@@ -1,5 +1,6 @@
 'use client'
 
+import { createContext, useContext, useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import clsx from 'clsx'
 import { MarkdownText } from './markdown'
@@ -9,9 +10,7 @@ import { Question, type QuestionT } from '../../models/question'
 import styles from '../workbench.module.css'
 
 export type ChainPickerProps = {
-  question:  QuestionT
-  /** Every question in the quiz, so the picker can offer all the others */
-  questions: QuestionT[]
+  question:  Pick<QuestionT, '_id' | 'chains_to'>
   locked:    boolean
   onChain:   (chains_to: string | null) => void
 }
@@ -19,10 +18,12 @@ export type ChainPickerProps = {
 /**
  * Which question follows this one. Every other question in the quiz but the archived, by its title
  * as shown (an alternate's marked as one); an archived one only when it is already the one chained
- * to, marked as archived.
+ * to, marked as archived. What it offers is the quiz's, from the grid around it (`ChainChoices`),
+ * so a question retitled draws every picker again, and not the rows they sit in.
  */
-export function ChainPicker({ question, questions, locked, onChain }: Readonly<ChainPickerProps>) {
-  const offered = chainOptionsOf(questions).filter(({ _id, archived }) => _id !== question._id && (! archived || _id === question.chains_to))
+export function ChainPicker({ question, locked, onChain }: Readonly<ChainPickerProps>) {
+  const options = useContext(ChainOptionsContext)
+  const offered = options.filter(({ _id, archived }) => _id !== question._id && (! archived || _id === question.chains_to))
   return (
     <select
       className={styles.field}
@@ -40,33 +41,38 @@ export function ChainPicker({ question, questions, locked, onChain }: Readonly<C
 /** One question as a chain picker may offer it: its option, and what decides whether a picker offers it */
 type ChainOptionT = { _id: string, archived: boolean, option: React.JSX.Element }
 
-/** The options `chainOptionsOf` made, by the questions they were made from */
-const ChainOptionsOf = new WeakMap<readonly QuestionT[], readonly ChainOptionT[]>()
+/** One question as the pickers name it: its id, its title as shown, and whether it is archived */
+type ChainChoiceT = { _id: string, title: string, archived: boolean }
+
+/** What every chain picker of a grid offers: none outside one */
+const ChainOptionsContext = createContext<readonly ChainOptionT[]>([])
+
+export type ChainChoicesProps = {
+  /** Every question of the quiz, archived among them, in its order */
+  questions: readonly QuestionT[]
+  children:  React.ReactNode
+}
 
 /**
- * Every question of `questions` as a chain picker may offer it, made once for all of a quiz's
- * pickers rather than once for each of them: each picker passes over itself, and over the
- * archived but the one it chains to.
+ * What every chain picker within offers: each question of `questions`, made once for them all
+ * rather than once for each, and made again only when a question's title or whether it is
+ * archived changes, or one comes or goes.
  */
-function chainOptionsOf(questions: readonly QuestionT[]): readonly ChainOptionT[] {
-  const known = ChainOptionsOf.get(questions)
-  if (known !== undefined) { return known }
-  const made = questions.map((other) => {
-    const archived = Question.isArchived(other)
-    const option = (
-      <option key={other._id} value={other._id}>
-        {Question.titleShown(other, CellNotices.chainTargetUnnamed)}{archived ? ` ${CellNotices.chainTargetArchived}` : ''}
-      </option>
-    )
-    return { _id: other._id, archived, option }
-  })
-  ChainOptionsOf.set(questions, made)
-  return made
+export function ChainChoices({ questions, children }: Readonly<ChainChoicesProps>) {
+  const choicesKey = JSON.stringify(questions.map((question): ChainChoiceT => ({
+    _id: question._id, title: Question.titleShown(question, CellNotices.chainTargetUnnamed), archived: Question.isArchived(question),
+  })))
+  const options = useMemo(() => (JSON.parse(choicesKey) as ChainChoiceT[]).map(({ _id, title, archived }) => ({
+    _id,
+    archived,
+    option: <option key={_id} value={_id}>{title}{archived ? ` ${CellNotices.chainTargetArchived}` : ''}</option>,
+  })), [choicesKey])
+  return <ChainOptionsContext value={options}>{children}</ChainOptionsContext>
 }
 
 export type ButnotPreviewProps = {
-  /** The question this one chains to, or null when unchained or pointing nowhere */
-  target:   QuestionT | null
+  /** The question this one chains to, as far as its hint, or null when unchained or pointing nowhere */
+  target:   Pick<QuestionT, 'hint'> | null
   chained:  boolean
   heightPx: number
 }
@@ -106,7 +112,7 @@ export function ButnotFull({ target, chained }: Readonly<Omit<ButnotPreviewProps
 }
 
 /** What the BUT NOT cell says when it has no hint to preview */
-function butnotNoticeFor(target: QuestionT | null, chained: boolean): string | null {
+function butnotNoticeFor(target: Pick<QuestionT, 'hint'> | null, chained: boolean): string | null {
   if (! chained) { return CellNotices.butnotNoChain }
   if (target === null) { return CellNotices.butnotNoTarget }
   return target.hint.trim() === '' ? CellNotices.butnotNoHint : null

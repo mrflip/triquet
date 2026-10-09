@@ -4,17 +4,23 @@ import { useMemo } from 'react'
 import { Stack } from '@mui/material'
 import clsx from 'clsx'
 import { PreviewQuestionPicker } from './PreviewPicker'
+import { ChainChoices } from './cells/chain'
 import { QuestionRow } from './QuestionRow'
+import { rowRunOf } from './row-runs'
 import { ColumnHead } from './QuestionTable'
 import { usePreviewQuestion } from './use-preview-bag'
 import { useSettledResize } from './use-settled-resize'
 import { GutterWidthPx, gridWidthPx, specsFor } from '../lib/columns'
 import type { QuizRun } from '../lib/formulary/runner'
 import type { QuizT } from '../models/quiz'
+import { NoAsks } from '../state/use-asking'
 import styles from './workbench.module.css'
 
 /** What the preview's row is handed for each thing it could otherwise do: nothing */
 const Inert = () => { /* the preview changes nothing */ }
+
+/** Why a widgeting cannot be asked, in a preview that asks nothing: no reason, as the grid draws its cells */
+const Unasked = () => null
 
 export type RowPreviewProps = {
   /** The quiz, as held: its columns, its questions, and what it nominates as templateable */
@@ -52,31 +58,31 @@ export function RowPreview({ quiz, run }: Readonly<RowPreviewProps>) {
               </tr>
             </thead>
             <tbody>
-              <QuestionRow
-                question={question}
-                questions={quiz.questions}
-                locked
-                gripShown={false}
-                checked={null}
-                onCheck={Inert}
-                onViz={Inert}
-                resizeToken={resizeToken}
-                folded={false}
-                onUnfold={Inert}
-                idx={0}
-                count={1}
-                onMove={Inert}
-                onChain={Inert}
-                specs={specs}
-                run={run}
-                templateable={quiz.templateable}
-                asking={() => false}
-                unavailableNotice={() => null}
-                onAsk={Inert}
-                onAskTarget={Inert}
-                onEdit={Inert}
-                onEnter={Inert}
-              />
+              <ChainChoices questions={quiz.questions}>
+                <QuestionRow
+                  question={question}
+                  targetHint={quiz.questions.find((other) => other._id === question.chains_to)?.hint ?? null}
+                  locked
+                  gripShown={false}
+                  checked={null}
+                  onCheck={Inert}
+                  onViz={Inert}
+                  resizeToken={resizeToken}
+                  folded={false}
+                  onUnfold={Inert}
+                  idx={0}
+                  count={1}
+                  onMove={Inert}
+                  onChain={Inert}
+                  specs={specs}
+                  rowRun={rowRunOf(run, question, specs, quiz.templateable, Unasked)}
+                  templateable={quiz.templateable}
+                  asks={NoAsks}
+                  onAsk={Inert}
+                  onEdit={Inert}
+                  onEnter={Inert}
+                />
+              </ChainChoices>
             </tbody>
           </table>
         </div>

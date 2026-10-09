@@ -41,7 +41,7 @@ export type QuizRouteProps = {
 export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
   const router = useRouter()
   const { ident, loaded } = useIdent()
-  const { finding, hunt, realm, quiz, library, claims, smiths, reviews, dispatch, carryOut, movedTo, unsaved, saveNotice } = useHunt(org, labels)
+  const { finding, hunt, realm, quiz, library, claims, smiths, reviews, dispatch, carryOut, movedTo, saveNotice } = useHunt(org, labels)
   useShowHunt(hunt)
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
   // On its way to the mode the visitor's role works in, or from an old address to the quiz's own.
   if (mode === null || org === null) { return <OpeningNotice notice={saveNotice} /> }
   if (mode === 'playtest') {
-    return <ReviewScreen quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} unsaved={unsaved} />
+    return <ReviewScreen quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} />
   }
-  return <Workbench hunt={hunt} realm={realm} quiz={quiz} library={library} claims={claims} reviews={reviews} dispatch={dispatch} carryOut={carryOut} unsaved={unsaved} saveNotice={saveNotice} />
+  return <Workbench hunt={hunt} realm={realm} quiz={quiz} library={library} claims={claims} reviews={reviews} dispatch={dispatch} carryOut={carryOut} saveNotice={saveNotice} />
 }

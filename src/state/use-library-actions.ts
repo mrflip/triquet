@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { useConvex, useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type * as Actor from '../lib/actor'
@@ -18,8 +18,6 @@ import { showLibraryChanged } from './optimistic-library'
 export type LibraryActionsHandle = {
   /** Carry out what an admin did to the library; a change not kept raises an alarm */
   dispatch: (action: LibraryActionDNA) => void
-  /** Whether a change to the library dispatched here is still being written */
-  unsaved:  boolean
 }
 
 /**
@@ -53,7 +51,7 @@ export function libraryDenialOf(actor: Actor.ActorT, action: LibraryActionDNA): 
  * widget written or revised is shown at once (`showLibraryChanged`), so an ask made straight after
  * reads it as written; anything else once the server has it.
  *
- * @returns The dispatcher, and whether it is still writing.
+ * @returns The dispatcher. Whether a change is still being written is the page's (`usePageWriting`).
  */
 export function useLibraryActions(): LibraryActionsHandle {
   const { actor } = useIdent()
@@ -62,7 +60,6 @@ export function useLibraryActions(): LibraryActionsHandle {
   const perform = useMemo(() => performBare.withOptimisticUpdate(showLibraryChanged), [performBare])
   const convex = useConvex()
   const raise = useRaiseAlarm()
-  const [writing, setWriting] = useState(0)
 
   // Read by the dispatcher when it runs rather than when it was made, so it never goes stale.
   const latest = useRef(actor)
@@ -75,7 +72,6 @@ export function useLibraryActions(): LibraryActionsHandle {
       raise({ headline: AppNotices.changeNotKept, notice: RefusalNotices[denial], request_id: null })
       return
     }
-    setWriting((was) => was + 1)
     holdThePage(true)
     try {
       await perform({ action })
@@ -84,12 +80,11 @@ export function useLibraryActions(): LibraryActionsHandle {
       Postmortem.report(`keep a change to the library (${action.kind})`, err, { action, connection: { isWebSocketConnected, connectionRetries, inflightMutations } })
       raise(Alarms.of(AppNotices.changeNotKept, err))
     } finally {
-      setWriting((was) => was - 1)
       holdThePage(false)
     }
   }, [perform, convex, raise])
 
   const dispatch = useCallback((action: LibraryActionDNA) => { HuntMirror.trackWrite(carryOut(action)) }, [carryOut])
 
-  return { dispatch, unsaved: writing > 0 }
+  return { dispatch }
 }
