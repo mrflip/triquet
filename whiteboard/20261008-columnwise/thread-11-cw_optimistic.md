@@ -3,7 +3,8 @@
 Branch `20261009-cw_optimistic`, PR filed at landing; see the report. Suites: `pnpm justify` green;
 a full `pnpm e2e` before review, 285 passed and 3 flakes each green alone (`categories.spec.ts`, a
 reviewer's total order; `prompts.spec.ts`, a prompt revised from the library; `routing.spec.ts`,
-the friend's hunts list). None of the three is a race this thread covers.
+the friend's hunts list). None of the three is a race this thread covers. The landing's full run is in the
+report and the PR.
 
 * **Built**:
   - `src/state/optimistic-quiz.ts`: `showPerformed`, Convex's `withOptimisticUpdate` on
@@ -75,6 +76,11 @@ categories) are load, not a missing update.
     not a source of truth.
   - For thread 10: this module reads only the frame and the question readings, never the bag; expect
     no conflict beyond `whiteboard/TODO.md`.
+
+* **Review**: `fixed`. `8fd0b361`: a retyped entry keeps its row's `_creationTime`, as the
+  server's `db.replace` does, pinned by a test. At landing, the two entry cases' bare `value` names
+  became `entered` (STYLE.md). The reviewer's other findings were minor, and were not relayed to
+  this worker in detail; the orchestrator's relay holds them.
 
 * **For the Coach**: the two kept workarounds above (your "adding, then removing" question), and the
   list of kinds not shown early.
