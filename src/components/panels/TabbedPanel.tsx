@@ -30,11 +30,11 @@ export type TabbedPanelProps = {
  */
 export function TabbedPanel({ title, blurb, tabs, shownFirst }: Readonly<TabbedPanelProps>) {
   const [shownIdx, setShownIdx] = useState(() => Math.max(0, tabs.findIndex((tab) => tab.label === shownFirst)))
-  // The tabs left since the panel was built, whose sections stay built: by label, so a tab coming or
-  // going (one offered only to some) leaves the others as they were. The tab shown is always built.
-  const [left, setLeft] = useState<ReadonlySet<string>>(() => new Set())
+  // The tabs shown since the panel was built, whose sections stay built: by label, so a tab coming or
+  // going (one offered only to some) leaves the others as they were, the one showing among them.
+  const [built, setBuilt] = useState<ReadonlySet<string>>(() => new Set([tabs[shownIdx]?.label ?? '']))
   const show = (idx: number) => {
-    setLeft((was) => new Set([...was, tabs[shownIdx]?.label ?? '']))
+    setBuilt((was) => new Set([...was, tabs[idx]?.label ?? '']))
     setShownIdx(idx)
   }
   const idBase = useId()
@@ -55,7 +55,7 @@ export function TabbedPanel({ title, blurb, tabs, shownFirst }: Readonly<TabbedP
       </Tabs>
       {tabs.map((tab, ii) => (
         <Box key={tab.label} role="tabpanel" hidden={ii !== shownIdx} id={sectionId(ii)} aria-labelledby={tabId(ii)} sx={{ pt: 1 }}>
-          {(ii === shownIdx || left.has(tab.label)) && (
+          {(ii === shownIdx || built.has(tab.label)) && (
             <>
               {tab.blurb === undefined ? null : <p className={styles.microcopy}>{tab.blurb}</p>}
               {tab.content}
