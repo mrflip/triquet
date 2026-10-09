@@ -306,6 +306,16 @@ Two warnings:
   (`retitledPatch`; `planWidgetingEdit`), and a header the author wrote stays. Whatever is made
   arrives open. *+ New widgeting…* and *+ New quiz widgeting…* stay beside the run order, the
   catalogue made at once as it is picked, until 5b moves them.
+* *As built (5b):* **the run order's two homes share one list** (`RunOrderList`, split by
+  `runOrderListsOf`, a drop placed by `runOrderIdxOf`). The *Widgets* panel's rows are widgeting
+  panels, each folded row adding how its cells stand, its open rows the widget's formula or
+  prompt verbatim and the advice button; its old description snippet went with its old row. The
+  dialog's *Run order* rows are lines (handle, label, what it works, tier mark, description), with
+  nothing to unfold. **The new-widgeting menus live at the head of the *Widgets* panel**, the one
+  place every widgeting, columnless or not, is edited; the dialog's *Widget library…* button went
+  with them (the toolbar keeps the door). The **row preview** sits above the column list,
+  `QuestionRow` under the grid's own heads (`ColumnHead`), from the stored quiz and the screen's
+  run only, so a draft (an unchecked `regex` among them) never reaches it.
 
 ## 8. Removal, and the commit model (thread 4; 5a everywhere)
 

@@ -290,6 +290,23 @@ Built: `LiquidizeFormulary` (`src/lib/formulary/liquidize.ts`), its params, the 
   `TimeboxMs`. `Liquidry.clockNow` (`performance.now()`) moves there; one line to use it. And a
   whole column of formulas has no budget of its own, as a column of templates now does.
 
+## From columnwise sprint, thread 5b: the run order's two homes, the row preview
+
+Built: the run order in the Widgets panel (widgeting panels, the new-widgeting menus at its head)
+and in the gear (*Run order*, lines to drag); one question's row previewed above the columns. Left:
+
+* **An edit made within a round trip of a relabel is addressed to the old label** and refused
+  (`useColumnCommit`, `WidgetingPanel`'s `revise`: each sends the label as last loaded). Seen as an
+  e2e flake under load (`widgets.spec.ts`, *a column can be added for anything…*: relabel, then
+  width and title at once, the title lost). The same cure as 5a's `retitledPatch` item: optimistic
+  updates on the quiz's dispatch, or actions addressed by id.
+* **The Widgets panel draws every widgeting's panel even while it is folded** (`Panel` keeps its
+  content mounted, so a draft survives), each re-rendered on every change to the quiz. Cheap at a
+  dozen widgetings; if a quiz grows many, mount the rows only while the panel is open.
+* **A change to the library, then an ask at once, can ask with the old widget** (`prompts.spec.ts`,
+  *a prompt opened from the library…*, a flake under load): the ask reads the library as last
+  loaded. A person cannot click that fast; the spec could wait until saved.
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and
