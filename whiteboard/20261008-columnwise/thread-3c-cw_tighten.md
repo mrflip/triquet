@@ -1,8 +1,8 @@
 # Thread 3c: Columns tighten (2026-10-09)
 
 Branch `20261009-cw_tighten`, PR filed at landing; see the report. Ends the chain: the PR body says
-`Tightens Serial Deploy: columnwise`. Suites: `pnpm justify` green (5638 unit tests); full e2e at
-landing.
+`Tightens Serial Deploy: columnwise`. Suites: `pnpm justify` green (5638 unit tests); a full
+`pnpm e2e` at landing (its result is in the report and the PR's Tests: line).
 
 * **Built**: every item of 3a's checklist (`thread-3a-cw_widen.md`, *For 3c*):
   1. `convex/schema.ts`: `quizzes` is derived from its row validator alone: `templateable`
@@ -62,7 +62,15 @@ landing.
   - Merge only after #193's deploy said `Backfills: every one has finished.`; then
     `migrations:outstanding` is `[]` and section 5 of a fresh export's `prd_checks.mts` finds none
     (`columnwise-convex_runbook.md`, step 5). Nothing else: no seed run.
-  - Once this is on the spine, `prd_checks.mts` section 1 also catches a widgeting labelled
-    `category` (or `categories`), since it reads `ReservedWidgetingLabels`: relabel any it finds.
+  - `prd_checks.mts` section 5 (widened by the orchestrator) flags a widgeting labelled `category`
+    as well as `categories`; section 1, run from a checkout holding this thread, catches both too.
+    Relabel any it finds.
   - `category`'s reservation is a two-way door; `categories` and `category` could be made global
     later, after a grep.
+
+* **Review** (`fixed`): one commit, the tightening's ledger row naming a `category` widgeting
+  beside `categories` and what a quiz nominating either refuses (every write to its own row); its
+  pointer to `prd_checks.mts` then followed the orchestrator's widened section 5. The reviewer's
+  eight minor findings, left as notes, reached the orchestrator's relay but not this worker: they
+  are in the review's report, and want copying here or into `whiteboard/TODO.md` by whoever holds
+  it.
