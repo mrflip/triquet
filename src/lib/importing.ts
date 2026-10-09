@@ -15,6 +15,7 @@ import { QuizValidators, isTemplatableField, templateableFrom, type QuizT, type 
 import { EntryFormulary } from './formulary/entry'
 import * as Formularies from './formulary/formularies'
 import { Widget, WidgetValidators, type EntryValueT, type EntryWidgetT, type WidgetT } from '../models/widget'
+import { WidgetedValidators, type JsonT } from '../models/widgeted'
 import { WidgetingValidators, type WidgetingT } from '../models/widgeting'
 
 /** One thing wrong with one incoming question */
@@ -137,11 +138,17 @@ export type ImportOutcome = {
  * and skipped and logged when it does not; one it holds has its description and params revised,
  * unless it works another widget or runs at another tier, when it is skipped. None is removed,
  * since its cells hold what was asked and typed, and the quiz's run order stands, those added
- * coming last in the order pasted. What a widgeting came to is not carried -- a worked-out value is worked out again, and
- * an asked one is recorded by asking -- except an entry's, which a person typed: under an entry
- * widgeting's label, a value (bare, or as the export writes it, `{ status: 'ok', value }`) is
- * typed into the question's cell, and nothing (null, or `{ status: 'missing' }`) empties it, as a
- * question's own fields merge. A value not of the entry's kind fails its question, as a field would.
+ * coming last in the order pasted.
+ *
+ * What a worked-out widgeting came to is not carried: it is worked out again. What a person typed
+ * and what a bot replied are. Under an entry widgeting's label, a value (bare, or as the export
+ * writes it, `{ status: 'ok', value }`) is typed into the question's cell, and nothing (null, or
+ * `{ status: 'missing' }`) empties it, as a question's own fields merge; a value not of the
+ * entry's kind fails its question, as a field would. Under the label of a widgeting asked from its
+ * cell, a value read the same way is carried as the bot's reply, filling the cell only where it
+ * holds nothing, so a pasted reply never buries one asked here; a failure, or a reply that will
+ * not read, carries nothing and is named in the question's line, and nothing at all is passed
+ * over. What a question holds under a widgeting the quiz will not have is named in its line too.
  *
  * Columns hold nothing but how the grid is laid out, so a paste that holds any makes the quiz's
  * columns its own (`columnsMerged`): each is added, or revised to the paste's title, source, width
@@ -179,9 +186,9 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
 
   const held = new Set(quiz.questions.map((question) => question.label))
   const widgetings = widgetingsMerged(quiz, read.widgetings, library)
-  const merge: MergeState = { patches: new Map(), entered: new Map(), log: [] }
-  const entries = entryWidgetingsOf(quiz, read.widgetings, widgetings.actions, library)
-  for (const [ii, raw] of incoming.entries()) { readOneQuestion(merge, held, entries, raw, ii + 1) }
+  const merge: MergeState = { patches: new Map(), entered: new Map(), replied: new Map(), log: [] }
+  const cells = cellReadingOf(quiz, read.widgetings, widgetings, library)
+  for (const [ii, raw] of incoming.entries()) { readOneQuestion(merge, held, cells, raw, ii + 1) }
 
   const showable = showableAfter(quiz, widgetings.actions)
   const columns = columnsMerged(quiz, read.columns, showable)
@@ -196,7 +203,7 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
   return {
     ok:               skipped === 0 && ! anySkipped,
     elsewhere:        null,
-    summary:          `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped${widgetingSummary(widgetings.log)}${columnSummary(columns.log)}${fieldSummary(fields.log)} — see log below. Renumbered Q# by rank.`,
+    summary:          `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped${replySummary(questions)}${widgetingSummary(widgetings.log)}${columnSummary(columns.log)}${fieldSummary(fields.log)} — see log below. Renumbered Q# by rank.`,
     log:              merge.log,
     questions,
     widgetingLog:     widgetings.log,
@@ -207,6 +214,13 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
     fieldActions:     [...fields.actions, ...fields.afterLayout],
     actions:          [...fields.actions, ...widgetings.actions, ...columns.actions, ...fields.afterLayout, { kind: 'import_questions', questions, ...remembered }],
   }
+}
+
+/** The bots' replies' share of the summary, or nothing when the paste carried none */
+function replySummary(questions: readonly ImportedQuestionT[]): string {
+  const count = EST.sumBy(questions, (question) => Object.keys(question.replied).length)
+  if (count === 0) { return '' }
+  return `; ${String(count)} bot ${count === 1 ? 'reply' : 'replies'} carried, into cells holding none`
 }
 
 /** The columns' share of the summary, or nothing when the paste carried none */
@@ -501,28 +515,45 @@ type MergeState = {
   patches: Map<string, ImportPatchT>
   /** What each label's question has typed into its entry cells, by the entry widgeting's label */
   entered: Map<string, Record<string, EntryValueT | null>>
+  /** What each label's question carries into its asked cells, by the widgeting's label */
+  replied: Map<string, Record<string, JsonT>>
   log:     ImportLogEntry[]
 }
 
+/** What a pasted question's cells may carry into the quiz, by widgeting label */
+type CellReading = {
+  /** The entry widgetings each question will have, with the widget each works: typed into */
+  entries: ReadonlyMap<string, EntryWidgetT>
+  /** The widgetings each question will have that are asked from the cell: their replies carried */
+  asked:   ReadonlySet<string>
+  /** The pasted widgetings skipped: what a question holds under them is not carried, and is said so */
+  lost:    ReadonlySet<string>
+}
+
 /**
- * The entry widgetings for each question the quiz will hold once the import's widgeting actions
- * are sent, by label, each with the library's widget it works: those it holds, and those the
- * import adds. One the paste
- * says works another widget is left out: what its cells hold came from that widget, not this entry.
+ * The widgetings that store, for each question the quiz will hold once the import's widgeting
+ * actions are sent, by label: those it holds, and those the import adds, by the formulary of the
+ * library's widget each works; and those the import skips. One the paste says works another
+ * widget is left out of those that store: what its cells hold came from that widget, not this one.
  */
-function entryWidgetingsOf(quiz: QuizT, pasted: readonly unknown[], actions: readonly HuntActionDNA[], library: readonly WidgetT[]): ReadonlyMap<string, EntryWidgetT> {
-  const added = actions.flatMap((action) => (action.kind === 'add_widgeting' ? [action.widgeting] : []))
+function cellReadingOf(quiz: QuizT, pasted: readonly unknown[], merged: { actions: readonly HuntActionDNA[], log: readonly WidgetingLogEntry[] }, library: readonly WidgetT[]): CellReading {
+  const added = merged.actions.flatMap((action) => (action.kind === 'add_widgeting' ? [action.widgeting] : []))
   const pastedWorking = new Map(pasted.flatMap((raw) => {
     const parsed = WidgetingValidators.widgeting.safeParse(raw)
     return parsed.success ? [[parsed.data.label, parsed.data.widget_label] as const] : []
   }))
   const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
-  return new Map([...quiz.widgetings, ...added].filter((widgeting) => widgeting.tier === 'question').flatMap(({ label, widget_label }) => {
+  const working = [...quiz.widgetings, ...added].filter((widgeting) => widgeting.tier === 'question').flatMap(({ label, widget_label }) => {
     const widget = widgetFor.get(widget_label)
     const elsewhere = pastedWorking.get(label)
-    if (elsewhere !== undefined && elsewhere !== widget_label) { return [] }
-    return widget?.formulary === 'entry' ? [[label, widget] as const] : []
-  }))
+    if (! widget || (elsewhere !== undefined && elsewhere !== widget_label)) { return [] }
+    return [{ label, widget }]
+  })
+  return {
+    entries: new Map(working.flatMap(({ label, widget }) => (widget.formulary === 'entry' ? [[label, widget] as const] : []))),
+    asked:   new Set(working.flatMap(({ label, widget }) => (Formularies.formularyFor(widget).store === 'append' ? [label] : []))),
+    lost:    new Set(merged.log.flatMap((entry) => (entry.outcome === 'skipped' && entry.label !== '' ? [entry.label] : []))),
+  }
 }
 
 /** What a pasted question types into its entry cells, read off the raw object: what each label carries, and what of it will not do */
@@ -562,6 +593,57 @@ function unwrapped(exported: { status?: unknown, value?: unknown }): { ok: true,
   return { ok: false, message: `An entry is typed, so it cannot be "${String(exported.status)}"` }
 }
 
+/** What a pasted question carries into its asked cells, read off the raw object: each label's reply, and a line for each that is not carried */
+function repliedFrom(bag: Record<string, unknown>, asked: ReadonlySet<string>): { replied: Record<string, JsonT>, issues: ImportIssue[] } {
+  const replied: Record<string, JsonT> = {}
+  const issues: ImportIssue[] = []
+  for (const label of asked) {
+    if (! Object.hasOwn(bag, label)) { continue }
+    const reply = pastedReplyOf(bag[label])
+    if (reply.kind === 'carried') {
+      replied[label] = reply.value
+    } else if (reply.kind === 'refused') {
+      issues.push({ fieldpath: label, message: reply.message, code: reply.code })
+    }
+  }
+  return { replied, issues }
+}
+
+/** One pasted asked cell, read: a reply to carry, nothing to carry, or what will not be carried and why */
+type PastedReply =
+  | { kind: 'carried', value: JsonT }
+  | { kind: 'nothing' }
+  | { kind: 'refused', message: string, code: 'reply_failed' | 'reply_unreadable' }
+
+/**
+ * One pasted asked cell, unwrapped: a reply as the export writes it (`{ status: 'ok', value }`) or
+ * bare, held to what a cell may store; nothing for null, an empty text, an `ok` of null, or
+ * `{ status: 'missing' }`; and a failure, which is not carried, since the cell is filled by asking.
+ */
+function pastedReplyOf(raw: unknown): PastedReply {
+  if (raw === null || raw === '') { return { kind: 'nothing' } }
+  if (! EST.isPlainObject(raw) || ! Object.hasOwn(raw, 'status')) { return replyOf(raw) }
+  const { status, value } = raw as { status?: unknown, value?: unknown }
+  if (status === 'ok') { return (value ?? '') === '' ? { kind: 'nothing' } : replyOf(value) }
+  if (status === 'missing') { return { kind: 'nothing' } }
+  if (status === 'errored') { return { kind: 'refused', message: 'A failure is not carried: ask the bot again to fill the cell', code: 'reply_failed' } }
+  return { kind: 'refused', message: `Not a reply this tool can read: no widgeted is "${String(status)}"`, code: 'reply_unreadable' }
+}
+
+/** A pasted reply's value, as a cell may store it, or why it may not */
+function replyOf(val: unknown): PastedReply {
+  const read = WidgetedValidators.value.safeParse(val)
+  if (! read.success) { return { kind: 'refused', message: Reporting.explain(read.error), code: 'reply_unreadable' } }
+  return read.data === null ? { kind: 'nothing' } : { kind: 'carried', value: read.data }
+}
+
+/** A line for what a pasted question holds under widgetings the import skips, which is not carried; none when it holds nothing there */
+function lostIssues(bag: Record<string, unknown>, lost: ReadonlySet<string>): ImportIssue[] {
+  const labels = [...lost].filter((label) => Object.hasOwn(bag, label) && pastedReplyOf(bag[label]).kind === 'carried')
+  if (labels.length === 0) { return [] }
+  return [{ fieldpath: labels.join(', '), message: 'Not carried, as this quiz will not have these widgetings: see their lines below', code: 'widgeting_skipped' }]
+}
+
 /**
  * One incoming question read: its patch folded onto the label it names, or a fresh label when
  * it names none.
@@ -569,10 +651,10 @@ function unwrapped(exported: { status?: unknown, value?: unknown }): { ok: true,
  * A question that fails validation is skipped *entirely* rather than half-merged, and named in
  * the log by position and label. One bad question never blocks the rest of the import.
  */
-function readOneQuestion(merge: MergeState, held: ReadonlySet<string>, entries: ReadonlyMap<string, EntryWidgetT>, raw: unknown, position: number) {
+function readOneQuestion(merge: MergeState, held: ReadonlySet<string>, cells: CellReading, raw: unknown, position: number) {
   const bag = (raw ?? {}) as Record<string, unknown>
   const parsed = ImportValidators.importQuestion.safeParse(raw)
-  const typed = enteredFrom(bag, entries)
+  const typed = enteredFrom(bag, cells.entries)
 
   if (! parsed.success || typed.issues.length > 0) {
     const shownLabel = typeof bag.label === 'string' ? bag.label : ''
@@ -584,7 +666,9 @@ function readOneQuestion(merge: MergeState, held: ReadonlySet<string>, entries: 
   const outcome = held.has(label) || merge.patches.has(label) ? 'merged' : 'added'
   merge.patches.set(label, { ...merge.patches.get(label), ...patchFrom(bag, parsed.data) })
   merge.entered.set(label, { ...merge.entered.get(label), ...typed.entered })
-  merge.log.push({ position, label, outcome, issues: [] })
+  const replies = repliedFrom(bag, cells.asked)
+  merge.replied.set(label, { ...merge.replied.get(label), ...replies.replied })
+  merge.log.push({ position, label, outcome, issues: [...replies.issues, ...lostIssues(bag, cells.lost)] })
 }
 
 type PayloadReading =
@@ -687,10 +771,11 @@ function chainsResolved(merge: MergeState, held: ReadonlySet<string>): ImportedQ
   const known = new Set([...held, ...merge.patches.keys()])
   return [...merge.patches].map(([label, patch]) => {
     const entered = merge.entered.get(label) ?? {}
+    const replied = merge.replied.get(label) ?? {}
     const target = patch.chains_to
-    if (target === undefined || target === null || (target !== label && known.has(target))) { return { label, patch, entered } }
+    if (target === undefined || target === null || (target !== label && known.has(target))) { return { label, patch, entered, replied } }
     noteChainLoss(merge.log, label)
-    return { label, patch: { ...patch, chains_to: null }, entered }
+    return { label, patch: { ...patch, chains_to: null }, entered, replied }
   })
 }
 

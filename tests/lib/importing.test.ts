@@ -3,6 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as Importing from '../../src/lib/importing'
 import * as Recap from '../../src/lib/recap'
+import * as PA from '../../src/lib/vv/patterns'
 import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
@@ -64,6 +65,20 @@ function read(quiz: QuizT, pasted: unknown): Importing.ImportOutcome {
 function enteredFor(outcome: Importing.ImportOutcome, label: string): ImportedQuestionT['entered'] {
   return present(present(outcome.questions).find((question) => question.label === label), label).entered
 }
+
+/** What an import carries into the asked cells of the question labelled `label` */
+function repliedFor(outcome: Importing.ImportOutcome, label: string): ImportedQuestionT['replied'] {
+  return present(present(outcome.questions).find((question) => question.label === label), label).replied
+}
+
+/** `enteredQuiz`, working the bots `dumdum` and `numnum_clueing` too */
+function askedQuiz(): QuizT {
+  const quiz = enteredQuiz()
+  return { ...quiz, widgetings: [...quiz.widgetings, ...['dumdum', 'numnum_clueing'].map((label) => Widgeting.fill({ widget_label: label, label }))] }
+}
+
+/** What a question's line in the log says beside its outcome, as the field and code of each issue */
+const issuesFor = (outcome: Importing.ImportOutcome) => outcome.log.map((entry) => [entry.outcome, entry.issues.map((issue) => `${issue.fieldpath} ${issue.code}`)])
 
 describe('importInto', () => {
   describe('what it accepts', () => {
@@ -222,7 +237,7 @@ describe('importInto', () => {
       expect(patchFor(imported(quiz, [{ label: 'leon', created_at: '2001-01-01T00:00:00.000Z', updated_at: '2001-01-01T00:00:00.000Z' }]), 'leon')).to.deep.eq({})
     })
 
-    it("passes over what a widgeting came to, which is worked out again or recorded by asking rather than pasted", () => {
+    it("passes over what a widgeting the quiz does not have came to", () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'])
       const dumdum = { status: 'ok', value: { guess: 'leon', explanation: 'a lion' } }
       const clueing_full = { status: 'ok', value: 12 }
@@ -538,6 +553,83 @@ describe('importInto', () => {
       expect(outcome.log.map((entry) => [entry.outcome, entry.issues.map((issue) => issue.fieldpath)])).to.deep.eq([['skipped', ['points']], ['skipped', ['remark']]])
       expect(outcome.questions).to.deep.eq([])
       expect(outcome.ok).to.be.false
+    })
+  })
+
+  describe('replies', () => {
+    const guess = { guess: 'Leon', explanation: 'a lion' }
+    const found = { items: [{ kind: 'numeral', text: '12', value: 12 }] }
+
+    it("carries what a bot replied under its widgeting's label, read as the export writes it or bare, apart from the question's fields and entries", () => {
+      const outcome = read(askedQuiz(), [{ label: 'leon', clueing: 'Reworded', remark: 'Ask Flip.', dumdum: { status: 'ok', value: guess }, numnum_clueing: found }])
+      expect(repliedFor(outcome, 'leon')).to.deep.eq({ dumdum: guess, numnum_clueing: found })
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Ask Flip.' })
+      expect(patchFor(present(outcome.questions), 'leon')).to.deep.eq({ clueing: 'Reworded' })
+      expect(outcome.actions.at(-1)).to.deep.include({ kind: 'import_questions' })
+    })
+
+    it("carries nothing, and says nothing, for a cell with nothing in it: null, an empty text, an `ok` of null, or a missing cell", () => {
+      const outcome = read(askedQuiz(), [{ label: 'leon', dumdum: null, numnum_clueing: '' }, { label: 'nantes', dumdum: { status: 'ok', value: null }, numnum_clueing: { status: 'missing', value: null } }])
+      expect(repliedFor(outcome, 'leon')).to.deep.eq({})
+      expect(repliedFor(outcome, 'nantes')).to.deep.eq({})
+      expect(issuesFor(outcome)).to.deep.eq([['merged', []], ['merged', []]])
+    })
+
+    it("carries no failure, nor a reply that will not read, and says so, but still takes the question and its other replies", () => {
+      const errored = { status: 'errored', value: null, err: { message: 'Overloaded', at: null, response: null } }
+      const outcome = read(askedQuiz(), [{ label: 'leon', clueing: 'Reworded', dumdum: errored, numnum_clueing: found }, { label: 'nantes', dumdum: { status: 'done', text: 'Nantes' } }])
+      expect(issuesFor(outcome)).to.deep.eq([['merged', ['dumdum reply_failed']], ['merged', ['dumdum reply_unreadable']]])
+      expect(repliedFor(outcome, 'leon')).to.deep.eq({ numnum_clueing: found })
+      expect(patchFor(present(outcome.questions), 'leon')).to.deep.eq({ clueing: 'Reworded' })
+    })
+
+    it("carries no reply bigger than a cell may store, and says so", () => {
+      const outcome = read(askedQuiz(), [{ label: 'leon', dumdum: 'x'.repeat(PA.WidgetedJson.max + 1) }])
+      expect(issuesFor(outcome)).to.deep.eq([['merged', ['dumdum reply_unreadable']]])
+      expect(repliedFor(outcome, 'leon')).to.deep.eq({})
+    })
+
+    it("carries nothing under an entry's label or a formula's as a reply: an entry is typed, a formula worked out again", () => {
+      const outcome = read(askedQuiz(), [{ label: 'leon', remark: 'Ask Flip.', clueing_full: { status: 'ok', value: 12 } }])
+      expect(repliedFor(outcome, 'leon')).to.deep.eq({})
+    })
+
+    it("carries the replies of a widgeting the same import adds", () => {
+      const outcome = read(quizOf(['1', 'leon', 'Which region?']), { questions: [{ label: 'leon', dumdum: { status: 'ok', value: guess } }], widgetings: [{ widget_label: 'dumdum', label: 'dumdum' }] })
+      expect(outcome.widgetingActions.map((action) => action.kind)).to.deep.eq(['add_widgeting'])
+      expect(repliedFor(outcome, 'leon')).to.deep.eq({ dumdum: guess })
+    })
+
+    it("passes over a reply under a bot's label when the paste says that label works another widget", () => {
+      const outcome = read(askedQuiz(), { questions: [{ label: 'leon', dumdum: { status: 'ok', value: 'Ask Flip.' } }], widgetings: [{ widget_label: 'remark', label: 'dumdum' }] })
+      expect(repliedFor(outcome, 'leon')).to.deep.eq({})
+    })
+
+    it("folds two pasted questions naming one label into one, cell by cell, the later reply winning", () => {
+      const outcome = read(askedQuiz(), [{ label: 'leon', dumdum: 'First.', numnum_clueing: found }, { label: 'leon', dumdum: 'Second.' }])
+      expect(repliedFor(outcome, 'leon')).to.deep.eq({ dumdum: 'Second.', numnum_clueing: found })
+    })
+
+    it("says how many replies it carried, and that it carried them only into cells holding none", () => {
+      expect(read(askedQuiz(), [{ label: 'leon', dumdum: guess, numnum_clueing: found }, { label: 'nantes', dumdum: guess }]).summary).to.include('; 3 bot replies carried, into cells holding none')
+      expect(read(askedQuiz(), [{ label: 'leon', dumdum: guess }]).summary).to.include('; 1 bot reply carried')
+      expect(read(askedQuiz(), [{ label: 'leon' }]).summary).to.not.include('bot repl')
+    })
+  })
+
+  describe('a widgeting it skips', () => {
+    it("names in one line what a question holds under widgetings the quiz will not have, and carries the rest", () => {
+      const pasted = { questions: [{ label: 'leon', remark: 'Ask Flip.', tally: { status: 'ok', value: 68 }, money: 'CA%: 68' }], widgetings: [{ widget_label: 'tally', label: 'tally' }, { widget_label: 'money', label: 'money' }] }
+      const outcome = read(enteredQuiz(), pasted)
+      expect(outcome.widgetingLog.map((entry) => entry.outcome)).to.deep.eq(['skipped', 'skipped'])
+      expect(issuesFor(outcome)).to.deep.eq([['merged', ['tally, money widgeting_skipped']]])
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Ask Flip.' })
+    })
+
+    it("says nothing of a widgeting it skips under which a question holds nothing", () => {
+      const pasted = { questions: [{ label: 'leon', tally: { status: 'missing', value: null } }, { label: 'nantes' }], widgetings: [{ widget_label: 'tally', label: 'tally' }] }
+      const outcome = read(enteredQuiz(), pasted)
+      expect(issuesFor(outcome)).to.deep.eq([['merged', []], ['merged', []]])
     })
   })
 })

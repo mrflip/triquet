@@ -86,9 +86,9 @@ code does not say so yet, the record names the thread that makes it.
 * **err** -- a failure on a widgeted: on `errored` the failure itself, on `ok` a newer failure
   riding along on an older value, which it never replaces. Shown as one badge.
 * **stale** -- derived, never discarded: a stored widgeted whose input is no longer what it was
-  asked about, or is not known (a value carried in by an import), stays on screen, marked. Off
-  until it returns by digest (the decision's *Deferred*); `whiteboard/20261003-widgets_todo.md`
-  has what bringing it back, and the imported replies with it, takes.
+  asked about, or is not known (a reply carried in by an import, its row marked
+  `result_meta.imported`), stays on screen, marked. Off until it returns by digest (the decision's
+  *Deferred*); `whiteboard/20261003-widgets_todo.md` has what bringing it back takes.
 * **refresh** -- how a formulary's widgeteds come to be: `live` (worked out on every render),
   `click` (asked from the cell), or neither (typed).
 * **library** -- every widget there is. Its own export and import, apart from any hunt's. It

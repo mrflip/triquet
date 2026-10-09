@@ -1533,6 +1533,40 @@ describe("hunts.perform", () => {
       expect(firstOf(await read())).to.deep.include({ clueing: 'Imported', stored: {} })
     })
 
+    it("fills an asked cell holding nothing with the reply it carries, as an `ok` row marked imported: of a question held and of one added", async () => {
+      const { tt, act, read } = await seed(huntOf(['1', 'a']))
+      const first = firstOf(await read())
+      const guess = { guess: 'Leon', explanation: 'a lion' }
+      await act({ kind: 'import_questions', questions: [
+        { label: first.label, patch: {}, replied: { dumdum: guess } },
+        { label: 'fresh_one', patch: {}, replied: { numnum_clueing: { items: [] } } },
+      ] })
+      const after = openOf(await read()).questions
+      expect(after.map((question) => [question.stored.dumdum?.ok?.value ?? null, question.stored.numnum_clueing?.ok?.value ?? null])).to.deep.eq([[guess, null], [null, { items: [] }]])
+      expect(present(after[0]).stored.dumdum?.ok).to.deep.include({ status: 'ok', message: null, result_meta: { imported: true } })
+      await expectSound(tt)
+    })
+
+    it("never writes over an asked cell holding a row: a reply asked here, or a failure recorded here", async () => {
+      const { tt, act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
+      const [aa, bb] = openOf(await read()).questions.map((question) => question._id)
+      await act({ kind: 'record_widgeted', widgeted: guessed(present(aa), 'Asked here') })
+      await act({ kind: 'record_widgeted', widgeted: failed(present(bb), 'dumdum', { message: 'Overloaded', response: null }) })
+      const ante = await read()
+      const pasted = { dumdum: { guess: 'Pasted', explanation: '' } }
+      await act({ kind: 'import_questions', questions: openOf(ante).questions.map((question) => ({ label: question.label, patch: {}, replied: pasted })) })
+      expect(openOf(await read()).questions.map((question) => question.stored)).to.deep.eq(openOf(ante).questions.map((question) => question.stored))
+      expect(await valuesIn(tt)).to.not.include(UU.jsonify(pasted.dumdum))
+    })
+
+    it("passes over a reply for a widgeting not asked from the cell, typed or worked out, or one the quiz does not have", async () => {
+      const seeded = await seed(huntOf(['1', 'a']))
+      const { act, read } = seeded
+      await putEntryToWork(seeded, 'remark')
+      await act({ kind: 'import_questions', questions: [{ label: firstOf(await read()).label, patch: { clueing: 'Imported' }, replied: { remark: 'Typed?', clueing_full: 12, nowhere: 'x' } }] })
+      expect(firstOf(await read())).to.deep.include({ clueing: 'Imported', stored: {} })
+    })
+
     it("refuses, writing nothing, a value not of its entry's kind", async () => {
       const seeded = await seed(huntOf(['1', 'a']))
       const { act, read } = seeded
@@ -1894,7 +1928,7 @@ function bodyOfOpen(seen: Seen) {
 }
 
 describe("a quiz's export, imported into an empty quiz", () => {
-  it("reproduces it whole: its own fields, its questions in order with all they hold (how each is shown among it), their chains, its widgetings in run order, what its entries hold, and its columns as laid out", async () => {
+  it("reproduces it whole: its own fields, its questions in order with all they hold (how each is shown among it), their chains, its widgetings in run order, what its entries hold and its bots replied, and its columns as laid out", async () => {
     const tt = openTester()
     const source = await seedHunt(tt, huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
     await putEntryToWork(source, 'remark')
@@ -1903,6 +1937,7 @@ describe("a quiz's export, imported into an empty quiz", () => {
     await source.act({ kind: 'set_viz', question_ids: [present(nantes)], viz: 'secondary' })
     await source.act({ kind: 'set_chain', question_id: present(leon), chains_to: present(nantes) })
     await source.act({ kind: 'enter_widgeted', entered: { question_id: present(leon), widgeting_label: 'remark', value: 'Ask Flip.' } })
+    await source.act({ kind: 'record_widgeted', widgeted: guessed(present(leon), 'León') })
     await source.act({ kind: 'set_smiths_note', smiths_note: 'Kings and lions.' })
     await source.act({ kind: 'set_q1_preamble', q1_preamble: 'Read the note first.' })
     await source.act({ kind: 'set_recap_head', recap_head: 'Thanks, playtesters!' })
@@ -1936,7 +1971,7 @@ describe("a quiz's export, imported into an empty quiz", () => {
     expect(got.columns.qnum).to.deep.include({ width_px: 44, align: 'right' })
     const labelOf = (question_id: string) => present(quiz.questions.find((qn) => qn._id === question_id)).label
     const [leonLabel, nantesLabel] = [labelOf(present(leon)), labelOf(present(nantes))]
-    expect(got.questions[leonLabel]).to.deep.include({ clueing: 'Which region?', recap: 'Leon is a kingdom.', chains_to: nantesLabel, remark: { status: 'ok', value: 'Ask Flip.' } })
+    expect(got.questions[leonLabel]).to.deep.include({ clueing: 'Which region?', recap: 'Leon is a kingdom.', chains_to: nantesLabel, remark: { status: 'ok', value: 'Ask Flip.' }, dumdum: { status: 'ok', value: { guess: 'León', explanation: '' } } })
     expect(Object.values(got.questions).toSorted((aa, bb) => aa.position - bb.position).map((qn) => qn.title)).to.deep.eq(['c', 'b', 'a'])
     await expectSound(tt)
   })

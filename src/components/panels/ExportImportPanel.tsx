@@ -61,7 +61,7 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     },
     {
       label:   'Import',
-      blurb:   'Paste back anything Raw Export ever gave you, a single quiz or its questions alone, or a bare list of questions. Questions and widgetings are matched by label; a field you leave out is left alone, a field set to null is cleared, and no question or widgeting is ever deleted. A quiz\'s title and notes come along, and its columns become this quiz\'s. A whole hunt whose quizzes match none of this one goes to the quiz of its first quiz\'s label, made for it if need be. Once a question comes in, the untouched blank ones are archived.',
+      blurb:   'Paste back anything Raw Export ever gave you, a single quiz or its questions alone, or a bare list of questions. Questions and widgetings are matched by label; a field you leave out is left alone, a field set to null is cleared, and no question or widgeting is ever deleted. A widgeting whose widget the library lacks is skipped, and what its cells held with it: bring the widgets in first, through the Library tab. What was typed into an entry comes along, and what a bot replied fills its cell where the cell holds nothing. A quiz\'s title and notes come along, and its columns become this quiz\'s. A whole hunt whose quizzes match none of this one goes to the quiz of its first quiz\'s label, made for it if need be. Once a question comes in, the untouched blank ones are archived.',
       content: <ImportForm hunt_id={hunt._id} quiz={quiz} library={library} locked={! offers.importQuestions} onImport={onImport} onElsewhere={onImportElsewhere} />,
     },
     {
