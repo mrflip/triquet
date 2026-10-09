@@ -106,6 +106,7 @@ describe('Widget.fill', () => {
     [{ ...Remark, config: { entry_kind: 'date' } },                                 'a kind of entry there is not'],
     [{ ...Remark, config: { entry_kind: 'text', max: 3 } },                         'an entry with settings beyond its kind'],
     [{ ...Remark, config: { entry_kind: 'number', min: 10, max: 1 } },              'a number entry whose least is above its most'],
+    [{ ...Remark, config: { entry_kind: 'percent', min: 120 } },                    "a percent entry whose least is above its preset most"],
     [{ ...Remark, config: { entry_kind: 'text', pattern: 'label', lines: 'many' } }, 'a text entry held to a pattern on many lines'],
     [{ ...Remark, config: { entry_kind: 'labelish', pattern: 'url' } },             'a preset of text given params of its own'],
     [{ ...Remark, config: { entry_kind: 'boolean', options: ['yes'] } },            'a yes-or-no entry with options'],
@@ -264,6 +265,9 @@ describe('entryParamsIssues', () => {
     [['text', { pattern: 'url', lines: 'one' }],   [],                                                                        'a pattern on one line'],
     [['text', { lines: 'many' }],                  [],                                                                        'many lines with no pattern'],
     [['labelish', { pattern: 'label', lines: 'many' }], [{ path: ['lines'], input: 'many', message: 'should be one: a pattern holds a cell to one line' }], 'a preset of text, as text'],
+    [['percent', { min: 120 }],                    [{ path: ['max'], input: 100, message: 'should be no less than the least, «120»' }], "a percent's least above its preset most, per the doc example"],
+    [['percent', { min: 120, max: 150 }],          [],                                                                        'a percent whose own most is past its least'],
+    [['percent', { max: -5 }],                     [{ path: ['max'], input: -5, message: 'should be no less than the least, «0»' }], "a percent's most below its preset least"],
     // trivial cases:
     [['enum', { options: ['a'] }],                 [],                                                                        'a family with nothing to hold together'],
     [['number', {}],                               [],                                                                        'no params at all'],

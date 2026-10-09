@@ -45,6 +45,12 @@ describe('EntryFormulary', () => {
       expect(checked.error?.issues.map((issue) => [issue.path, issue.message])).to.deep.eq([[['max'], 'should be no less than the least, «5»']])
     })
 
+    it("holds a percent's params to its preset bounds beneath the widget's, as they are in force", () => {
+      expect(EntryFormulary.paramsOf(entryOf('percent')).safeParse({ min: 120 }).success).to.be.false
+      expect(EntryFormulary.paramsOf(entryOf('percent')).safeParse({ min: 120, max: 150 }).success).to.be.true
+      expect(EntryFormulary.paramsOf(entryOf('percent', { max: 150 })).safeParse({ min: 120 }).success).to.be.true
+    })
+
     it("is the shape a params editor draws its fields from", () => {
       const { shape } = EntryFormulary.paramsOf(entryOf('number'))
       expect(Object.keys(shape)).to.deep.eq(['min', 'max', 'integer'])

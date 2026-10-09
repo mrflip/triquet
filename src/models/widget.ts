@@ -358,15 +358,18 @@ type ParamsIssue = { path: string[], input: unknown, message: string }
  * What is wrong with an entry's params taken together, rather than one by one: a `number`'s
  * least above its most, or a `text` held to a pattern yet given many lines. Said of the params in
  * force, a widget's defaults overlaid by a widgeting's own, so a widgeting is told when its own
- * fit its widget's no longer.
+ * fit its widget's no longer; and its kind's preset beneath them both (`EntryPresets`), so a
+ * percent's least above a hundred wants a most of its own.
  *
  * @param entry_kind - The entry's kind, which says which params it takes.
- * @param params - The params in force, or a widget's defaults.
+ * @param said - The params in force, or a widget's defaults.
  * @returns Each issue, said of the param the author would change; empty when they agree.
  *
  * @example entryParamsIssues('number', { min: 10, max: 1 })  // => [{ path: ['max'], input: 1, message: 'should be no less than the least, «10»' }]
+ * @example entryParamsIssues('percent', { min: 120 })        // => [{ path: ['max'], input: 100, message: 'should be no less than the least, «120»' }]
  */
-export function entryParamsIssues(entry_kind: EntryKind, params: Record<string, unknown>): ParamsIssue[] {
+export function entryParamsIssues(entry_kind: EntryKind, said: Record<string, unknown>): ParamsIssue[] {
+  const params: Record<string, unknown> = { ...EntryPresets[entry_kind], ...said }
   switch (EntryFamilyOf[entry_kind]) {
   case 'number': {
     const { min, max } = params
