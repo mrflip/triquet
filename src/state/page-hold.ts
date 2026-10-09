@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useState } from 'react'
 
 /** How many changes this page is writing, whichever mutation carries them, and who is told when that changes */
 const Writing = { count: 0, listeners: new Set<() => void>() }
@@ -31,11 +31,6 @@ function isWriting(): boolean {
   return Writing.count > 0
 }
 
-/** What a page rendered on the server says: nothing is written there */
-function isWritingOnServer(): boolean {
-  return false
-}
-
 /** Be told whenever a write begins or ends; the function handed back stops it */
 function watchWriting(listener: () => void): () => void {
   Writing.listeners.add(listener)
@@ -47,10 +42,23 @@ function watchWriting(listener: () => void): () => void {
  * (`holdThePage`). For the one view that says so: only it is drawn again as each write begins and
  * ends, never the screen around it.
  *
+ * Held as React state, set at the priority of whatever began or ended the write, rather than read
+ * through `useSyncExternalStore`, which draws at once: a write's end then lands in the same render
+ * as the watches it brought current, never ahead of them, so the page says a change is written no
+ * sooner than it shows it.
+ *
  * @returns True while any change is being written.
  *
  * @example const unsaved = usePageWriting()
  */
 export function usePageWriting(): boolean {
-  return useSyncExternalStore(watchWriting, isWriting, isWritingOnServer)
+  const [writing, setWriting] = useState(isWriting)
+  useEffect(() => {
+    const told = () => { setWriting(isWriting()) }
+    const stop = watchWriting(told)
+    // A write begun between the first render and this effect.
+    told()
+    return stop
+  }, [])
+  return writing
 }
