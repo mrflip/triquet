@@ -48,6 +48,10 @@ describe('Liquidry.rendererFor', () => {
     expect(Renderer.render('plain text', {}, Liquidry.clockNow() - 1).failkind).to.eq('limit')
   })
 
+  it('stops a render whose deadline has passed before reading its template, so one that will not read costs no more time', () => {
+    expect(Renderer.render('{% if %}', {}, Liquidry.clockNow() - 1)).to.deep.eq({ text: '{% if %}', issue: 'This template takes too long to fill in: a loop inside a loop, perhaps.', failkind: 'limit' })
+  })
+
   it("holds a render to its own time when its deadline is later", () => {
     expect(Liquidry.RenderMs).to.eq(1000)
     expect(Renderer.render('{{ name }}', { name: 'ada' }, Liquidry.clockNow() + 60_000)).to.deep.eq({ text: 'ada', issue: null, failkind: null })

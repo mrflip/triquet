@@ -221,6 +221,11 @@ describe('LiquidizeFormulary', () => {
     it('does not stop its column for a template that does not read, which may differ question by question', () => {
       expect(LiquidizeFormulary.run(blurb, blurbing({ template_from: { ref: 'shout' } }), { ...bagFor(leon), qn: { ...bagFor(leon).qn, shout: Widgeted.ok('{% if x %}') } }).stops).to.be.false
     })
+
+    it("stops its column for a template that does not read once the column's deadline has passed, as reading it takes time too", () => {
+      const bag = { ...bagFor(leon), qn: { ...bagFor(leon).qn, shout: Widgeted.ok('{% if x %}') } }
+      expect(LiquidizeFormulary.run(blurb, blurbing({ template_from: { ref: 'shout' } }), bag, Templating.clockNow() - 1).stops).to.be.true
+    })
   })
 
   describe('advice', () => {

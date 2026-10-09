@@ -193,6 +193,8 @@ export function rendererFor(spec: RendererSpecT): RendererT {
 
   return {
     render(template, scope, deadline = Infinity) {
+      // A deadline already past stops the render before its template is read, which takes time too.
+      if (clockNow() >= deadline) { return { text: template, issue: OverTime, failkind: 'limit' } }
       const budget: Budget = { left: FillBudget, charsLeft: FilledMax, shapingLeft: ShapedMax }
       let parsed: ReturnType<typeof engine.parse>
       try {
