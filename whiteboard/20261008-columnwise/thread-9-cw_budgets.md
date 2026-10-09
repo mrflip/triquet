@@ -1,7 +1,9 @@
 # Thread 9: Compute budgets (2026-10-09)
 
 Branch `20261009-cw_budgets`, PR filed at landing; see the report. Suites: `pnpm justify` green;
-e2e for sorting and the seeded sums green. No schema change.
+e2e for sorting and the seeded sums green but for two flakes under load 16-19, each green alone
+(`entries.spec.ts` "an entry rides the export…", whose box a late echo withdraws; `widgets.spec.ts`
+"a column can be added for anything…"). No schema change.
 
 * **Built**:
   - `src/lib/clock.ts`: `clockNow()` (`performance.now()`), the one clock every budget reads;
