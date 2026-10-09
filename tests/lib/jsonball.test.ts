@@ -44,12 +44,12 @@ describe('merged', () => {
 })
 
 describe('keyedOf', () => {
-  it("keys each member by its label, carrying its place in the list", () => {
-    expect(Jsonball.keyedOf([{ label: 'leon' }, { label: 'nantes' }], (qn) => qn.label, () => ({}))).to.deep.eq({ leon: { position: 0 }, nantes: { position: 1 } })
+  it("keys each member by its label, carrying its label and its place in the list", () => {
+    expect(Jsonball.keyedOf([{ label: 'leon' }, { label: 'nantes' }], (qn) => qn.label, () => ({}))).to.deep.eq({ leon: { label: 'leon', position: 0 }, nantes: { label: 'nantes', position: 1 } })
   })
 
-  it("puts what each holds beside its place", () => {
-    expect(Jsonball.keyedOf([{ label: 'leon', title: 'Leon' }], (qn) => qn.label, (qn) => ({ title: qn.title }))).to.deep.eq({ leon: { title: 'Leon', position: 0 } })
+  it("puts what each holds beside its label and its place, which win over any it holds of its own", () => {
+    expect(Jsonball.keyedOf([{ label: 'leon', title: 'Leon' }], (qn) => qn.label, (qn) => ({ title: qn.title, position: 9 }))).to.deep.eq({ leon: { title: 'Leon', label: 'leon', position: 0 } })
   })
 
   it("is an empty collection for an empty list", () => {

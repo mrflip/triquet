@@ -4,7 +4,7 @@ import { Widget } from '../../src/models/widget'
 import { Widgeting } from '../../src/models/widgeting'
 import { renderedText } from '../support/rendering'
 
-const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)', description: 'The title, shouted.' })
+const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)', description: 'The title, shouted.' })
 
 describe('RunOrderLine', () => {
   it("says the widgeting's label, what it works, its tier and its own description", () => {

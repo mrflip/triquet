@@ -72,7 +72,7 @@ export class AibotFormulary {
    * @param bag - The question's bag, as the widgeting sees it.
    * @returns What it came to.
    *
-   * @example AibotFormulary.input({ input_formula: "{ 'clueing': qn.clueing }" }, bag)  // => { status: 'ok', input: { clueing: 'Who?' } }
+   * @example AibotFormulary.input({ input_formula: "{ 'clueing': question.clueing }" }, bag)  // => { status: 'ok', input: { clueing: 'Who?' } }
    */
   static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag, deadline?: number): InputOutcome {
     const outcome = JsonataFormulary.input(widget, bag, deadline)
@@ -91,7 +91,7 @@ export class AibotFormulary {
    * @param bag - The question's bag, as the widgeting sees it.
    * @returns The prompt and what it was rendered over, or why there is none.
    *
-   * @example AibotFormulary.prompt({ formula: 'Q: {{clueing}}', input_formula: "{ 'clueing': qn.clueing }" }, bag)  // => { status: 'ok', input: { clueing: 'Who?' }, prompt: 'Q: Who?' }
+   * @example AibotFormulary.prompt({ formula: 'Q: {{clueing}}', input_formula: "{ 'clueing': question.clueing }" }, bag)  // => { status: 'ok', input: { clueing: 'Who?' }, prompt: 'Q: Who?' }
    */
   static prompt(widget: Pick<WidgetT, 'formula' | 'input_formula'>, bag: QuizBag): RenderedPrompt {
     const outcome = this.input(widget, bag)
@@ -175,7 +175,7 @@ function adviceSpec(input_formula: string, input: InputOutcome | null, widgeting
     comesTo: [
       '## What the answer should be',
       'The tool asks the model for a single JSON object, and keeps whatever object comes back. Nothing checks its keys or their values, so the prompt itself has to say in words which object it wants: each key, and what it holds, as in `{"guess": string, "explanation": string}`, ideally at the end of the prompt.',
-      `A column worked out after this one reads the object as \`qn.${label}.value\`, so keys that are plain words read best.`,
+      `A column worked out after this one reads the object as \`question.${label}.value\`, so keys that are plain words read best.`,
     ].join('\n'),
     constraints: [
       `At most ${String(PA.Textish.max)} characters of template, and at most ${String(PA.Promptish.max)} once filled in.`,

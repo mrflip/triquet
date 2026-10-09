@@ -1,59 +1,64 @@
-import _ from 'es-toolkit/compat'
-import * as Rank from '../rank'
 import * as Estimates from '../estimates'
 import * as Wheel from '../wheel'
 import { huntTitleOf, realmTitleOf } from '../rows'
 import { clockNow, soonerOf } from '../clock'
+import type { CategoryBodyT, HuntBodyT, RealmBodyT } from '../jsonball'
 import { formularyFor, type Formulary, type InputOutcome, type LiveFormulary } from './formularies'
-import { Hunt, type HuntT } from '../../models/hunt'
-import { ArchivedField, Question, RankField, SecondaryField, type QuestionT } from '../../models/question'
-import { Quiz, type QuizT } from '../../models/quiz'
-import { Realm, type RealmT } from '../../models/realm'
+import type { HuntT } from '../../models/hunt'
+import type { QuestionT } from '../../models/question'
+import type { QuizT } from '../../models/quiz'
+import { Bagged } from '../../models/quiz-bag'
+import type { RealmT } from '../../models/realm'
 import { Widgeted, type JsonT, type StoredWidgetedT, type WidgetedErrT, type WidgetedHistoryT, type WidgetedStatus, type WidgetedT } from '../../models/widgeted'
-import { Category, type CategoryLabel, type WheelT } from '../../models/category'
+import type { CategoryLabel, WheelT } from '../../models/category'
 import type { WidgetT } from '../../models/widget'
 import type { WidgetingT } from '../../models/widgeting'
 
 /**
  * Where a quiz sits: its hunt and its realm, each as the outside world sees it -- the label in
- * force and the title as shown -- and the hunt's categories in their total order. What a formula
- * reads as `hunt` and `realm`, where the quiz's history keeps its files, and what its category
- * estimates are read against.
+ * force and the title as shown, and the hunt's branch and stamps -- and the hunt's categories by
+ * label and in their total order. What a formula reads as `hunt`, `realm` and `categories`, where
+ * the quiz's history keeps its files, and what its category estimates are read against.
  */
 export type QuizPlace = {
-  hunt:  Pick<HuntT, typeof Hunt.exposed[number]>
-  realm: Pick<RealmT, typeof Realm.exposed[number]>
+  hunt:       HuntBodyT
+  realm:      RealmBodyT
+  /** The hunt's categories by label, in its total order, each with the slot of its wheel it holds (`Bagged.categories`) */
+  categories: Readonly<Record<CategoryLabel, CategoryBodyT>>
   /** The hunt's total order of categories (`Wheel.orderOf`), which Masie, Artie and Poppy's chances are read against */
-  order: readonly CategoryLabel[]
+  order:      readonly CategoryLabel[]
 }
 
-/** One of the hunt's categories, as the bag holds it: its label, and the title its tile shows */
-export type BagCategoryT = Pick<Category, 'label' | 'title'>
-
 /**
- * The document a widget's input formula reads, for one question and one widgeting.
+ * The document a widget's input formula reads, for one question and one widgeting: the quiz in
+ * the shape its export holds it (`QuizBagValidators.quizBag`), as it stands when the widgeting runs.
  *
- * Ids are stripped and everything is referred to by label: a question's `chains_to` is the
- * label of the question it chains to, so `qns[label = $$.qn.chains_to]` is that question. Each
- * question carries its `rank`, whether it is `archived` and whether it is `secondary` (an
- * alternate), and the widgeted of every widgeting before this one under that widgeting's label.
+ * Ids are stripped and everything is referred to by label: `questions` holds every question under
+ * its label, in the quiz's order, so `$lookup(questions, question.chains_to)` is the question this
+ * one chains to. Each question carries its place, its own fields, its viz and stamps, its `rank`,
+ * whether it is `archived` and whether it is `secondary` (an alternate), and the widgeted of every
+ * widgeting before this one under that widgeting's label, as its `status` and `value`.
  */
-export type QuizBag = Pick<QuizPlace, 'hunt' | 'realm'> & {
-  /** The hunt's categories, in its total order */
-  categories:      readonly BagCategoryT[]
-  /** The quiz's own exposed fields, without its questions and its widgetings */
+export type QuizBag = Pick<QuizPlace, 'hunt' | 'realm' | 'categories'> & {
+  /** The quiz's own fields, without its questions and its layout, and the widgeteds of its widgetings for the whole quiz before this one */
   quiz:            Record<string, unknown>
-  /** Every question in the quiz, the archived among them, in the quiz's order */
-  qns:             Record<string, unknown>[]
-  /** The question being worked out; the very object also found in `qns` */
-  qn:              Record<string, unknown>
-  qn_label:        string
+  /** Every question in the quiz under its label, the archived among them, in the quiz's order */
+  questions:       Readonly<Record<string, Record<string, unknown>>>
+  /** The question being worked out; the very object also found in `questions`. Empty for none */
+  question:        Record<string, unknown>
+  hunt_label:      string
+  realm_label:     string
   quiz_label:      string
+  /** The label of `question`; blank for none */
+  question_label:  string
   /** The running widgeting's params */
   params:          Record<string, JsonT>
   /** The running widgeting's label */
   widgeting_label: string
 }
+
+/** The bag less what only a running widgeting has (its `params` and `widgeting_label`): what a template reads (`Templating.TemplateBag`) */
+export type BaseBag = Omit<QuizBag, 'params' | 'widgeting_label'>
 
 /** One widgeting in the run order, and the widget it works: null when the library holds none by its `widget_label` */
 export type RunStep = {
@@ -86,10 +91,10 @@ export type QuizRun = {
   quizWidgeteds: ReadonlyMap<string, WidgetedT>
   /** For each widgeting asked from the cell, what each question's ask would be put */
   inputs:    ByWidgeting<InputOutcome>
-  /** The questions as each widgeting's bag holds them, by its label */
-  qnsAt:     ReadonlyMap<string, readonly Record<string, unknown>[]>
-  /** The questions as they stand once every widgeting has run */
-  qnsAfter:  readonly Record<string, unknown>[]
+  /** The questions, in the quiz's order, as each widgeting's bag holds them, by its label */
+  questionsAt:    ReadonlyMap<string, readonly Record<string, unknown>[]>
+  /** The questions, in the quiz's order, as they stand once every widgeting has run */
+  questionsAfter: readonly Record<string, unknown>[]
   /** The quiz as each widgeting's bag holds it, with the widgeteds of the quiz's own widgetings before it, by its label */
   quizAt:    ReadonlyMap<string, Record<string, unknown>>
   /** What every bag holds besides its questions and its widgeting; its quiz as it stands once every widgeting has run */
@@ -97,9 +102,9 @@ export type QuizRun = {
 }
 
 /** What every one of a quiz's bags holds, whichever question and widgeting it is for */
-type BagFrame = QuizPlace & Pick<QuizBag, 'categories' | 'quiz' | 'quiz_label'> & {
-  question_ids: readonly string[]
-  qn_labels:    readonly string[]
+export type BagFrame = QuizPlace & Pick<QuizBag, 'quiz'> & {
+  question_ids:    readonly string[]
+  question_labels: readonly string[]
 }
 
 /** How many of a widgeting's cells are in each state */
@@ -111,8 +116,8 @@ export type StatusCounts = Record<WidgetedStatus, number>
  * the browser runs a quiz (a sort is worked out there, and the server commits its order), so no
  * mutation's time limit sets it. A column begun after it is not worked out at all; one under way
  * when it runs out is stopped where it stands. An ordinary quiz's run takes a few milliseconds; a
- * formula reading every question for each (`qns[label = $$.qn.chains_to]`) about a quarter second
- * a column over 300 questions. A column's own formula, worked out apart from the run, has as long
+ * formula searching every question for each (`questions.*[label = $$.question.chains_to]`) about
+ * a quarter second a column over 300 questions; a lookup by label (`$lookup`) far less. A column's own formula, worked out apart from the run, has as long
  * (`Columns.shownOf`).
  */
 export const RunMs = 5000
@@ -126,9 +131,10 @@ const GoneMessage = (widget_label: string) => `There is no widget called "${widg
 /**
  * A quiz run: each widgeting in run order (`inRunOrder`: every entry first, then the rest by its
  * position, whichever tier it runs at), each worked out for every question, or projected from
- * what was stored, with the widgeteds of those before it in its bag. A widgeting for the whole quiz is worked out once, over a bag for no question
- * (`qn` empty) whose questions stand as the widgetings before it left them, and its widgeted
- * joins every later bag's quiz, as `quiz.<label>`; a question widgeting reads every one before it.
+ * what was stored, with the widgeteds of those before it in its bag. A widgeting for the whole
+ * quiz is worked out once, over a bag for no question (`question` empty) whose questions stand as
+ * the widgetings before it left them, and its widgeted joins every later bag's quiz, as
+ * `quiz.<label>`; a question widgeting reads every one before it.
  *
  * Nothing here throws, and nothing is asked of a model. A formula that fails costs its own cells;
  * one that will not stop is stopped, after which the rest of its widgeting reads the same failure
@@ -149,29 +155,29 @@ export function runQuiz(source: RunSource): QuizRun {
   const widgeteds = new Map<string, ReadonlyMap<string, WidgetedT>>()
   const quizWidgeteds = new Map<string, WidgetedT>()
   const inputs = new Map<string, ReadonlyMap<string, InputOutcome>>()
-  const qnsAt = new Map<string, readonly Record<string, unknown>[]>()
+  const questionsAt = new Map<string, readonly Record<string, unknown>[]>()
   const quizAt = new Map<string, Record<string, unknown>>()
-  let qns = baseQns(quiz)
+  let questions = baseQuestionsOf(quiz)
   let quizNow = frame.quiz
   const runDeadline = clockNow() + RunMs
   for (const step of steps) {
     const { label } = step.widgeting
-    qnsAt.set(label, qns)
+    questionsAt.set(label, questions)
     quizAt.set(label, quizNow)
     if (step.widgeting.tier === 'quiz') {
-      const widgeted = quizCellOf(step, quizBagOf(frame, quizNow, qns, step.widgeting), source.quizStoredOf, runDeadline)
+      const widgeted = quizCellOf(step, quizBagOf(frame, quizNow, questions, step.widgeting), source.quizStoredOf, runDeadline)
       quizWidgeteds.set(label, widgeted)
-      quizNow = { ...quizNow, [label]: widgeted }
+      quizNow = { ...quizNow, [label]: Bagged.widgeted(widgeted) }
       continue
     }
-    const bags = bagsOf(frame, quizNow, qns, step.widgeting)
+    const bags = bagsOf(frame, quizNow, questions, step.widgeting)
     const column = columnOf(step, bags, quiz.questions, source.storedOf, runDeadline)
     widgeteds.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.widgeteds[idx] ?? Widgeted.missing])))
     if (column.inputs) { inputs.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.inputs?.[idx] ?? { status: 'missing' }]))) }
     const cellParts = Estimates.isEstimating(step.widget) ? column.widgeteds.map((widgeted) => Estimates.partsOf(frame.order, widgeted)) : null
-    qns = withWidgeteds(qns, label, column.widgeteds, cellParts)
+    questions = withWidgeteds(questions, label, column.widgeteds, cellParts)
   }
-  return { steps, widgeteds, quizWidgeteds, inputs, qnsAt, qnsAfter: qns, quizAt, frame: { ...frame, quiz: quizNow } }
+  return { steps, widgeteds, quizWidgeteds, inputs, questionsAt, questionsAfter: questions, quizAt, frame: { ...frame, quiz: quizNow } }
 }
 
 /**
@@ -282,16 +288,16 @@ export function stepOf(run: QuizRun, label: string): RunStep | null {
  * @param widgeting - Whose bag: its label, and the params it hands on.
  * @returns One bag per question, by the question's id, in the quiz's order.
  *
- * @example bagsAt(run, { label: 'clueing_full', params: {} }).get(question._id)?.qn.numnum_clueing
+ * @example bagsAt(run, { label: 'clueing_full', params: {} }).get(question._id)?.question.numnum_clueing
  */
 export function bagsAt(run: QuizRun, widgeting: Pick<WidgetingT, 'label' | 'params'>): ReadonlyMap<string, QuizBag> {
-  const qns = run.qnsAt.get(widgeting.label) ?? run.qnsAfter
+  const questions = run.questionsAt.get(widgeting.label) ?? run.questionsAfter
   const quiz = run.quizAt.get(widgeting.label) ?? run.frame.quiz
   if (isQuizWide(run, widgeting.label)) {
-    const bag = quizBagOf(run.frame, quiz, qns, widgeting)
+    const bag = quizBagOf(run.frame, quiz, questions, widgeting)
     return new Map(run.frame.question_ids.map((question_id) => [question_id, bag]))
   }
-  const bags = bagsOf(run.frame, quiz, qns, widgeting)
+  const bags = bagsOf(run.frame, quiz, questions, widgeting)
   return new Map(run.frame.question_ids.map((question_id, idx) => [question_id, bags[idx] ?? emptyBag(run.frame, widgeting)]))
 }
 
@@ -299,10 +305,10 @@ export function bagsAt(run: QuizRun, widgeting: Pick<WidgetingT, 'label' | 'para
  * The bag a widgeting for the whole quiz reads, or would read: for no question, with the
  * widgeteds of those before it (of every widgeting, for one the quiz does not run).
  *
- * @example quizBagAt(run, { label: 'grand_total', params: {} }).qns[0]?.clueing_full
+ * @example quizBagAt(run, { label: 'grand_total', params: {} }).questions.leon?.clueing_full
  */
 export function quizBagAt(run: QuizRun, widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag {
-  return quizBagOf(run.frame, run.quizAt.get(widgeting.label) ?? run.frame.quiz, run.qnsAt.get(widgeting.label) ?? run.qnsAfter, widgeting)
+  return quizBagOf(run.frame, run.quizAt.get(widgeting.label) ?? run.frame.quiz, run.questionsAt.get(widgeting.label) ?? run.questionsAfter, widgeting)
 }
 
 /**
@@ -341,22 +347,24 @@ export function widgetedFrom(history: WidgetedHistoryT | null): WidgetedT {
 }
 
 /**
- * Where a quiz sits, as its formulas and its history are told: the hunt's and the realm's
- * exposed fields, each title as shown, never blank; and the total order of the hunt's wheel, the
- * default one for a hunt that holds none.
+ * Where a quiz sits, as its formulas and its history are told: the hunt's own fields (`Bagged.hunt`)
+ * and the realm's, each title as shown, never blank; and the hunt's categories, by label and in
+ * the total order of its wheel, the default one for a hunt that holds none.
  *
  * @param hunt - The quiz's hunt, as a row or a screen holds it, with its wheel when it has one.
  * @param realm - The realm it sits in.
  * @returns Its place.
  *
  * @example placeOf({ label: 'deep_lake', title: '' }, { label: 'home', title: '' })
- *   // => { hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' }, order: ['math_econ', 'gen_sci', ...] }
+ *   // => { hunt: { label: 'deep_lake', title: 'Deep Lake', branch: 'main', ... }, realm: { label: 'home', title: 'Home' }, categories: { math_econ: { ... }, ... }, order: ['math_econ', 'gen_sci', ...] }
  */
-export function placeOf(hunt: Pick<HuntT, 'label' | 'title'> & { wheel?: WheelT }, realm: Pick<RealmT, 'label' | 'title'>): QuizPlace {
+export function placeOf(hunt: Pick<HuntT, 'label' | 'title'> & { branch?: string, created_at?: number | null, updated_at?: number | null, wheel?: WheelT }, realm: Pick<RealmT, 'label' | 'title'>): QuizPlace {
+  const wheel = hunt.wheel ?? Wheel.defaultWheel()
   return {
-    hunt:  { ..._.pick(hunt, Hunt.exposed), title: huntTitleOf(hunt) },
-    realm: { ..._.pick(realm, Realm.exposed), title: realmTitleOf(realm) },
-    order: Wheel.orderOf(hunt.wheel ?? Wheel.defaultWheel()),
+    hunt:       Bagged.hunt({ ...hunt, title: huntTitleOf(hunt) }),
+    realm:      Bagged.realm({ label: realm.label, title: realmTitleOf(realm) }),
+    categories: Bagged.categories(wheel),
+    order:      Wheel.orderOf(wheel),
   }
 }
 
@@ -367,72 +375,76 @@ function errOf(row: StoredWidgetedT): WidgetedErrT {
 
 /** What every bag of `quiz` holds besides its questions and its widgeting */
 function frameOf(quiz: QuizT, place: QuizPlace): BagFrame {
-  const quiz_label = quiz.label
   return {
-    hunt:         place.hunt,
-    realm:        place.realm,
-    order:        place.order,
-    categories:   place.order.map((label) => ({ label, title: Category.titleOf(label) })),
-    quiz:         { ..._.pick(quiz, Quiz.exposed), label: quiz_label },
-    quiz_label,
-    question_ids: quiz.questions.map((question) => question._id),
-    qn_labels:    quiz.questions.map((question) => question.label),
+    ...place,
+    quiz:            Bagged.quiz(quiz),
+    question_ids:    quiz.questions.map((question) => question._id),
+    question_labels: quiz.questions.map((question) => question.label),
   }
 }
 
-/** Each question's bag for `widgeting`, in the quiz's order, over `quiz` and `qns` as they stand when it runs */
-function bagsOf(frame: BagFrame, quiz: Record<string, unknown>, qns: readonly Record<string, unknown>[], widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag[] {
-  const shared = qns as Record<string, unknown>[]
-  return frame.qn_labels.map((qn_label, idx) => ({
-    hunt:            frame.hunt,
-    realm:           frame.realm,
-    categories:      frame.categories,
+/**
+ * The bag over `questions` (every question of the run, in its order, as they stand at some step)
+ * and `quiz` as it stands then, for the question at `idx` among them, or for none (-1); less what
+ * only a running widgeting has. The one place a bag is made: a formula's adds its widgeting's
+ * own (`bagsOf`, `quizBagOf`), and a template's reads it as it is (`Templating.bagOf`).
+ *
+ * @param frame - What every bag of the run holds.
+ * @param quiz - The quiz, as the bag holds it then.
+ * @param questions - Every question, in the quiz's order, as the bag holds it then.
+ * @param idx - The question being worked out among them, or -1 for none.
+ *
+ * @example baseBagOf(run.frame, run.frame.quiz, run.questionsAfter, 0).question_label  // => 'leon'
+ */
+export function baseBagOf(frame: BagFrame, quiz: Record<string, unknown>, questions: readonly Record<string, unknown>[], idx: number): BaseBag {
+  return {
+    hunt:           frame.hunt,
+    realm:          frame.realm,
+    categories:     frame.categories,
     quiz,
-    qns:             shared,
-    qn:              shared[idx] ?? {},
-    qn_label,
-    quiz_label:      frame.quiz_label,
-    params:          widgeting.params,
-    widgeting_label: widgeting.label,
-  }))
+    questions:      Bagged.keyed(questions),
+    question:       questions[idx] ?? {},
+    hunt_label:     frame.hunt.label,
+    realm_label:    frame.realm.label,
+    quiz_label:     frame.quiz.label as string,
+    question_label: frame.question_labels[idx] ?? '',
+  }
 }
 
-/** The one bag of a widgeting for the whole quiz: for no question, over `quiz` and `qns` as they stand when it runs */
-function quizBagOf(frame: BagFrame, quiz: Record<string, unknown>, qns: readonly Record<string, unknown>[], widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag {
-  return { hunt: frame.hunt, realm: frame.realm, categories: frame.categories, quiz, qns: qns as Record<string, unknown>[], qn: {}, qn_label: '', quiz_label: frame.quiz_label, params: widgeting.params, widgeting_label: widgeting.label }
+/** Each question's bag for `widgeting`, in the quiz's order, over `quiz` and `questions` as they stand when it runs */
+function bagsOf(frame: BagFrame, quiz: Record<string, unknown>, questions: readonly Record<string, unknown>[], widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag[] {
+  return frame.question_labels.map((_label, idx) => ({ ...baseBagOf(frame, quiz, questions, idx), params: widgeting.params, widgeting_label: widgeting.label }))
+}
+
+/** The one bag of a widgeting for the whole quiz: for no question, over `quiz` and `questions` as they stand when it runs */
+function quizBagOf(frame: BagFrame, quiz: Record<string, unknown>, questions: readonly Record<string, unknown>[], widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag {
+  return { ...baseBagOf(frame, quiz, questions, -1), params: widgeting.params, widgeting_label: widgeting.label }
 }
 
 /** A bag for no question, for a quiz with none */
 function emptyBag(frame: BagFrame, widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag {
-  return { hunt: frame.hunt, realm: frame.realm, categories: frame.categories, quiz: frame.quiz, qns: [], qn: {}, qn_label: '', quiz_label: frame.quiz_label, params: widgeting.params, widgeting_label: widgeting.label }
+  return quizBagOf(frame, frame.quiz, [], widgeting)
 }
 
 /**
- * Every question as a formula sees it before any widgeting has run: only its exposed fields, its
- * chain named by label, and its rank and its viz, as two yes-or-nos, added.
+ * Every question as a formula sees it before any widgeting has run: as its export holds it
+ * (`Bagged.questions`: its place, label, own fields, viz, chain by label and stamps), and its rank
+ * and its viz, as two yes-or-nos, worked out beside them.
  */
-function baseQns(quiz: QuizT): Record<string, unknown>[] {
-  const ranks = Rank.ranksOf(quiz.questions)
-  const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
-  return quiz.questions.map((question) => ({
-    ..._.pick(question, Question.exposed),
-    label:            labelForId.get(question._id) ?? question.label,
-    chains_to:        question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
-    [RankField]:      ranks.get(question._id) ?? null,
-    [ArchivedField]:  Question.isArchived(question),
-    [SecondaryField]: Question.isSecondary(question),
-  }))
+function baseQuestionsOf(quiz: QuizT): Record<string, unknown>[] {
+  const workedOut = Bagged.workedOut(quiz.questions)
+  return Bagged.questions(quiz.questions).map((question, idx) => ({ ...question, ...workedOut[idx] }))
 }
 
 /**
- * `qns` with each question's widgeted for one widgeting added under its label: new objects, so
- * the bags already handed out keep the questions as they were. No widgeting's label is one a
- * question already answers to (`ReservedWidgetingLabels`), so nothing is shadowed. A
- * category-estimate widgeting's widgeted carries its parts beside its status and value, so a
- * formula reads `qn.<label>.masie`.
+ * `questions` with each question's widgeted for one widgeting added under its label, as its
+ * status and value (`Bagged.widgeted`): new objects, so the bags already handed out keep the
+ * questions as they were. No widgeting's label is one a question already answers to
+ * (`ReservedWidgetingLabels`), so nothing is shadowed. A category-estimate widgeting's widgeted
+ * carries its parts beside its status and value, so a formula reads `question.<label>.masie`.
  */
-function withWidgeteds(qns: readonly Record<string, unknown>[], label: string, widgeteds: readonly WidgetedT[], parts: readonly (Estimates.EstimatePartsT | null)[] | null): Record<string, unknown>[] {
-  return qns.map((qn, idx) => ({ ...qn, [label]: { ...widgeteds[idx] ?? Widgeted.missing, ...parts?.[idx] } }))
+function withWidgeteds(questions: readonly Record<string, unknown>[], label: string, widgeteds: readonly WidgetedT[], parts: readonly (Estimates.EstimatePartsT | null)[] | null): Record<string, unknown>[] {
+  return questions.map((question, idx) => ({ ...question, [label]: { ...Bagged.widgeted(widgeteds[idx] ?? Widgeted.missing), ...parts?.[idx] } }))
 }
 
 /** One widgeting's cells, in the quiz's order: their widgeteds, and the inputs of a widgeting asked from the cell */

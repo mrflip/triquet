@@ -12,6 +12,7 @@ import { LiquidizeDefaultInput, WidgetValidators, type LiquidizeParamsT, type Wi
 import type { WidgetingT } from '../../models/widgeting'
 import type { AdviceSubject, InputOutcome, LiveRun } from './formularies'
 import type { QuizBag } from './runner'
+import type { WidgetedBodyT } from '../jsonball'
 
 /** Where a widgeting's template came from for one question: its text; nothing, so nothing to fill in; or a failure */
 export type TemplateOutcome =
@@ -25,8 +26,8 @@ type Picked = { thing: unknown, widgeted: boolean }
 /**
  * The formulary of a Liquid template, filled in on every render and stored nowhere: a `jsonata`
  * widget's twin with the other engine. Its input formula comes to the object the template is
- * filled in over (the whole bag, `$`, by default), so `{{ qn.title }}` reads as a formula's
- * `qn.title` would. What it comes to is always text, markdown by convention.
+ * filled in over (the whole bag, `$`, by default), so `{{ question.title }}` reads as a formula's
+ * `question.title` would. What it comes to is always text, markdown by convention.
  *
  * The template is the widget's `formula`, the admin's default; a widgeting may give one of its
  * own (`params.template`), or read one from the bag (`params.template_from`: a ref in a column's
@@ -61,8 +62,8 @@ export class LiquidizeFormulary {
    * never both; a template that reads as Liquid, and a formula that reads as JSONata, each said of
    * the param to change.
    *
-   * @example LiquidizeFormulary.paramsOf().safeParse({ template: '{{ qn.title }}!' }).success      // => true
-   * @example LiquidizeFormulary.paramsOf().safeParse({ template: '{% if qn.hint %}' }).success     // => false
+   * @example LiquidizeFormulary.paramsOf().safeParse({ template: '{{ question.title }}!' }).success      // => true
+   * @example LiquidizeFormulary.paramsOf().safeParse({ template: '{% if question.hint %}' }).success     // => false
    * @example LiquidizeFormulary.paramsOf().safeParse({ template_from: { ref: 'dumdum', formula: '$.value.template' } }).success  // => true
    */
   static paramsOf(): Z.ZodType<LiquidizeParamsT> {
@@ -80,8 +81,8 @@ export class LiquidizeFormulary {
    * Whether the widget's template reads as Liquid and its input formula as JSONata: null when
    * they do, else a sentence naming the problem.
    *
-   * @example LiquidizeFormulary.check({ formula: '{{ qn.title }}', input_formula: '$' })    // => null
-   * @example LiquidizeFormulary.check({ formula: '{% if qn.hint %}', input_formula: '$' })  // => 'The template: tag {% if qn.hint %} not closed, line:1, col:1'
+   * @example LiquidizeFormulary.check({ formula: '{{ question.title }}', input_formula: '$' })    // => null
+   * @example LiquidizeFormulary.check({ formula: '{% if question.hint %}', input_formula: '$' })  // => 'The template: tag {% if question.hint %} not closed, line:1, col:1'
    */
   static check(widget: Pick<WidgetT, 'formula' | 'input_formula'>): string | null {
     const inputIssue = Formulas.check(widget.input_formula)
@@ -102,8 +103,8 @@ export class LiquidizeFormulary {
    * @returns What it came to.
    *
    * @example LiquidizeFormulary.input({ input_formula: '$' }, bag)                        // => { status: 'ok', input: bag }
-   * @example LiquidizeFormulary.input({ input_formula: "{ 'title': qn.title }" }, bag)   // => { status: 'ok', input: { title: 'Leon' } }
-   * @example LiquidizeFormulary.input({ input_formula: 'qn.title' }, bag).status         // => 'errored'
+   * @example LiquidizeFormulary.input({ input_formula: "{ 'title': question.title }" }, bag)   // => { status: 'ok', input: { title: 'Leon' } }
+   * @example LiquidizeFormulary.input({ input_formula: 'question.title' }, bag).status         // => 'errored'
    */
   static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag, deadline?: number): InputOutcome {
     const outcome = JsonataFormulary.input(widget, bag, deadline)
@@ -119,7 +120,7 @@ export class LiquidizeFormulary {
    * or neither, so its widget's. Params that do not fit (a widgeting written before they were held
    * to this formulary) say nothing.
    *
-   * @example LiquidizeFormulary.ownOf({ params: { template: '{{ qn.hint }}' } })  // => { template: '{{ qn.hint }}' }
+   * @example LiquidizeFormulary.ownOf({ params: { template: '{{ question.hint }}' } })  // => { template: '{{ question.hint }}' }
    * @example LiquidizeFormulary.ownOf({ params: { loud: true } })                // => {}
    * @example LiquidizeFormulary.ownOf(null)                                      // => {}
    */
@@ -141,8 +142,8 @@ export class LiquidizeFormulary {
    * @param deadline - A `clockNow()` reading by which a formula reading it must be worked out; none but the formula's own timebox when absent.
    * @returns The template; nothing, when what it is read from holds nothing; or why there is none.
    *
-   * @example LiquidizeFormulary.templateOf({ formula: '{{ qn.title }}' }, null, bag)  // => { status: 'ok', template: '{{ qn.title }}' }
-   * @example LiquidizeFormulary.templateOf(widget, { ...widgeting, params: { template_from: { ref: 'notes' } } }, bag)  // => { status: 'ok', template: 'See {{ qn.hint }}' }
+   * @example LiquidizeFormulary.templateOf({ formula: '{{ question.title }}' }, null, bag)  // => { status: 'ok', template: '{{ question.title }}' }
+   * @example LiquidizeFormulary.templateOf(widget, { ...widgeting, params: { template_from: { ref: 'notes' } } }, bag)  // => { status: 'ok', template: 'See {{ question.hint }}' }
    * @example LiquidizeFormulary.templateOf(widget, { ...widgeting, params: { template_from: { ref: 'dumdum' } } }, bag)  // => { status: 'missing' }   (not yet asked)
    */
   static templateOf(widget: Pick<WidgetT, 'formula'>, widgeting: Pick<WidgetingT, 'params'> | null, bag: QuizBag, deadline?: number): TemplateOutcome {
@@ -172,8 +173,8 @@ export class LiquidizeFormulary {
    * @param deadline - A `clockNow()` reading by which its column must be filled in (its column's or its run's, whichever is sooner); none but each fill's own limit when absent.
    * @returns The widgeted, and whether it should stop the rest of its column.
    *
-   * @example LiquidizeFormulary.run({ formula: 'Q: {{ qn.title }}', input_formula: '$' }, null, bag).widgeted  // => { status: 'ok', value: 'Q: Leon', err: null }
-   * @example LiquidizeFormulary.run({ formula: '{{ qn.hint }}', input_formula: '$' }, null, bag).widgeted     // => { status: 'missing', value: null, err: null }   (no hint)
+   * @example LiquidizeFormulary.run({ formula: 'Q: {{ question.title }}', input_formula: '$' }, null, bag).widgeted  // => { status: 'ok', value: 'Q: Leon', err: null }
+   * @example LiquidizeFormulary.run({ formula: '{{ question.hint }}', input_formula: '$' }, null, bag).widgeted     // => { status: 'missing', value: null, err: null }   (no hint)
    */
   static run(widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: Pick<WidgetingT, 'params'> | null, bag: QuizBag, deadline?: number): LiveRun {
     const input = this.input(widget, bag, deadline)
@@ -196,7 +197,7 @@ export class LiquidizeFormulary {
    * @returns Plain text, ready to copy.
    */
   static advice(widget: Pick<WidgetT, 'label' | 'description' | 'formula' | 'input_formula'>, widgeting: AdviceSubject | null, sample: QuizBag | null): string {
-    return advicePrompt(adviceSpec(widget.input_formula, sample?.qn ?? null), widget, widgeting)
+    return advicePrompt(adviceSpec(widget.input_formula, sample?.question ?? null), widget, widgeting)
   }
 }
 
@@ -208,14 +209,14 @@ export class LiquidizeFormulary {
 function pickedOf(ref: string, bag: QuizBag): Picked {
   if (ref.startsWith(QuizRefPrefix)) { return { thing: bag.quiz[ref.slice(QuizRefPrefix.length)], widgeted: true } }
   if ((QuestionViewVals as readonly string[]).includes(ref)) {
-    const { chains_to } = bag.qn
-    const target = chains_to === null ? undefined : bag.qns.find((qn) => qn.label === chains_to)
+    const { chains_to } = bag.question
+    const target = typeof chains_to === 'string' ? bag.questions[chains_to] : undefined
     return { thing: target?.hint ?? '', widgeted: false }
   }
-  if (Object.hasOwn(bag.qn, ref)) {
+  if (Object.hasOwn(bag.question, ref)) {
     // A word a question holds of its own is a widgeting labelled so before the word was kept back.
     const { kind } = refOf(ref)
-    return { thing: bag.qn[ref], widgeted: kind === 'widgeting' || kind === 'word' }
+    return { thing: bag.question[ref], widgeted: kind === 'widgeting' || kind === 'word' }
   }
   if ((BagWordVals as readonly string[]).includes(ref)) { return { thing: bag[ref as keyof QuizBag], widgeted: false } }
   return { thing: undefined, widgeted: true }
@@ -228,9 +229,10 @@ function pickedOf(ref: string, bag: QuizBag): Picked {
  */
 function readOf({ thing, widgeted }: Picked, formula: string | undefined, ref: string, deadline?: number): LiveRun {
   if (widgeted) {
-    const held = (thing ?? Widgeted.missing) as WidgetedT
+    // The bag holds no failure, so the template says only whose it was; the source's own cell says why.
+    const held = (thing ?? Widgeted.missing) as WidgetedBodyT
     if (held.status === 'missing') { return { widgeted: Widgeted.missing, stops: false } }
-    if (held.status === 'errored') { return { widgeted: failed(`The template's source, «${ref}», failed: ${held.err.message}`), stops: false } }
+    if (held.status === 'errored') { return { widgeted: failed(`The template's source, «${ref}», failed: its own cell says why.`), stops: false } }
     if (formula === undefined) { return { widgeted: itself(held.value), stops: false } }
   } else if (formula === undefined) {
     return { widgeted: itself(thing), stops: false }
@@ -264,7 +266,7 @@ function isObject(val: unknown): val is Record<string, unknown> {
   return typeof val === 'object' && val !== null && ! Array.isArray(val)
 }
 
-/** What a template's advice prompt says of templates, with one real question's `qn` when there is one */
+/** What a template's advice prompt says of templates, with one real `question` when there is one */
 function adviceSpec(input_formula: string, sample: Record<string, unknown> | null): AdviceSpec {
   const whole = input_formula.trim() === LiquidizeDefaultInput
   return {
@@ -277,17 +279,18 @@ function adviceSpec(input_formula: string, sample: Record<string, unknown> | nul
     ].join('\n'),
     constraints: [
       `At most ${String(PA.Textish.max)} characters of template.`,
-      'Nothing is HTML-escaped: `{{ qn.title }}` is enough.',
+      'Nothing is HTML-escaped: `{{ question.title }}` is enough.',
       'A key the input lacks fills in as nothing; an empty string, an empty list and nothing at all are false in `{% if %}`.',
-      "A column worked out before this one fills in as its value's text: `{{ qn.my_column }}`. Its parts are read as `qn.my_column.value.part`.",
-      'Besides Liquid\'s own filters, `quote` keeps a many-lined text inside a `> ` quote, `oneline` joins its lines, `apart` keeps a first line of `---` from making the line above a heading, and `in_order` puts `qns` in the order a recap reads them. A filter goes in an `{% assign %}`, never in a `{% for %}` tag.',
+      "A column worked out before this one fills in as its value's text: `{{ question.my_column }}`. Its parts are read as `question.my_column.value.part`.",
+      'Besides Liquid\'s own filters, `quote` keeps a many-lined text inside a `> ` quote, `oneline` joins its lines, `apart` keeps a first line of `---` from making the line above a heading, `in_order` puts `questions` in the order a recap reads them, and `values` lists a collection keyed by label (`questions`, `categories`). A filter goes in an `{% assign %}`, never in a `{% for %}` tag: `{% assign list = questions | values %}{% for each in list %}`. A bare `{% for %}` over `questions` would hand each turn a `[label, question]` pair.',
+      'Find one question by its label at once: `{{ questions[question.chains_to].hint }}`.',
       'No `{% include %}` or `{% render %}`: there are no other templates.',
-      'No filter ending `_exp` (`where_exp`, `find_exp` and the rest): use its twin with a property and a value, `qns | where: "category", "art"`.',
+      'No filter ending `_exp` (`where_exp`, `find_exp` and the rest): use its twin with a property and a value, `questions | values | where: "secondary", true`.',
     ],
   }
 }
 
-/** What a template reads: the bag's schema and one real `qn`, or the object its input formula makes */
+/** What a template reads: the bag's schema and one real `question`, or the object its input formula makes */
 function readsSection(input_formula: string | null, sample: Record<string, unknown> | null): string {
   if (input_formula !== null) {
     return [
@@ -297,11 +300,11 @@ function readsSection(input_formula: string | null, sample: Record<string, unkno
   }
   return [
     '## What the template reads',
-    'The template is filled in from one JSON document, so its top-level keys are the names it can use directly, e.g. `{{ qn.clueing }}`. `qn` is the question the text is being filled in for and `qns` holds every question of the quiz, including `qn` and the archived ones (each says whether it is `archived`, and whether it is an alternate, `secondary`); `quiz`, `realm` and `hunt` are the quiz itself and where it sits, and `categories` the subject categories of its hunt. Every column worked out before this one sits on each question under its label, as `{ status, value, err }`. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
+    'The template is filled in from one JSON document, shaped as the quiz\'s export is, so its top-level keys are the names it can use directly, e.g. `{{ question.clueing }}`. `question` is the question the text is being filled in for, and `questions` holds every question of the quiz under its label, in the quiz\'s order, including `question` and the archived ones (each says whether it is `archived`, and whether it is an alternate, `secondary`); `quiz`, `realm` and `hunt` are the quiz itself and where it sits, and `categories` the subject categories of its hunt, by label. Every column worked out before this one sits on each question under its label, as `{ status, value }`. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
     '',
     '```json',
     UU.jsonify(inputSchema(), { pretty: true }),
     '```',
-    ...(sample === null ? [] : ['', 'For example, `qn` for one real question is:', '', '```json', UU.jsonify(sample, { pretty: true }), '```']),
+    ...(sample === null ? [] : ['', 'For example, `question` for one real question is:', '', '```json', UU.jsonify(sample, { pretty: true }), '```']),
   ].join('\n')
 }

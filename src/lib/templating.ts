@@ -4,7 +4,7 @@ import * as Labelmaker from './labelmaker'
 import * as Liquidry from './liquidry'
 import * as Shaping from './shaping'
 import { clockNow } from './clock'
-import type { QuizBag, QuizRun } from './formulary/runner'
+import * as Runner from './formulary/runner'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
 import { TemplatableFieldVals, isTemplatableField, type QuizT } from '../models/quiz'
 import { ArchivedField, PlaceField, RankField, SecondaryField, type QuestionT } from '../models/question'
@@ -25,21 +25,25 @@ import type { Formularykind, WidgetT } from '../models/widget'
  * Liquid as `Liquidry` holds it: interpreted, reading only what the bag itself holds at a key,
  * never anything a JavaScript object inherits, its budgets counted. A template may use
  * Liquid's own tags and filters (`{% for %}`, `{% if %}`, `| sort`, `| where`) and the app's
- * (`Helpers`, `in_order`): `{{ qn.clueing | quote }}`, `{% assign played = qns | in_order %}`. A
- * filter goes in an `assign`, never in a `for` tag, which would pass it over. It may not include
- * another template. An empty value is false, as in JavaScript (`jsTruthy`): `{% if hint %}` shows
- * only for a hint that holds something.
+ * (`Helpers`, `in_order`, `values`): `{{ question.clueing | quote }}`,
+ * `{% assign played = questions | in_order %}`. A filter goes in an `assign`, never in a `for` tag,
+ * which would pass it over: `{% assign list = questions | values %}{% for each in list %}` loops
+ * over the questions, where a bare `for` over the keyed collection would hand it `[label,
+ * question]` pairs. It may not include another template. An empty value is false, as in
+ * JavaScript (`jsTruthy`): `{% if hint %}` shows only for a hint that holds something.
  */
 
 /**
- * What a template reads: the bag a formula reads, less what only a running widgeting has (its
- * `params` and `widgeting_label`), and with its questions told apart: `qns` holds only the
- * questions a screen shows (the alternates among them, not the archived), and `quiz.questions`
- * every one. Each question carries the widgeted of every widgeting of the quiz, under its label,
- * and says whether it is `archived` and whether it is `secondary` (an alternate). For a text of
- * the quiz's own (a recap's head or tail), `qn` is empty and `qn_label` blank.
+ * What a template reads: the bag a formula reads (`Runner.baseBagOf`), less what only a running
+ * widgeting has (its `params` and `widgeting_label`), over the questions once every widgeting has
+ * run. `questions` holds every question under its label, the archived among them, each carrying
+ * the widgeted of every widgeting of the quiz under its label, and saying whether it is
+ * `archived` and whether it is `secondary` (an alternate). For a text of the quiz's own (a
+ * recap's head or tail), `question` is empty and `question_label` blank. What only drawing needs
+ * differs from a formula's bag, and from the export: the templateable texts filled in, images in
+ * computed values made links, and a recap's `number`.
  */
-export type TemplateBag = Pick<QuizBag, 'hunt' | 'realm' | 'categories' | 'quiz' | 'qns' | 'qn' | 'qn_label' | 'quiz_label'>
+export type TemplateBag = Runner.BaseBag
 
 /** What a column's template reads: the question's template bag, and the value the column's formula came to, as `value` */
 export type ValuedBag = TemplateBag & { value: unknown }
@@ -81,7 +85,7 @@ export type ColumnBudgetT = {
 /**
  * A column's budget, unspent: `ColumnMs` to fill all its questions in.
  *
- * @example fillWithin('{{ qn.title }}', bag, columnBudget()).markdown  // => 'Leon'
+ * @example fillWithin('{{ question.title }}', bag, columnBudget()).markdown  // => 'Leon'
  */
 export function columnBudget(): ColumnBudgetT {
   return { leftMs: ColumnMs, stopped: null }
@@ -98,8 +102,8 @@ export function columnBudget(): ColumnBudgetT {
  * @param budget - The column's (`columnBudget`), spent as it fills.
  * @returns The fill, or why it could not be filled in, as `fill` says it.
  *
- * @example fillWithin('{{ qn.title }}', bag, budget)                          // => { markdown: 'Leon', issue: null, failkind: null }
- * @example fillWithin('{{ qn.title }}', bag, { leftMs: 0, stopped: null }).failkind  // => 'limit'
+ * @example fillWithin('{{ question.title }}', bag, budget)                          // => { markdown: 'Leon', issue: null, failkind: null }
+ * @example fillWithin('{{ question.title }}', bag, { leftMs: 0, stopped: null }).failkind  // => 'limit'
  */
 export function fillWithin(template: string, bag: TemplateBag | Readonly<Record<string, unknown>>, budget: ColumnBudgetT): FilledT {
   if (budget.stopped !== null) { return { ...budget.stopped, markdown: template } }
@@ -125,8 +129,8 @@ export type HelperT = Liquidry.ShaperT
  *
  * A text built of several, `{% capture %}`d first, is shaped as one. Frozen.
  *
- * @example fill('> {{ qn.clueing | quote }}', bag).markdown  // => '> Who?\n> When?'
- * @example fill('{{ qn.full_answer | oneline }}', bag).markdown  // => 'HAMILTON (accept ROWAN)'
+ * @example fill('> {{ question.clueing | quote }}', bag).markdown  // => '> Who?\n> When?'
+ * @example fill('{{ question.full_answer | oneline }}', bag).markdown  // => 'HAMILTON (accept ROWAN)'
  */
 export const Helpers: Readonly<Record<string, HelperT>> = Object.freeze({
   quote:   Shaping.quotedOf,
@@ -135,23 +139,37 @@ export const Helpers: Readonly<Record<string, HelperT>> = Object.freeze({
 })
 
 /**
- * `qns` in the order a recap reads them, each numbered (`number`, from 1) by its place there: the
- * questions with a rank (a Q#) in rank order, then those without one that hold a clueing, in their
- * own order. Alternates (`secondary`) and the archived are left out. Anything in the list that is
- * not a question is passed over. The `in_order` filter: `{% assign played = qns | in_order %}`.
+ * The questions in the order a recap reads them, each numbered (`number`, from 1) by its place
+ * there: those with a rank (a Q#) in rank order, then those without one that hold a clueing, in
+ * their own order. Alternates (`secondary`) and the archived are left out. The questions may come
+ * keyed by label, as the bag holds them, or in a list; anything among them that is not a question
+ * is passed over. The `in_order` filter: `{% assign played = questions | in_order %}`.
  *
- * @example inOrder(bag.qns).map((qn) => [qn.number, qn.rank])  // => [[1, 1], [2, 2], [3, null]]
+ * @example inOrder(bag.questions).map((qn) => [qn.number, qn.rank])  // => [[1, 1], [2, 2], [3, null]]
  */
-export function inOrder(qns: unknown): Record<string, unknown>[] {
-  if (! Array.isArray(qns)) { return [] }
+export function inOrder(questions: unknown): Record<string, unknown>[] {
+  const qns = valuesOf(questions)
   const played = qns.filter((qn): qn is Record<string, unknown> => EST.isPlainObject(qn) && qn[SecondaryField] !== true && qn[ArchivedField] !== true)
   const ranked = EST.sortBy(played.filter((qn) => typeof qn[RankField] === 'number'), [(qn) => qn[RankField] as number])
   const unranked = played.filter((qn) => typeof qn[RankField] !== 'number' && typeof qn.clueing === 'string' && qn.clueing.trim() !== '')
   return [...ranked, ...unranked].map((qn, idx) => ({ ...qn, [PlaceField]: idx + 1 }))
 }
 
+/**
+ * A collection's members as a list: a keyed one's values in order (the bag's `questions`, its
+ * `categories`), a list as it is, anything else none. The `values` filter, since a `for` tag takes
+ * no filter of its own: `{% assign list = questions | values %}{% for each in list %}`.
+ *
+ * @example valuesOf({ leon: { title: 'Leon' }, nantes: { title: 'Nantes' } })  // => [{ title: 'Leon' }, { title: 'Nantes' }]
+ * @example valuesOf('Leon')  // => []
+ */
+export function valuesOf(collection: unknown): unknown[] {
+  if (Array.isArray(collection)) { return collection }
+  return EST.isPlainObject(collection) ? Object.values(collection) : []
+}
+
 /** The language every field and recap template is read and filled in with: Liquid, with the app's filters, a value filling in as `fillingOf` says */
-const Renderer = Liquidry.rendererFor({ fillingOf, shapers: Helpers, filters: { in_order: inOrder } })
+const Renderer = Liquidry.rendererFor({ fillingOf, shapers: Helpers, filters: { in_order: inOrder, values: valuesOf } })
 
 /**
  * `template` filled in over `bag`, or the template as typed with what is wrong with it. The one
@@ -159,7 +177,7 @@ const Renderer = Liquidry.rendererFor({ fillingOf, shapers: Helpers, filters: { 
  * widget's template over what its input came to.
  *
  * Nothing is escaped or cleaned: a string fills in as it is, a number or a yes-or-no as its text,
- * a widgeted (`{{ qn.my_column }}`) as its value's text (nothing, when it has none), and anything
+ * a widgeted (`{{ question.my_column }}`) as its value's text (nothing, when it has none), and anything
  * else as its JSON. A key the bag lacks fills in as nothing. Never throws. Stopped past
  * `Liquidry.RenderMs`, or at `deadline` when that is sooner.
  *
@@ -168,11 +186,11 @@ const Renderer = Liquidry.rendererFor({ fillingOf, shapers: Helpers, filters: { 
  * @param deadline - A `clockNow()` reading by which it must be filled in; none but `RenderMs` when absent.
  * @returns Markdown, for the parser and then the sanitizer.
  *
- * @example fill('By {{ qn.author }}', bag)                         // => { markdown: 'By Ada', issue: null, failkind: null }
- * @example fill('{{ qn.size }} words', bag)                        // => { markdown: '30 words', issue: null, failkind: null }   (a widgeted's value)
- * @example fill('{% for qn in qns %}{{ qn.title }} {% endfor %}', bag)  // => { markdown: 'One Two ', issue: null, failkind: null }
- * @example fill('{% if qn.hint %}', bag)                            // => { markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1', failkind: 'syntax' }
- * @example fill('{% for x in qns %}{% endfor %}', bag, clockNow()).failkind  // => 'limit'
+ * @example fill('By {{ question.author }}', bag)                    // => { markdown: 'By Ada', issue: null, failkind: null }
+ * @example fill('{{ question.size }} words', bag)                   // => { markdown: '30 words', issue: null, failkind: null }   (a widgeted's value)
+ * @example fill('{% assign list = questions | values %}{% for each in list %}{{ each.title }} {% endfor %}', bag)  // => { markdown: 'One Two ', issue: null, failkind: null }
+ * @example fill('{% if question.hint %}', bag)                       // => { markdown: '{% if question.hint %}', issue: 'tag {% if question.hint %} not closed, line:1, col:1', failkind: 'syntax' }
+ * @example fill('{% for x in questions %}{% endfor %}', bag, clockNow()).failkind  // => 'limit'
  */
 export function fill(template: string, bag: TemplateBag | Readonly<Record<string, unknown>>, deadline?: number): FilledT {
   const { text, issue, failkind } = Renderer.render(template, bag, deadline)
@@ -184,56 +202,55 @@ export function fill(template: string, bag: TemplateBag | Readonly<Record<string
  * read as Liquid, names a filter there is none of, or includes another template. What only
  * filling in can find (a template that reads too much) is `fill`'s to say.
  *
- * @example issueOf('{% if qn.hint %}')          // => 'tag {% if qn.hint %} not closed, line:1, col:1'
- * @example issueOf('{{ qn.hint | shout }}')     // => 'undefined filter: shout, line:1, col:1'
- * @example issueOf('{% include "footer" %}')    // => '{% include %} includes another template, and there are none to include, line:1, col:1'
- * @example issueOf('By {{ qn.author }}')        // => null
+ * @example issueOf('{% if question.hint %}')       // => 'tag {% if question.hint %} not closed, line:1, col:1'
+ * @example issueOf('{{ question.hint | shout }}')  // => 'undefined filter: shout, line:1, col:1'
+ * @example issueOf('{% include "footer" %}')       // => '{% include %} includes another template, and there are none to include, line:1, col:1'
+ * @example issueOf('By {{ question.author }}')     // => null
  */
 export function issueOf(template: string): string | null {
   return Renderer.issueOf(template)
 }
 
 /**
- * What a template reads for one question of a run, or for none (`question_id` null): the run's
- * place, the hunt's categories and the quiz, and its questions as they stand once every widgeting
- * has run, so a template sees every column -- in `qns` those a screen shows (all but the
- * archived), in `quiz.questions` every one. `qn` is the question itself, archived or not. An image
- * in a formula's, a bot's or a template's column comes as a link to it (`imagesLinkedOf`). The one place a
- * template's bag is made; widen it here.
+ * What a template reads for one question of a run, or for none (`question_id` null): the bag
+ * (`Runner.baseBagOf`) over the questions as they stand once every widgeting has run, so a
+ * template sees every column, every question in `questions` (the archived among them), and
+ * `question` the question itself. An image in a formula's, a bot's or a template's column comes as
+ * a link to it (`imagesLinkedOf`).
  *
  * @param run - The quiz, run.
  * @param question_id - The question the text is a field of; null for a text of the quiz's own.
  * @returns The bag. A question the run does not hold reads as no question.
  *
- * @example bagOf(run, question._id).qn.clueing   // => 'Who?'
- * @example bagOf(run, null).qn                   // => {}
- * @example bagOf(run, null).qns.length           // => 3   (and `quiz.questions` 4, with the one archived)
+ * @example bagOf(run, question._id).question.clueing   // => 'Who?'
+ * @example bagOf(run, null).question                    // => {}
+ * @example Object.keys(bagOf(run, null).questions)      // => ['leon', 'nantes', 'tours', 'paris']   (the archived among them)
  */
-export function bagOf(run: QuizRun, question_id: string | null): TemplateBag {
-  return bagOver(run, run.qnsAfter, question_id)
+export function bagOf(run: Runner.QuizRun, question_id: string | null): TemplateBag {
+  return bagOver(run, run.questionsAfter, question_id)
 }
 
 /**
  * What a text of the quiz's own reads (the recap's head, tail and template): `bagOf(run, null)`,
  * but with every question's templateable texts (`quiz.templateable`: its own fields, and text
- * entries) filled in, each over its own question's bag (`finishedQnsOf`), as the grid shows them.
- * Filled once: a template a filled text comes to is not filled again, and one that cannot be
+ * entries) filled in, each over its own question's bag (`finishedQuestionsOf`), as the grid shows
+ * them. Filled once: a template a filled text comes to is not filled again, and one that cannot be
  * filled stays as typed.
  *
  * @param quiz - The quiz: which of its texts it nominates as templateable.
  * @param run - Its run.
- * @returns The bag, `qns` and `quiz.questions` holding the questions filled in.
+ * @returns The bag, `questions` holding the questions filled in.
  *
- * @example filledBagOf(quiz, run).qns[0].clueing  // => 'By Ada'   (typed as 'By {{qn.author}}')
+ * @example filledBagOf(quiz, run).questions.leon.clueing  // => 'By Ada'   (typed as 'By {{question.author}}')
  */
-export function filledBagOf(quiz: Pick<QuizT, 'templateable'>, run: QuizRun): TemplateBag {
+export function filledBagOf(quiz: Pick<QuizT, 'templateable'>, run: Runner.QuizRun): TemplateBag {
   if (quiz.templateable.length === 0) { return bagOf(run, null) }
-  return bagOver(run, finishedQnsOf(run, quiz.templateable), null)
+  return bagOver(run, finishedQuestionsOf(run, quiz.templateable), null)
 }
 
 /**
  * What a column's template reads for one question: the question's template bag over the finished
- * bag (its questions' templateable sources filled in, `finishedQnsOf`), with the value the
+ * bag (its questions' templateable sources filled in, `finishedQuestionsOf`), with the value the
  * column's formula came to beside the bag's own words as `value`.
  *
  * @param run - The quiz, run.
@@ -243,57 +260,47 @@ export function filledBagOf(quiz: Pick<QuizT, 'templateable'>, run: QuizRun): Te
  * @returns The bag.
  *
  * @example fill('{{ value }}%', valuedBagOf(run, [], question._id, 53)).markdown  // => '53%'
- * @example valuedBagOf(run, ['clueing'], question._id, null).qn.clueing             // => 'By Ada'   (typed as 'By {{qn.author}}')
+ * @example valuedBagOf(run, ['clueing'], question._id, null).question.clueing        // => 'By Ada'   (typed as 'By {{question.author}}')
  */
-export function valuedBagOf(run: QuizRun, templateable: readonly string[], question_id: string, value: unknown): ValuedBag {
-  return { ...bagOver(run, finishedQnsOf(run, templateable), question_id), value }
+export function valuedBagOf(run: Runner.QuizRun, templateable: readonly string[], question_id: string, value: unknown): ValuedBag {
+  return { ...bagOver(run, finishedQuestionsOf(run, templateable), question_id), value }
 }
 
-/** What `finishedQnsOf` made, by the run, and by the sources filled */
-const FinishedOf = new WeakMap<QuizRun, Map<string, readonly Record<string, unknown>[]>>()
+/** What `finishedQuestionsOf` made, by the run, and by the sources filled */
+const FinishedOf = new WeakMap<Runner.QuizRun, Map<string, readonly Record<string, unknown>[]>>()
 
 /**
- * Every question of the run as the finished bag holds it: as the last widgeting left it, with
- * each source `templateable` names filled in over the question's own template bag (`bagOf`): a
- * field, or a text entry's widgeted's value. The one place a templateable source is filled; made
- * once per run. Anything else named, or not text, is left as it is. Each source is a column of
- * fills with `ColumnMs` for them all (`fillWithin`): once a limit stops it, its later questions'
- * texts stay as typed, as a text that will not fill does.
+ * Every question of the run as the finished bag holds it, in the quiz's order: as the last
+ * widgeting left it, with each source `templateable` names filled in over the question's own
+ * template bag (`bagOf`): a field, or a text entry's widgeted's value. The one place a
+ * templateable source is filled; made once per run. Anything else named, or not text, is left as
+ * it is. Each source is a column of fills with `ColumnMs` for them all (`fillWithin`): once a
+ * limit stops it, its later questions' texts stay as typed, as a text that will not fill does.
  *
  * @param run - The quiz, run.
  * @param templateable - What the quiz nominates as templateable.
  * @returns The questions, in the run's order; the run's own when nothing is nominated.
  *
- * @example finishedQnsOf(run, ['clueing'])[0].clueing  // => 'By Ada'   (typed as 'By {{qn.author}}')
+ * @example finishedQuestionsOf(run, ['clueing'])[0].clueing  // => 'By Ada'   (typed as 'By {{question.author}}')
  */
-export function finishedQnsOf(run: QuizRun, templateable: readonly string[]): readonly Record<string, unknown>[] {
-  if (templateable.length === 0) { return run.qnsAfter }
+export function finishedQuestionsOf(run: Runner.QuizRun, templateable: readonly string[]): readonly Record<string, unknown>[] {
+  if (templateable.length === 0) { return run.questionsAfter }
   const known = FinishedOf.get(run) ?? new Map<string, readonly Record<string, unknown>[]>()
   FinishedOf.set(run, known)
   const key = templateable.join('\n')
   const held = known.get(key)
   if (held !== undefined) { return held }
   const budgets = new Map(templateable.map((source) => [source, columnBudget()]))
-  const finished = run.qnsAfter.map((qn, idx) => filledQnOf(templateable, qn, bagOf(run, run.frame.question_ids[idx] ?? null), budgets))
+  const finished = run.questionsAfter.map((question, idx) => filledQuestionOf(templateable, question, bagOf(run, run.frame.question_ids[idx] ?? null), budgets))
   known.set(key, finished)
   return finished
 }
 
-/** The template bag over `questions` (every question of the run, in its order) for `question_id`, or for none */
-function bagOver(run: QuizRun, questions: readonly Record<string, unknown>[], question_id: string | null): TemplateBag {
-  const { frame } = run
-  const idx = question_id === null ? -1 : frame.question_ids.indexOf(question_id)
+/** The template bag over `questions` (every question of the run, in its order) for `question_id`, or for none, its computed values' images made links */
+function bagOver(run: Runner.QuizRun, questions: readonly Record<string, unknown>[], question_id: string | null): TemplateBag {
+  const idx = question_id === null ? -1 : run.frame.question_ids.indexOf(question_id)
   const { quiz, every } = imagesLinkedOf(run, questions)
-  return {
-    hunt:       frame.hunt,
-    realm:      frame.realm,
-    categories: frame.categories,
-    quiz:       { ...quiz, questions: every },
-    qns:        every.filter((qn) => qn[ArchivedField] !== true),
-    qn:         every[idx] ?? {},
-    qn_label:   frame.qn_labels[idx] ?? '',
-    quiz_label: frame.quiz_label,
-  }
+  return Runner.baseBagOf(run.frame, quiz, every, idx)
 }
 
 /** The formularies whose columns are worked out, not typed: a formula's, a bot's and a template's */
@@ -312,7 +319,7 @@ export function computes(widget: Pick<WidgetT, 'formulary'> | null): boolean {
 }
 
 /** What `imagesLinkedOf` made, by the questions it was made from, so a run's is made once however many cells read it */
-const LinkedOf = new WeakMap<readonly Record<string, unknown>[], { quiz: Record<string, unknown>, every: Record<string, unknown>[] }>()
+const LinkedOf = new WeakMap<readonly Record<string, unknown>[], { quiz: Runner.QuizBag['quiz'], every: Record<string, unknown>[] }>()
 
 /**
  * The run's quiz and `questions` as a template reads them: in each computed column's widgeted (a
@@ -321,18 +328,18 @@ const LinkedOf = new WeakMap<readonly Record<string, unknown>[], { quiz: Record<
  * browser fetch from an address it chose. Typed text keeps its images. Formulas read the run
  * itself, untouched.
  */
-function imagesLinkedOf(run: QuizRun, questions: readonly Record<string, unknown>[]): { quiz: Record<string, unknown>, every: Record<string, unknown>[] } {
+function imagesLinkedOf(run: Runner.QuizRun, questions: readonly Record<string, unknown>[]): { quiz: Runner.QuizBag['quiz'], every: Record<string, unknown>[] } {
   const known = LinkedOf.get(questions)
   if (known !== undefined) { return known }
   const computed = run.steps.filter(({ widget }) => computes(widget))
   const labelsAt = (tier: string) => computed.filter(({ widgeting }) => widgeting.tier === tier).map(({ widgeting }) => widgeting.label)
-  const linked = { quiz: labelsLinkedIn(run.frame.quiz, labelsAt('quiz')), every: questions.map((qn) => labelsLinkedIn(qn, labelsAt('question'))) }
+  const linked = { quiz: labelsLinkedIn(run.frame.quiz, labelsAt('quiz')), every: questions.map((question) => labelsLinkedIn(question, labelsAt('question'))) }
   LinkedOf.set(questions, linked)
   return linked
 }
 
 /** `held` with what each of `labels` holds imagesLinkedIn; `held` itself when it holds none of them */
-function labelsLinkedIn(held: Record<string, unknown>, labels: readonly string[]): Record<string, unknown> {
+function labelsLinkedIn<HT extends Record<string, unknown>>(held: HT, labels: readonly string[]): HT {
   const present = labels.filter((label) => Object.hasOwn(held, label))
   if (present.length === 0) { return held }
   return { ...held, ...Object.fromEntries(present.map((label) => [label, imagesLinkedIn(held[label])])) }
@@ -357,14 +364,14 @@ export function imagesLinkedIn(val: unknown): unknown {
  * own, out of its source's budget: a field (`clueing`) or a text entry, whose widgeted's value is
  * filled in. Anything else named, or not text, is left as it is.
  */
-function filledQnOf(templateable: readonly string[], qn: Record<string, unknown>, bag: TemplateBag, budgets: ReadonlyMap<string, ColumnBudgetT>): Record<string, unknown> {
+function filledQuestionOf(templateable: readonly string[], question: Record<string, unknown>, bag: TemplateBag, budgets: ReadonlyMap<string, ColumnBudgetT>): Record<string, unknown> {
   const filled = templateable.flatMap((source): [string, unknown][] => {
-    const held = qn[source]
+    const held = question[source]
     const filledIn = (text: string) => fillWithin(text, bag, budgets.get(source) ?? columnBudget()).markdown
     if (isTemplatableField(source)) { return typeof held === 'string' ? [[source, filledIn(held)]] : [] }
     return isWidgeted(held) && typeof held.value === 'string' ? [[source, { ...held, value: filledIn(held.value) }]] : []
   })
-  return filled.length === 0 ? qn : { ...qn, ...Object.fromEntries(filled) }
+  return filled.length === 0 ? question : { ...question, ...Object.fromEntries(filled) }
 }
 
 /**
@@ -410,7 +417,7 @@ export function templatableSources(quiz: Pick<QuizT, 'widgetings' | 'templateabl
 
 /**
  * `quiz` with each of its questions' templateable fields filled in over its run, for an export to
- * read as it reads any quiz: as the finished bag holds them (`finishedQnsOf`), each field a column
+ * read as it reads any quiz: as the finished bag holds them (`finishedQuestionsOf`), each field a column
  * of fills with `ColumnMs` for them all. A field that cannot be filled keeps its text as typed.
  * Widgetings' cells are left as they are.
  *
@@ -418,15 +425,15 @@ export function templatableSources(quiz: Pick<QuizT, 'widgetings' | 'templateabl
  * @param run - Its run.
  * @returns The quiz; the very same object when it nominates none of its questions' fields.
  *
- * @example filledQuiz(quiz, run).questions[0].clueing  // => 'By Ada'   (typed as 'By {{qn.author}}')
+ * @example filledQuiz(quiz, run).questions[0].clueing  // => 'By Ada'   (typed as 'By {{question.author}}')
  */
-export function filledQuiz(quiz: QuizT, run: QuizRun): QuizT {
+export function filledQuiz(quiz: QuizT, run: Runner.QuizRun): QuizT {
   const fields = TemplatableFieldVals.filter((field) => templates(quiz, field))
   if (fields.length === 0) { return quiz }
-  const finished = finishedQnsOf(run, fields)
+  const finished = finishedQuestionsOf(run, fields)
   const questions = quiz.questions.map((question): QuestionT => {
-    const qn = finished[run.frame.question_ids.indexOf(question._id)] ?? {}
-    const filled = Object.fromEntries(fields.map((field) => [field, typeof qn[field] === 'string' ? qn[field] : question[field]]))
+    const held = finished[run.frame.question_ids.indexOf(question._id)] ?? {}
+    const filled = Object.fromEntries(fields.map((field) => [field, typeof held[field] === 'string' ? held[field] : question[field]]))
     return { ...question, ...filled }
   })
   return { ...quiz, questions }

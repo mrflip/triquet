@@ -5,7 +5,7 @@
  * A cell nobody has filled in is taken to draw on no category in particular, at medium, as a
  * question whose every estimate is blank is: so every question of the quiz has estimates, and the
  * personas a chance at it. The parts of such a widgeted (`PartVals`) are the estimates themselves
- * and those chances; a formula reads them on the widgeted, as `qn.<label>.masie`, and a column
+ * and those chances; a formula reads them on the widgeted, as `question.<label>.masie`, and a column
  * shows one by the formula naming it, `$.masie`.
  */
 import { Estimate, EstimateValidators, type EstimatesT } from '../models/estimate'

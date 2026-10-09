@@ -1,6 +1,8 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
+import { QuizBodyFieldnames } from '../lib/jsonball'
+import { StampFieldnames } from '../lib/stamps'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 import { Question, QuestionValidators, type QuestionT } from './question'
@@ -208,20 +210,11 @@ export class Quiz implements QuizT {
   declare updated_at:      number | null
 
   /**
-   * The fields a quiz shows the outside world, alphabetically: its label, the
-   * smith's note, and its title. Not the id; not the questions, widgetings and columns, which
-   * are exposed on their own; not the LL export's preamble, nor the recap's head, tail and
-   * template, which are templated over the bag rather than read from it; and not the housekeeping -- lock,
-   * remembered sort, which sources are templateable.
+   * Every name the quiz answers to in a bag and in its ball, where a widgeting for the whole quiz
+   * puts its widgeted beside them: its label, its own fields (`Bagged.quiz`), its stamps, and what
+   * its ball holds beside them, its questions and its layout.
    */
-  static readonly exposed = ['label', 'smiths_note', 'title'] as const
-
-  /**
-   * Every name the quiz answers to in a bag, where a widgeting for the whole quiz puts its
-   * widgeted beside them: its exposed fields, and `questions`, under which a template's bag holds
-   * every question, the archived among them (`Templating.bagOf`).
-   */
-  static readonly bagKeys = [...Quiz.exposed, 'questions'] as const
+  static readonly bagKeys = ['label', ...QuizBodyFieldnames, 'recap_template', ...StampFieldnames, 'questions', 'widgetings', 'columns'] as const
 
   /**
    * Whether `quiz` is locked: nothing in it changes until it is unlocked.

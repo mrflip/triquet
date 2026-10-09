@@ -51,7 +51,7 @@ test('a pasted prompt is previewed against a real question as it is typed: the i
   const editor = promptDialog(page)
   await expect(editor.getByRole('status', { name: 'Preview input' })).toContainText('"clueing":"Which region gave its name to Leon?"')
   await expect(editor.getByLabel('Rendered prompt')).toContainText('Riddle me this: Which region gave its name to Leon?')
-  await editor.getByRole('textbox', { name: 'Input formula' }).fill("{ 'clueing': $uppercase(qn.clueing) }")
+  await editor.getByRole('textbox', { name: 'Input formula' }).fill("{ 'clueing': $uppercase(question.clueing) }")
   await expect(editor.getByLabel('Rendered prompt')).toContainText('Riddle me this: WHICH REGION GAVE ITS NAME TO LEON?')
 })
 
@@ -66,7 +66,7 @@ test('the preview names a placeholder the input does not fill, and a template th
 test('a question whose input comes to nothing would not be asked, and the preview says so', async ({ page }) => {
   await pastePrompt(page, freshWidgetLabel('riddler'))
   const editor = promptDialog(page)
-  await editor.getByRole('textbox', { name: 'Input formula' }).fill("$trim(qn.hint) != '' ? { 'hint': qn.hint }")
+  await editor.getByRole('textbox', { name: 'Input formula' }).fill("$trim(question.hint) != '' ? { 'hint': question.hint }")
   await expect(editor.getByRole('status', { name: 'Preview input' })).toContainText('this question would not be asked')
 })
 
@@ -100,7 +100,7 @@ test('a prompt opened from the library is revised there, its input formula and r
   await page.getByRole('button', { name: `Edit widget ${widget_label}` }).click()
   const editor = page.getByRole('dialog', { name: `Widget: ${widget_label}` })
   await expect(editor.getByRole('textbox', { name: 'Prompt', exact: true })).toHaveValue(Riddle)
-  await editor.getByRole('textbox', { name: 'Input formula' }).fill("{ 'clueing': $uppercase(qn.clueing) }")
+  await editor.getByRole('textbox', { name: 'Input formula' }).fill("{ 'clueing': $uppercase(question.clueing) }")
   await editor.getByRole('textbox', { name: 'Max tokens' }).fill('300')
   await editor.getByRole('button', { name: 'Apply' }).click()
   await page.getByRole('button', { name: 'Done' }).click()

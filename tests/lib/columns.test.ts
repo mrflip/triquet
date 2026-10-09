@@ -40,7 +40,7 @@ describe('resolve', () => {
 
   it('finds a word at the bag\'s top level, which no widgeting may shadow', () => {
     expect(resolve('categories', widgetings)).to.deep.eq({ kind: 'word', word: 'categories' })
-    expect(resolve('qns', widgetings)).to.deep.eq({ kind: 'word', word: 'qns' })
+    expect(resolve('questions', widgetings)).to.deep.eq({ kind: 'word', word: 'questions' })
     expect(() => Widgeting.fill({ label: 'categories', widget_label: 'category_data' })).to.throw(/already answer to/)
   })
 
@@ -138,7 +138,7 @@ describe('specFor', () => {
 
   it('orders the quiz by what a formula works out, but never by a word the same in every row', () => {
     expect(specOf('clueing', '$length($)').sortkey).to.eq('column:tally')
-    expect(specOf('qns', '$count($)').sortkey).to.be.undefined
+    expect(specOf('questions', '$count($.*)').sortkey).to.be.undefined
     expect(specOf('rank').sortkey).to.eq('column:tally')
   })
 
@@ -266,7 +266,8 @@ describe('shownOf', () => {
   it('works a formula over a field, a key or a word, which has no status', () => {
     expect(shown('title', '$uppercase($)')).to.deep.eq(Widgeted.ok('LEON'))
     expect(shown('rank', '$ * 10', blank)).to.deep.eq(Widgeted.ok(10))
-    expect(shown('qns', '$count($)')).to.deep.eq(Widgeted.ok(2))
+    expect(shown('questions', '$count($.*)')).to.deep.eq(Widgeted.ok(2))
+    expect(shown('questions', `$lookup($, '${blank.label}').title`)).to.deep.eq(Widgeted.ok('Nantes'))
   })
 
   it("reads a formula's outcome as a formula widget's: nothing is missing, a failure errored", () => {
@@ -283,11 +284,11 @@ describe('shownOf', () => {
   })
 
   it('reads a templateable source filled in', () => {
-    const filled = { ...placed, clueing: 'By {{ qn.title }}' }
+    const filled = { ...placed, clueing: 'By {{ question.title }}' }
     const templated = runOf({ ...quiz, questions: [filled, blank] }, library)
     const spec = { ...present(specFor({ ...columnOf('clueing'), formula: '$' }, quiz.widgetings)) }
     expect(shownOf(spec, templated, ['clueing'], filled._id)).to.deep.eq(Widgeted.ok('By Leon'))
-    expect(shownOf(spec, templated, [], filled._id)).to.deep.eq(Widgeted.ok('By {{ qn.title }}'))
+    expect(shownOf(spec, templated, [], filled._id)).to.deep.eq(Widgeted.ok('By {{ question.title }}'))
   })
 })
 
@@ -375,14 +376,14 @@ describe('isDrawnByEditor', () => {
 })
 
 describe('drawnOf and templatedTextOf', () => {
-  const placed = { ...Question.blank(), title: 'Leon', qnum: '2', clueing: 'By {{ qn.title }}', stored: { cats: answered([{ category: 'art', difficulty: 'easy' }]), remark: answered('![map](https://host/m.png)') } }
+  const placed = { ...Question.blank(), title: 'Leon', qnum: '2', clueing: 'By {{ question.title }}', stored: { cats: answered([{ category: 'art', difficulty: 'easy' }]), remark: answered('![map](https://host/m.png)') } }
   const blank = { ...Question.blank(), title: 'Nantes', qnum: '1' }
   const cats = Widgeting.fill({ label: 'cats', widget_label: 'estimating' })
   const remark = Widgeting.fill({ label: 'remark', widget_label: 'jottings' })
   const pictured = Widgeting.fill({ label: 'pictured', widget_label: 'picture' })
   const carded = Widgeting.fill({ label: 'carded', widget_label: 'card' })
   const library = [
-    Widget.fill({ label: 'card', formulary: 'liquidize', formula: '![logo](https://host/l.png) **{{ qn.title }}**' }),
+    Widget.fill({ label: 'card', formulary: 'liquidize', formula: '![logo](https://host/l.png) **{{ question.title }}**' }),
     Widget.fill({ label: 'estimating', formulary: 'entry', config: { entry_kind: 'estimates' } }),
     Widget.fill({ label: 'jottings', formulary: 'entry', config: { entry_kind: 'text' } }),
     Widget.fill({ label: 'picture', formulary: 'jsonata', formula: '"![map](https://host/m.png)"' }),
@@ -394,7 +395,7 @@ describe('drawnOf and templatedTextOf', () => {
   const drawn = (source: string, stages: Stages, question: QuestionT = placed, templateable: string[] = []) => drawnOf(specWith(source, stages), run, templateable, question._id)
 
   it("fills the template over the question's bag, what the formula came to as `value`", () => {
-    expect(drawn('cats', { formula: '$round($.artie * 100)', template: '{{ value }}% for {{ qn.title }}' }).text).to.eq('90% for Leon')
+    expect(drawn('cats', { formula: '$round($.artie * 100)', template: '{{ value }}% for {{ question.title }}' }).text).to.eq('90% for Leon')
     expect(drawn('title', { template: '**{{ value }}**' })).to.deep.eq({ widgeted: Widgeted.ok('Leon'), text: '**Leon**', issue: null })
   })
 
@@ -414,8 +415,8 @@ describe('drawnOf and templatedTextOf', () => {
   })
 
   it('reads the templateable sources filled in, as the finished bag holds them', () => {
-    expect(drawn('title', { template: '{{ qn.clueing }}' }, placed, ['clueing']).text).to.eq('By Leon')
-    expect(drawn('title', { template: '{{ qn.clueing }}' }, placed, []).text).to.eq('By {{ qn.title }}')
+    expect(drawn('title', { template: '{{ question.clueing }}' }, placed, ['clueing']).text).to.eq('By Leon')
+    expect(drawn('title', { template: '{{ question.clueing }}' }, placed, []).text).to.eq('By {{ question.title }}')
   })
 
   it("makes the images of a formula's value links when drawn as markdown, and only then", () => {

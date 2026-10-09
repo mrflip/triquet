@@ -6,7 +6,7 @@ import * as Markdown from './markdown'
  * markdown's structure is fragile. A clueing's second line leaves the quote its first line
  * opened; an answer's second line leaves the `~~**...**~~` around it; a recap opening `---` makes
  * the line above it a heading. Each shaper takes the text and hands back the text that keeps its
- * place. The template filters (`{{ qn.clueing | quote }}`, `Templating.Helpers`) are made by these.
+ * place. The template filters (`{{ question.clueing | quote }}`, `Templating.Helpers`) are made by these.
  */
 
 /** A line markdown would read as underlining the line above it into a heading */

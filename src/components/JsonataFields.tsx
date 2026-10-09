@@ -83,8 +83,8 @@ export function JsonataFields({ hunt, library, openQuiz, draft, onChange, labelE
           <JsonFold label="hunt" val={bag.hunt} />
           <JsonFold label="realm" val={bag.realm} />
           <JsonFold label="quiz" val={bag.quiz} />
-          <JsonFold label={`qns (${String(bag.qns.length)})`} val={bag.qns} />
-          <JsonFold label="qn" val={bag.qn} />
+          <JsonFold label={`questions (${String(Object.keys(bag.questions).length)})`} val={bag.questions} />
+          <JsonFold label="question" val={bag.question} />
         </div>
       )}
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>

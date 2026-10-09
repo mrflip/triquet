@@ -5,10 +5,11 @@ import * as Jsonball from './jsonball'
 import * as Runner from './formulary/runner'
 import * as Stamps from './stamps'
 import type { MemberT, ReviewedT, ShallowHuntT } from './rows'
-import { CategoryLabelVals, type WheelT } from '../models/category'
+import type { WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import { Question } from '../models/question'
 import type { QuizT } from '../models/quiz'
+import { Bagged } from '../models/quiz-bag'
 import type { RealmT } from '../models/realm'
 import { Widget, WidgetScopeVals, type WidgetT } from '../models/widget'
 
@@ -80,27 +81,23 @@ function placed(address: Addresses.FiledAddressT, body: Jsonball.JsonballT): Pla
 }
 
 /**
- * The hunt's own ball: its label, title, branch and stamps, at the root of the merged hunt.
+ * The hunt's own ball: its label, title, branch and stamps, at the root of the merged hunt; what
+ * the bag holds as `hunt` (`Bagged.hunt`).
  *
  * @example huntBall(place, hunt).ball  // => { branch: 'main', created_at: '2026-10-05T12:00:00.000Z', label: 'spring_hunt', title: 'Spring Hunt', updated_at: ... }
  */
 export function huntBall(place: Addresses.InHuntT, hunt: Omit<HuntSnapshotT['hunt'], 'org'>): PlacedBallT {
-  const body: Jsonball.HuntBodyT = { label: hunt.label, title: hunt.title, branch: hunt.branch, ...Stamps.isoStampsOf(hunt) }
-  return placed({ kind: 'hunt', ...place }, body)
+  return placed({ kind: 'hunt', ...place }, Bagged.hunt(hunt))
 }
 
 /**
- * The hunt's categories: every category by its label, with the slot of the wheel it holds, or
- * null for one in the pool.
+ * The hunt's categories, as the bag holds them (`Bagged.categories`): every category by its
+ * label, with its label, its title and the slot of the wheel it holds, or null for one in the pool.
  *
- * @example categoriesBall(place, Wheel.defaultWheel()).ball.categories.math_econ  // => { position: 0 }
+ * @example categoriesBall(place, Wheel.defaultWheel()).ball.categories.math_econ  // => { label: 'math_econ', title: 'Math & Econ', position: 0 }
  */
 export function categoriesBall(place: Addresses.InHuntT, wheel: WheelT): PlacedBallT {
-  const body: Record<string, Jsonball.CategoryBodyT> = Object.fromEntries(CategoryLabelVals.map((label) => {
-    const slot = wheel.indexOf(label)
-    return [label, { position: slot === -1 ? null : slot }]
-  }))
-  return placed({ kind: 'categories', ...place }, body)
+  return placed({ kind: 'categories', ...place }, Bagged.categories(wheel))
 }
 
 /**
@@ -114,77 +111,45 @@ export function membersBall(place: Addresses.InHuntT, members: readonly MemberSo
 }
 
 /**
- * `quiz` with its ids gone: its questions keyed by label in quiz order, the archived among them,
- * each with its viz, its chain named by the label of the question it points at (a chain to a
- * question the quiz does not hold named as none) and what each of the quiz's question widgetings
- * came to beside its own fields; its widgetings and columns keyed by label in their order; and,
- * when it has any, what each widgeting run once for the whole quiz came to, under `widgeteds`. What
- * a quiz's ball holds at its key path.
+ * `quiz` with its ids gone, in the shape the bag holds it once every widgeting has run, less
+ * what the bag works out: its own fields (`Bagged.quiz`) with what each widgeting run once for the
+ * whole quiz came to under its label; its questions keyed by label in quiz order, the archived
+ * among them, as the run left them (each with its place, its label, its own fields and viz, its
+ * chain named by label, its stamps, and what each of the quiz's question widgetings came to);
+ * and its layout, its widgetings and columns keyed by label in their order. What a quiz's ball
+ * holds at its key path.
  *
  * @param quiz - The quiz.
  * @param run - The quiz, run: what its widgetings came to.
  *
  * @example quizBodyOf(quiz, run).questions.leon?.chains_to  // => 'nantes'
  * @example quizBodyOf(quiz, run).questions.leon?.clueing_full  // => { status: 'ok', value: 312 }
+ * @example quizBodyOf(quiz, run).playtesters  // => { status: 'ok', value: 'Ada and Grace' }
  */
 export function quizBodyOf(quiz: QuizT, run: Runner.QuizRun): Jsonball.QuizBodyT {
+  const quizWide = new Set(quiz.widgetings.filter((widgeting) => widgeting.tier === 'quiz').map((widgeting) => widgeting.label))
   return {
-    title:        quiz.title,
-    smiths_note:  quiz.smiths_note,
-    q1_preamble:  quiz.q1_preamble,
-    recap_head:   quiz.recap_head,
-    recap_tail:   quiz.recap_tail,
-    recap_template: quiz.recap_template ?? null,
-    templateable: quiz.templateable,
-    locked:       quiz.locked,
-    last_sortkey: quiz.last_sortkey,
-    ...Stamps.isoStampsOf(quiz),
-    questions:    questionsBodyOf(quiz, run),
-    widgetings:   Jsonball.keyedOf(quiz.widgetings, (widgeting) => widgeting.label, ({ widget_label, description, params, tier }) => ({ widget_label, description, params, tier })),
-    columns:      Jsonball.keyedOf(quiz.columns, (column) => column.label, ({ label: _label, ...fields }) => fields),
-    ...quizWidgetedsBodyOf(quiz, run),
-  }
-}
-
-/** What each widgeting of `quiz` run once for the whole quiz came to, its exposed fields only, under `widgeteds`; nothing for a quiz with none */
-function quizWidgetedsBodyOf(quiz: QuizT, run: Runner.QuizRun): Pick<Jsonball.QuizBodyT, 'widgeteds'> {
-  const quizWide = quiz.widgetings.filter((widgeting) => widgeting.tier === 'quiz')
-  if (quizWide.length === 0) { return {} }
-  return {
-    widgeteds: Object.fromEntries(quizWide.map(({ label }) => {
-      const { status, value } = Runner.quizWidgetedOf(run, label)
-      return [label, { status, value }]
-    })),
+    ...Bagged.quiz(quiz),
+    ...Object.fromEntries(quizWide.values().map((label) => [label, Bagged.widgeted(Runner.quizWidgetedOf(run, label))])),
+    questions:  questionsBodyOf(quiz, run),
+    widgetings: Jsonball.keyedOf(quiz.widgetings, (widgeting) => widgeting.label, (widgeting) => ({ ...widgeting })),
+    columns:    Jsonball.keyedOf(quiz.columns, (column) => column.label, (column) => ({ ...column })),
   }
 }
 
 /**
- * A quiz's questions as its ball holds them: keyed by label, in quiz order, each chain named by the
- * label of the question it points at among them all. `questions` says which are written: every one,
- * unless told otherwise.
+ * A quiz's questions as its ball holds them: keyed by label, in quiz order, each as the bag holds
+ * it (`Bagged.question`) with what each of the quiz's question widgetings came to beside it, and
+ * nothing the bag works out. `questions` says which are written, each placed among them: every
+ * one, unless told otherwise.
  */
 function questionsBodyOf(quiz: QuizT, run: Runner.QuizRun, questions: readonly QuizT['questions'][number][] = quiz.questions): Record<string, Jsonball.QuestionBodyT> {
   const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
+  const labels = quiz.widgetings.filter((widgeting) => widgeting.tier === 'question').map((widgeting) => widgeting.label)
   return Jsonball.keyedOf(questions, (question) => question.label, (question) => ({
-    qnum:        question.qnum,
-    clueing:     question.clueing,
-    hint:        question.hint,
-    title:       question.title,
-    alt_text:    question.alt_text,
-    notes:       question.notes,
-    full_answer: question.full_answer,
-    recap:       question.recap,
-    viz:         question.viz,
-    chains_to:   question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
-    ...Stamps.isoStampsOf(question),
-    ...Object.fromEntries(quiz.widgetings.filter((widgeting) => widgeting.tier === 'question').map(({ label }) => [label, widgetedBodyOf(run, label, question._id)])),
+    ...Bagged.question(question, 0, question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null),
+    ...Object.fromEntries(labels.map((label) => [label, Bagged.widgeted(Runner.widgetedOf(run, label, question._id))])),
   }))
-}
-
-/** What one widgeting came to for one question, its exposed fields only */
-function widgetedBodyOf(run: Runner.QuizRun, label: string, question_id: string): Jsonball.WidgetedBodyT {
-  const { status, value } = Runner.widgetedOf(run, label, question_id)
-  return { status, value }
 }
 
 /**
@@ -263,9 +228,9 @@ export function quizBalls(place: Addresses.InHuntT, realm: string, quiz: QuizT, 
  * @example widgetBall(dumdum, 0).ball  // => { pub: { widgets: { dumdum: { position: 0, formulary: 'aibot', ... } } } }
  */
 export function widgetBall(widget: WidgetT, position: number): PlacedBallT {
-  const { scope, label, ...fields } = Widget.exported(widget)
+  const { scope, ...fields } = Widget.exported(widget)
   const body: Jsonball.WidgetBodyT = { ...fields, position }
-  return placed({ kind: 'widget', scope, widget: label }, body)
+  return placed({ kind: 'widget', scope, widget: fields.label }, body)
 }
 
 /**

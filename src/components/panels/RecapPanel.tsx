@@ -135,11 +135,11 @@ function RecapTemplate({ draft, owned, issue, revisable }: Readonly<RecapTemplat
       <AccordionDetails id="recap-template-details">
         <p className={styles.microcopy}>
           Markdown with Liquid, filled in, then written in the boards&apos; BBCode. It reads what a templated field
-          reads -- {'qns'}, the questions on screen, each with its fields (templated ones filled in) and columns by
-          label ({'{{ qn.clueing }}'}, {'{{ qn.correct_pct }}'}, and {'qn.secondary'} for an alternate), so a column of
-          your own can stand in for any line; {'quiz.questions'} holds the archived too -- and
-          {' {{ recap_head }}'} and {'{{ recap_tail }}'} (filled in). {'{% assign played = qns | in_order %}'} lists the
-          questions played in Q# order, each with its {'{{ qn.number }}'}. Three filters shape a field for where
+          reads -- {'questions'}, every question by its label, each with its fields (templated ones filled in) and
+          columns by label ({'{{ question.clueing }}'}, {'{{ question.correct_pct }}'}, {'question.secondary'} for an
+          alternate and {'question.archived'} for one put away), so a column of your own can stand in for any line --
+          and {' {{ recap_head }}'} and {'{{ recap_tail }}'} (filled in). {'{% assign played = questions | in_order %}'} lists
+          the questions played in Q# order, each with its {'{{ question.number }}'}; {'questions | values'} lists them all. Three filters shape a field for where
           markdown is fragile: {'| quote'} keeps every line in the quote, {'| oneline'} joins the lines into one,
           {'| apart'} keeps a leading --- from making a heading; Liquid&apos;s own ({'| sort'}, {'| where'}) work too.
           Empty the box to go back to the default.

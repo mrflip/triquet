@@ -80,12 +80,6 @@ describe('Hunt.fill with widgetings', () => {
   })
 })
 
-describe('Hunt.exposed', () => {
-  it('is its label and its title, and neither its id nor its realms', () => {
-    expect(Hunt.exposed).to.deep.eq(['label', 'title'])
-  })
-})
-
 describe('HuntValidators.row', () => {
   const Row = { label: 'quiet_otter', orglabel: 'pat_smith', title: 'Quiet Otter', branch: 'main', created_at: 1_759_700_000_000, updated_at: 1_759_700_000_000 }
 

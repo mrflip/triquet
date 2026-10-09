@@ -8,7 +8,7 @@ describe('Formulas.evaluate', () => {
     ["a + 1",                                    { a: 2 },                          3,           'arithmetic on a field'],
     ["$sum(x.v)",                                { x: [{ v: 1 }, { v: 2 }] },       3,           'a sum down a list of objects'],
     ["$join($reverse($split(word, '')))",        { word: 'stressed' },              'desserts',  'the letters of a word reversed'],
-    ["qns[label = $$.qn.chains_to].title",       { qns: [{ label: 'aa', title: 'Alpha' }, { label: 'bb', title: 'Beta' }], qn: { chains_to: 'bb' } }, 'Beta', 'a lookup by label through the root'],
+    ["qns[label = $$.question.chains_to].title",       { qns: [{ label: 'aa', title: 'Alpha' }, { label: 'bb', title: 'Beta' }], question: { chains_to: 'bb' } }, 'Beta', 'a lookup by label through the root'],
     ["{ 'value': 4, 'stale': true }",            {},                                { value: 4, stale: true }, 'an object comes back as an object'],
     // trivial cases:
     ["nope.nada",                                {},                                undefined,   'a path that leads nowhere finds nothing'],
@@ -93,7 +93,7 @@ describe('Formulas.evaluate', () => {
 
 describe('Formulas.check', () => {
   it('is null for a formula that parses', () => {
-    expect(Formulas.check('$sum(qn.numnum_clueing.value.items.value)')).to.be.null
+    expect(Formulas.check('$sum(question.numnum_clueing.value.items.value)')).to.be.null
   })
 
   it('is null for a formula that would fail at runtime, because parsing is all it judges', () => {

@@ -49,7 +49,7 @@ ${IshRules}
 ${IshesReply}`
 
 /** The input of a seeded `aibot` widget put one text: that text, trimmed, and nothing for a blank one, which is then not asked about */
-const trimmedInput = (textkind: 'clueing' | 'hint'): string => `$trim(qn.${textkind}) != '' ? { '${textkind}': $trim(qn.${textkind}) }`
+const trimmedInput = (textkind: 'clueing' | 'hint'): string => `$trim(question.${textkind}) != '' ? { '${textkind}': $trim(question.${textkind}) }`
 
 const AibotSeedDNAs: readonly WidgetDNA[] = [
   {
@@ -87,8 +87,11 @@ const SumOf = (widgeted: string, kind = ''): string => `$floor($sum($append([0],
 /** What narrows a number spotter's spans to those written in digits */
 const NumeralOnly = "[kind = 'numeral']"
 
+/** The question this one chains to, looked up by its label; nothing when it chains to none (`$lookup` refuses a null label) */
+const Chained = '(question.chains_to ? $lookup(questions, question.chains_to))'
+
 /** The number spotter's widgeted for the hint of the question this one chains to */
-const ButnotHint = '(qns[label = $$.qn.chains_to]).numnum_hint'
+const ButnotHint = `${Chained}.numnum_hint`
 
 // Each sum reads one number spotter's widgeted and totals its spans. A widgeted that is not `ok`
 // comes to nothing, because "nobody has asked yet" and "the answer is nought" are different facts
@@ -98,25 +101,25 @@ const SumSeedDNAs: readonly WidgetDNA[] = [
     label:       'clueing_full',
     description: 'Every number-like span in the clueing, added up.',
     formulary:   'jsonata',
-    formula:     `qn.numnum_clueing.status = 'ok' ? ${SumOf('qn.numnum_clueing')}`,
+    formula:     `question.numnum_clueing.status = 'ok' ? ${SumOf('question.numnum_clueing')}`,
   },
   {
     label:       'clueing_numeral',
     description: 'The spans in the clueing that are written in digits, added up.',
     formulary:   'jsonata',
-    formula:     `qn.numnum_clueing.status = 'ok' ? ${SumOf('qn.numnum_clueing', NumeralOnly)}`,
+    formula:     `question.numnum_clueing.status = 'ok' ? ${SumOf('question.numnum_clueing', NumeralOnly)}`,
   },
   {
     label:       'hint_full',
     description: 'Every number-like span in this question\'s own hint, added up.',
     formulary:   'jsonata',
-    formula:     `qn.numnum_hint.status = 'ok' ? ${SumOf('qn.numnum_hint')}`,
+    formula:     `question.numnum_hint.status = 'ok' ? ${SumOf('question.numnum_hint')}`,
   },
   {
     label:       'hint_numeral',
     description: 'The spans in this question\'s own hint that are written in digits, added up.',
     formulary:   'jsonata',
-    formula:     `qn.numnum_hint.status = 'ok' ? ${SumOf('qn.numnum_hint', NumeralOnly)}`,
+    formula:     `question.numnum_hint.status = 'ok' ? ${SumOf('question.numnum_hint', NumeralOnly)}`,
   },
   {
     label:       'butnot_full',
@@ -134,13 +137,13 @@ const SumSeedDNAs: readonly WidgetDNA[] = [
     label:       'clueing_plus_rank',
     description: 'The clueing sum plus this question\'s rank: its place, counting from 1, once the quiz is put in Q# order.',
     formulary:   'jsonata',
-    formula:     `qn.numnum_clueing.status = 'ok' and $type(qn.rank) = 'number' ? ${SumOf('qn.numnum_clueing')} + qn.rank`,
+    formula:     `question.numnum_clueing.status = 'ok' and $type(question.rank) = 'number' ? ${SumOf('question.numnum_clueing')} + question.rank`,
   },
   {
     label:       'clueing_plus_butnot_full',
     description: 'The clueing sum plus the sum of the hint of the question this one chains to.',
     formulary:   'jsonata',
-    formula:     `(\n  $clueing := qn.numnum_clueing;\n  $hint := ${ButnotHint};\n  $clueing.status = 'ok' and $hint.status = 'ok' ? ${SumOf('$clueing')} + ${SumOf('$hint')}\n)`,
+    formula:     `(\n  $clueing := question.numnum_clueing;\n  $hint := ${ButnotHint};\n  $clueing.status = 'ok' and $hint.status = 'ok' ? ${SumOf('$clueing')} + ${SumOf('$hint')}\n)`,
   },
 ]
 
@@ -150,31 +153,31 @@ const TextSeedDNAs: readonly WidgetDNA[] = [
     label:       'clueing_word_count',
     description: 'How many words the clueing has.',
     formulary:   'jsonata',
-    formula:     String.raw`$count($split($trim(qn.clueing), /\s+/)[$ != ''])`,
+    formula:     String.raw`$count($split($trim(question.clueing), /\s+/)[$ != ''])`,
   },
   {
     label:       'clueing_with_butnot',
     description: 'The clueing with the BUT NOT text of the question this one chains to folded in: the complete unit as a player receives it. The phrase is only supplied when the hint does not already say it.',
     formulary:   'jsonata',
-    formula:     "(\n  $hint := $trim((qns[label = $$.qn.chains_to]).hint);\n  $exists($hint) and $hint != '' ?\n    qn.clueing & ($contains($hint, /^but not\\b/i) ? ' ... ' : ' ... BUT NOT ... ') & $hint :\n    qn.clueing\n)",
+    formula:     `(\n  $hint := $trim(${Chained}.hint);\n  $exists($hint) and $hint != '' ?\n    question.clueing & ($contains($hint, /^but not\\b/i) ? ' ... ' : ' ... BUT NOT ... ') & $hint :\n    question.clueing\n)`,
   },
   {
     label:       'answer_letter_count',
     description: 'How many letters the full answer has, ignoring everything that is not a letter.',
     formulary:   'jsonata',
-    formula:     "$length($replace(qn.full_answer, /[^a-z]/i, ''))",
+    formula:     "$length($replace(question.full_answer, /[^a-z]/i, ''))",
   },
   {
     label:       'answer_reversed',
     description: 'The full answer written backward.',
     formulary:   'jsonata',
-    formula:     "$join($reverse($split(qn.full_answer, '')))",
+    formula:     "$join($reverse($split(question.full_answer, '')))",
   },
   {
     label:       'answer_alphabetized',
     description: 'The letters of the full answer in alphabetical order, ignoring case and everything that is not a letter.',
     formulary:   'jsonata',
-    formula:     "$join($sort($split($lowercase($replace(qn.full_answer, /[^a-z]/i, '')), '')))",
+    formula:     "$join($sort($split($lowercase($replace(question.full_answer, /[^a-z]/i, '')), '')))",
   },
 ]
 
@@ -231,7 +234,7 @@ export const CategoryDataLabel = 'category_data'
 const CategoryDataDNA: WidgetDNA = {
   label:       CategoryDataLabel,
   title:       'Categories',
-  description: "Which subject categories a question draws on, each at a difficulty: a pill for each. A column can show the list, or by a formula Masie's, Artie's and Poppy's chances at the question and their average, read against the hunt's wheel (`$.masie` and the like); another formula reads them as `qn.category_data.masie`.",
+  description: "Which subject categories a question draws on, each at a difficulty: a pill for each. A column can show the list, or by a formula Masie's, Artie's and Poppy's chances at the question and their average, read against the hunt's wheel (`$.masie` and the like); another formula reads them as `question.category_data.masie`.",
   formulary:   'entry',
   config:      { entry_kind: 'estimates' },
 }
@@ -280,9 +283,9 @@ const FamilySeedDNAs: readonly WidgetDNA[] = [
 const BlurbDNA: WidgetDNA = {
   label:       'blurb',
   title:       'Template',
-  description: 'Markdown filled in from a Liquid template for every question, over what a formula reads: `{{ qn.title }}`, `{{ qn.dumdum.value.guess }}`. Its widgeting may give a template of its own, or read one from the bag, as a bot wrote it.',
+  description: 'Markdown filled in from a Liquid template for every question, over what a formula reads: `{{ question.title }}`, `{{ question.dumdum.value.guess }}`. Its widgeting may give a template of its own, or read one from the bag, as a bot wrote it.',
   formulary:   'liquidize',
-  formula:     '**{{ qn.title }}**{% if qn.full_answer %}: {{ qn.full_answer | oneline }}{% endif %}',
+  formula:     '**{{ question.title }}**{% if question.full_answer %}: {{ question.full_answer | oneline }}{% endif %}',
 }
 
 /**

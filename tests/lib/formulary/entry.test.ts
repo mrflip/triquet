@@ -237,6 +237,6 @@ describe('EntryFormulary', () => {
 describe('Formularies.paramsOf', () => {
   it("is an entry's family's validator, and the open record of a formula's or a prompt's, per the doc examples", () => {
     expect(Formularies.paramsOf(entryOf('number')).safeParse({ min: 'one' }).success).to.be.false
-    expect(Formularies.paramsOf(Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })).safeParse({ loud: true }).success).to.be.true
+    expect(Formularies.paramsOf(Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' })).safeParse({ loud: true }).success).to.be.true
   })
 })

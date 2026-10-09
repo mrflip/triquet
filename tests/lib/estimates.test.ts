@@ -13,7 +13,7 @@ import { present } from '../support/present'
 const DefaultOrder = Wheel.orderOf(Wheel.defaultWheel())
 const Estimating = Widget.fill({ label: 'categories', formulary: 'entry', config: { entry_kind: 'estimates' } })
 const Numbering = Widget.fill({ label: 'points', formulary: 'entry', config: { entry_kind: 'number' } })
-const Shouting = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
+const Shouting = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' })
 const Neutral: EstimatesT = [{ category: null, difficulty: 'medium' }]
 
 /** A cell whose one row holds `value` */

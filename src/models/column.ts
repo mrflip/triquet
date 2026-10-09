@@ -21,7 +21,7 @@ export type QuestionKey = typeof QuestionKeyVals[number]
  * The words at the bag's top level a column's ref may name. Each is the same in every row, and
  * worth a column when its formula pulls an answer out of it.
  */
-export const BagWordVals = ['quiz', 'hunt', 'realm', 'categories', 'qns'] as const
+export const BagWordVals = ['quiz', 'hunt', 'realm', 'categories', 'questions'] as const
 export type BagWord = typeof BagWordVals[number]
 
 /** What a ref puts ahead of the label of a widgeting run once for the whole quiz: `quiz.playtesters`, the one dotted form */
@@ -47,7 +47,7 @@ export const RefTitles: Readonly<Record<QuestionField | QuestionView | QuestionK
   hunt:        'Hunt',
   realm:       'Realm',
   categories:  'Categories',
-  qns:         'Questions',
+  questions:   'Questions',
 }
 
 /**

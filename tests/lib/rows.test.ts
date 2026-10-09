@@ -252,19 +252,19 @@ describe('widgetFrom', () => {
   const sharedFields = { scope: 'pub', label: 'shout', title: 'Shout', description: 'Loudly.' }
 
   it('is a jsonata widget, without its id or place', () => {
-    expect(widgetFrom({ ...shared, formulary: 'jsonata', formula: '$uppercase(qn.title)', input_formula: '$', config: {} }))
-      .to.deep.eq({ ...sharedFields, formulary: 'jsonata', formula: '$uppercase(qn.title)', input_formula: '$', config: {} })
+    expect(widgetFrom({ ...shared, formulary: 'jsonata', formula: '$uppercase(question.title)', input_formula: '$', config: {} }))
+      .to.deep.eq({ ...sharedFields, formulary: 'jsonata', formula: '$uppercase(question.title)', input_formula: '$', config: {} })
   })
 
   it('is an aibot widget, its config whole, without its id or place', () => {
     const config = { servicelabel: 'claude' as const, model_tier: 'quick' as const, max_tokens: 256 }
-    expect(widgetFrom({ ...shared, formulary: 'aibot', formula: 'Say {{clueing}}', input_formula: "{ 'clueing': qn.clueing }", config }))
-      .to.deep.eq({ ...sharedFields, formulary: 'aibot', formula: 'Say {{clueing}}', input_formula: "{ 'clueing': qn.clueing }", config })
+    expect(widgetFrom({ ...shared, formulary: 'aibot', formula: 'Say {{clueing}}', input_formula: "{ 'clueing': question.clueing }", config }))
+      .to.deep.eq({ ...sharedFields, formulary: 'aibot', formula: 'Say {{clueing}}', input_formula: "{ 'clueing': question.clueing }", config })
   })
 
   it('is a liquidize widget, its template whole, without its id or place', () => {
-    expect(widgetFrom({ ...shared, formulary: 'liquidize', formula: '**{{ qn.title }}**', input_formula: '$', config: {} }))
-      .to.deep.eq({ ...sharedFields, formulary: 'liquidize', formula: '**{{ qn.title }}**', input_formula: '$', config: {} })
+    expect(widgetFrom({ ...shared, formulary: 'liquidize', formula: '**{{ question.title }}**', input_formula: '$', config: {} }))
+      .to.deep.eq({ ...sharedFields, formulary: 'liquidize', formula: '**{{ question.title }}**', input_formula: '$', config: {} })
   })
 })
 

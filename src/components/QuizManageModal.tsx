@@ -178,8 +178,8 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
             <Typography variant="h6" component="h3">Templates</Typography>
             <p className={styles.microcopy}>
               A ticked field is filled in as a template on the grid and in the LL Export; you edit it
-              as typed. <code>{'{{qn.photo}}'}</code> puts in what the question&apos;s <code>photo</code> widgeting
-              holds; <code>{'{{ qn.rank }}'}</code>, <code>{'{{ quiz.title }}'}</code> and <code>{'{% for qn in qns %}...{% endfor %}'}</code> work
+              as typed. <code>{'{{question.photo}}'}</code> puts in what the question&apos;s <code>photo</code> widgeting
+              holds; <code>{'{{ question.rank }}'}</code>, <code>{'{{ quiz.title }}'}</code> and <code>{'{% assign list = questions | values %}{% for each in list %}...{% endfor %}'}</code> work
               too: it is Liquid. Markdown only, never HTML; an image only from an <code>https</code> address.
             </p>
             <TemplateableEditor quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch} />

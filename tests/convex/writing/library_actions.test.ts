@@ -32,7 +32,7 @@ const formulaOf = (seen: Seen, label: string): JsonataWidgetT => {
 }
 const SeedLabels = SeedWidgets.map((widget) => widget.label)
 
-const Shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
+const Shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' })
 const AskerConfig = { servicelabel: 'claude', model_tier: 'quick', max_tokens: 100 } as const
 const Asker = Widget.fill({ label: 'asker', formulary: 'aibot', formula: 'Who wrote {{clueing}}?', config: AskerConfig })
 const Remark = Widget.fill({ label: 'remark', formulary: 'entry', config: { entry_kind: 'text' } })
@@ -62,11 +62,11 @@ async function refusalsOf(seeded: Seeded, ...actions: LibraryActionDNA[]): Promi
 describe("add_widget", () => {
   it("puts a widget at the end of the library, its scope, title, description and input formula defaulted", async () => {
     const { actOnLibrary, read } = await seed()
-    await actOnLibrary({ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } })
+    await actOnLibrary({ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' } })
     await actOnLibrary({ kind: 'add_widget', widget: { label: 'asker', formulary: 'aibot', formula: 'Who wrote {{clueing}}?', config: AskerConfig } })
     const after = await read()
     expect(after.library.slice(-2)).to.deep.eq([Shout, Asker])
-    expect([Shout.input_formula, Asker.input_formula]).to.deep.eq(['$', "{ 'clueing': qn.clueing }"])
+    expect([Shout.input_formula, Asker.input_formula]).to.deep.eq(['$', "{ 'clueing': question.clueing }"])
   })
 
 
@@ -165,7 +165,7 @@ describe("an entry widget", () => {
     const seeded = await seed()
     await seeded.actOnLibrary({ kind: 'add_widget', widget: Remark })
     await expectRefused(seeded, [{ kind: 'edit_widget', label: 'remark', patch: { config: { entry_kind: 'number' } } }, 'entryKindFixed'])
-    const refusals = await refusalsOf(seeded, { kind: 'edit_widget', label: 'remark', patch: { formula: 'qn.notes' } })
+    const refusals = await refusalsOf(seeded, { kind: 'edit_widget', label: 'remark', patch: { formula: 'question.notes' } })
     expect(refusals).to.deep.eq({ refused: [true], unchanged: true })
   })
 
@@ -284,7 +284,7 @@ describe("import_widgets", () => {
   it("adds a widget the library lacks at its end, and revises one it holds, removing none", async () => {
     const { actOnLibrary, read } = await seed()
     const ante = await read()
-    const revised: WidgetT = { ...formulaOf(ante, 'answer_reversed'), title: 'Backward', description: 'Reversed.', formula: '"x"', input_formula: 'qn' }
+    const revised: WidgetT = { ...formulaOf(ante, 'answer_reversed'), title: 'Backward', description: 'Reversed.', formula: '"x"', input_formula: 'question' }
     await actOnLibrary({ kind: 'import_widgets', widgets: [Shout, revised] })
     const after = await read()
     expect(labelsOf(after)).to.deep.eq([...SeedLabels, 'shout'])

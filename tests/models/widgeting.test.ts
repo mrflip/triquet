@@ -7,12 +7,12 @@ const QuizId = 'k57a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 const HuntId = 'k67a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 
 describe('ReservedWidgetingLabels', () => {
-  it("is every name a question already answers to: its exposed fields, its rank and viz flags, its place, viz and stamps in a jsonball, its views, the questions themselves, its place in a recap and its label's override", () => {
-    expect(ReservedWidgetingLabels.slice(0, Question.exposed.length + 11)).to.deep.eq([...Question.exposed, 'rank', 'archived', 'secondary', 'position', 'viz', 'created_at', 'updated_at', 'butnot', 'question', 'number', 'forced_label'])
+  it("is every name a question already answers to: its exposed fields, its rank and viz flags, its place, viz and stamps in a jsonball, its views, its place in a recap and its label's override", () => {
+    expect(ReservedWidgetingLabels.slice(0, Question.exposed.length + 10)).to.deep.eq([...Question.exposed, 'rank', 'archived', 'secondary', 'position', 'viz', 'created_at', 'updated_at', 'butnot', 'number', 'forced_label'])
   })
 
   const Groups: [readonly string[], string][] = [
-    [['hunt', 'realm', 'categories', 'quiz', 'qns', 'qn', 'qn_label', 'quiz_label', 'params', 'widgeting_label'],  "the bag's top-level keys"],
+    [['hunt', 'realm', 'categories', 'quiz', 'questions', 'question', 'hunt_label', 'realm_label', 'quiz_label', 'question_label', 'params', 'widgeting_label'], "the bag's top-level keys"],
     [['category'],                                                                                      "one of the bag's categories"],
     [['status', 'value', 'err', 'message', 'result_meta', 'digest', 'stale'],                           "a widgeted's keys, and the two of its staleness"],
     [['source', 'formula', 'template', 'readout', 'collapsed', 'width_px', 'align'],                    "a column's fields, the stages it may say among them"],

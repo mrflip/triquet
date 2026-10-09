@@ -227,7 +227,7 @@ describe("delete_widgeting", () => {
 
   it("is not held back by a formula that reads it, which reads nothing afterwards", async () => {
     const { act, actOnLibrary, read } = await withWidgeting()
-    await actOnLibrary({ kind: 'add_widget', widget: { label: 'echo', formulary: 'jsonata', formula: 'qn.backward' } })
+    await actOnLibrary({ kind: 'add_widget', widget: { label: 'echo', formulary: 'jsonata', formula: 'question.backward' } })
     await act({ kind: 'add_widgeting', widgeting: { widget_label: 'echo', label: 'echo' } })
     await act({ kind: 'delete_widgeting', label: 'backward' })
     expect(widgetingsOf(await read())).to.include('echo').and.not.include('backward')
@@ -461,7 +461,7 @@ describe("sort_questions by a column that shows a jsonata widgeting", () => {
   it("works the formula out with the hunt and the realm the quiz sits in, as the grid does", async () => {
     const hunt = standardWith(['x', 'Home', 'Lakeside'].map((full_answer) => ({ ...Question.blank(), full_answer })))
     const { act, actOnLibrary, read } = await seed({ ...hunt, title: 'Lakeside' })
-    await actOnLibrary({ kind: 'add_widget', widget: { label: 'placed', formulary: 'jsonata', formula: 'qn.full_answer = hunt.title ? 0 : qn.full_answer = realm.title ? 1 : 2' } })
+    await actOnLibrary({ kind: 'add_widget', widget: { label: 'placed', formulary: 'jsonata', formula: 'question.full_answer = hunt.title ? 0 : question.full_answer = realm.title ? 1 : 2' } })
     await act({ kind: 'add_widgeting', widgeting: { widget_label: 'placed', label: 'placed' } })
     await act({ kind: 'add_column', column: { label: 'placed', title: 'Placed', source: 'placed', width_px: 78 } })
     await act(sortAction(await read(), 'column:placed', false))
@@ -548,7 +548,7 @@ describe("the editors' plans, carried out", () => {
   it("adds a new widget to the library, then a widgeting working it before the library's watch has brought it back, and a column showing it just before Alt Text", async () => {
     const { act, actOnLibrary, read } = await seed()
     const ante = await read()
-    const made = planNewWidget({ ...BlankJsonataDraft, label: 'title_length', formula: '$length(qn.title)' }, ante.library)
+    const made = planNewWidget({ ...BlankJsonataDraft, label: 'title_length', formula: '$length(question.title)' }, ante.library)
     if (! made.ok) { throw new Error(made.issue) }
     const plan = planWidgetingEdit({ widgeting: null, label: '', description: '', widgetLabel: made.widget.label }, [...ante.library, made.widget], quizOf(ante))
     if (! plan.ok) { throw new Error(plan.issue) }

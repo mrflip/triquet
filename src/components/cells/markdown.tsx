@@ -92,8 +92,8 @@ export type FaceT = {
  * The face of a box holding `text`: the text itself, or, when `bag` is given (the quiz templates
  * the field), the text filled in over it (`Templating.fill`), before any markdown is read.
  *
- * @example faceOf('By {{qn.author}}', null)   // => { text: 'By {{qn.author}}', issue: null }
- * @example faceOf('By {{qn.author}}', bag)    // => { text: 'By Ada', issue: null }
+ * @example faceOf('By {{question.author}}', null)   // => { text: 'By {{question.author}}', issue: null }
+ * @example faceOf('By {{question.author}}', bag)    // => { text: 'By Ada', issue: null }
  */
 export function faceOf(text: string, bag: Templating.TemplateBag | null): FaceT {
   if (bag === null) { return { text, issue: null } }

@@ -9,15 +9,15 @@ const heldWidget = present(library.find((each) => each.label === 'hint_full'))
 const dumdum = present(library.find((each) => each.label === 'dumdum'))
 
 /** A new formula, as written */
-const titleLength: WidgetDraft = { ...BlankJsonataDraft, label: 'title_length', formula: '$length(qn.title)' }
+const titleLength: WidgetDraft = { ...BlankJsonataDraft, label: 'title_length', formula: '$length(question.title)' }
 
 /** A new entry, of numbers */
 const points: EntryDraft = { ...BlankEntryDraft, label: 'points', config: { entry_kind: 'number' } }
 const Points = Widget.fill({ label: 'points', formulary: 'entry', config: { entry_kind: 'number' } })
 
 /** A new template */
-const blurbing: LiquidizeDraft = { ...BlankLiquidizeDraft, label: 'blurbing', formula: '**{{ qn.title }}**' }
-const Blurbing = Widget.fill({ label: 'blurbing', formulary: 'liquidize', formula: '**{{ qn.title }}**' })
+const blurbing: LiquidizeDraft = { ...BlankLiquidizeDraft, label: 'blurbing', formula: '**{{ question.title }}**' }
+const Blurbing = Widget.fill({ label: 'blurbing', formulary: 'liquidize', formula: '**{{ question.title }}**' })
 
 /** A new prompt, as pasted in */
 const pasted: AibotDraft = { ...BlankAibotDraft, label: 'riddler', formula: 'Riddle: {{clueing}}. Reply as {"answer": string}.' }
@@ -29,7 +29,7 @@ describe("blankDraftOf", () => {
 
   it("starts a prompt on the clueing, the quick tier and room for a short object", () => {
     expect(blankDraftOf('aibot', { label: 'riddler', description: '' })).to.deep.eq({ ...BlankAibotDraft, label: 'riddler' })
-    expect((blankDraftOf('aibot', { label: 'riddler', description: '' }) as AibotDraft).input_formula).to.eq("{ 'clueing': qn.clueing }")
+    expect((blankDraftOf('aibot', { label: 'riddler', description: '' }) as AibotDraft).input_formula).to.eq("{ 'clueing': question.clueing }")
   })
 
   it("starts a template on nothing, over the whole bag", () => {
@@ -44,7 +44,7 @@ describe("blankDraftOf", () => {
 
 describe("planNewWidget", () => {
   it("adds a new formula to the library, and hands back the widget it adds", () => {
-    const widget = Widget.fill({ label: 'title_length', formulary: 'jsonata', formula: '$length(qn.title)' })
+    const widget = Widget.fill({ label: 'title_length', formulary: 'jsonata', formula: '$length(question.title)' })
     expect(planNewWidget(titleLength, library)).to.deep.eq({ ok: true, actions: [{ kind: 'add_widget', widget }], widget })
   })
 
@@ -142,7 +142,7 @@ describe("draftOf", () => {
   })
 
   it("is a template's, with its input formula", () => {
-    expect(draftOf(Blurbing)).to.deep.eq({ formulary: 'liquidize', label: 'blurbing', description: '', formula: '**{{ qn.title }}**', input_formula: '$' })
+    expect(draftOf(Blurbing)).to.deep.eq({ formulary: 'liquidize', label: 'blurbing', description: '', formula: '**{{ question.title }}**', input_formula: '$' })
   })
 
   it("is an entry's label, description and kind, and nothing it does not have", () => {

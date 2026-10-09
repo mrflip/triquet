@@ -38,7 +38,7 @@ export const RefGroups = {
  * @returns The choices, in the menu's order.
  *
  * @example refChoicesOf({ widgetings: [dumdum, playtesters] }).map(({ source }) => source)
- *   // => ['title', 'clueing', ..., 'butnot', 'label', 'rank', 'archived', 'secondary', 'dumdum', 'quiz.playtesters', 'quiz', 'hunt', 'realm', 'categories', 'qns']
+ *   // => ['title', 'clueing', ..., 'butnot', 'label', 'rank', 'archived', 'secondary', 'dumdum', 'quiz.playtesters', 'quiz', 'hunt', 'realm', 'categories', 'questions']
  */
 export function refChoicesOf(quiz: { widgetings: readonly WidgetingT[] }): RefChoice[] {
   const atTier = (tier: WidgetingT['tier']) => quiz.widgetings.filter((widgeting) => widgeting.tier === tier)
@@ -70,25 +70,25 @@ export type PresetSubject = {
 /** Offers presets for one kind of thing a ref picks; none for any other */
 export type PresetSource = (subject: PresetSubject) => FormulaPreset[]
 
-/** The formula picking `field` out of an object, or out of each member of a list */
-function fieldPresetOf(field: string, whose: string): FormulaPreset {
-  return { formula: `$.${field}`, title: `${whose} ${Labelmaker.titleize(field).toLowerCase()}` }
+/** The formula picking `field` out of an object, or out of each member of a collection keyed by label */
+function fieldPresetOf(field: string, whose: string, keyed: boolean): FormulaPreset {
+  return { formula: keyed ? `$.*.${field}` : `$.${field}`, title: `${whose} ${Labelmaker.titleize(field).toLowerCase()}` }
 }
 
-/** The fields a word of the bag holds, by its schema; for a list, the fields of each member */
-const WordFields: Readonly<Record<BagWord, { fields: readonly string[], whose: string }>> = {
-  quiz:       { fields: Object.keys(QuizBagValidators.bagQuiz.shape), whose: 'The quiz\'s' },
-  hunt:       { fields: Object.keys(QuizBagValidators.bagHunt.shape), whose: 'The hunt\'s' },
-  realm:      { fields: Object.keys(QuizBagValidators.bagRealm.shape), whose: 'The realm\'s' },
-  categories: { fields: Object.keys(QuizBagValidators.bagCategory.shape), whose: 'Each category\'s' },
-  qns:        { fields: Object.keys(QuizBagValidators.bagQuestion.shape), whose: 'Each question\'s' },
+/** The fields a word of the bag holds, by its schema; for a collection keyed by label, the fields of each member */
+const WordFields: Readonly<Record<BagWord, { fields: readonly string[], whose: string, keyed: boolean }>> = {
+  quiz:       { fields: Object.keys(QuizBagValidators.bagQuiz.shape), whose: 'The quiz\'s', keyed: false },
+  hunt:       { fields: Object.keys(QuizBagValidators.bagHunt.shape), whose: 'The hunt\'s', keyed: false },
+  realm:      { fields: Object.keys(QuizBagValidators.bagRealm.shape), whose: 'The realm\'s', keyed: false },
+  categories: { fields: Object.keys(QuizBagValidators.bagCategory.shape), whose: 'Each category\'s', keyed: true },
+  questions:  { fields: Object.keys(QuizBagValidators.bagQuestion.shape), whose: 'Each question\'s', keyed: true },
 }
 
 /** The field names of a word of the bag whose schema is known: the quiz, the hunt, the realm, each category, each question */
 const fieldNamePresets: PresetSource = ({ shown }) => {
   if (shown.kind !== 'word') { return [] }
-  const { fields, whose } = WordFields[shown.word]
-  return fields.map((field) => fieldPresetOf(field, whose))
+  const { fields, whose, keyed } = WordFields[shown.word]
+  return fields.map((field) => fieldPresetOf(field, whose, keyed))
 }
 
 /** The parts of a category-estimate entry's widgeted: its estimates, each persona's chance, their average; a column taking one named after both, headed by the part's */
@@ -123,7 +123,7 @@ export const PresetSources: readonly PresetSource[] = [partPresets, seedPresets,
  *
  * @example presetsFor({ shown: { kind: 'widgeting', widgeting: categoryData }, widget: estimating }).map(({ formula }) => formula)
  *   // => ['$.estimates', '$.masie', '$.artie', '$.poppy', '$.average']
- * @example presetsFor({ shown: { kind: 'word', word: 'categories' }, widget: null }).map(({ formula }) => formula)  // => ['$.label', '$.title']
+ * @example presetsFor({ shown: { kind: 'word', word: 'categories' }, widget: null }).map(({ formula }) => formula)  // => ['$.*.label', '$.*.title', '$.*.position']
  * @example presetsFor({ shown: { kind: 'field', field: 'clueing' }, widget: null })  // => []
  */
 export function presetsFor(subject: PresetSubject): FormulaPreset[] {

@@ -65,7 +65,7 @@ describe("seeding.seedWidgets", () => {
 
   it("inserts only the seed widgets the library lacks, at its end, and leaves those it holds as they are", async () => {
     const tt = openTester()
-    const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
+    const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' })
     const dumdum = { ...present(SeedWidgets.find((widget) => widget.label === 'dumdum')), title: 'My own dumdum' }
     await tt.run(async (ctx) => {
       for (const [position, widget] of [shout, dumdum].entries()) { await ctx.db.insert('widgets', { ...widget, position }) }

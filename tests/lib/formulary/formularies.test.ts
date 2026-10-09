@@ -42,8 +42,8 @@ describe('columnMs', () => {
 
 describe('paramsOf', () => {
   const numberEntry = Widget.fill({ label: 'figure', formulary: 'entry', config: { entry_kind: 'number' } })
-  const shoutWidget = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
-  const blurbWidget = Widget.fill({ label: 'blurb', formulary: 'liquidize', formula: '{{ qn.title }}' })
+  const shoutWidget = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' })
+  const blurbWidget = Widget.fill({ label: 'blurb', formulary: 'liquidize', formula: '{{ question.title }}' })
 
   it("holds an entry's params to its family", () => {
     expect(paramsOf(numberEntry).safeParse({ min: 'one' }).success).to.be.false
@@ -56,7 +56,7 @@ describe('paramsOf', () => {
 
   it("holds a liquidize widgeting's params to a template", () => {
     expect(paramsOf(blurbWidget).safeParse({ loud: true }).success).to.be.false
-    expect(paramsOf(blurbWidget).safeParse({ template: '{{ qn.hint }}' }).success).to.be.true
+    expect(paramsOf(blurbWidget).safeParse({ template: '{{ question.hint }}' }).success).to.be.true
   })
 
   it("says what each widgeting's folded line holds: a formula, nothing for a prompt, an entry's params, a template", () => {

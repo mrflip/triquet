@@ -122,13 +122,13 @@ export const ReservedLabelGroups = {
     'id', 'ids', 'key', 'label', 'labels', 'position', 'kind', 'type',
     'created_at', 'createdat', 'updated_at', 'updatedat', 'deleted_at', 'deletedat', 'creation_time', 'creationtime',
   ],
-  /** The tool's own nouns, and what a formula's bag calls a question and its quiz's questions */
+  /** The tool's own nouns, and what a formula's bag called a question and its quiz's questions before October 2026 (`qn`, `qns`), kept so its rewrite (`beforeOctoberFormula`) can mean nothing else */
   models:      [...ModelNouns.flat(), 'qn', 'qns', 'bag'],
   /** A noun and `id` run together: what a pointer to a row would be called with its underbar dropped */
   pointers:    ModelNouns.flatMap(([one]) => [`${one}id`, `${one}ids`]),
   /** Names every plain object answers to, so a lookup by label finds something the bag never held */
   prototypes:  ['constructor', 'prototype'],
-  /** What JSON, JSONata and a spreadsheet read as no value, or as yes or no, rather than as a word: a formula cannot name `qn.null` */
+  /** What JSON, JSONata and a spreadsheet read as no value, or as yes or no, rather than as a word: a formula cannot name `question.null` */
   literals:    ['null', 'nil', 'none', 'undefined', 'nan', 'inf', 'infinity', 'true', 'false'],
   /** Names Windows will not give a file, whatever its extension: a hunt, realm or quiz is a folder or file in the git repository it exports to */
   devices:     ['con', 'prn', 'aux', 'nul', ...Array.from({ length: 10 }, (_unused, digit) => [`com${String(digit)}`, `lpt${String(digit)}`]).flat()],
@@ -145,7 +145,7 @@ export const ReservedLabelGroups = {
   ],
   /** What a sheet or a formula calls a reduction: a widgeting wanting one says of what, as `clueing_sum` */
   aggregates:  ['average', 'avg', 'mean', 'median', 'stdev', 'sum', 'total', 'count', 'min', 'max'],
-  /** JSONata's own words, which a path cannot say: `qn.and` will not parse, so nothing so labelled could be read */
+  /** JSONata's own words, which a path cannot say: `question.and` will not parse, so nothing so labelled could be read */
   jsonata:     ['and', 'or', 'in', 'function'],
   /** How a value stands, and what a cell is called by it */
   status:      ['result', 'results', 'error', 'errors', 'ok', 'stale', 'missing', 'current', 'blank', 'default', 'defaults'],

@@ -36,9 +36,9 @@ export type TemplatePlaceT = { field: string, quiz: string | null, question: str
  *
  * @example useTemplateIssueReport(note.issue, 'Recap template', bag)
  */
-export function useTemplateIssueReport(issue: string | null, field: string, bag: Pick<Templating.TemplateBag, 'quiz_label' | 'qn_label'> | null): void {
+export function useTemplateIssueReport(issue: string | null, field: string, bag: Pick<Templating.TemplateBag, 'quiz_label' | 'question_label'> | null): void {
   const quiz = bag?.quiz_label ?? null
-  const question = bag === null || bag.qn_label === '' ? null : bag.qn_label
+  const question = bag === null || bag.question_label === '' ? null : bag.question_label
   const gist = issue === null ? null : issueGistOf(issue)
   useEffect(() => {
     if (gist === null) { return }
@@ -63,8 +63,8 @@ export function issueGistOf(issue: string): string {
 /**
  * The console's line for a template that will not fill in: what was being tried, where, and why.
  *
- * @example issueReportOf('tag {% for qn in qns %} not closed', { field: 'Recap template', quiz: 'princes', question: null })
- *   // => 'Triquet: could not fill in the template in Recap template of quiz princes — tag {% for qn in qns %} not closed'
+ * @example issueReportOf('tag {% for each in list %} not closed', { field: 'Recap template', quiz: 'princes', question: null })
+ *   // => 'Triquet: could not fill in the template in Recap template of quiz princes — tag {% for each in list %} not closed'
  * @example issueReportOf('undefined filter: shout', { field: 'Clueing', quiz: 'princes', question: 'leon' })
  *   // => 'Triquet: could not fill in the template in Clueing of question leon in quiz princes — undefined filter: shout'
  */
