@@ -72,13 +72,13 @@ function showEarly(store: OptimisticLocalStore, { affirms, action }: PerformArgs
   case 'edit_question':       { showEdited(store, performed.question_id, performed.patch); return }
   case 'set_chain':           { showEdited(store, performed.question_id, { chains_to: performed.chains_to }); return }
   case 'enter_widgeted': {
-    const { question_id, widgeting_label, value } = performed.entered
-    reviseQuestions(store, [question_id], (seen) => ('stored' in seen ? { ...seen, stored: enteredInto(seen.stored, widgeting_label, value) } : seen))
+    const { question_id, widgeting_label, value: entered } = performed.entered
+    reviseQuestions(store, [question_id], (seen) => ('stored' in seen ? { ...seen, stored: enteredInto(seen.stored, widgeting_label, entered) } : seen))
     return
   }
   case 'enter_quiz_widgeted': {
-    const { widgeting_label, value } = performed.entered
-    reviseFrames(store, quiz_id, (frame) => ({ ...frame, stored: enteredInto(frame.stored, widgeting_label, value) }))
+    const { widgeting_label, value: entered } = performed.entered
+    reviseFrames(store, quiz_id, (frame) => ({ ...frame, stored: enteredInto(frame.stored, widgeting_label, entered) }))
     return
   }
   case 'edit_column':         { reviseFrames(store, quiz_id, (frame) => columnEdited(frame, performed.label, performed.patch)); return }
