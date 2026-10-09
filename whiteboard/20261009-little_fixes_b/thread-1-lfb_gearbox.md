@@ -1,6 +1,6 @@
 # Thread 1: Gearbox: the (i) facility, the entries note, one remove-with-confirm, unique ids (2026-10-09)
 
-Branch `20261009-lfb_gearbox`; the PR is filed at landing (see the report). Suites: `pnpm justify` green
+Branch `20261009-lfb_gearbox`, PR filed at landing; see the report. Suites: `pnpm justify` green
 (5652 unit tests); e2e not yet run (it runs at landing: `widgets`, `archiving`, `routing` specs changed).
 
 One commit per ask: ask 2 `20e5243c`, ask 1 `3098ca61`, ask 5 `ebb030ea`, the duplicate ids
@@ -78,5 +78,9 @@ One commit per ask: ask 2 `20e5243c`, ask 1 `3098ca61`, ask 5 `ebb030ea`, the du
     `wide-*.png`, `narrow-*.png` (gear, tip open, column unfolded, confirm, run order, archived),
     `more-*.png` (Widgets panel with the divider, members' bin and its question, archived bin and
     its question).
+* **From the review** (no action taken): `ColumnRefField` would show both items selected were one
+  source listed under two groups (they share a value; cosmetic, and `refChoicesOf` no longer lists
+  one twice); an archived question's delete left open still sends if the right to revise lapses
+  mid-question (the server refuses it).
 * **For the Coach**: whether a widgeting may be labelled with a bag word is now settled by #209
   (it may not); the editor copes with a legacy one either way.
