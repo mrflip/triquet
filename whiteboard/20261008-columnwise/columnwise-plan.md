@@ -427,3 +427,7 @@ thread, 9 included (last, the top of the series).
   CLAUDE.md's *Global resources* says `pnpm lane` (thread 8).
 * **8's open call** (minor): should a column whose formula reads an `aibot` widgeting re-ask on a
   double-click, as a seeded sum's cell does?
+* **Incident, 2026-10-09:** thread 5b's worker killed processes it did not start (a home-made PID
+  walk that took in PID 1), ending the session; no damage found beyond stopped agents and servers.
+  `human/20261009-sprint_columnwise_kill_incident.md` has it, with a suggested guard. Every later
+  handoff says: stop only the one PID you recorded.
