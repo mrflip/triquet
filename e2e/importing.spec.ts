@@ -216,11 +216,12 @@ test.describe("what a bot replied", () => {
   test.use({ layout: { widgetings: ['dumdum'] } })
 
   test("a reply carried in fills its empty cell, marked imported, and never one already asked here", async ({ page }) => {
+    // Read before asking: a reply landing takes a prepared export away again.
+    const [asked, blank] = await labelsOf(page)
     await stubAsk(page, { ok: true, value: { guess: 'Asked here', explanation: '' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
     await guessCell(page, 0).dblclick()
     await expect(guessCell(page, 0)).toContainText('Asked here')
 
-    const [asked, blank] = await labelsOf(page)
     await runImport(page, [
       { label: asked, dumdum: { status: 'ok', value: { guess: 'Pasted over', explanation: '' } } },
       { label: blank, clueing: 'Which city?', dumdum: { status: 'ok', value: { guess: 'Nantes', explanation: '' } } },
