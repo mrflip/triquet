@@ -29,10 +29,16 @@ function guessCell(page: Page, rowIdx: number) {
   return page.getByRole('button', { name: 'Ask Dumdum' }).nth(rowIdx)
 }
 
+/** The labels of the questions of the quiz titled "Quiz one", row by row, as the Raw Export box has the hunt */
+async function labelsOf(page: Page): Promise<string[]> {
+  const quiz = exportedQuizzes(await preparedExport(page)).find((each) => each.title === 'Quiz one')
+  return quiz?.questions.map((question) => question.label) ?? []
+}
+
 /** The label of the question at `rowIdx` of the quiz titled "Quiz one", as the Raw Export box has the hunt */
 async function labelAt(page: Page, rowIdx: number): Promise<string> {
-  const quiz = exportedQuizzes(await preparedExport(page)).find((each) => each.title === 'Quiz one')
-  return quiz?.questions[rowIdx]?.label ?? ''
+  const labels = await labelsOf(page)
+  return labels[rowIdx] ?? ''
 }
 
 test.beforeEach(async ({ page }) => {
@@ -214,9 +220,10 @@ test.describe("what a bot replied", () => {
     await guessCell(page, 0).dblclick()
     await expect(guessCell(page, 0)).toContainText('Asked here')
 
+    const [asked, blank] = await labelsOf(page)
     await runImport(page, [
-      { label: await labelAt(page, 0), dumdum: { status: 'ok', value: { guess: 'Pasted over', explanation: '' } } },
-      { label: await labelAt(page, 1), clueing: 'Which city?', dumdum: { status: 'ok', value: { guess: 'Nantes', explanation: '' } } },
+      { label: asked, dumdum: { status: 'ok', value: { guess: 'Pasted over', explanation: '' } } },
+      { label: blank, clueing: 'Which city?', dumdum: { status: 'ok', value: { guess: 'Nantes', explanation: '' } } },
     ])
     await expect(page.getByText(/2 bot replies carried, into cells holding none/)).toBeVisible()
     await expect(guessCell(page, 1)).toContainText('Nantes')
