@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
 test('the export and import tabs come in order, Spreadsheet first and showing', async ({ page }) => {
   await openPanel(page, 'Export / Import')
   const tabs = page.getByRole('tablist', { name: 'Export / Import' }).getByRole('tab')
-  await expect(tabs).toHaveText(['Spreadsheet', 'Raw Export', 'Import', 'Library', 'Full History', 'LL Export'])
+  await expect(tabs).toHaveText(['Spreadsheet', 'Raw Export', 'Import', 'Widgets', 'Full History', 'LL Export'])
   await page.reload()
   await openPanel(page, 'Export / Import')
   await expect(page.getByRole('tab', { name: 'Spreadsheet' })).toHaveAttribute('aria-selected', 'true')
@@ -203,7 +203,7 @@ test('Download Full History hands over the hunt\'s history as a zip, from its ow
 })
 
 test('the library is handed out on its own, and a pasted library is merged into it by label', { tag: '@smoke' }, async ({ page }) => {
-  const section = await showTab(page, 'Library')
+  const section = await showTab(page, 'Widgets')
   await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(/"numnum_hint":\{/)
   // A label of this test's own: the library is every hunt's, and the specs share one database.
   const label = freshWidgetLabel('pasted')
