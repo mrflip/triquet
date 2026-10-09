@@ -313,14 +313,19 @@ export async function foldBy(scope: Locator, foldname: string): Promise<void> {
 
 /**
  * Set a panel's triangle, named `foldname`, to `open`; folding, wait until what it folds away is
- * hidden, so nothing it held is still found while it closes.
+ * hidden, so nothing it held is still found while it closes; opening, wait until what it opens has
+ * finished growing (MUI's Collapse says so by its `entered` class): a click on something in a
+ * panel still growing can be lost, landing as the panel moves.
  */
 async function foldTo(scope: Locator, foldname: string, open: boolean): Promise<void> {
   const fold = scope.getByRole('button', { name: foldname, exact: true }).first()
   if (await fold.getAttribute('aria-expanded') !== String(open)) { await fold.click() }
   await expect(fold).toHaveAttribute('aria-expanded', String(open))
   const controls = await fold.getAttribute('aria-controls')
-  if (! open && controls !== null) { await expect(scope.page().locator(`[id="${controls}"]`)).toBeHidden() }
+  if (controls === null) { return }
+  const body = scope.page().locator(`[id="${controls}"]`)
+  // A body that is no Collapse has nothing to grow, and so none of this.
+  await (open ? expect(body.and(scope.page().locator('.MuiCollapse-root:not(.MuiCollapse-entered)'))).toHaveCount(0) : expect(body).toBeHidden())
 }
 
 /**
