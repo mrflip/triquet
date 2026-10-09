@@ -503,6 +503,9 @@ and in the sprint-end `human/` entry.
   - `Hunt`, `Realm` and `Quiz.exposed` are removed.
   - `notes/examples/20261008-but_not_recap.json` is left alone: it is gitignored, and the importer
     rewrites it.
+* **10's review, by the orchestrator:** a column or `template_from` whose ref was `qns` or
+  `categories` gets its formula's bare `$` rewritten to `$.*` (it reads the keyed object as the
+  list it was). That covers the menu's own old presets.
 
 ## For the Coach
 
