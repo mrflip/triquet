@@ -41,6 +41,10 @@ state):
     `tests/lib/jsonball.test.ts`; e2e: the double-click cycle and arrows (`panels.spec.ts`), and a
     quiz copied into a new quiz's Import bringing questions, a column and a widgeting
     (`importing.spec.ts`, *a quiz copied*).
+  - The review's fixes ride along: a pasted quiz entry is held to the params the same paste's
+    `edit_widgeting` revises its widgeting to, as the server holds it; and SpreadPanel's
+    placeholder shares its one fold, so an open Category spread stays open when the first
+    estimate entry arrives.
 * **Decisions taken**:
   - The quiz export takes **two pastes** where the target library lacks its widgets: the Widgets
     tab first, then Import. That is the flow Import's blurb already prescribed, and it keeps
