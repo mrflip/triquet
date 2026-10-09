@@ -13,14 +13,15 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
 | 3b | column expression authoring | landed #197 |
-| 7 | `liquidize` formulary | second review (rework built) |
+| 7 | `liquidize` formulary | landing (second review flagged; Coach: land, budgets to thread 9) |
 | 6 | free regex (optional) | landed #198 |
-| 5a | folding editors | landing (review fixed) |
-| 5b | run order in both places, row preview | pending |
+| 5a | folding editors | landed #199 |
+| 5b | run order in both places, row preview | underway |
 | 8 | seeds pass (optional) | landing (review clean; full e2e, the eighth) |
+| 9 | compute budgets (added) | pending (after 7) |
 | 3c | columns tighten (last) | pending |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). Next asked-for full run: the eighth landing.
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 asked for one (the eighth landing).
 
 ## What the threads have taught
 
@@ -186,6 +187,34 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   sentence; the lazy-load guard misses multi-line imports; the compiled memo never shrinks;
   **5b: a preview testing cells against draft params would run an unchecked pattern: preview from
   stored params only.**
+
+### From thread 5a (folding editors, #199)
+
+* **The folded fact**: each formulary says what its widgeting folds to, beside `refresh` and
+  `store`: `folded` is `'params'` (entry), `'formula'` (jsonata, the widget's, read-only), `null`
+  (aibot); thread 7 adds `'template'`.
+* **`WidgetingPanel.tsx`**: folded, one row (label, what it works, tier mark, folded line); open,
+  the same row with more beneath (label with *Relabel*, description, the widget with the admin's
+  *Edit the widget…*, the columns showing it via `columnsShowing`, removal with thread 4's refusal).
+  **5b uses it as the Widgets panel's open state.**
+* **`ColumnsEditor.tsx`**: each column a panel, its row unfolding into `ColumnMoreFields`; a
+  column showing a widgeting has that widgeting's panel beneath it. *+ New column…* is a menu
+  ("Showing something the quiz has…", "A new entry…", and for a library-changer "A new widget…"),
+  each making its column at once. `ColumnDialog` and `WidgetingDialog` are gone.
+* **`ExplicitField.tsx`**: "Not kept yet: Relabel keeps it." while a label is typed and not kept;
+  its draft follows the stored label otherwise. Every label field uses it.
+* **Folds** survive a reopen: `useFoldSet(scope)` in `Workbench`, scoped by quiz id, keys per place
+  (`layout-folds.ts`); anything just made arrives open.
+* **Decision (the Coach may confirm):** a header still automatic follows what its column shows, its
+  formula and its widgeting's relabel (`retitledPatch`); a typed header stays.
+* **For 5b:** *+ New widgeting…* and *+ New quiz widgeting…* (an inline catalogue) need a home when
+  the section becomes *Run order*. e2e helpers in `e2e/support.ts`: `pickWidget`, `widgetingPanel`,
+  `columnPanel`, `unfoldBy`, `foldBy`, `relabelWidgeting`, `columnAdded`.
+* *Review:* `fixed`: folded params stop showing what was sent once the stored params move
+  (`pendingShown`); `ExplicitField` forgets typed text once the stored text changes. Left, minor,
+  in TODO: `retitledPatch` reads a column as last loaded (a race with a title blur; the real fix is
+  optimistic updates on the quiz's dispatch); a refused relabel still retitles its column;
+  `ExplicitField` gives way to a relabel made elsewhere while typing (documented).
 
 ### From thread 2's review (flagged, ruled)
 
