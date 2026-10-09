@@ -509,6 +509,10 @@ and in the sprint-end `human/` entry.
 
 ## For the Coach
 
+* **Thread 1's questions, answered 2026-10-09:** identity stays the formula's absence (`$` is not
+  identity), as built. `category` is reserved, confirmed (3c, #209, for widgeting labels). The
+  importer refuses a row under a reserved word, confirmed (thread 2, #196).
+
 * **Mode: normal**, per your invocation; the preplan's closing list says "mode YOLO", which I read
   as superseded. Workers block on significant questions, and the sprint pauses for them.
 * **The design note before code.** The preplan says "the Coach reads it before code moves".
