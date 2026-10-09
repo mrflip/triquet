@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { MenuItem, Stack, TextField } from '@mui/material'
+import { Box, MenuItem, Stack, TextField } from '@mui/material'
+import { Explained } from './InfoTip'
 import { FormulaField } from './FormulaField'
 import { TemplateField } from './TemplateField'
 import { templateFromGist } from './widget-words'
@@ -131,12 +132,15 @@ export function LiquidizeParamsFields({ widget, params, refs, disabled, onChange
           >
             {[...new Set([...refs, ...(from ? [from.ref] : [])])].map((ref) => <MenuItem key={ref} value={ref}>{ref}</MenuItem>)}
           </TextField>
-          <FormulaField
-            label="Formula" committed={from?.formula ?? null} locked={disabled || from === undefined} sx={{ flex: 1, minWidth: 240 }}
-            placeholder="The field itself, or the widgeting's value"
-            helperText="JSONata over what it reads, coming to the template's text: $.value.template of a bot's reply."
-            onCommit={(formula) => { if (from) { putFrom(from.ref, formula ?? undefined) } }}
-          />
+          <Box sx={{ flex: 1, minWidth: 240 }}>
+            <Explained topic="the formula" about="JSONata over what it reads, coming to the template's text: $.value.template of a bot's reply.">
+              <FormulaField
+                label="Formula" committed={from?.formula ?? null} locked={disabled || from === undefined}
+                placeholder="The field itself, or the widgeting's value"
+                onCommit={(formula) => { if (from) { putFrom(from.ref, formula ?? undefined) } }}
+              />
+            </Explained>
+          </Box>
         </Stack>
       )}
     </Stack>
