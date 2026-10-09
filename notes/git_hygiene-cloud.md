@@ -36,6 +36,20 @@ commits for unrelated changes; a large `convex/_generated/` regeneration in a co
 reclaimed when the session idles out, and an unpushed commit goes with it. Push only this
 session's branches: never `main`, never another session's branch.
 
+**Which branches are this session's** is read from the commits, not remembered: every commit a
+cloud session makes ends with a `Claude-Session:` trailer naming it, and
+`$CLAUDE_CODE_REMOTE_SESSION_ID` holds the same id (`cse_<id>` there, `session_<id>` in the
+trailer). A branch is this session's
+when every commit on it past `origin/main` carries this session's trailer:
+
+```
+git log origin/main..origin/<branch> --format='%(trailers:key=Claude-Session,valueonly)'
+```
+
+Only such a branch may be rebased or force-pushed. One holding a commit from anyone else (the
+Coach, another session) takes only plain new commits on top; ask before rewriting it. A blank or
+foreign trailer counts as someone else's.
+
 ## 3. Prove the milestone
 
 * `pnpm justify` -- typecheck, lint and the unit tests, side by side. Green over committed work, it
