@@ -8,7 +8,7 @@
 import * as Lanes from '../scripts/lanes'
 
 /** The variables that decide where the suite serves, builds and keeps its database, and what it talks to */
-const RelevantNames = /^(CI|PORT|DOPPLER_|NEXT_|CONVEX_|TRIQUET_|ANTHROPIC_)/
+const RelevantNames = /^(CI|PORT|DOPPLER_|NEXT_|CONVEX_|TRIQUET_|ANTHROPIC_|TQ_|CLAUDE_CODE_REMOTE$)/
 
 /** Variables whose values are never shown, only whether they are set */
 const SensitiveNames = /secret|pw|pass|tok|key|auth/i
@@ -57,7 +57,8 @@ type Env = Readonly<Record<string, string | undefined>>
 /**
  * Everything wrong with `env` as a place to run the e2e suite, one sentence each.
  *
- * Outside CI it must be Doppler's `dev_e2e` config. Anywhere, the web server must listen on the
+ * Outside CI and a cloud session's container (`CLAUDE_CODE_REMOTE`), each a machine of its own
+ * with no Doppler, it must be Doppler's `dev_e2e` config. Anywhere, the web server must listen on the
  * role's own port in the checkout's lane (`TRIQUET_LANE`, 0 when unset), build into a directory
  * no other session uses, and talk to the role's own local Convex backend in that lane, which the
  * suite empties. The server is one it knows how to start (`ServerCommandFor`).
@@ -74,7 +75,7 @@ export function complaintsAbout(env: Env): string[] {
     return val ? [] : [`${envname} is not set: \`pnpm test:e2e\` gives it one, and so does the CI workflow`]
   })
   return [
-    ...((! env.CI && env.DOPPLER_CONFIG !== 'dev_e2e') ? ['Run the e2e suite with `pnpm test:e2e`, under Doppler\'s dev_e2e config'] : []),
+    ...((! env.CI && env.CLAUDE_CODE_REMOTE !== 'true' && env.DOPPLER_CONFIG !== 'dev_e2e') ? ['Run the e2e suite with `pnpm test:e2e`, under Doppler\'s dev_e2e config'] : []),
     ...blankComplaints,
     ...((env.NEXT_DIST_DIR && TakenDistDirs.has(env.NEXT_DIST_DIR)) ? [`NEXT_DIST_DIR=${env.NEXT_DIST_DIR} is already another session's`] : []),
     ...((env.PORT && ! isPort(env.PORT)) ? [`PORT=${env.PORT} is not a port`] : []),

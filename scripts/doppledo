@@ -26,5 +26,11 @@ if [[ -z ${DOPPLER_TOKEN:-} ]]; then
     export DOPPLER_TOKEN="${!token_var}"
   fi
 fi
+# A cloud session's container (CLAUDE_CODE_REMOTE) may have no Doppler, as CI has none: there the
+# command runs on the environment it was given, and says so.
+if [[ "${CLAUDE_CODE_REMOTE:-}" == "true" ]] && ! command -v doppler > /dev/null; then
+  echo "No doppler in this cloud session: running without $stage_actor: $*" >&2
+  exec "$@"
+fi
 echo "Running as $stage_actor: $*" >&2
 exec doppler run --config "$stage_actor" -- "$@"

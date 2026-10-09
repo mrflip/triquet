@@ -35,13 +35,18 @@ export default defineConfig({
   // seven, a little under half this machine's sixteen cores, so several worktrees' suites can run
   // at once, and no retry, so specs that collide over the one server they share fail here, the only
   // place they run side by side. A spec that fails among the others is rerun alone (`pnpm e2e:rerun`).
-  workers:     process.env.CI ? 1 : 7,
+  // A smaller machine names its own count in TQ_E2E_WORKERS: a cloud session's four cores time
+  // specs out at seven (.claude/hooks/session-start.sh sets it).
+  workers:     process.env.CI ? 1 : Number(process.env.TQ_E2E_WORKERS ?? 7),
   // Under the dev server a route's first visit waits for it to compile, and a fresh page always
   // waits for its first reads.
   expect:      { timeout: 10_000 },
   use: {
     baseURL: `http://localhost:${port}`,
     trace:   'on-first-retry',
+    // A Chromium of the machine's own, where Playwright may not download the build it pins: a
+    // cloud session's container (.claude/hooks/session-start.sh sets it).
+    ...(process.env.TQ_CHROMIUM_PATH && { launchOptions: { executablePath: process.env.TQ_CHROMIUM_PATH } }),
   },
   projects: [
     // Checks that the suite has a server, build and database of its own, and warms the first page.
