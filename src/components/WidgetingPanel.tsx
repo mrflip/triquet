@@ -3,7 +3,7 @@
 import { useId, useState } from 'react'
 import { Box, Button, Chip, Collapse, Stack, TextField } from '@mui/material'
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined'
-import { ColumnIssue, ColumnMoreFields, useColumnCommit } from './ColumnFields'
+import { ColumnIssue, ColumnMoreFields, columnTemplatingOf, useColumnCommit } from './ColumnFields'
 import { ConfirmRemove } from './ConfirmRemove'
 import { EntryParamsFields } from './EntryParamsFields'
 import { ExplicitField } from './ExplicitField'
@@ -364,7 +364,7 @@ function ColumnFold({ widgeting, column, quiz, library, sources, revisable, disp
       <Collapse in={folds.isOpen(foldkey)} unmountOnExit id={fieldsId}>
         <Box sx={{ pl: 4, pt: 1, pb: 1 }}>
           <ColumnMoreFields
-            column={column} quiz={quiz} library={library} sources={sources} locked={! revisable} onCommit={commit}
+            column={column} quiz={quiz} library={library} sources={sources} templating={columnTemplatingOf(column, quiz, library, dispatch)} locked={! revisable} onCommit={commit}
             onRelabel={(label) => { folds.setOpen(LayoutFoldkeys.listed(widgeting.label, label), true) }}
             onRemove={() => { dispatch({ kind: 'delete_column', label: column.label }) }}
           />
