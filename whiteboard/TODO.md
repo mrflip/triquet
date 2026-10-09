@@ -244,6 +244,52 @@ Built: `boolean` and `enum` entries, params per family, the named patterns, entr
 * **An enum cell holding an option since dropped** shows it as an extra option until another is
   picked; nothing lists the cells a revised list strands.
 
+## From columnwise sprint, thread 5a: the folding editor
+
+Built: columns lead, each widgeting a panel folded to its line, the dialogs retired. Left:
+
+* **Params sent and refused by the server stay in their fields** (`FoldedParams` in
+  `WidgetingPanel.tsx` shows sent params until the quiz's watch brings them back, so a second field
+  left before the echo builds on the first). The planner holds params to the widget as the server
+  does, so a refusal there is a race (the widget revised meanwhile); the alarm says so, and the
+  fields show what was sent until the next change. The same shape as thread 2's `useDraft` leftover.
+* **A new widget written from the folding editor's doors is not told the widgeting it is for**
+  (`NewWidgetDoor`): the widgeting is made after the widget, labelled as it. The widget editor's
+  preview and advice prompt therefore name no widgeting there; *Edit the widget…* in a panel does.
+* **A header can be put back over a typed one** (review): `retitledPatch` reads the column as last
+  loaded, so a ref or formula picked within a round trip of a title's blur can send the default
+  header over the title just typed. The fix is Convex optimistic updates on the quiz's dispatch
+  (`use-hunt`), which would also make the switches and checkboxes turn at once.
+* **A refused widgeting relabel still retitles its column** (review): `planWidgetingEdit` sends the
+  relabel and the column's retitle as separate actions, so a relabel the server refuses (a race on
+  the label) leaves the column headed after a label it never took. One action carrying both, or the
+  retitle done in the reducer beside the relabel, would hold them together.
+* **A column's header follows what it shows only while it is the default one** (`retitledPatch`);
+  a column label never follows a relabel. If authors want the label to follow too, it is the same
+  rule one field over, but a column label is named by the quiz's sort memory.
+
+## From columnwise sprint, thread 7: the liquidize formulary
+
+Built: `LiquidizeFormulary` (`src/lib/formulary/liquidize.ts`), its params, the seeded `blurb`. Left:
+
+* **The recap as a quiz-tier `liquidize`.** The recap's template, head and tail (`src/lib/recap.ts`,
+  the Recap panel) are Liquid filled over the quiz's own bag; a `liquidize` widgeting of the `quiz`
+  tier over `qns` is the same thing at a place in the run order, so the recap becomes a fold rather
+  than a feature: a seeded widget whose template is `DefaultTemplate`, its widgeting the quiz's
+  recap, the panel showing `quiz.<label>`. What differs and must be settled first: the recap reads
+  the *template* bag (archived questions out of `qns`, templateable sources filled, images linked),
+  a `liquidize` the *formula* bag at its place; and the recap's budget (`FilledMax`) is per note.
+* **A template read from a bot's whole reply needs a formula**: `template_from: { ref: 'dumdum' }`
+  alone reads the reply's object and says it is no text. A preset beside the formula box
+  (`$.value.<key>` for each key the last reply held) would save the typing.
+* **The widget editor previews the widget's own template**, never a widgeting's own or one read
+  from the bag; the grid shows those.
+* **JSONata's timebox reads a clock that stands still on the server.** `Formulas.evaluate` times a
+  formula with `Date.now()`, which does not move inside a Convex mutation (thread 7 probed it), so a
+  formula column run by `sortQuestions` is stopped only by its depth guard, never by
+  `TimeboxMs`. `Liquidry.clockNow` (`performance.now()`) moves there; one line to use it. And a
+  whole column of formulas has no budget of its own, as a column of templates now does.
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and

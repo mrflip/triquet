@@ -185,6 +185,8 @@ export const ColumnValidators = Validator(({ obj, str, oneof, titleish, formulai
     .describe('What the column is called within its quiz, unique there. It names the column in an export and in the quiz\'s sort memory.')
   const source = str.refine((val) => plainRefOf(plainOf({ source: val }).source) !== null, `should name a question's field (such as clueing), its view (${QuestionViewVals.join(', ')}) or a key it has (${QuestionKeyVals.join(', ')}); a widgeting by a label that ${PA.Label.msg}, at most ${String(PA.Label.max)} characters, and none of the words the tool keeps for its own use; ${BagWordVals.join(', ')}; or ${QuizRefPrefix}<label> for a widgeting run once for the whole quiz`)
     .describe(`What the column shows, its ref: one plain key in the bag's own words, found on the question first (a field such as \`clueing\`, the view \`butnot\`, a key such as \`rank\`, or a widgeting's label) and then at the bag's top level (${BagWordVals.join(', ')}); or \`${QuizRefPrefix}<label>\` for a widgeting run once for the whole quiz. The grammar before October 2026 (\`${QuestionWidgetLabel}.<field>\`, \`<widgeting>.<part>\`) is still read.`)
+  const ref = str.refine((val) => plainRefOf(val) !== null, `should name a question's field (such as clueing), its view (${QuestionViewVals.join(', ')}) or a key it has (${QuestionKeyVals.join(', ')}); a widgeting by a label that ${PA.Label.msg}, at most ${String(PA.Label.max)} characters, and none of the words the tool keeps for its own use; ${BagWordVals.join(', ')}; or ${QuizRefPrefix}<label> for a widgeting run once for the whole quiz`)
+    .describe(`A ref in the plain grammar alone, as anything new names a thing of the bag: one plain key, found on the question first and then at the bag's top level (${BagWordVals.join(', ')}); or \`${QuizRefPrefix}<label>\` for a widgeting run once for the whole quiz.`)
   const formula = formulaish
     .describe('JSONata worked out over what the ref picks, as the bag holds it: a field itself, or a widgeting\'s whole widgeted (`$.value.guess`, `$.masie`), and that only when the widgeted is `ok`. Absent, the column shows the field, or the widgeted\'s value: identity.')
   const template = textish.min(1)
@@ -243,7 +245,7 @@ export const ColumnValidators = Validator(({ obj, str, oneof, titleish, formulai
   })
     .describe('One column as the database holds it.')
 
-  return { source, formula, template, readout, column, columnPatch, row }
+  return { source, ref, formula, template, readout, column, columnPatch, row }
 })
 
 export type ColumnDNA   = Z.input<typeof ColumnValidators.column>
@@ -348,6 +350,32 @@ export function namesFor(source: string, formula: string | null = null): { label
     return { label: ref.label, title: Labelmaker.titleize(ref.label) }
   }
   }
+}
+
+/** Names a column showing `source`, worked by `formula`, as one the author gives neither label nor title is named: `namesFor`, or a namer knowing more */
+export type ColumnNamer = (source: string, formula: string | null) => { label: string, title: string }
+
+/**
+ * `patch` with the column's title carried along: a column still headed as `named` heads what it
+ * shows, as a new one is, is headed after what it shows once the patch changes what that is or
+ * its formula. A column the author has headed otherwise, or a patch that sets the title itself,
+ * is left as it is.
+ *
+ * @param column - The column as it stands.
+ * @param patch - The change to it.
+ * @param named - How a column is named for what it shows: `namesFor` unless told otherwise (the column menu's `namerOf` knows the presets' names).
+ * @returns The patch, with a title when the header follows.
+ *
+ * @example retitledPatch({ title: 'Category Data', source: 'category_data', ... }, { formula: '$.masie' })  // => { formula: '$.masie', title: 'Masie' }
+ * @example retitledPatch({ title: 'Remarks', source: 'notes', ... }, { source: 'hint' })                     // => { source: 'hint' }
+ */
+export function retitledPatch(column: Pick<ColumnT, 'title' | 'source' | 'formula'>, patch: ColumnPatch, named: ColumnNamer = namesFor): ColumnPatch {
+  if (patch.title !== undefined || (patch.source === undefined && patch.formula === undefined)) { return patch }
+  const plain = plainOf(column)
+  if (column.title !== named(plain.source, plain.formula ?? null).title) { return patch }
+  const formula = patch.formula === undefined ? plain.formula ?? null : patch.formula
+  const { title } = named(patch.source ?? plain.source, formula)
+  return title === column.title ? patch : { ...patch, title }
 }
 
 /** What a sort memory says when it was last put in the order of a column */

@@ -2,12 +2,14 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
+import * as Regexes from '../lib/regexes'
 import { ServicelabelVals } from '../lib/credentials'
 import { ModelTierVals } from './ask'
+import { ColumnValidators } from './column'
 import type { EstimatesT } from './estimate'
 
-/** The formularies a widget of the library can be worked by: a JSONata formula worked out on render, a prompt put to a model, or a value a person types */
-export const FormularykindVals = ['jsonata', 'aibot', 'entry'] as const
+/** The formularies a widget of the library can be worked by: a JSONata formula worked out on render, a prompt put to a model, a value a person types, or a Liquid template filled in on render */
+export const FormularykindVals = ['jsonata', 'aibot', 'entry', 'liquidize'] as const
 export type Formularykind = typeof FormularykindVals[number]
 
 /**
@@ -67,7 +69,10 @@ export const JsonataDefaultInput = '$'
 /** The input formula a new `aibot` widget starts with: the clueing, for a `{{clueing}}` in its prompt */
 export const AibotDefaultInput = "{ 'clueing': qn.clueing }"
 
-export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titleish, noteish, textish, formulaish, discrim, union, uint, num, bool, stamps }) => {
+/** The input formula a new `liquidize` widget starts with: the whole bag, so its template reads `qn.title` as a formula would */
+export const LiquidizeDefaultInput = '$'
+
+export const WidgetValidators = Validator(({ obj, arr, oneof, lit, str, label, titleish, noteish, textish, formulaish, discrim, union, uint, num, bool, stamps }) => {
   const jsonataConfig = obj({}).strict()
     .describe('A `jsonata` widget\'s settings: none.')
   const aibotConfig = obj({
@@ -90,15 +95,28 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titlei
       .describe('Whether a cell holds whole numbers only. Absent, a fraction is welcome.'),
   }).strict()
     .describe('What a `number` entry\'s cells may hold: between `min` and `max`, and whole when `integer`.')
+  const regex = obj({
+    source: str.min(1).max(Regexes.SourceMax).regex(PA.Stringish.re, PA.Stringish.msg)
+      .describe(`The pattern, as written between a regular expression's slashes: at most ${String(Regexes.SourceMax)} characters, on one line.`),
+    flags:  str.regex(Regexes.FlagsRe, 'should be some of «i», «m», «s» and «u», each once, in that order').default('')
+      .describe('Its flags: `i` to ignore case, `m` for `^` and `$` at each line, `s` for `.` across a newline, `u` for Unicode. Absent, none.'),
+  }).strict()
+    .check((context) => {
+      const issue = Regexes.compileIssueOf(context.value)
+      if (issue !== null) { context.issues.push({ code: 'custom', path: ['source'], input: context.value.source, message: issue }) }
+    })
+    .describe('A regular expression of the author\'s own. Where it is written, it is also held to taking no longer to match than a text is long (`Redos`).')
   const textParams = obj({
     max_length: uint.min(1).max(PA.Textish.max).optional()
       .describe(`The most characters a cell may hold. Absent, ${String(PA.Textish.max)}.`),
     pattern:    oneof(TextPatternVals).optional()
       .describe('A named pattern every cell must match: `label` (lowercase letters, digits and single underscores), `oneline` (one line of anything) or `url` (a web address). Any of them is one line. Absent, any prose.'),
+    regex:      regex.optional()
+      .describe('A regular expression of your own every cell must match, beside any named pattern: its source and flags. One that could take too long to match some text is refused where it is written. Absent, none.'),
     lines:      oneof(TextLinesVals).optional()
       .describe('How many lines a cell takes: `one`, a box that never wraps, or `many`, prose and markdown. Absent, `many`, unless a pattern makes it one.'),
   }).strict()
-    .describe('What a `text` entry\'s cells may hold: how long, of what pattern, and on how many lines.')
+    .describe('What a `text` entry\'s cells may hold: how long, of what pattern or regular expression, and on how many lines.')
   const enumOption = titleish.min(1).max(EnumOptionMaxLen)
     .describe('One option, a line of text, as the select offers it and the cell keeps it.')
   const enumParams = obj({
@@ -109,6 +127,26 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titlei
     .describe('What an `enum` entry\'s cells may hold: one of its options.')
   const noParams = obj({}).strict()
     .describe('Nothing: this kind of entry takes no params.')
+
+  const liquidizeConfig = obj({}).strict()
+    .describe('A `liquidize` widget\'s settings: none.')
+  const liquidTemplate = textish.min(1)
+    .describe('A Liquid template, filled in over what the widget\'s input came to: `{{ qn.title }}`, `{% if qn.hint %}...{% endif %}`. Kept exactly as typed.')
+  const templateFrom = obj({
+    ref:     ColumnValidators.ref
+      .describe('Where the template\'s text is read from, as a column\'s ref names it: a question\'s field (`notes`), a widgeting run before this one (`dumdum`), a word of the bag, or `quiz.<label>`.'),
+    formula: formulaish.optional()
+      .describe('JSONata working the template\'s text out of what the ref picks, as a column\'s formula does: `$.value.template` of a bot\'s reply. Absent, the field itself, or the widgeting\'s value. Must come to text.'),
+  }).strict()
+    .describe('A template read from the bag as the widgeting runs: what a bot or a formula before it wrote, say.')
+  // A widgeting's template, said outright or read from the bag; either overrides the widget's own.
+  const liquidizeParams = obj({
+    template:      liquidTemplate.optional()
+      .describe('The template this widgeting fills in, in place of its widget\'s.'),
+    template_from: templateFrom.optional(),
+  }).strict()
+    .refine((params) => params.template === undefined || params.template_from === undefined, { path: ['template_from'], message: 'should be left out beside a template of its own: say one or the other' })
+    .describe('Where a `liquidize` widgeting\'s template comes from: its own `template`, or `template_from` the bag. Absent, its widget\'s.')
 
   // An entry widget's config: its kind, and the defaults its widgetings' params overlay.
   const entryConfigOf = <KT extends EntryKind, ST extends Z.core.$ZodLooseShape>(entry_kind: KT, params: Z.ZodObject<ST>) => (
@@ -142,8 +180,12 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titlei
   const aibotFormula = textish.min(1)
     .describe('A prompt template, each `{{name}}` in it filled in from that key of the widget\'s input. Kept exactly as typed.')
 
+  const liquidizeFormula = liquidTemplate
+    .describe('A Liquid template, filled in over what the widget\'s input came to for every question: the default its widgetings may each replace. Kept exactly as typed.')
+
   const jsonataFields = { formulary: lit('jsonata'), formula: jsonataFormula, config: jsonataConfig }
   const aibotFields = { formulary: lit('aibot'), formula: aibotFormula, config: aibotConfig }
+  const liquidizeFields = { formulary: lit('liquidize'), formula: liquidizeFormula, config: liquidizeConfig }
   const entryFields = {
     formulary:     lit('entry'),
     formula:       lit('')
@@ -182,8 +224,18 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titlei
     input_formula: entryFields.input_formula.default(''),
   })
     .describe('A widget whose cells a person types into, one value per question, kept as the one value.')
+  const liquidizeWidget = obj({
+    scope:         scope.default('pub'),
+    label:         widgetLabel,
+    title:         title.default(''),
+    description:   description.default(''),
+    ...liquidizeFields,
+    input_formula: input_formula.default(LiquidizeDefaultInput),
+    config:        liquidizeConfig.default({}),
+  })
+    .describe('A widget that fills in a Liquid template on every render, coming to text, and is stored nowhere.')
 
-  const widget = discrim('formulary', [jsonataWidget, aibotWidget, entryWidget])
+  const widget = discrim('formulary', [jsonataWidget, aibotWidget, entryWidget, liquidizeWidget])
     .describe('A reusable definition in the library: a formulary, a formula, an input formula and a config, under a label. It knows nothing of any quiz; a widgeting puts it to work in one.')
 
   const widgetPatch = obj({
@@ -192,7 +244,7 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titlei
     formula:       textish.min(1).optional()
       .describe('The formula or the prompt; held to the bound of the widget\'s own formulary once applied.'),
     input_formula: input_formula.optional(),
-    config:        union([jsonataConfig, aibotConfig, entryConfig]).optional()
+    config:        union([jsonataConfig, aibotConfig, entryConfig, liquidizeConfig]).optional()
       .describe('The settings; held to the shape of the widget\'s own formulary once applied.'),
   })
     .describe('The fields of one widget being revised. A key absent means "leave whatever is already there". The scope, the label and the formulary are not among them: other things refer to a widget by the first two, and its config\'s shape hangs on the third.')
@@ -207,15 +259,16 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, label, titlei
       .describe('The widget\'s place in the order the library lists them, counting from zero.'),
     ...stamps,
   }
-  const row = discrim('formulary', [obj({ ...rowFields, ...jsonataFields }), obj({ ...rowFields, ...aibotFields }), obj({ ...rowFields, ...entryFields })])
+  const row = discrim('formulary', [obj({ ...rowFields, ...jsonataFields }), obj({ ...rowFields, ...aibotFields }), obj({ ...rowFields, ...entryFields }), obj({ ...rowFields, ...liquidizeFields })])
     .describe('One widget as the database holds it: its fields, and its place in the library.')
 
-  return { jsonataConfig, aibotConfig, entryConfig, numberParams, textParams, enumOption, enumParams, noParams, widgetLabel, widget, widgetPatch, row }
+  return { jsonataConfig, aibotConfig, entryConfig, liquidizeConfig, regex, numberParams, textParams, enumOption, enumParams, noParams, liquidizeParams, widgetLabel, widget, widgetPatch, row }
 })
 
 export type JsonataConfigT = Z.output<typeof WidgetValidators.jsonataConfig>
 export type AibotConfigT   = Z.output<typeof WidgetValidators.aibotConfig>
 export type EntryConfigT   = Z.output<typeof WidgetValidators.entryConfig>
+export type LiquidizeConfigT = Z.output<typeof WidgetValidators.liquidizeConfig>
 export type WidgetDNA      = Z.input<typeof WidgetValidators.widget>
 /**
  * A reusable definition in the library: a formulary, a formula, an input formula and a config,
@@ -228,6 +281,8 @@ export type JsonataWidgetT = Extract<WidgetT, { formulary: 'jsonata' }>
 export type AibotWidgetT   = Extract<WidgetT, { formulary: 'aibot' }>
 /** A widget of the library whose cells a person types into */
 export type EntryWidgetT   = Extract<WidgetT, { formulary: 'entry' }>
+/** A widget of the library that fills in a Liquid template */
+export type LiquidizeWidgetT = Extract<WidgetT, { formulary: 'liquidize' }>
 /** What an `entry` widget's cell holds: text, a number, a yes or no, or a question's category estimates */
 export type EntryValueT    = string | number | boolean | EstimatesT
 export type NumberParamsT  = Z.output<typeof WidgetValidators.numberParams>
@@ -235,6 +290,8 @@ export type TextParamsT    = Z.output<typeof WidgetValidators.textParams>
 export type EnumParamsT    = Z.output<typeof WidgetValidators.enumParams>
 /** What a family that takes no params takes */
 export type NoParamsT      = Z.output<typeof WidgetValidators.noParams>
+/** Where a `liquidize` widgeting's template comes from, when not from its widget */
+export type LiquidizeParamsT = Z.output<typeof WidgetValidators.liquidizeParams>
 
 /** Each entry family's params, as its widgeting and its widget's config say them */
 export type EntryParamsFor = {
@@ -355,6 +412,7 @@ export class Widget {
     case 'jsonata': { return { ...shared, formulary: 'jsonata', formula: widget.formula, config: widget.config } }
     case 'aibot':   { return { ...shared, formulary: 'aibot', formula: widget.formula, config: widget.config } }
     case 'entry':   { return { ...shared, formulary: 'entry', formula: '', input_formula: '', config: widget.config } }
+    case 'liquidize': { return { ...shared, formulary: 'liquidize', formula: widget.formula, config: widget.config } }
     }
   }
 

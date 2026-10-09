@@ -98,11 +98,11 @@ const IssueCases: [string, string | null, string][] = [
 
 describe("fill", () => {
   it.each(FillCases)('%j => %j: %s', (template, expected) => {
-    expect(Templating.fill(template, bag)).to.deep.eq({ markdown: expected, issue: null })
+    expect(Templating.fill(template, bag)).to.deep.eq({ markdown: expected, issue: null, failkind: null })
   })
 
   it.each(InheritedCases)('%j comes to nothing: %s', (template) => {
-    expect(Templating.fill(template, bag)).to.deep.eq({ markdown: '[]', issue: null })
+    expect(Templating.fill(template, bag)).to.deep.eq({ markdown: '[]', issue: null, failkind: null })
   })
 
   it("fills in a list or an object as its JSON, and a yes-or-no as its word", () => {
@@ -120,8 +120,12 @@ describe("fill", () => {
     expect(Templating.fill('{{qn.bold}} {{qn.script}} {{qn.link}}', held).markdown).to.eq('**bold** <script>alert(1)</script> [x](javascript:alert(1))')
   })
 
+  it("fills in over any plain object, as a liquidize template's input is", () => {
+    expect(Templating.fill('{{ title }} by {{ author.label }}', { title: 'Leon', author: { label: 'ada' } })).to.deep.eq({ markdown: 'Leon by ada', issue: null, failkind: null })
+  })
+
   it("hands back a template that does not parse as typed, with why", () => {
-    expect(Templating.fill('{% if qn.hint %}', bag)).to.deep.eq({ markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1' })
+    expect(Templating.fill('{% if qn.hint %}', bag)).to.deep.eq({ markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1', failkind: 'syntax' })
   })
 
   it("stops a template that walks a list inside a list too deeply, rather than hang", () => {
@@ -134,7 +138,7 @@ describe("fill", () => {
 
   it("refuses to hand back far too much text", () => {
     const filled = Templating.fill('{{qn.big}}', bagHolding({ qn: { big: 'x'.repeat(Templating.FilledMax + 1) } }))
-    expect(filled).to.deep.eq({ markdown: '{{qn.big}}', issue: 'This template comes to far too much text to show.' })
+    expect(filled).to.deep.eq({ markdown: '{{qn.big}}', issue: 'This template comes to far too much text to show.', failkind: 'limit' })
   })
 
   it("stops a tag filling in a whole list again and again before it builds the text", () => {
@@ -146,11 +150,20 @@ describe("fill", () => {
   it("stops a loop that writes nothing, by the time it takes", () => {
     const qns = Array.from({ length: 1000 }, () => ({}))
     const filled = Templating.fill('{% for aa in qns %}{% for bb in qns %}{% for cc in qns %}{% endfor %}{% endfor %}{% endfor %}', bagHolding({ qns }))
-    expect(filled.issue).to.match(/^template render limit exceeded/)
+    expect(filled.issue).to.eq('This template takes too long to fill in: a loop inside a loop, perhaps.')
+    expect(filled.failkind).to.eq('limit')
+  })
+
+  it("stops a fill at a deadline sooner than its own time", () => {
+    const qns = Array.from({ length: 1000 }, () => ({}))
+    const filled = Templating.fill('{% for aa in qns %}{% for bb in qns %}{% endfor %}{% endfor %}', bagHolding({ qns }), Templating.clockNow() + 20)
+    expect(filled.failkind).to.eq('limit')
   })
 
   it("stops a range of a hundred million numbers, by what it allocates", () => {
-    expect(Templating.fill('{% for nn in (1..100000000) %}{% endfor %}', bag).issue).to.match(/^memory alloc limit exceeded/)
+    const filled = Templating.fill('{% for nn in (1..100000000) %}{% endfor %}', bag)
+    expect(filled.issue).to.match(/^memory alloc limit exceeded/)
+    expect(filled.failkind).to.eq('limit')
   })
 
   it("comes to the same text as often as it is asked", () => {
@@ -194,11 +207,11 @@ function onelinesAround(depth: number): string {
 
 describe("Helpers", () => {
   it.each(HelperCases)('%j over %j => %j: %s', (template, qn, expected) => {
-    expect(Templating.fill(template, bagWithQn(qn))).to.deep.eq({ markdown: expected, issue: null })
+    expect(Templating.fill(template, bagWithQn(qn))).to.deep.eq({ markdown: expected, issue: null, failkind: null })
   })
 
   it.each(HelperSafetyCases)('%j over %j => %j: %s', (template, qn, expected) => {
-    expect(Templating.fill(template, bagWithQn(qn))).to.deep.eq({ markdown: expected, issue: null })
+    expect(Templating.fill(template, bagWithQn(qn))).to.deep.eq({ markdown: expected, issue: null, failkind: null })
   })
 
   it("shapes a column as it does a field", () => {
@@ -225,7 +238,7 @@ describe("Helpers", () => {
   it("counts what a filter adds against the characters a fill may come to", () => {
     const lines = Array.from({ length: 40_000 }, () => 'x').join('\n')
     const filled = Templating.fill('{{ qn.lines | quote }}', bagWithQn({ lines }))
-    expect(filled).to.deep.eq({ markdown: '{{ qn.lines | quote }}', issue: 'This template comes to far too much text to show.' })
+    expect(filled).to.deep.eq({ markdown: '{{ qn.lines | quote }}', issue: 'This template comes to far too much text to show.', failkind: 'limit' })
     expect(Templating.fill('{{ qn.lines }}', bagWithQn({ lines })).issue).to.eq(null)
   })
 })
@@ -328,6 +341,14 @@ describe("bagOf", () => {
     expect(Templating.fill('{{qn.map.value}} {{#quiz.maps.value}}{{.}}{{/quiz.maps.value}} {{quiz.maps}}', imagedBag).markdown).not.to.include('![')
     expect(Templating.fill('{{qn.clueing}} {{qn.author}}', imagedBag).markdown).to.eq('![typed](https://host/t.png) ![entered](https://host/e.png)')
     expect(imagedRun.widgeteds.get('map')?.get(pictured._id)?.value).to.eq('![map](https://host/m.png?q=Pic)')
+  })
+
+  it("draws an image in a liquidize template's column as a link to it, though its template typed one", () => {
+    const Imaged = [...Library, Widget.fill({ label: 'pictured', formulary: 'liquidize', formula: '![logo](https://host/l.png) {{ qn.title }}' })]
+    const imaged = { ...TwoQuiz, widgetings: [...TwoQuiz.widgetings, Widgeting.fill({ label: 'picture', widget_label: 'pictured' })] }
+    const imagedRun = runOf(imaged, Imaged)
+    expect(Templating.fill('{{qn.picture}}', Templating.bagOf(imagedRun, first._id)).markdown).to.match(/^&#33;\[logo\]/)
+    expect(imagedRun.widgeteds.get('picture')?.get(first._id)?.value).to.match(/^!\[logo\]/)
   })
 
   it("leaves an image made a link no image to the screen's parser or the board's writer, whatever stands before it", () => {

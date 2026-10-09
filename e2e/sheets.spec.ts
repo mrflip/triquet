@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { addWidgeting, closeManage, expect, fillRows, manageDialog, openManage, openPanel, test, waitUntilSaved } from './support'
+import { addWidgeting, closeManage, columnPanel, expect, fillRows, openManage, openPanel, test, unfoldBy, waitUntilSaved } from './support'
 
 /** The lines the Copy for Sheets box currently holds */
 async function sheetsLines(page: Page): Promise<string[]> {
@@ -60,8 +60,8 @@ test('a line break in a field never starts a new spreadsheet row', async ({ page
 
 test("a column's formula and template shape its cells in the export, and collapsing it changes nothing there", async ({ page }) => {
   await openManage(page)
-  const row = manageDialog(page).getByRole('group', { name: 'Column Clueing', exact: true })
-  await row.getByRole('button', { name: 'Formula, template and readout of Clueing' }).click()
+  const row = columnPanel(page, 'Clueing')
+  await unfoldBy(row, 'Column Clueing in full')
   await row.getByRole('combobox', { name: 'Formula' }).fill('$uppercase($)')
   await row.getByRole('textbox', { name: 'Template' }).fill('{{ value }}!')
   await row.getByRole('combobox', { name: 'Formula' }).click()

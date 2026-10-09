@@ -43,7 +43,7 @@ One entry widget per family; the library gains one only when a new editor does.
 | family | params | editor | runs at `quiz` |
 |---|---|---|---|
 | `number` | `min`, `max`, `integer` | `NumberField`, the params driving `signed` and `fractional` | yes |
-| `text` | `max_length`, `pattern`, `lines` (`one` or `many`) | `PlainField` (one) or `StretchField` (many) | yes |
+| `text` | `max_length`, `pattern`, `regex`, `lines` (`one` or `many`) | `PlainField` (one) or `StretchField` (many) | yes |
 | `boolean` | none | a checkbox; an emptied cell is `missing`, so tri-state for free | yes |
 | `enum` | `options`, a list of one-line strings, each once | a select | yes |
 | `estimates` | none, as now | pills | no |
@@ -64,9 +64,17 @@ One entry widget per family; the library gains one only when a new editor does.
   `entry_kind`. The params in force are the widget's, overlaid key by key by the widgeting's. An
   admin seeds `difficulty` as a number entry of 1 to 10; a widgeting may still say otherwise.
 * **`pattern` is a named pattern**: `label`, `oneline` or `url`, each a pattern of
-  `src/lib/vv/patterns.ts`. Never a bare `new RegExp` over author text. A free `regex` is thread
-  6's, with its answer to ReDoS (a checker library or an engine without backtracking, by
-  `notes/stack.md`'s process), checked on the server and in the browser alike.
+  `src/lib/vv/patterns.ts`. Never a bare `new RegExp` over author text but through
+  `lib/regexes.ts`, and only once the pattern is through the ReDoS check.
+* **`regex` is the author's own** (thread 6): `{ source, flags }`, beside `pattern` (a cell
+  matches both), one line of at most 200 characters, flags of `i`, `m`, `s` and `u`, in that
+  order. The ReDoS answer is recheck (the Coach's ruling): a pattern is checked where a mutation
+  writes it (`addWidgeting`, `editWidgeting`, `addWidget`, `editWidget`, `importWidgets`, which a
+  quiz's import reaches through its actions), unless the row already held it, and refused unless
+  recheck calls it `safe`. Past that boundary it is trusted: compiled once and handed to Zod as
+  each cell is checked. The browser's `RegexField` asks recheck as a courtesy, as the pattern is
+  committed; the planner holds the pattern only to the params validator (its length, its flags,
+  that it compiles), since recheck in the browser answers asynchronously.
 * **`labelish` and `titleish` are presets of `text`** (`pattern: 'label'`, one line; `pattern:
   'oneline'`, one line, a title's length). Not offered for a new widget; rows holding them stay
   valid, and their cells are drawn as now.
@@ -90,12 +98,25 @@ A `jsonata` widget's twin with Liquid. `src/lib/formulary/liquidize.ts`, `Liquid
 * **Where the template comes from**: the widget's `formula`, a static template, is the admin's
   default. The widgeting's params may hold a `template` of its own, or a `template_from` of
   `{ ref, formula }`, whose text is read from the bag: `ref` a plain key in the column's grammar
-  (§4), `formula` JSONata over what it names, `$` by default, coming to a string. At most one of
-  the two; either overrides the widget's. `paramsOf` reports the validator.
+  (§4), `formula` JSONata over what it names, coming to a string. At most one of the two; either
+  overrides the widget's. `paramsOf` reports the validator. *Thread 7:* the pair reads as a
+  column's ref and formula do: an absent formula is identity (a field itself, a widgeting's
+  `value`), not `$`, which for a widgeting is the whole widgeted; and a `missing` or `errored`
+  widgeting passes the formula by, so a bot not yet asked makes the template `missing`.
 * **Output is always a string**, markdown by convention: a column showing it defaults to the
   markdown readout and sorts as text. An empty fill is `missing`; a template that will not parse,
   or a `template_from` that comes to no string, is `errored`, with Liquid's own sentence as
   `Templating.fill` returns it.
+* **Budgeted by the column** (*the Coach, on thread 7's review*): a fill stopped by a limit (its
+  time, `Liquidry.RenderMs`; our counted budgets; Liquid's allocation limit) stops its column,
+  every later question reading the same failure, as a `jsonata` timeout does; and the whole column
+  has one budget of time for all its fills (`LiquidizeFormulary.columnMs`, 250 ms), so many
+  medium-slow fills cannot add up to the same harm. The budget is asked between a template's
+  pieces and at every turn of a loop, never inside one filter's call: a slow filter, or a huge
+  range handed to one, runs to its end first (thread 9, *compute budgets*, takes that on, with a
+  column's own template, the templateable fills and a cap per run). Time is read on `performance.now()`, which
+  moves inside a Convex mutation where `Date.now()` stands still. A template that will not read
+  costs only its own cell: one read from the bag differs question by question.
 * **One fill path.** Through `Templating.fill`, shared with the templateable nomination (§5),
   which is "liquidize this source over the finished bag, in place". Whether the nomination is
   rebuilt internally as a `liquidize` is the worker's call; it is not a row change.
@@ -202,6 +223,16 @@ One menu for every column: every question field and view, every `question` widge
   formula box.
 * **The parts are expression presets**: `$.masie`, `$.average`, `$.estimates`. The parts stay on
   the widgeted in the bag, where formulas read them (`Estimates.partsOf`).
+* **The seeded sums that reshape one widgeted are presets too** (thread 8): beside a widgeting of
+  `numnum_clueing`, `numnum_hint` or `butnot_ishes`, by the widget's label, the column offers the
+  two sums (`SeedPresets` in `src/models/seeds.ts`), naming the column as the seeded sum
+  (`hint_full`, *Hint Full Sum*), and stands in for it but in one thing: a spotter whose ask failed
+  with no earlier `ok` reply shows the badge through a preset (a column passes an `errored`
+  widgeted by), where the seeded sum shows the dash. A seed knows its own reply's shape, so this is the one place a
+  bot's result is offered presets. The sums reading two things or another question (`butnot_*`,
+  `clueing_plus_*`) stay widgets, and **the four reshaping sums stay seeded too**: a sum's cell
+  re-asks its spotter on a double-click, which a formula'd column (read-only) does not, and a quiz
+  laid out before the library (`seeding:seedWidgets`) is given them.
 * Build the fields as components thread 5a can lift into the folding editor, not as dialog state.
 
 **The builtin fields stay** (ruled): a label, an answer and a Q# are worth special machinery. The
@@ -268,6 +299,13 @@ Two warnings:
   labels (`use-preview-bag`'s picker, quiz select dropped), beneath it that question's
   `QuestionRow` drawn from `specsFor` and the quiz's run, read-only, grip, checkbox and ask
   handlers off.
+* *As built (5a):* a `jsonata` widgeting's folded line is its widget's formula **read-only**, the
+  widget being behind its door (an admin's *Edit the widget…* is in the open panel); a widgeting
+  is not renamed before it is made but after, so **a column still headed as `namesFor` heads what
+  it shows follows** a change of its ref, its formula (a part picked) or its widgeting's label
+  (`retitledPatch`; `planWidgetingEdit`), and a header the author wrote stays. Whatever is made
+  arrives open. *+ New widgeting…* and *+ New quiz widgeting…* stay beside the run order, the
+  catalogue made at once as it is picked, until 5b moves them.
 
 ## 8. Removal, and the commit model (thread 4; 5a everywhere)
 

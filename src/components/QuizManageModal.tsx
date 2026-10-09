@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, IconButton, Link, List, ListItem, ListItemText, Stack, TextField, Tooltip, Typography } from '@mui/material'
+import { Button, Dialog, DialogActions, DialogContent, IconButton, Link, List, ListItem, ListItemText, Stack, Tooltip, Typography } from '@mui/material'
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import UnarchiveOutlinedIcon from '@mui/icons-material/UnarchiveOutlined'
 import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
 import { DangerZone, type DangerousAct } from './DangerZone'
+import { ExplicitField } from './ExplicitField'
 import NextLink from './NextLink'
 import { TemplateableEditor } from './TemplateableEditor'
 import { WidgetingsEditor } from './WidgetingsEditor'
 import type { WorkbenchOffersT } from './offers'
+import type { FoldSet } from './use-folds'
 import * as Labelmaker from '../lib/labelmaker'
 import * as HuntMirror from '../state/hunt-mirror'
 import { AppNotices } from '../lib/notices'
@@ -34,8 +36,10 @@ export type QuizManageModalProps = {
   /** What the screen offers whoever is working: the quiz's own label and layout are left as they are where it is not revisable */
   offers:    WorkbenchOffersT
   dispatch:  (action: HuntActionDNA) => void
-  /** Carry out a change to the library, from the widgeting editor's door to the widget editor (`useLibraryActions`) */
+  /** Carry out a change to the library, from a widgeting's door to the widget editor (`useLibraryActions`) */
   changeLibrary: (action: LibraryActionDNA) => void
+  /** Which of the columns' and widgetings' panels are open, kept by the screen so they stay so across a reopen */
+  folds:     FoldSet
   /** Go to another quiz of the realm */
   onOpen:    (quiz: Labelmaker.Labelled) => void
   /** Open the library for editing */
@@ -53,8 +57,9 @@ export type QuizManageModalProps = {
 }
 
 /**
- * The gear icon's modal: editing this quiz's own label (top), its computed columns, its widgetings
- * for each question and those run once for the whole quiz, which of its fields are templateable, its
+ * The gear icon's modal: editing this quiz's own label (top), its columns, each with the widgeting
+ * it shows folded beneath it, its widgetings for each question and those run once for the whole
+ * quiz, in run order, which of its fields are templateable, its
  * history,
  * a quick way to open any other quiz in the realm by name, the hunt's title and label, the quiz's
  * archived questions, each to un-archive or delete, and, fenced off at the foot, deleting the quiz
@@ -64,16 +69,10 @@ export type QuizManageModalProps = {
  * closes it. A label, which other things name, waits for its own *Relabel* button, as the hunt's
  * title and label wait for theirs.
  */
-export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt, onDeleteQuestion }: Readonly<QuizManageModalProps>) {
-  const [draft, setDraft] = useState(quiz.label)
-  const [issue, setIssue] = useState<string | null>(null)
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, folds, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt, onDeleteQuestion }: Readonly<QuizManageModalProps>) {
   const [noted, setNoted] = useState<string | null>(null)
   const huntLabel = hunt.label
   const quizLabel = quiz.label
-  const [huntTitleDraft, setHuntTitleDraft] = useState(hunt.title)
-  const [huntTitleIssue, setHuntTitleIssue] = useState<string | null>(null)
-  const [huntLabelDraft, setHuntLabelDraft] = useState(huntLabel)
-  const [huntLabelIssue, setHuntLabelIssue] = useState<string | null>(null)
   const lastQuiz = realm.quizzes.length <= 1
 
   // A hunt goes only with its last quiz, so that no one act loses a hunt's worth of quizzes.
@@ -91,33 +90,34 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
       onAct:   () => { onDeleteQuiz(); onClose() },
     }
 
-  const onRenameHunt = () => {
-    const title = huntTitleDraft.trim()
-    if (! HuntValidators.row.shape.title.safeParse(title).success) { setHuntTitleIssue(AppNotices.huntTitleTooLong); return }
-    if (title === hunt.title) { return }
+  /** The hunt's new name, or what is wrong with it */
+  const onRenameHunt = (title: string): string | null => {
+    if (! HuntValidators.row.shape.title.safeParse(title).success) { return AppNotices.huntTitleTooLong }
     onRetitleHunt(title)
     onClose()
+    return null
   }
 
-  const onRelabelHuntClick = () => {
-    const cleaned = Labelmaker.normalize(huntLabelDraft)
-    if (Labelmaker.isReserved(cleaned, { toplevel: true })) { setHuntLabelIssue(AppNotices.labelReserved); return }
-    if (! HuntValidators.row.shape.label.safeParse(cleaned).success) { setHuntLabelIssue(AppNotices.huntLabelShape); return }
-    if (cleaned === huntLabel) { return }
+  /** The hunt's new label, or what is wrong with it */
+  const onRelabelHuntClick = (cleaned: string): string | null => {
+    if (Labelmaker.isReserved(cleaned, { toplevel: true })) { return AppNotices.labelReserved }
+    if (! HuntValidators.row.shape.label.safeParse(cleaned).success) { return AppNotices.huntLabelShape }
     onRelabelHunt(cleaned)
     onClose()
+    return null
   }
 
-  const onRelabelQuiz = () => {
-    const cleaned = Labelmaker.normalize(draft)
-    if (cleaned === '') { setIssue('Enter a label.'); return }
-    if (Labelmaker.isReserved(cleaned)) { setIssue(AppNotices.labelReserved); return }
+  /** The quiz's new label, or what is wrong with it */
+  const onRelabelQuiz = (cleaned: string): string | null => {
+    if (cleaned === '') { return 'Enter a label.' }
+    if (Labelmaker.isReserved(cleaned)) { return AppNotices.labelReserved }
     const taken = realm.quizzes.some((other) => other._id !== quiz._id && other.label === cleaned)
-    if (taken) { setIssue('Another quiz already uses that label.'); return }
+    if (taken) { return 'Another quiz already uses that label.' }
     // The quiz is addressed by its label, so a relabel is also a move: the address follows it
     // once it lands (`useHunt`'s `movedTo`).
     dispatch({ kind: 'relabel_quiz', label: cleaned })
     onClose()
+    return null
   }
 
   const onMilestone = async () => {
@@ -135,24 +135,23 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
       {/* One scrolling region for the whole dialog: each section is as tall as what it holds. */}
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-            <TextField
-              label="Label"
-              value={draft}
-              size="small"
-              disabled={! offers.reviseQuiz}
-              error={issue !== null}
-              helperText={issue ?? "Used in this page's web address."}
-              onChange={(event) => { setDraft(event.target.value); setIssue(null) }}
-              sx={{ flex: 1 }}
-            />
-            <Button variant="outlined" aria-label="Relabel quiz" onClick={onRelabelQuiz} disabled={! offers.reviseQuiz || Labelmaker.normalize(draft) === quizLabel}>Relabel</Button>
-          </Stack>
+          <ExplicitField
+            label="Label" committed={quizLabel} act="Relabel" actLabel="Relabel quiz" disabled={! offers.reviseQuiz} tidy={Labelmaker.normalize}
+            helperText="Used in this page's web address." onCommit={onRelabelQuiz}
+          />
 
           <section>
             <Typography variant="h6" component="h3">Columns</Typography>
-            <p className={styles.microcopy}>The grid&apos;s columns in the order they appear. Drag a handle to move one; the gear opens the rest.</p>
-            <ColumnsEditor quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch} />
+            <p className={styles.microcopy}>
+              The grid&apos;s columns in the order they appear. Drag a handle to move one; its triangle
+              unfolds the rest of it. Beneath a column showing a widgeting, that widgeting&apos;s line,
+              unfolding to the whole of it. Every change is kept as it is made; a label waits for its
+              own <em>Relabel</em>.
+            </p>
+            <ColumnsEditor
+              hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary}
+              dispatch={dispatch} changeLibrary={changeLibrary} folds={folds}
+            />
           </section>
 
           <section>
@@ -164,7 +163,10 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
               (the playtesters, the winners), or a formula over the questions as those above it left
               them -- and those below read it as <code>{'quiz.<label>'}</code>. Templates read them all.
             </p>
-            <WidgetingsEditor hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary} dispatch={dispatch} changeLibrary={changeLibrary} onEditLibrary={onEditLibrary} />
+            <WidgetingsEditor
+              hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary}
+              dispatch={dispatch} changeLibrary={changeLibrary} folds={folds} onEditLibrary={onEditLibrary}
+            />
           </section>
 
           <section>
@@ -194,30 +196,14 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
           <section>
             <Typography variant="h6" component="h3">Hunt</Typography>
             <Stack spacing={2} sx={{ mt: 1 }}>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-                <TextField
-                  label="Hunt name"
-                  value={huntTitleDraft}
-                  size="small"
-                  error={huntTitleIssue !== null}
-                  helperText={huntTitleIssue ?? 'What the hunt is called on screen. Its web address stays as it is.'}
-                  onChange={(event) => { setHuntTitleDraft(event.target.value); setHuntTitleIssue(null) }}
-                  sx={{ flex: 1 }}
-                />
-                <Button variant="outlined" onClick={onRenameHunt} disabled={huntTitleDraft.trim() === hunt.title}>Rename</Button>
-              </Stack>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-                <TextField
-                  label="Hunt label"
-                  value={huntLabelDraft}
-                  size="small"
-                  error={huntLabelIssue !== null}
-                  helperText={huntLabelIssue ?? 'Used in the web address of every quiz in this hunt; links to the old one stop working.'}
-                  onChange={(event) => { setHuntLabelDraft(event.target.value); setHuntLabelIssue(null) }}
-                  sx={{ flex: 1 }}
-                />
-                <Button variant="outlined" aria-label="Relabel hunt" onClick={onRelabelHuntClick} disabled={Labelmaker.normalize(huntLabelDraft) === huntLabel}>Relabel</Button>
-              </Stack>
+              <ExplicitField
+                label="Hunt name" committed={hunt.title} act="Rename" disabled={false} tidy={(typed) => typed.trim()}
+                helperText="What the hunt is called on screen. Its web address stays as it is." onCommit={onRenameHunt}
+              />
+              <ExplicitField
+                label="Hunt label" committed={huntLabel} act="Relabel" actLabel="Relabel hunt" disabled={false} tidy={Labelmaker.normalize}
+                helperText="Used in the web address of every quiz in this hunt; links to the old one stop working." onCommit={onRelabelHuntClick}
+              />
             </Stack>
             <p className={styles.microcopy}>
               <Link component={NextLink} href={Routes.categoriesPath({ org: hunt.org, hunt: huntLabel })}>Arrange the hunt&apos;s categories</Link>

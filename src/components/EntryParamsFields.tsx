@@ -1,12 +1,14 @@
 'use client'
 
-import { Checkbox, FormControlLabel, Stack, TextField } from '@mui/material'
+import { Box, Checkbox, FormControlLabel, Stack, TextField } from '@mui/material'
 import type * as Z from 'zod'
 import _ from 'es-toolkit/compat'
 import { NumberField } from './cells/fields'
+import { RegexField } from './RegexField'
 import { useDraft } from './use-draft'
 import { ParamWords, TextLinesWords, TextPatternWords } from './widget-words'
 import * as Reporting from '../lib/vv/reporting'
+import type { RegexT } from '../lib/regexes'
 import { EntryParamsOf, TextLinesVals, TextPatternVals, type EntryKind } from '../models/widget'
 import type { JsonT } from '../models/widgeted'
 import styles from './workbench.module.css'
@@ -23,30 +25,36 @@ export type EntryParamsFieldsProps = {
   disabled:   boolean
   /** Told the params as they now stand, a field emptied leaving its name out */
   onChange:   (params: Record<string, JsonT>) => void
+  /** `line` sets the fields side by side, wrapping, as a widgeting's folded line does; `stack`, the default, one beneath another */
+  layout?:    'stack' | 'line'
+  /** Names the fields together, to assistive technology */
+  label?:     string
 }
 
 /**
  * An entry's params, one field for each its family takes, in the order its validator names them
  * (`EntryParamsOf`): a number's least, most and whether it is whole; a text's most characters,
- * pattern and lines; a choice's options. Each field commits as it is left or picked, and says
+ * pattern, regular expression and lines; a choice's options. Each field commits as it is left or picked, and says
  * what is wrong with it beside itself, in the validator's own sentence. A field left empty says
  * nothing, and what is beneath it shows through.
  */
-export function EntryParamsFields({ entry_kind, params, inherited, validator, disabled, onChange }: Readonly<EntryParamsFieldsProps>) {
+export function EntryParamsFields({ entry_kind, params, inherited, validator, disabled, onChange, layout = 'stack', label = 'Settings' }: Readonly<EntryParamsFieldsProps>) {
   const { shape } = EntryParamsOf[entry_kind]
   const paramnames = Object.keys(shape)
-  if (paramnames.length === 0) { return <p className={styles.microcopy}>This kind of entry takes no settings.</p> }
+  if (paramnames.length === 0) { return layout === 'line' ? null : <p className={styles.microcopy}>This kind of entry takes no settings.</p> }
   const checked = validator.safeParse(params, { error: Reporting.customError })
   const issueOf = (paramname: string) => (checked.success ? null : checked.error.issues.find((issue) => issue.path[0] === paramname)?.message ?? null)
   const put = (paramname: string, val: JsonT | undefined) => { onChange(_.omitBy({ ...params, [paramname]: val }, _.isUndefined) as Record<string, JsonT>) }
+  const fields = paramnames.map((paramname) => (
+    <ParamField
+      key={paramname} paramname={paramname} said={params[paramname]} beneath={inherited[paramname]} help={helpOf(shape, paramname)}
+      issue={issueOf(paramname)} disabled={disabled} line={layout === 'line'} onPut={(val) => { put(paramname, val) }}
+    />
+  ))
+  if (layout === 'stack') { return <Stack spacing={1.5} role="group" aria-label={label}>{fields}</Stack> }
   return (
-    <Stack spacing={1.5} role="group" aria-label="Settings">
-      {paramnames.map((paramname) => (
-        <ParamField
-          key={paramname} paramname={paramname} said={params[paramname]} beneath={inherited[paramname]} help={helpOf(shape, paramname)}
-          issue={issueOf(paramname)} disabled={disabled} onPut={(val) => { put(paramname, val) }}
-        />
-      ))}
+    <Stack direction="row" role="group" aria-label={label} sx={{ flexWrap: 'wrap', gap: 1.5, alignItems: 'flex-start' }}>
+      {fields.map((field) => <Box key={field.key} sx={field.key === 'regex' ? { flex: '2 1 380px', minWidth: 300, maxWidth: 600 } : { flex: '1 1 150px', minWidth: 130, maxWidth: 320 }}>{field}</Box>)}
     </Stack>
   )
 }
@@ -67,14 +75,17 @@ type ParamFieldProps = {
   /** What is wrong with what is said, or null */
   issue:     string | null
   disabled:  boolean
+  /** Whether it sits in a folded line, kept to one line where it can be */
+  line:      boolean
   /** Told the param's new value, or undefined to say nothing */
   onPut:     (val: JsonT | undefined) => void
 }
 
 /** One param's field, of the shape its value takes */
-function ParamField({ paramname, said, beneath, help, issue, disabled, onPut }: Readonly<ParamFieldProps>) {
+function ParamField({ paramname, said, beneath, help, issue, disabled, line, onPut }: Readonly<ParamFieldProps>) {
   const label = ParamWords[paramname] ?? paramname
-  const helperText = issue ?? help
+  // A folded line keeps to its row: what a field is for is said only in the full stack.
+  const helperText = issue ?? (line ? undefined : help)
   switch (paramname) {
   case 'min':
   case 'max':
@@ -111,8 +122,16 @@ function ParamField({ paramname, said, beneath, help, issue, disabled, onPut }: 
       </TextField>
     )
   }
+  case 'regex': {
+    return (
+      <RegexField
+        label={label} committed={regexOf(said)} beneath={regexOf(beneath)} helperText={helperText ?? ''} error={issue !== null} disabled={disabled}
+        onCommit={(regex) => { onPut(regex ?? undefined) }}
+      />
+    )
+  }
   case 'options': {
-    return <OptionsField label={label} said={said} beneath={beneath} helperText={helperText} issue={issue} disabled={disabled} onPut={onPut} />
+    return <OptionsField label={label} said={said} beneath={beneath} helperText={helperText} issue={issue} disabled={disabled} line={line} onPut={onPut} />
   }
   default: {
     return null
@@ -120,25 +139,35 @@ function ParamField({ paramname, said, beneath, help, issue, disabled, onPut }: 
   }
 }
 
-type OptionsFieldProps = Pick<ParamFieldProps, 'said' | 'beneath' | 'issue' | 'disabled' | 'onPut'> & {
+type OptionsFieldProps = Pick<ParamFieldProps, 'said' | 'beneath' | 'issue' | 'disabled' | 'line' | 'onPut'> & {
   label:      string
-  helperText: string
+  helperText: string | undefined
 }
 
 /** A choice's options, one a line, committed as the box is left: blank lines dropped, each trimmed */
-function OptionsField({ label, said, beneath, helperText, issue, disabled, onPut }: Readonly<OptionsFieldProps>) {
+function OptionsField({ label, said, beneath, helperText, issue, disabled, line, onPut }: Readonly<OptionsFieldProps>) {
   const committed = linesOf(said)
   const { draft, onChange, onBlur } = useDraft(committed, (typed) => {
-    const options = typed.split('\n').map((line) => line.trim()).filter((line) => line !== '')
+    const options = typed.split('\n').map((each) => each.trim()).filter((each) => each !== '')
     onPut(options.length === 0 ? undefined : options)
   })
   return (
     <TextField
-      multiline minRows={3} label={label} size="small" value={draft} disabled={disabled} error={issue !== null} helperText={helperText}
+      multiline minRows={line ? 1 : 3} label={label} size="small" value={draft} disabled={disabled} error={issue !== null} helperText={helperText}
       placeholder={linesOf(beneath)} slotProps={{ inputLabel: { shrink: true } }}
       onChange={(event) => { onChange(event.target.value) }} onBlur={onBlur}
     />
   )
+}
+
+/**
+ * A regular expression as params hold one, or null for anything else: as typed, whether or not it
+ * will do, so the field keeps showing what the form's sentence is said of.
+ */
+function regexOf(said: unknown): RegexT | null {
+  if (! _.isPlainObject(said)) { return null }
+  const { source, flags } = said as Record<string, unknown>
+  return typeof source === 'string' ? { source, flags: typeof flags === 'string' ? flags : '' } : null
 }
 
 /** A list of options as the box shows them, one a line; nothing for anything else */

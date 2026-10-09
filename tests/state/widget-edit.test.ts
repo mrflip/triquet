@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BlankAibotDraft, BlankEntryDraft, BlankJsonataDraft, blankDraftOf, draftOf, planNewWidget, planWidgetEdit, type AibotDraft, type EntryDraft, type JsonataDraft, type WidgetDraft } from '../../src/state/widget-edit'
+import { BlankAibotDraft, BlankEntryDraft, BlankJsonataDraft, BlankLiquidizeDraft, blankDraftOf, draftOf, planNewWidget, planWidgetEdit, type AibotDraft, type EntryDraft, type JsonataDraft, type LiquidizeDraft, type WidgetDraft } from '../../src/state/widget-edit'
 import { Widget } from '../../src/models/widget'
 import { SeedWidgets } from '../../src/models/seeds'
 import { present } from '../support/present'
@@ -15,6 +15,10 @@ const titleLength: WidgetDraft = { ...BlankJsonataDraft, label: 'title_length', 
 const points: EntryDraft = { ...BlankEntryDraft, label: 'points', config: { entry_kind: 'number' } }
 const Points = Widget.fill({ label: 'points', formulary: 'entry', config: { entry_kind: 'number' } })
 
+/** A new template */
+const blurbing: LiquidizeDraft = { ...BlankLiquidizeDraft, label: 'blurbing', formula: '**{{ qn.title }}**' }
+const Blurbing = Widget.fill({ label: 'blurbing', formulary: 'liquidize', formula: '**{{ qn.title }}**' })
+
 /** A new prompt, as pasted in */
 const pasted: AibotDraft = { ...BlankAibotDraft, label: 'riddler', formula: 'Riddle: {{clueing}}. Reply as {"answer": string}.' }
 
@@ -26,6 +30,10 @@ describe("blankDraftOf", () => {
   it("starts a prompt on the clueing, the quick tier and room for a short object", () => {
     expect(blankDraftOf('aibot', { label: 'riddler', description: '' })).to.deep.eq({ ...BlankAibotDraft, label: 'riddler' })
     expect((blankDraftOf('aibot', { label: 'riddler', description: '' }) as AibotDraft).input_formula).to.eq("{ 'clueing': qn.clueing }")
+  })
+
+  it("starts a template on nothing, over the whole bag", () => {
+    expect(blankDraftOf('liquidize', { label: 'blurbing', description: '' })).to.deep.eq({ formulary: 'liquidize', label: 'blurbing', description: '', formula: '', input_formula: '$' })
   })
 
   it("starts an entry as text, as a note is", () => {
@@ -47,6 +55,10 @@ describe("planNewWidget", () => {
 
   it("adds an entry with its kind, and no formula", () => {
     expect(planNewWidget(points, library)).to.deep.eq({ ok: true, actions: [{ kind: 'add_widget', widget: Points }], widget: Points })
+  })
+
+  it("adds a template, over the whole bag", () => {
+    expect(planNewWidget(blurbing, library)).to.deep.eq({ ok: true, actions: [{ kind: 'add_widget', widget: Blurbing }], widget: Blurbing })
   })
 
   it("normalizes the new widget's label", () => {
@@ -127,6 +139,10 @@ describe("draftOf", () => {
 
   it("is a prompt's, with its input formula and config", () => {
     expect(draftOf(dumdum)).to.deep.include({ formulary: 'aibot', label: 'dumdum', input_formula: dumdum.input_formula })
+  })
+
+  it("is a template's, with its input formula", () => {
+    expect(draftOf(Blurbing)).to.deep.eq({ formulary: 'liquidize', label: 'blurbing', description: '', formula: '**{{ qn.title }}**', input_formula: '$' })
   })
 
   it("is an entry's label, description and kind, and nothing it does not have", () => {

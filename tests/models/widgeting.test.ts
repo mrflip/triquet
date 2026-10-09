@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { Question } from '../../src/models/question'
-import { EntryParamnames, ReservedWidgetingLabels, Widgeting, WidgetingValidators } from '../../src/models/widgeting'
+import { FormularyParamnames, ReservedWidgetingLabels, Widgeting, WidgetingValidators } from '../../src/models/widgeting'
 
 const QuizId = 'k57a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 const HuntId = 'k67a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
@@ -112,6 +112,7 @@ describe('Widgeting.runsAt', () => {
   const RunsAtCases = [
     // regular usage:
     [{ formulary: 'jsonata', config: {} },                                                     'quiz',     true,  'a formula runs once for the whole quiz'],
+    [{ formulary: 'liquidize', config: {} },                                                   'quiz',     true,  'a template runs once for the whole quiz'],
     [{ formulary: 'entry', config: { entry_kind: 'text' } },                                   'quiz',     true,  'a text entry runs once for the whole quiz'],
     [{ formulary: 'entry', config: { entry_kind: 'number' } },                                 'quiz',     true,  'a number entry runs once for the whole quiz'],
     [{ formulary: 'entry', config: { entry_kind: 'boolean' } },                                'quiz',     true,  'a yes-or-no entry runs once for the whole quiz'],
@@ -204,8 +205,13 @@ describe('WidgetingValidators.row', () => {
   }
 })
 
-describe('EntryParamnames', () => {
-  it("is every name an entry family gives a param, the reserved ones among them", () => {
-    expect([...EntryParamnames]).to.have.members(['min', 'max', 'integer', 'max_length', 'pattern', 'lines', 'options'])
+describe('FormularyParamnames', () => {
+  it("is every name an entry family or a liquidize widgeting gives a param, the reserved ones among them", () => {
+    expect([...FormularyParamnames]).to.have.members(['min', 'max', 'integer', 'max_length', 'pattern', 'regex', 'lines', 'options', 'template', 'template_from'])
+  })
+
+  it("lets a widgeting's params name a text's regular expression, though `regex` is a reserved word", () => {
+    expect(Widgeting.fill({ widget_label: 'memo', label: 'airport', params: { regex: { source: '^[A-Z]{3}$', flags: '' } } }).params).to.deep.eq({ regex: { source: '^[A-Z]{3}$', flags: '' } })
+    expect(WidgetingValidators.widgeting.safeParse({ widget_label: 'memo', label: 'regex' }).success).to.be.false
   })
 })

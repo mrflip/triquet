@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: threads 1, 4, 3a merged (#191-#193); 2 landed (#196); 3b, 6, 7 underway.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8 landed (#197-#200); 7 landing; 5b underway; 9 queued; 3c last.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -282,6 +282,9 @@ list alone, tier marks kept; both dispatch `move_widgeting`. The one-question ro
 column editor: a pulldown of the quiz's question labels (through `use-preview-bag`'s picker, quiz
 select dropped), beneath it that question's `QuestionRow` drawn from `specsFor` and the quiz's run,
 read-only, grip, checkbox and ask handlers off. Depends on: 5a.
+*Orchestrator, from thread 6's review:* the preview draws from **stored** params only, never a
+draft's: a draft `regex` has not passed recheck. *From 5a:* *+ New widgeting…* and *+ New quiz
+widgeting…* (an inline catalogue now) need a home when the section becomes *Run order*.
 
 ### 6. Free regex patterns (optional)
 
@@ -342,6 +345,31 @@ either way."
 
 Gloss: `src/models/seeds.ts` and the column menu's presets (3b). No row rewrite. Depends on: 3b.
 
+### 9. Compute budgets (added 2026-10-09)
+
+*The Coach, ruling on thread 7's second review:* "Land 7, new budgets thread": a thread of its own,
+before 3c, for the time bounds the reviews found.
+
+Gloss: every place an author's template or formula (or a model's reply read as one) is worked,
+bounded on a clock that moves inside a Convex mutation (`performance.now()`; `Date.now()` stands
+still there: `thread-7-budgets.md`), in the browser's run and the server's (`sortQuestions`):
+* **S1**: refuse LiquidJS's `*_exp` filters (`where_exp`, `reject_exp`, `group_by_exp`, `has_exp`,
+  `find_exp`, `find_index_exp`) in `Liquidry`, as `include` is refused, and cap ranges and
+  allocation well below `memoryLimit`'s 10M (near `FillBudget`); measured: a 99-character
+  `where_exp` over a 3M range took 13.7 s against a 250 ms deadline. Pin both with tests. `Liquidry`
+  serves every Liquid renderer, the prompts' coming move to Liquid (another container) included:
+  say so in the thread file.
+* **C1**: a column's own template (`Columns.textOfShown`) and the templateable fills
+  (`Templating.filledQnOf`) take the column budget as `liquidize` does (thread 7's `columnMs`,
+  `deadlineOf`), not 1 s per fill.
+* **JSONata's timebox** in `Formulas.evaluate` reads `Date.now()`, so on the server it never fires:
+  move it to the moving clock (`clockNow`).
+* **m1**: whether a run as a whole wants a cap (N columns × 250 ms); propose and build if cheap,
+  else record.
+* **m2**: a widgeting whose widget is gone is held only to the row's params validator; hold it to
+  `openParams` (no reserved words), or record why not.
+`notes/security.md` and the decision record follow. Depends on: 7. Runs before 3c.
+
 ### 3c. Columns tighten (last)
 
 *Coach's text:* as 3a's.
@@ -354,7 +382,7 @@ check refuses what the backfill missed; backfills dropped (keep `Backfills` non-
 `Backfilling` emptied, the ledger row added (with the note that nothing rewrites an author's
 formula reading `qn.categories`). Body says `Tightens Serial Deploy: columnwise`; merged only after
 3a's deploy reports `Backfills: every one has finished.` Full e2e run. Depends on: every other
-thread (last, the top of the series).
+thread, 9 included (last, the top of the series).
 
 ## For the Coach
 
@@ -382,3 +410,20 @@ thread (last, the top of the series).
   what it finds before deploying; no change to the read paths. Thread 2's PR says `Before merging:`.
 * **3a's open calls** (minor): the empty-estimates-cell rule (`27bf8b3`); *Category Data* vs
   *Categories* as a new estimates column's header.
+* **3b's open call** (minor): a double-click on a sortable column head sorts once (and saves the
+  sort) before it collapses; holding the sort back needs a timer, a views tripwire. And a
+  collapsed column in the card layout (below 640px) is restored only from the columns editor.
+* **7's open call** (minor): `liquidize`'s `template_from` with no formula reads as a column with
+  no formula does (the field itself, a widgeting's `value`), not `$`; the record's §3 amended.
+* **After the deploy:** `seeding:seedWidgets` (thread 2's four families and thread 7's `blurb`).
+* **Thread 7's review (flagged), ruled 2026-10-08:** a `liquidize` template stopped by a limit
+  stops its column (as a JSONata timeout does), **and** the column gets one shared time budget;
+  decision 5 amended. And one params-key allowlist per formulary (`jsonata`, `aibot`: none).
+* **Before deploying thread 6:** query production for widgetings whose `params` hold a `regex`
+  key (one written by a direct call before the deploy would never be checked); expect none.
+* **5a's call to confirm** (minor): a column whose header is still the automatic one follows what
+  it shows, its formula and its widgeting's relabel (`retitledPatch`); a typed header stays.
+* **`pnpm lane` is shadowed** by pnpm 12's own `lane` command; `pnpm run lane` gives the project's.
+  CLAUDE.md's *Global resources* says `pnpm lane` (thread 8).
+* **8's open call** (minor): should a column whose formula reads an `aibot` widgeting re-ask on a
+  double-click, as a seeded sum's cell does?

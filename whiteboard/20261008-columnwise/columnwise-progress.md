@@ -12,15 +12,16 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 2 | entry families | landed #196 (the spine restarted: #191-#193 merged) |
 | 3a | columns widen (Serial Deploy) | landed #193 |
 | 4 | removal and commit model | landed #192 |
-| 3b | column expression authoring | landing (review clean) |
-| 7 | `liquidize` formulary | in review |
-| 6 | free regex (optional) | underway |
-| 5a | folding editors | pending |
-| 5b | run order in both places, row preview | pending |
-| 8 | seeds pass (optional) | pending |
+| 3b | column expression authoring | landed #197 |
+| 7 | `liquidize` formulary | landing (second review flagged; Coach: land, budgets to thread 9) |
+| 6 | free regex (optional) | landed #198 |
+| 5a | folding editors | landed #199 |
+| 5b | run order in both places, row preview | underway |
+| 8 | seeds pass (optional) | landed #200 |
+| 9 | compute budgets (added) | pending (after 7) |
 | 3c | columns tighten (last) | pending |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more).
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). Next asked-for full run: the twelfth landing, or the sprint's end.
 
 ## What the threads have taught
 
@@ -138,6 +139,98 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   lists a hunt under a new word by id; a widget's defaults can clash with a widgeting's params.
 * **For the deploy (the Coach):** before, the hard grep gate (`human/20261008-cw_families.md`);
   after, `seeding:seedWidgets`.
+
+### From thread 3b (column expression authoring, #197)
+
+* **Stages** (`src/lib/columns.ts`): `ColumnSpec` carries `template`, `readout`, `collapsed`;
+  `drawnOf` is the formula's value (`shownOf`) then the template through `Templating.fill` with
+  `value`; `templatedTextOf` the sheet's text; `readoutOf` the readout in effect (own, else
+  `markdown` with a template, else null); **`isTypedInto` / `isDrawnByEditor` hold the
+  editability rule** (thread 2's checkbox and select go through `EntryCell`, so it covers them).
+  Sorts read the formula's value; the sheet carries the template's text.
+* **The menu** (`src/lib/column-menu.ts`): `refChoicesOf` (grouped refs); `presetsFor` over
+  **`PresetSources`, the list thread 8 extends**.
+* **Generic fields**: `FormulaField.tsx` (MUI Autocomplete over presets), `TemplateField.tsx`;
+  each commits on blur, emptying removes the field, each says its sentence. **Column fields**
+  (`ColumnFields.tsx`): `ColumnRefField`, the four stage fields and `ColumnStagesFields`, each
+  `{ column, locked, onCommit(patch) }`, no dialog state: **5a lifts them**, and moves the row's
+  local fold into `use-folds`.
+* Libraries weighed for the fields: CodeMirror and Monaco (heavy, *Discuss*),
+  `react-simple-code-editor` (a highlighter by hand); MUI only.
+* Grid: a double-click on a head collapses (20px, turned header, empty cells, width kept);
+  `DrawnReadout` (plain, markdown, code, label) for read-only cells. Importer carries a pasted
+  column's stages onto a held one, and takes them off when absent (recorded).
+* Decisions: a template runs only on `ok`; a readout applies only to read-only cells; images in
+  values a person did not type are linked under markdown; a ref change keeps formula and template.
+* *Review:* `clean`, no fixes. Left, minor: **a double-click on a sortable head sorts (and saves
+  that sort) before it collapses** (the Coach's call; a timer is a tripwire); `bagOver` links
+  images in `{{ qn.<computed> }}` even in the sheet; `textedOf`'s key joins with `\n`; a collapsed
+  column in the card layout cannot be restored from its hidden head (columns editor only).
+
+### From thread 6 (free regex, #198)
+
+* **The `regex` param** of a `text` entry: `{ source, flags }` beside the named `pattern` (a cell
+  must match both); one line, at most 200 characters, compiling, flags from `imsu` in order.
+* **recheck** runs in Convex's default runtime through its pure build's `checkSync`
+  (`recheck/lib/browser.js`); `performance.now()` moves inside a mutation, `Date.now()` does not.
+  `src/lib/redos.ts` is its only importer (200 ms a pattern, 500 ms a change; `vulnerable`, every
+  `unknown`, out-of-budget all refused). `convex/writing/regex_vetting.ts` (`refuseRiskyRegexes`)
+  runs in `addWidgeting`, `editWidgeting`, `addWidget`, `editWidget`, `importWidgets`; a pattern
+  the row already holds is not re-checked. A stored pattern is compiled once
+  (`src/lib/regexes.ts`) and handed to Zod in `EntryFormulary.valueOf`.
+* **`RegexField.tsx`**, a field any form can use; recheck reaches the browser only by `import()`
+  (its own 2.8 MB chunk), checked on recheck's worker. The planner does not ask recheck (it is
+  synchronous); the server makes the final call. `pnpm-workspace.yaml` ignores recheck's JVM jar
+  and native binaries.
+* *Review:* `clean`. Left, minor: a `regex` written by a direct call before the deploy is never
+  checked (**the PR's "Before deploying:" query**); an unexpected status refuses with a garbled
+  sentence; the lazy-load guard misses multi-line imports; the compiled memo never shrinks;
+  **5b: a preview testing cells against draft params would run an unchecked pattern: preview from
+  stored params only.**
+
+### From thread 5a (folding editors, #199)
+
+* **The folded fact**: each formulary says what its widgeting folds to, beside `refresh` and
+  `store`: `folded` is `'params'` (entry), `'formula'` (jsonata, the widget's, read-only), `null`
+  (aibot); thread 7 adds `'template'`.
+* **`WidgetingPanel.tsx`**: folded, one row (label, what it works, tier mark, folded line); open,
+  the same row with more beneath (label with *Relabel*, description, the widget with the admin's
+  *Edit the widget…*, the columns showing it via `columnsShowing`, removal with thread 4's refusal).
+  **5b uses it as the Widgets panel's open state.**
+* **`ColumnsEditor.tsx`**: each column a panel, its row unfolding into `ColumnMoreFields`; a
+  column showing a widgeting has that widgeting's panel beneath it. *+ New column…* is a menu
+  ("Showing something the quiz has…", "A new entry…", and for a library-changer "A new widget…"),
+  each making its column at once. `ColumnDialog` and `WidgetingDialog` are gone.
+* **`ExplicitField.tsx`**: "Not kept yet: Relabel keeps it." while a label is typed and not kept;
+  its draft follows the stored label otherwise. Every label field uses it.
+* **Folds** survive a reopen: `useFoldSet(scope)` in `Workbench`, scoped by quiz id, keys per place
+  (`layout-folds.ts`); anything just made arrives open.
+* **Decision (the Coach may confirm):** a header still automatic follows what its column shows, its
+  formula and its widgeting's relabel (`retitledPatch`); a typed header stays.
+* **For 5b:** *+ New widgeting…* and *+ New quiz widgeting…* (an inline catalogue) need a home when
+  the section becomes *Run order*. e2e helpers in `e2e/support.ts`: `pickWidget`, `widgetingPanel`,
+  `columnPanel`, `unfoldBy`, `foldBy`, `relabelWidgeting`, `columnAdded`.
+* *Review:* `fixed`: folded params stop showing what was sent once the stored params move
+  (`pendingShown`); `ExplicitField` forgets typed text once the stored text changes. Left, minor,
+  in TODO: `retitledPatch` reads a column as last loaded (a race with a title blur; the real fix is
+  optimistic updates on the quiz's dispatch); a refused relabel still retitles its column;
+  `ExplicitField` gives way to a relabel made elsewhere while typing (documented).
+
+### From thread 8 (seeds pass, #200)
+
+* **Presets for the seeded sums**: `SeedPresets` in `src/models/seeds.ts` (by widget label:
+  `numnum_clueing`, `numnum_hint`, `butnot_ishes`), built from the same `SumOf` as the seeded
+  widgets; offered by a `seedPresets` source in `ColumnMenu.PresetSources`. The four reshaping
+  sums **stay in the seed list** (a seeded sum's cell re-asks on a double-click; a formula'd
+  column is read-only).
+* **Naming through presets**: `FormulaPreset.names`; `ColumnMenu.namesOf` and `namerOf(quiz,
+  library)`; `retitledPatch` takes an optional namer and `useColumnCommit` requires one, so a
+  column still headed after what it shows takes a preset's header when its formula is picked.
+* A preset on a failed ask (no earlier ok) shows the errored badge where the seeded sum shows the
+  dash: by design, now in the record. *Review:* `clean`.
+* **`pnpm lane` is shadowed** by pnpm 12's own `lane` command (it says "All packages are on the
+  main lane"): `pnpm run lane` or `node scripts/lanes.ts lane` give the project's lane. CLAUDE.md
+  still says `pnpm lane` (the Coach's).
 
 ### From thread 2's review (flagged, ruled)
 

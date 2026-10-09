@@ -35,6 +35,7 @@ import type * as writing_library_actions from "../writing/library_actions.js";
 import type * as writing_perform from "../writing/perform.js";
 import type * as writing_quiz_actions from "../writing/quiz_actions.js";
 import type * as writing_quiz_writing from "../writing/quiz_writing.js";
+import type * as writing_regex_vetting from "../writing/regex_vetting.js";
 import type * as writing_review_actions from "../writing/review_actions.js";
 
 import type {
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   "writing/perform": typeof writing_perform;
   "writing/quiz_actions": typeof writing_quiz_actions;
   "writing/quiz_writing": typeof writing_quiz_writing;
+  "writing/regex_vetting": typeof writing_regex_vetting;
   "writing/review_actions": typeof writing_review_actions;
 }>;
 

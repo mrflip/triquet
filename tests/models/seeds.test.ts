@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import * as Columns from '../../src/lib/columns'
 import * as Runner from '../../src/lib/formulary/runner'
 import { mintId } from '../../src/lib/ids'
 import * as Labelmaker from '../../src/lib/labelmaker'
 import { classicLayout } from '../support/layouts'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
-import { DefaultWidgetings, SeedWidgets } from '../../src/models/seeds'
+import { DefaultWidgetings, SeedPresets, SeedWidgets } from '../../src/models/seeds'
 import { EntryFamilyVals, Widget, type WidgetT } from '../../src/models/widget'
 import { ReservedWidgetingLabels, Widgeting } from '../../src/models/widgeting'
 import { Widgeted, type JsonT, type StoredWidgetedT, type WidgetedHistoryT, type WidgetedT } from '../../src/models/widgeted'
@@ -37,8 +38,17 @@ function seed(label: string): WidgetT {
 }
 
 describe('SeedWidgets', () => {
-  it("is twenty-two widgets, per the doc", () => {
-    expect(SeedWidgets).to.have.lengthOf(22)
+  it("is twenty-three widgets, per the doc", () => {
+    expect(SeedWidgets).to.have.lengthOf(23)
+  })
+
+  it("holds a template, last, that reads well over a question", () => {
+    const blurb = seed('blurb')
+    expect(blurb.formulary).to.eq('liquidize')
+    expect(SeedWidgets.at(-1)).to.eq(blurb)
+    const question = { ...Question.blank(), qnum: '1', title: 'Leon', full_answer: 'Leon\nTrotsky' }
+    const quiz = { ...Quiz.blank('Princes'), questions: [question], widgetings: [Widgeting.fill({ label: 'blurb', widget_label: 'blurb' })] }
+    expect(Runner.widgetedOf(runOf(quiz), 'blurb', question._id)).to.deep.eq(Widgeted.ok('**Leon**: Leon Trotsky'))
   })
 
   it("holds an entry of each family, the category estimates among them, and no preset of text", () => {
@@ -149,6 +159,24 @@ describe('DefaultWidgetings', () => {
   })
 })
 
+describe('SeedPresets', () => {
+  it("offers the two sums for each number spotter, and for the BUT NOT ishes, which hold a spotter's reply", () => {
+    expect(SeedPresets.keys().toArray()).to.deep.eq(['numnum_clueing', 'numnum_hint', 'butnot_ishes'])
+    for (const presets of SeedPresets.values()) { expect(presets.map(({ title }) => title)).to.deep.eq(['Every number-like span, added up', 'The spans written in digits, added up']) }
+  })
+
+  it("names each preset's column as the classic sum column it stands in for, after a seed of the library", () => {
+    const named = SeedPresets.values().flatMap((presets) => presets.map(({ names }) => names)).toArray()
+    expect(named.map(({ label }) => label)).to.deep.eq(['clueing_full', 'clueing_numeral', 'hint_full', 'hint_numeral', 'butnot_full', 'butnot_numeral'])
+    expect(named.map(({ title }) => title)).to.deep.eq(['Clueing Full Sum', 'Clueing Numeral Sum', 'Hint Full Sum', 'Hint Numeral Sum', 'BUT NOT Full Sum', 'BUT NOT Numeral Sum'])
+    for (const { label } of named) { expect(SeedWidgets.map((widget) => widget.label)).to.include(label) }
+  })
+
+  it("is offered only for seeds the library holds", () => {
+    for (const label of SeedPresets.keys()) { expect(seed(label).label).to.eq(label) }
+  })
+})
+
 describe('the seeded formulas, run', () => {
   // `alpha` chains to `beta`, so alpha's BUT NOT sums read beta's hint.
   const alphaId = mintId()
@@ -187,6 +215,41 @@ describe('the seeded formulas, run', () => {
       expect(alphaOf(label, Spotted, BetaSpotted)).to.deep.eq(expected)
     })
   }
+
+  /** What a column showing the widgeting `source`, worked by its `idx`th seeded preset, shows for alpha */
+  function presetOf(source: string, idx: number, alphaStored: QuestionT['stored'], betaStored: QuestionT['stored'] = {}): WidgetedT {
+    const quiz = quizHolding(alphaStored, betaStored)
+    const shown = Columns.resolve(source, quiz.widgetings)
+    const formula = SeedPresets.get(source)?.[idx]?.formula
+    if (! shown || formula === undefined) { throw new Error(`No preset ${String(idx)} for ${source}`) }
+    return Columns.shownOf({ source: shown, formula }, runOf(quiz), [], alphaId)
+  }
+
+  describe('as presets on a column', () => {
+    // Each preset beside the seeded sum it stands in for: the spotter shown, the preset's place, the sum.
+    const Standins: [string, number, string][] = [
+      ['numnum_clueing', 0, 'clueing_full'],
+      ['numnum_clueing', 1, 'clueing_numeral'],
+      ['numnum_hint',    0, 'hint_full'],
+      ['numnum_hint',    1, 'hint_numeral'],
+      ['butnot_ishes',   0, 'butnot_full'],
+      ['butnot_ishes',   1, 'butnot_numeral'],
+    ]
+
+    for (const [source, idx, sum] of Standins) {
+      it(`comes to what ${sum} does, on a column showing ${source}`, () => {
+        expect(presetOf(source, idx, Spotted, BetaSpotted)).to.deep.eq(alphaOf(sum, Spotted, BetaSpotted))
+      })
+    }
+
+    it("comes to missing, as the sums do, when nobody has asked, and shows the badge when the ask failed", () => {
+      for (const [source, idx] of Standins) {
+        expect(presetOf(source, idx, {}).status).to.eq('missing')
+      }
+      expect(presetOf('numnum_hint', 0, { numnum_hint: Failed }).status).to.eq('errored')
+      expect(presetOf('butnot_ishes', 0, Spotted, { numnum_hint: Failed }).status).to.eq('missing')
+    })
+  })
 
   it("shows the chained-to question's spotted hint as the BUT NOT ishes", () => {
     expect(alphaOf('butnot_ishes', Spotted, BetaSpotted)).to.deep.eq(Widgeted.ok(BetaSpotted.numnum_hint.newest.value))

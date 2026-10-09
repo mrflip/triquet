@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { EstimatesColumnWidthPx, NewColumnWidthPx, planWidgetingEdit, runOrderIdxOf, type WidgetingEdit } from '../../src/lib/widgeting-edit'
+import { EstimatesColumnWidthPx, NewColumnWidthPx, newColumnShowing, planWidgetingEdit, runOrderIdxOf, type WidgetingEdit } from '../../src/lib/widgeting-edit'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
 import { Widgeting, type WidgetingT } from '../../src/models/widgeting'
-import { defaultLayout } from '../../src/models/layout'
+import { AddedColumnWidthPx, defaultLayout } from '../../src/models/layout'
 import { classicLayout } from '../support/layouts'
 import { SeedWidgets } from '../../src/models/seeds'
 import type { HuntActionDNA } from '../../src/models/actions'
@@ -32,8 +32,8 @@ function actionsOf(edit: WidgetingEdit, target: QuizT = quiz, held = library): H
 }
 
 describe("NewColumnWidthPx", () => {
-  it("gives a number its narrow column, and a model's answer and an entry a wide one", () => {
-    expect(NewColumnWidthPx).to.deep.eq({ jsonata: 78, aibot: 170, entry: 170 })
+  it("gives a number its narrow column, a model's answer and an entry a wide one, and a template's text a wider", () => {
+    expect(NewColumnWidthPx).to.deep.eq({ jsonata: 78, aibot: 170, entry: 170, liquidize: 220 })
   })
 })
 
@@ -56,6 +56,20 @@ describe("planWidgetingEdit, editing a widgeting", () => {
 
   it("relabels a widgeting, which the reducer carries to its columns", () => {
     expect(actionsOf(untouched({ label: 'Hint Total!' }))).to.deep.eq([{ kind: 'edit_widgeting', label: 'hint_full', patch: { label: 'hint_total' } }])
+  })
+
+  it("heads a column still headed after the widgeting's old label after its new one, as a new column is", () => {
+    const plain = { ...quiz, columns: quiz.columns.map((column) => (column.source === 'hint_full' ? { ...column, title: 'Hint Full' } : column)) }
+    const actions = actionsOf(untouched({ label: 'hint_total' }), plain)
+    const column = present(plain.columns.find((each) => each.source === 'hint_full'))
+    expect(actions).to.deep.eq([
+      { kind: 'edit_widgeting', label: 'hint_full', patch: { label: 'hint_total' } },
+      { kind: 'edit_column',    label: column.label, patch: { title: 'Hint Total' } },
+    ])
+  })
+
+  it("leaves a column the author has headed otherwise as it is headed", () => {
+    expect(actionsOf(untouched({ label: 'hint_total' })).map((action) => action.kind)).to.deep.eq(['edit_widgeting'])
   })
 
   it("reads a cleared label as its widget's, which it already has", () => {
@@ -249,5 +263,22 @@ describe("runOrderIdxOf", () => {
 
   it("lands among the entries' rest wherever they are, the entries themselves never counted", () => {
     expect(runOrderIdxOf([...remark, ...listOf('guess')], isEntry, 'guess', 0)).to.eq(1)
+  })
+})
+
+describe("newColumnShowing", () => {
+  it("adds a column at the end, titled and labelled after what it shows, as wide as a new column is", () => {
+    const action = newColumnShowing({ columns: [] }, 'notes')
+    expect(action).to.deep.eq({ kind: 'add_column', column: { label: 'notes', title: 'Notes', source: 'notes', width_px: AddedColumnWidthPx } })
+  })
+
+  it("grows the label while another column has it", () => {
+    const held = newColumnShowing({ columns: [] }, 'notes').column
+    expect(newColumnShowing({ columns: [held] }, 'notes').column.label).to.eq('notes_2')
+  })
+
+  it("names a widgeting's column after the widgeting", () => {
+    const { column } = newColumnShowing(quiz, 'hint_full')
+    expect([column.label, column.title, column.source]).to.deep.eq(['hint_full_2', 'Hint Full', 'hint_full'])
   })
 })

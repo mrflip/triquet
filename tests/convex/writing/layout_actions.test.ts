@@ -609,10 +609,60 @@ describe("a widgeting's params", () => {
     expect(await seeded.read()).to.deep.eq(held)
   })
 
+  it("keep a text's regular expression recheck finds safe, and refuse, writing nothing, one it does not", async () => {
+    const seeded = await seed()
+    await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'memo', label: 'airport', params: { regex: { source: '^[A-Z]{3}$' } } } })
+    expect(paramsOf(await seeded.read(), 'airport')).to.deep.eq({ regex: { source: '^[A-Z]{3}$', flags: '' } })
+    await expectRefused(seeded,
+      [{ kind: 'add_widgeting', widgeting: { widget_label: 'memo', label: 'shout', params: { regex: { source: '^(A+)+$' } } } }, 'regexRisky'],
+      [{ kind: 'edit_widgeting', label: 'airport', patch: { params: { regex: { source: '^([A-Z]|[A-Z])*$' } } } },               'regexRisky'])
+  })
+
+  it("refuse a regular expression with a sentence naming it, how its time grows and where", async () => {
+    const seeded = await seed()
+    await expect(seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'memo', label: 'shout', params: { regex: { source: '^(A+)+$', flags: 'i' } } } }))
+      .rejects.toThrow('The pattern «/^(A+)+$/i» could take far too long to match some texts (twice as long for each character more), around «')
+  })
+
+  it("keep what else they say when a regular expression the widgeting already holds is sent again", async () => {
+    const seeded = await seed()
+    await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'memo', label: 'airport', params: { regex: { source: '^[A-Z]{3}$' } } } })
+    await seeded.act({ kind: 'edit_widgeting', label: 'airport', patch: { params: { regex: { source: '^[A-Z]{3}$', flags: '' }, max_length: 3 } } })
+    expect(paramsOf(await seeded.read(), 'airport')).to.deep.eq({ regex: { source: '^[A-Z]{3}$', flags: '' }, max_length: 3 })
+  })
+
+  it("are a liquidize widgeting's template, of its own or from the bag, and refused when the Liquid will not read", async () => {
+    const seeded = await seed()
+    await seeded.actOnLibrary({ kind: 'add_widget', widget: { label: 'blurbish', formulary: 'liquidize', formula: '{{ qn.title }}' } })
+    await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'blurbish', label: 'blurbing', params: { template: '*{{ qn.hint }}*' } } })
+    expect(paramsOf(await seeded.read(), 'blurbing')).to.deep.eq({ template: '*{{ qn.hint }}*' })
+    await seeded.act({ kind: 'edit_widgeting', label: 'blurbing', patch: { params: { template_from: { ref: 'notes' } } } })
+    expect(paramsOf(await seeded.read(), 'blurbing')).to.deep.eq({ template_from: { ref: 'notes' } })
+    const held = await seeded.read()
+    await expect(seeded.act({ kind: 'edit_widgeting', label: 'blurbing', patch: { params: { template: '{% if qn.hint %}' } } })).rejects.toThrow(/does not read as Liquid/)
+    await expect(seeded.act({ kind: 'edit_widgeting', label: 'blurbing', patch: { params: { size: 3 } } })).rejects.toThrow()
+    expect(await seeded.read()).to.deep.eq(held)
+  })
+
+  it("let a liquidize widgeting run once for the whole quiz", async () => {
+    const seeded = await seed()
+    await seeded.actOnLibrary({ kind: 'add_widget', widget: { label: 'blurbish', formulary: 'liquidize', formula: '{{ qns | size }} questions' } })
+    await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: 'blurbish', label: 'roster', tier: 'quiz' } })
+    expect(tiersOf(await seeded.read()).at(-1)).to.eq('roster:quiz')
+  })
+
   it("are any few settings for a formula's widgeting, as ever", async () => {
     const { act, read } = await seed()
     await act({ kind: 'add_widgeting', widgeting: { ...Backward, params: { size: 3 } } })
     expect(paramsOf(await read(), 'backward')).to.deep.eq({ size: 3 })
+  })
+
+  it("are refused for a formula's widgeting under a reserved word another formulary names its params by", async () => {
+    const seeded = await seed()
+    const ante = await seeded.read()
+    await expect(seeded.act({ kind: 'add_widgeting', widgeting: { ...Backward, params: { template: 'x' } } })).rejects.toThrow()
+    await expect(seeded.act({ kind: 'add_widgeting', widgeting: { ...Backward, params: { min: 1 } } })).rejects.toThrow()
+    expect(await seeded.read()).to.deep.eq(ante)
   })
 })
 

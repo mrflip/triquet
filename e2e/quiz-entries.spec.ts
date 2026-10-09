@@ -1,17 +1,15 @@
 import type { Locator, Page } from '@playwright/test'
-import { addWidgeting, cellOf, closeManage, expect, faceOf, freshWidgetLabel, manageDialog, openManage, openPanel, pickWidget, reloadOnceSaved, stepBy, test } from './support'
+import { addWidgeting, cellOf, closeManage, expect, faceOf, freshWidgetLabel, manageDialog, openManage, openPanel, pickWidget, relabelWidgeting, reloadOnceSaved, stepBy, test, widgetingPanel } from './support'
 
 /**
- * Write a new text entry widget into the library, labelled `widget_label`, through the quiz
- * widgetings' own door, and put it to work once for the whole quiz under `label`; close the gear's
- * dialog.
+ * Write a new text entry widget into the library, labelled `widget_label`, through the door
+ * beside the catalogue of *+ New quiz widgeting…*, which puts it to work once for the whole quiz
+ * as it is written; relabel it `label`, and close the gear's dialog.
  */
 async function addQuizEntry(page: Page, widget_label: string, label: string) {
   await openManage(page)
   await page.getByRole('button', { name: '+ New quiz widgeting…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New quiz widgeting' })
-  await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label)
-  await editor.getByRole('button', { name: 'New widget…' }).click()
+  await manageDialog(page).getByRole('button', { name: 'New widget…' }).click()
   const maker = page.getByRole('dialog', { name: /^New widget(?!ing)/ })
   await maker.getByRole('combobox', { name: 'Formulary' }).click()
   await page.getByRole('option', { name: /^An entry/ }).click()
@@ -20,23 +18,20 @@ async function addQuizEntry(page: Page, widget_label: string, label: string) {
   await page.getByRole('option', { name: /^Text/ }).click()
   await maker.getByRole('button', { name: 'Apply' }).click()
   await expect(maker).toHaveCount(0)
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(editor).toHaveCount(0)
+  await relabelWidgeting(page, widget_label, label)
   await closeManage(page)
 }
 
 /**
  * Through the gear's dialog, which must be open: the library's widget `widget_label` put to work
- * once for the whole quiz under `label`, its settings said by `settle` when given.
+ * once for the whole quiz as it is picked, relabelled `label`, its settings said in its folded line
+ * by `settle` when given.
  */
 async function quizWidgetingAdded(page: Page, widget_label: string, label: string, settle?: (settings: Locator) => Promise<void>) {
   await page.getByRole('button', { name: '+ New quiz widgeting…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New quiz widgeting' })
-  await pickWidget(page, editor, widget_label)
-  await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label)
-  if (settle) { await settle(editor.getByRole('group', { name: 'Settings' })) }
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(editor).toHaveCount(0)
+  await pickWidget(page, manageDialog(page).getByRole('combobox', { name: 'A new widgeting, for the whole quiz' }), widget_label)
+  await relabelWidgeting(page, widget_label, label)
+  if (settle) { await settle(widgetingPanel(page, label).getByRole('group', { name: `Settings of ${label}` })) }
 }
 
 /** The Quiz entries panel, unfolded */
@@ -51,7 +46,7 @@ async function leaveBox(page: Page) {
 
 /** The last two rows of the gear's one list of widgetings, both tiers */
 async function lastTwoListed(page: Page): Promise<(string | null)[]> {
-  const labels = await manageDialog(page).getByRole('list', { name: 'Widgetings' }).getByRole('group').evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+  const labels = await manageDialog(page).getByRole('list', { name: 'Widgetings' }).getByRole('group', { name: /^Widgeting / }).evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
   return labels.slice(-2)
 }
 
@@ -84,8 +79,8 @@ test('quiz and question widgetings share one run order, marked by tier, and one 
   await quizWidgetingAdded(page, 'clueing_full', 'quiz_sum')
   // A new widgeting goes in last, whichever its tier.
   await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting hint_full', 'Widgeting quiz_sum'])
-  await expect(manageDialog(page).getByRole('group', { name: 'Widgeting quiz_sum' })).toContainText('whole quiz')
-  await expect(manageDialog(page).getByRole('group', { name: 'Widgeting hint_full' })).toContainText('each question')
+  await expect(widgetingPanel(page, 'quiz_sum')).toContainText('whole quiz')
+  await expect(widgetingPanel(page, 'hint_full')).toContainText('each question')
   await stepBy(manageDialog(page).getByRole('button', { name: 'Reorder quiz_sum' }), -1)
   await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting quiz_sum', 'Widgeting hint_full'])
   await closeManage(page)

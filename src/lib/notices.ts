@@ -81,6 +81,7 @@ export const RefusalNotices = {
   tierUnoffered:    'Only a formula or an entry of one value can run once for the whole quiz.',
   wrongTier:        'That widgeting runs at the other level: once for the whole quiz, or for each question.',
   entryKindFixed:   "An entry's kind is fixed once it is made — make a new widget instead.",
+  regexRisky:       'That regular expression could take too long to match some text — make it simpler.',
   lastQuiz:         "A realm's last quiz can't be deleted on its own — it goes with its hunt.",
   huntNotEmptied:   AppNotices.deletingHunt,
   notInRealm:       'That quiz belongs to another realm.',

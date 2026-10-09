@@ -15,6 +15,7 @@ import { QuizManageModal } from './QuizManageModal'
 import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
 import { useChecklist } from './use-checklist'
+import { useFoldSet } from './use-folds'
 import * as HuntMirror from '../state/hunt-mirror'
 import type * as Actor from '../lib/actor'
 import { useAsking, type AskedStep } from '../state/use-asking'
@@ -68,6 +69,8 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
   const [chainDescending, setChainDescending] = useState(true)
   const [managing, setManaging] = useState(false)
+  // Kept here, outside the manage dialog, so its panels stay as they were left across a reopen.
+  const layoutFolds = useFoldSet(quiz._id)
   const [editingLibrary, setEditingLibrary] = useState(false)
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
   // column is never out of step with what it reads.
@@ -161,6 +164,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           offers={offers}
           dispatch={dispatch}
           changeLibrary={librarian.dispatch}
+          folds={layoutFolds}
           onOpen={goTo}
           onEditLibrary={() => { setEditingLibrary(true) }}
           onRetitleHunt={(title) => { dispatch({ kind: 'retitle_hunt', title }) }}

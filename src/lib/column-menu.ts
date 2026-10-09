@@ -1,8 +1,9 @@
 import * as Labelmaker from './labelmaker'
 import * as Estimates from './estimates'
-import type { Resolved } from './columns'
-import { BagWordVals, type BagWord, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, WidgetingPartTitles, WidgetingPartVals, partFormulaOf, widgetingSourceOf } from '../models/column'
+import { resolve, type Resolved } from './columns'
+import { BagWordVals, type BagWord, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, WidgetingPartTitles, WidgetingPartVals, namesFor, partFormulaOf, widgetingSourceOf, type ColumnNamer } from '../models/column'
 import { QuizBagValidators } from '../models/quiz-bag'
+import { SeedPresets } from '../models/seeds'
 import type { WidgetingT } from '../models/widgeting'
 import type { WidgetT } from '../models/widget'
 
@@ -56,6 +57,8 @@ export type FormulaPreset = {
   formula: string
   /** What it picks or works out, in a few words */
   title:   string
+  /** The label and header a column taking it is given when the author gives neither; absent, the column is named for its ref (`namesFor`) */
+  names?:  { label: string, title: string }
 }
 
 /** What the ref picks, as the presets are offered for it: the thing found, and the widget of a widgeting, when the library has it */
@@ -94,13 +97,19 @@ const partPresets: PresetSource = ({ shown, widget }) => {
   return WidgetingPartVals.map((part) => ({ formula: partFormulaOf(part), title: WidgetingPartTitles[part] }))
 }
 
+/** The reshapes the seeds offer for a widgeting of a seeded widget the library has: a number spotter's sums (`SeedPresets`) */
+const seedPresets: PresetSource = ({ shown, widget }) => {
+  if (widget === null || shown.kind !== 'widgeting') { return [] }
+  return [...(SeedPresets.get(widget.label) ?? [])]
+}
+
 /**
  * Where the presets come from, each offering them for the things it knows: the parts of a
- * category-estimate entry, and the field names of a word of the bag whose schema is known. A
- * thing with no known schema (a field's text, a formula's or a bot's result) is offered none, and
- * takes a formula typed in. Add a source here to offer more.
+ * category-estimate entry, the reshapes of a seeded widget's widgeted, and the field names of a
+ * word of the bag whose schema is known. A thing with no known shape (a field's text, a formula's
+ * result, most bots' replies) is offered none, and takes a formula typed in. Add a source here to offer more.
  */
-export const PresetSources: readonly PresetSource[] = [partPresets, fieldNamePresets]
+export const PresetSources: readonly PresetSource[] = [partPresets, seedPresets, fieldNamePresets]
 
 /**
  * The formulas offered beside a ref, for what it picks.
@@ -127,4 +136,40 @@ export function presetsFor(subject: PresetSubject): FormulaPreset[] {
 export function subjectOf(shown: Resolved, library: readonly WidgetT[]): PresetSubject {
   const widget = shown.kind === 'widgeting' ? library.find((each) => each.label === shown.widgeting.widget_label) ?? null : null
   return { shown, widget }
+}
+
+/**
+ * The label and header a column showing `source`, worked by `formula`, is given when the author
+ * gives neither: the names the preset it took carries, when it took one that does; else as
+ * `namesFor` names it.
+ *
+ * @param source - The column's ref.
+ * @param formula - Its formula, if any.
+ * @param presets - What was offered beside the ref (`presetsFor`).
+ * @returns The label and the title.
+ *
+ * @example namesOf('numnum_hint', '$floor($sum($append([0], $.value.items.value)) + 0.5)', presets)  // => { label: 'hint_full', title: 'Hint Full Sum' }
+ * @example namesOf('category_data', '$.masie', presets)                                             // => { label: 'category_data_masie', title: 'Masie' }
+ */
+export function namesOf(source: string, formula: string | null, presets: readonly FormulaPreset[]): { label: string, title: string } {
+  const taken = formula === null ? undefined : presets.find((preset) => preset.formula === formula)
+  return taken?.names ?? namesFor(source, formula)
+}
+
+/**
+ * How a column of `quiz` is named for what it shows (`namesOf`), the presets offered beside each
+ * ref found among its widgetings and the library: what `retitledPatch` heads a column by, so a
+ * header still after what a column shows follows a preset it takes to the preset's own names.
+ *
+ * @param quiz - The quiz's widgetings, which say what a ref picks.
+ * @param library - The library, which says what a widgeting's widget is.
+ * @returns The namer.
+ *
+ * @example namerOf(quiz, library)('numnum_hint', '$floor($sum($append([0], $.value.items.value)) + 0.5)')  // => { label: 'hint_full', title: 'Hint Full Sum' }
+ */
+export function namerOf(quiz: { widgetings: readonly WidgetingT[] }, library: readonly WidgetT[]): ColumnNamer {
+  return (source, formula) => {
+    const shown = resolve(source, quiz.widgetings)
+    return namesOf(source, formula, shown === null ? [] : presetsFor(subjectOf(shown, library)))
+  }
 }

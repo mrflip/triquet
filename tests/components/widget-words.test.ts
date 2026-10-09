@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EntryKindWords, FormularyWords, ParamWords, StatusWords, TextLinesWords, TextPatternWords, paramsGist, statusLine, statusPhrases, usageLine } from '../../src/components/widget-words'
+import { EntryKindWords, FormularyWords, ParamWords, StatusWords, TextLinesWords, TextPatternWords, paramsGist, statusLine, templateFromGist, statusPhrases, usageLine } from '../../src/components/widget-words'
 import { EntryKindVals, EntryParamsOf, FormularykindVals, TextLinesVals, TextPatternVals } from '../../src/models/widget'
 import type { EntryInForceT } from '../../src/lib/formulary/entry'
 import { WidgetedStatusVals } from '../../src/models/widgeted'
@@ -54,6 +54,8 @@ describe("paramsGist", () => {
     [{ family: 'text', params: { pattern: 'url', max_length: 200 } },   "A web address, at most 200 characters.",         'a text held to a pattern and a length'],
     [{ family: 'text', params: { lines: 'one' } },                      "One line.",                                      'a text of one line'],
     [{ family: 'text', params: { max_length: 9 } },                     "At most 9 characters.",                          'a text of a length alone'],
+    [{ family: 'text', params: { regex: { source: '^[A-Z]{3}$', flags: '' } } }, "Matching /^[A-Z]{3}$/.",            'a text held to its own regular expression'],
+    [{ family: 'text', params: { pattern: 'oneline', regex: { source: 'otter', flags: 'i' }, max_length: 40 } }, "One line of anything, matching /otter/i, at most 40 characters.", 'a text held to a named pattern, its own regular expression and a length'],
     [{ family: 'enum', params: { options: ['easy', 'hard'] } },         "One of: easy, hard.",                            'a choice of its options'],
     [{ family: 'enum', params: {} },                                    "No options yet: give its widgeting some.",       'a choice with nothing to choose'],
     // nothing to say:
@@ -100,5 +102,12 @@ describe("statusPhrases", () => {
 describe("StatusWords", () => {
   it("speaks of every status", () => {
     expect(Object.keys(StatusWords)).to.have.members([...WidgetedStatusVals])
+  })
+})
+
+describe("templateFromGist", () => {
+  it("names where a template is read from, and by what formula", () => {
+    expect(templateFromGist({ ref: 'notes' })).to.eq('Read from notes, for each question.')
+    expect(templateFromGist({ ref: 'dumdum', formula: '$.value.template' })).to.eq('Read from dumdum by $.value.template, for each question.')
   })
 })

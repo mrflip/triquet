@@ -3,7 +3,8 @@ import * as Rank from '../rank'
 import * as Estimates from '../estimates'
 import * as Wheel from '../wheel'
 import { huntTitleOf, realmTitleOf } from '../rows'
-import { formularyFor, type InputOutcome } from './formularies'
+import { clockNow } from '../liquidry'
+import { formularyFor, type InputOutcome, type LiveFormulary } from './formularies'
 import { Hunt, type HuntT } from '../../models/hunt'
 import { ArchivedField, Question, RankField, SecondaryField, type QuestionT } from '../../models/question'
 import { Quiz, type QuizT } from '../../models/quiz'
@@ -116,7 +117,9 @@ const GoneMessage = (widget_label: string) => `There is no widget called "${widg
  *
  * Nothing here throws, and nothing is asked of a model. A formula that fails costs its own cells;
  * one that will not stop is stopped, after which the rest of its widgeting reads the same failure
- * rather than waiting on it again. A widgeting whose widget is gone reads as that failure.
+ * rather than waiting on it again; and a formulary that bounds a whole column (`columnMs`, a
+ * template's) is stopped there too, once the column has had its time. A widgeting whose widget
+ * is gone reads as that failure.
  *
  * @param source - The quiz, its place, its widgetings and their widgets, and its stored widgeteds.
  * @returns The run.
@@ -429,8 +432,13 @@ function quizCellOf(step: RunStep, bag: QuizBag, quizStoredOf: RunSource['quizSt
   const { widgeting, widget } = step
   if (widget === null) { return Widgeted.errored({ message: GoneMessage(widgeting.widget_label), at: null, response: null }) }
   const formulary = formularyFor(widget)
-  if (formulary.refresh === 'live') { return formulary.run(widget, widgeting, bag).widgeted }
+  if (formulary.refresh === 'live') { return formulary.run(widget, widgeting, bag, deadlineOf(formulary)).widgeted }
   return widgetedFrom(quizStoredOf(widgeting))
+}
+
+/** When a column of `formulary`'s, begun now, must be worked out by: its `columnMs` from now, on a clock that moves inside a Convex mutation; none for no bound */
+function deadlineOf(formulary: LiveFormulary): number | undefined {
+  return formulary.columnMs === null ? undefined : clockNow() + formulary.columnMs
 }
 
 /** One widgeting worked out, or projected from what it stored (asked or typed), for every question */
@@ -443,10 +451,11 @@ function columnOf(step: RunStep, bags: readonly QuizBag[], questions: readonly Q
   const formulary = formularyFor(widget)
   if (formulary.refresh === 'live') {
     const widgeteds: WidgetedT[] = []
+    const deadline = deadlineOf(formulary)
     let stopped: WidgetedT | null = null
     for (const bag of bags) {
       if (stopped !== null) { widgeteds.push(stopped); continue }
-      const ran = formulary.run(widget, widgeting, bag)
+      const ran = formulary.run(widget, widgeting, bag, deadline)
       widgeteds.push(ran.widgeted)
       if (ran.stops) { stopped = ran.widgeted }
     }

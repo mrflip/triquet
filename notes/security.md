@@ -14,6 +14,12 @@ security expert who knows what questions to ask.
   written `&#33;[` in the template's bag (`Templating.bagOf`). An image whose `![` the template's
   own text supplies (`![map]({{qn.col}})`, or a `!` typed just before a tag) takes its address from
   the column.
+* 2026-10-08 (columnwise sprint, thread 6): a smith writes regular expressions of their own (a
+  `text` entry's `regex` param, or an admin a widget's default), run against every cell typed into
+  that column, in every smith's browser and on the server as the cell is written. A pattern is held
+  to recheck's verdict (`lib/redos.ts`) where a mutation writes it, and refused unless recheck calls
+  it `safe` within 200 ms; past that it is trusted and never checked again, nor timeboxed as it
+  runs. Its source is at most 200 characters, its flags `i`, `m`, `s` and `u` only.
 * `Actor.isAdmin` is an equality check on the username, against the deployment's `TRIQUET_ADMINS`
   (production: `mrflip`), made on the server as it builds the actor and carried to the browser;
   `*` makes every username an admin, which `scripts/convex_dev` sets on every local backend.
@@ -34,3 +40,15 @@ security expert who knows what questions to ask.
   every smith's browser, under the same budgets and own-keys reading as a field template. A
   computed value (`jsonata`, `aibot`, `liquidize`) reaches markdown with its images made links,
   through a column's template or its markdown readout alike.
+* 2026-10-08 (columnwise sprint, thread 7): a `liquidize` widgeting's template (`src/lib/formulary/
+  liquidize.ts`) is written by any smith of the quiz (its params) or an admin (its widget), and runs
+  wherever the quiz is run: in every smith's browser, and on the server, inside the Convex mutation
+  that sorts a quiz by a column (`sortQuestions`), so a template read from a bot's reply
+  (`template_from`) is model output filled in as Liquid in a mutation too. Its input is the formula
+  bag itself, or what its input formula made, through `Formulas.plainJson`; a test holds a function
+  in the input to that. Each fill is stopped past `Liquidry.RenderMs` and each column past
+  `LiquidizeFormulary.columnMs`, on `performance.now()`: LiquidJS's own time limit reads
+  `Date.now()` inside Convex (it finds no `global.performance` there), which stands still through a
+  mutation, so it never fired on the server (probed on a local backend, 2026-10-08). JSONata's
+  timebox (`Formulas.evaluate`) reads `Date.now()` too, and so stops a long formula on the server
+  only by its depth guard.

@@ -18,7 +18,7 @@ import type { Formularykind, WidgetT } from '../models/widget'
  * `react-markdown` and `rehype-sanitize` (`Markdown.RenderOptions`), on the board
  * `Bbjank.toBbjank`. So a value holding `<script>` is shown as the characters typed, and a value
  * holding `**bold**` is bold, since it was filled in before the parser read it. One thing is
- * changed on the way in: an image in a formula's or a bot's column is made a link to it, so only
+ * changed on the way in: an image in a formula's, a bot's or a template's column is made a link to it, so only
  * text a person typed draws an image.
  *
  * Liquid as `Liquidry` holds it: interpreted, reading only what the bag itself holds at a key,
@@ -45,14 +45,16 @@ export type ValuedBag = TemplateBag & { value: unknown }
 
 /**
  * A template filled in: `markdown` is what it came to, or, when it could not be filled, the
- * template as typed, with `issue` saying why. Either way `markdown` is ready for the parser.
+ * template as typed, with `issue` saying why and `failkind` what kind of failure it was (a limit
+ * stopping it, `limit`, among them). Either way `markdown` is ready for the parser.
  */
 export type FilledT = {
   markdown: string
   issue:    string | null
+  failkind: Liquidry.RenderFailkind | null
 }
 
-export { FillBudget, FilledMax, ShapedMax } from './liquidry'
+export { FillBudget, FilledMax, RenderMs, ShapedMax, clockNow } from './liquidry'
 
 /** A filter of the app's: a value, as it would fill in, shaped */
 export type HelperT = Liquidry.ShaperT
@@ -97,24 +99,29 @@ export function inOrder(qns: unknown): Record<string, unknown>[] {
 const Renderer = Liquidry.rendererFor({ fillingOf, shapers: Helpers, filters: { in_order: inOrder } })
 
 /**
- * `template` filled in over `bag`, or the template as typed with what is wrong with it.
+ * `template` filled in over `bag`, or the template as typed with what is wrong with it. The one
+ * fill: a templateable source's text over its question's template bag, and a `liquidize`
+ * widget's template over what its input came to.
  *
  * Nothing is escaped or cleaned: a string fills in as it is, a number or a yes-or-no as its text,
  * a widgeted (`{{ qn.my_column }}`) as its value's text (nothing, when it has none), and anything
- * else as its JSON. A key the bag lacks fills in as nothing. Never throws.
+ * else as its JSON. A key the bag lacks fills in as nothing. Never throws. Stopped past
+ * `Liquidry.RenderMs`, or at `deadline` when that is sooner.
  *
- * @param template - A field's text, as typed.
- * @param bag - What it reads (`bagOf`).
+ * @param template - A field's text, as typed, or a template.
+ * @param bag - What it reads (`bagOf`), or any plain JSON object: only its own keys are read.
+ * @param deadline - A `clockNow()` reading by which it must be filled in; none but `RenderMs` when absent.
  * @returns Markdown, for the parser and then the sanitizer.
  *
- * @example fill('By {{ qn.author }}', bag)                         // => { markdown: 'By Ada', issue: null }
- * @example fill('{{ qn.size }} words', bag)                        // => { markdown: '30 words', issue: null }   (a widgeted's value)
- * @example fill('{% for qn in qns %}{{ qn.title }} {% endfor %}', bag)  // => { markdown: 'One Two ', issue: null }
- * @example fill('{% if qn.hint %}', bag)                            // => { markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1' }
+ * @example fill('By {{ qn.author }}', bag)                         // => { markdown: 'By Ada', issue: null, failkind: null }
+ * @example fill('{{ qn.size }} words', bag)                        // => { markdown: '30 words', issue: null, failkind: null }   (a widgeted's value)
+ * @example fill('{% for qn in qns %}{{ qn.title }} {% endfor %}', bag)  // => { markdown: 'One Two ', issue: null, failkind: null }
+ * @example fill('{% if qn.hint %}', bag)                            // => { markdown: '{% if qn.hint %}', issue: 'tag {% if qn.hint %} not closed, line:1, col:1', failkind: 'syntax' }
+ * @example fill('{% for x in qns %}{% endfor %}', bag, clockNow()).failkind  // => 'limit'
  */
-export function fill(template: string, bag: TemplateBag): FilledT {
-  const { text, issue } = Renderer.render(template, bag)
-  return { markdown: text, issue }
+export function fill(template: string, bag: TemplateBag | Readonly<Record<string, unknown>>, deadline?: number): FilledT {
+  const { text, issue, failkind } = Renderer.render(template, bag, deadline)
+  return { markdown: text, issue, failkind }
 }
 
 /**
@@ -136,7 +143,7 @@ export function issueOf(template: string): string | null {
  * place, the hunt's categories and the quiz, and its questions as they stand once every widgeting
  * has run, so a template sees every column -- in `qns` those a screen shows (all but the
  * archived), in `quiz.questions` every one. `qn` is the question itself, archived or not. An image
- * in a formula's or a bot's column comes as a link to it (`imagesLinkedOf`). The one place a
+ * in a formula's, a bot's or a template's column comes as a link to it (`imagesLinkedOf`). The one place a
  * template's bag is made; widen it here.
  *
  * @param run - The quiz, run.
@@ -231,8 +238,8 @@ function bagOver(run: QuizRun, questions: readonly Record<string, unknown>[], qu
   }
 }
 
-/** The formularies whose columns are worked out, not typed: a formula's and a bot's */
-const ComputedFormularies: ReadonlySet<Formularykind> = new Set(['jsonata', 'aibot'])
+/** The formularies whose columns are worked out, not typed: a formula's, a bot's and a template's */
+const ComputedFormularies: ReadonlySet<Formularykind> = new Set(['jsonata', 'aibot', 'liquidize'])
 
 /**
  * Whether what `widget` comes to is worked out rather than typed (a formula's or a bot's), and so
@@ -251,7 +258,7 @@ const LinkedOf = new WeakMap<readonly Record<string, unknown>[], { quiz: Record<
 
 /**
  * The run's quiz and `questions` as a template reads them: in each computed column's widgeted (a
- * formula's or a bot's, never an entry's or a field), every image is a link to it (`![alt](src)`
+ * formula's, a bot's or a `liquidize` template's, never an entry's or a field), every image is a link to it (`![alt](src)`
  * becomes `&#33;[alt](src)`, a `!` and then a link), so a value a template fills in can make no
  * browser fetch from an address it chose. Typed text keeps its images. Formulas read the run
  * itself, untouched.

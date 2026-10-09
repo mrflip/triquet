@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cellOf, expect, stubAsk, test, waitUntilSaved } from './support'
+import { cellOf, closeManage, columnAdded, columnPanel, expect, openManage, stubAsk, test, waitUntilSaved } from './support'
 
 const ThreeSpans = [
   { text: '#17-19', value: 36, kind: 'numeral' },
@@ -103,4 +103,25 @@ test('double-clicking a Full Sum re-extracts what is behind it', async ({ page }
   await stubIshes(page, ThreeSpans)
   await cellOf(page, 0, 'Clueing Full').dblclick()
   await expect(cellOf(page, 0, 'Numnum Clueing')).toContainText('douzaine')
+})
+
+test.describe('with only the clueing\'s number spotter, and no sum', () => {
+  test.use({ layout: { widgetings: ['numnum_clueing'] } })
+
+  test("a column showing the spotter is offered its sums as formulas, and its header follows the sum it takes", async ({ page }) => {
+    await openManage(page)
+    await columnAdded(page, 'numnum_clueing')
+    const panel = columnPanel(page, 'Numnum Clueing')
+    await panel.getByRole('combobox', { name: 'Formula' }).click()
+    await page.getByRole('option', { name: /The spans written in digits, added up$/ }).click()
+    // Kept as the box is left; the header, still after what the column shows, follows the sum.
+    await panel.getByRole('combobox', { name: 'Formula' }).press('Tab')
+    await expect(columnPanel(page, 'Clueing Numeral Sum')).toBeVisible()
+    await closeManage(page)
+
+    await expect(cellOf(page, 0, 'Clueing Numeral Sum')).toHaveText('–')
+    await stubIshes(page, ThreeSpans)
+    await page.getByRole('button', { name: 'Ask Numnum Clueing' }).first().dblclick()
+    await expect(cellOf(page, 0, 'Clueing Numeral Sum')).toHaveText('36')
+  })
 })

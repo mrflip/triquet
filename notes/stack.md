@@ -199,6 +199,22 @@ Settled; reach for these before writing the equivalent.
   cache is not written. `lib/formulas.ts` is the only file that imports `jsonata`.
 * A formula is **author-written code**. It runs behind a 100 ms and 500-level guard today. Before
   formulas can arrive from someone else (a shared or imported quiz), raise it: see Discuss.
+* **recheck** (4.x), the ReDoS checker, for an author's own regular expression (a `text` entry's
+  `regex` param): `lib/redos.ts` is its one importer, and imports its pure build
+  (`recheck/lib/browser.js`, a Scala.js program), the same under vitest, in the browser and in
+  Convex's default runtime, which has no worker threads and no native binaries (its root module
+  starts one or the other). It reads time with `performance.now()`, which moves on in a mutation
+  where `Date.now()` stands still, so its `timeout` holds there. A pattern is checked where it is
+  written, by the mutation (`checkSync`, 200 ms a pattern, 500 ms a change), on commit and never per
+  keystroke; `vulnerable`, `unknown` and a pattern that will not compile are refused with a
+  sentence, so a pattern stored is trusted from then on, compiled once (`lib/regexes.ts`) and
+  handed to Zod. The browser asks the same as a courtesy, beside the field, on a worker (`check`),
+  reaching the module only by `import()`: it is 3 MB. `pnpm-workspace.yaml` leaves out its optional
+  JVM jar and native binaries (`ignoredOptionalDependencies`), which nothing here runs. Chosen by
+  the Coach (2026-10-08) over an engine without backtracking (`re2js`), so a pattern is a plain
+  JavaScript `RegExp` a person can hand to Zod; `safe-regex2` was the lighter checker, but a
+  heuristic of star height rather than an analysis. If a pattern ever does harm, look at the
+  tradeoffs again.
 
 ### Quiz history
 

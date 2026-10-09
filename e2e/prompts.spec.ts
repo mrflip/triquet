@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { closeManage, expect, freshWidgetLabel, newWidgetingDialog, openManage, stubAsk, test } from './support'
+import { closeManage, expect, freshWidgetLabel, manageDialog, openManage, relabelWidgeting, stubAsk, test, widgetingPanel } from './support'
 
 // Every widget here is the spec's own (`freshWidgetLabel`): the library is every hunt's, and the
 // specs share one database, so a seeded prompt is never edited.
@@ -15,14 +15,13 @@ function promptDialog(page: Page) {
 }
 
 /**
- * Paste `prompt` in as a new widget labelled `widget_label`, written through the door of a new
- * widgeting labelled `label`, without applying either
+ * Paste `prompt` in as a new widget labelled `widget_label`, written through the door beside the
+ * catalogue of *+ New widgeting…*, without applying it
  */
-async function pastePrompt(page: Page, widget_label: string, label: string, prompt = Riddle) {
+async function pastePrompt(page: Page, widget_label: string, prompt = Riddle) {
   await openManage(page)
   await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  await newWidgetingDialog(page).getByRole('textbox', { name: 'Widgeting label' }).fill(label)
-  await newWidgetingDialog(page).getByRole('button', { name: 'New widget…' }).click()
+  await manageDialog(page).getByRole('button', { name: 'New widget…' }).click()
   const editor = promptDialog(page)
   await editor.getByRole('combobox', { name: 'Formulary' }).click()
   await page.getByRole('option', { name: /^A prompt/ }).click()
@@ -30,12 +29,15 @@ async function pastePrompt(page: Page, widget_label: string, label: string, prom
   await editor.getByRole('textbox', { name: 'Prompt', exact: true }).fill(prompt)
 }
 
-/** Apply the new prompt, then the widgeting that works it, and close the gear's dialog behind them */
-async function applyPrompt(page: Page) {
+/**
+ * Apply the new prompt `widget_label`, which puts it to work as it is written, relabel the
+ * widgeting that works it `label`, and close the gear's dialog behind them
+ */
+async function applyPrompt(page: Page, widget_label: string, label: string) {
   await promptDialog(page).getByRole('button', { name: 'Apply' }).click()
   await expect(promptDialog(page)).toHaveCount(0)
-  await newWidgetingDialog(page).getByRole('button', { name: 'Apply' }).click()
-  await expect(newWidgetingDialog(page)).toHaveCount(0)
+  await expect(widgetingPanel(page, widget_label)).toBeVisible()
+  await relabelWidgeting(page, widget_label, label)
   await closeManage(page)
 }
 
@@ -46,7 +48,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('a pasted prompt is previewed against a real question as it is typed: the input it distils, and the prompt as it would be sent', async ({ page }) => {
-  await pastePrompt(page, freshWidgetLabel('riddler'), 'riddle')
+  await pastePrompt(page, freshWidgetLabel('riddler'))
   const editor = promptDialog(page)
   await expect(editor.getByRole('status', { name: 'Preview input' })).toContainText('"clueing":"Which region gave its name to Leon?"')
   await expect(editor.getByLabel('Rendered prompt')).toContainText('Riddle me this: Which region gave its name to Leon?')
@@ -55,7 +57,7 @@ test('a pasted prompt is previewed against a real question as it is typed: the i
 })
 
 test('the preview names a placeholder the input does not fill, and a template that does not parse', async ({ page }) => {
-  await pastePrompt(page, freshWidgetLabel('riddler'), 'riddle', 'Riddle: {{clueing}} and {{hint}}')
+  await pastePrompt(page, freshWidgetLabel('riddler'), 'Riddle: {{clueing}} and {{hint}}')
   const editor = promptDialog(page)
   await expect(editor.getByRole('note')).toContainText('The input holds nothing for {{hint}}')
   await editor.getByRole('textbox', { name: 'Prompt', exact: true }).fill('Riddle: {% if clueing %}')
@@ -63,17 +65,18 @@ test('the preview names a placeholder the input does not fill, and a template th
 })
 
 test('a question whose input comes to nothing would not be asked, and the preview says so', async ({ page }) => {
-  await pastePrompt(page, freshWidgetLabel('riddler'), 'riddle')
+  await pastePrompt(page, freshWidgetLabel('riddler'))
   const editor = promptDialog(page)
   await editor.getByRole('textbox', { name: 'Input formula' }).fill("$trim(qn.hint) != '' ? { 'hint': qn.hint }")
   await expect(editor.getByRole('status', { name: 'Preview input' })).toContainText('this question would not be asked')
 })
 
 test('a pasted prompt is put to work with a column to ask it from, and asks the route with its own prompt and config', { tag: '@smoke' }, async ({ page }) => {
-  await pastePrompt(page, freshWidgetLabel('riddler'), 'riddle')
+  const widget_label = freshWidgetLabel('riddler')
+  await pastePrompt(page, widget_label)
   await promptDialog(page).getByRole('combobox', { name: 'Model tier' }).click()
   await page.getByRole('option', { name: /^Careful/ }).click()
-  await applyPrompt(page)
+  await applyPrompt(page, widget_label, 'riddle')
 
   await stubAsk(page, Answered)
   const cell = page.getByRole('button', { name: 'Ask Riddle' }).first()
@@ -91,8 +94,8 @@ test('a pasted prompt is put to work with a column to ask it from, and asks the 
 
 test('a prompt opened from the library is revised there, its input formula and room with it', async ({ page }) => {
   const widget_label = freshWidgetLabel('riddler')
-  await pastePrompt(page, widget_label, 'riddle')
-  await applyPrompt(page)
+  await pastePrompt(page, widget_label)
+  await applyPrompt(page, widget_label, 'riddle')
 
   await page.getByRole('button', { name: 'Widget library' }).click()
   await page.getByRole('button', { name: `Edit widget ${widget_label}` }).click()
@@ -113,7 +116,7 @@ test('a prompt opened from the library is revised there, its input formula and r
 
 test('the prompt for a chatbot asks for a prompt that names the object it wants', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-  await pastePrompt(page, freshWidgetLabel('riddler'), 'riddle')
+  await pastePrompt(page, freshWidgetLabel('riddler'))
   await promptDialog(page).getByRole('button', { name: 'Copy a prompt for a chatbot' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Copied' })).toBeVisible()
   const copied = await page.evaluate(() => navigator.clipboard.readText())

@@ -2,6 +2,7 @@ import type * as Z from 'zod'
 import { AibotFormulary } from './aibot'
 import { EntryFormulary } from './entry'
 import { JsonataFormulary } from './jsonata'
+import { LiquidizeFormulary } from './liquidize'
 import type { QuizBag } from './runner'
 import type { AibotWidgetT, EntryValueT, EntryWidgetT, Formularykind, WidgetT } from '../../models/widget'
 import type { WidgetedRecordT, WidgetedT } from '../../models/widgeted'
@@ -12,6 +13,13 @@ export type Refresh = 'live' | 'click'
 
 /** How a formulary's widgeteds are kept: appended as history, or upserted as the one value */
 export type Store = 'append' | 'upsert'
+
+/**
+ * What a widgeting's folded line holds, the few fields its panel shows while folded: an entry's
+ * params, its widget's formula, or a `liquidize` widgeting's template. The full panel is the same
+ * line with more rows beneath it.
+ */
+export type Folded = 'params' | 'formula' | 'template'
 
 /**
  * What a widget's input formula came to over one bag: what the widget reads; nothing, meaning
@@ -51,6 +59,8 @@ type FormularyFacts = {
   readonly refresh:      Refresh | null
   /** How a widgeted is kept; null for one never kept */
   readonly store:        Store | null
+  /** What its widgeting's folded line holds; null for one with nothing to fold to */
+  readonly folded:       Folded | null
   /** The validator for this formulary's `config` */
   readonly config:       Z.ZodType
   /** Whether the widget is well-formed: null when it is, else one sentence for the author */
@@ -67,11 +77,14 @@ type FormulaFacts = {
   advice: (widget: WidgetT, widgeting: AdviceSubject | null, sample: QuizBag | null) => string
 }
 
-/** A formulary whose widgeteds are worked out on every render, and stored nowhere */
+/** A formulary whose widgeteds are worked out on every render, and stored nowhere: a formula's, or a template's */
 export type LiveFormulary = FormularyFacts & FormulaFacts & {
   readonly refresh: 'live'
   readonly store:   null
-  run: (widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: WidgetingT | null, bag: QuizBag) => LiveRun
+  /** How long one widgeting's whole column may take to work out, in milliseconds; null for no bound beyond each cell's own */
+  readonly columnMs: number | null
+  /** What it comes to for one question, worked out by `deadline` (a `Templating.clockNow()` reading) when it is given one */
+  run: (widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: WidgetingT | null, bag: QuizBag, deadline?: number) => LiveRun
 }
 
 /** A formulary whose widgeteds are asked for from the cell, and appended to its history */
@@ -102,17 +115,20 @@ export const Formularies = {
   jsonata: JsonataFormulary,
   aibot:   AibotFormulary,
   entry:   EntryFormulary,
+  liquidize: LiquidizeFormulary,
 } as const satisfies Record<Formularykind, Formulary>
 
 /**
  * The validator for the params of a widgeting of `widget`: an entry's family's, held together
- * with the widget's defaults; the open record of a formulary whose widgets read params from the bag.
+ * with the widget's defaults; a `liquidize` widgeting's template; the open record of a formulary
+ * whose widgets read params from the bag.
  *
  * @param widget - Any widget of the library.
  * @returns The validator.
  *
  * @example paramsOf(numberEntry).safeParse({ min: 'one' }).success  // => false
  * @example paramsOf(shoutWidget).safeParse({ loud: true }).success  // => true
+ * @example paramsOf(blurbWidget).safeParse({ loud: true }).success  // => false
  */
 export function paramsOf(widget: WidgetT): Z.ZodType<WidgetingT['params']> {
   // Every family's params are a few JSON settings by name, as a widgeting's row holds them.

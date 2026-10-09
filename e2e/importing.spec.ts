@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addColumns, cellOf, closeManage, expect, exportedQuizzes, grid, manageDialog, newQuiz, openManage, openPanel, openQuiz, preparedExport, showTab, test, waitUntilSaved } from './support'
+import { addColumns, cellOf, closeManage, expect, exportedQuizzes, grid, manageDialog, newQuiz, openManage, openPanel, openQuiz, preparedExport, showTab, test, unfoldBy, waitUntilSaved } from './support'
 
 /** The Import box, its tab brought to the front */
 async function importBox(page: Page) {
@@ -139,8 +139,8 @@ test("an export from before October 2026 reads as it did: its category estimates
   await expect(cellOf(page, 0, 'Masie')).toHaveText('69%')
   await openManage(page)
   const masie = manageDialog(page).getByRole('group', { name: 'Column Masie', exact: true })
-  await expect(masie.getByRole('combobox', { name: 'Shows' })).toHaveText('category_data')
-  await masie.getByRole('button', { name: 'Formula, template and readout of Masie' }).click()
+  await expect(masie.getByRole('combobox', { name: 'Shows' }).first()).toHaveText('category_data')
+  await unfoldBy(masie, 'Column Masie in full')
   await expect(masie.getByRole('combobox', { name: 'Formula' })).toHaveValue('$.masie')
   await closeManage(page)
 })
