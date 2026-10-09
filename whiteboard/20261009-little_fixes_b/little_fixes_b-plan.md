@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-09. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip) in chat, as one list of seventeen small asks; the orchestrator grouped
 them into four threads ("I don't want a ton of PRs": unrelated asks may share a PR as separate
-commits). **Status: threads 1, 3, 4 underway.** `little_fixes_b-progress.md`, beside this file, is newer than this
+commits). **Status: thread 1 landing, 3 in review, 4 underway.** `little_fixes_b-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
 
 ## Read first
@@ -142,12 +142,14 @@ Gloss:
   (`Abc`) / markdown (a quill: `HistoryEdu` or `Draw`) / code (`Code`) / label (`Sell` or
   `LocalOffer`). Unfolded: these become the full controls at their natural places in the fold
   (the Readout select, the Collapsed switch, the Templated checkbox), and leave the title row.
-* **Templated is per quiz, by source**: `quiz.templated` lists the nominated source keys
-  (`TemplateableEditor.tsx`). The column's icon toggles its source's membership through the same
-  action the Templates section dispatches; the two stay one state.
+* **Templated is per quiz, by source**: `quiz.templateable` lists the nominated source keys
+  (`TemplateableEditor.tsx`, action `set_templateable`; #209 retired the old `templated`). The
+  column's icon toggles its source's membership through the same action the Templates section
+  dispatches; the two stay one state. *Orchestrator:* corrected after #209.
 * Sweep: any explanatory prose thread 1 left outside the gearbox moves onto `InfoTip`.
 * Double-click on a column or widgeting title to toggle its fold, if thread 3's fold cycle makes
-  that natural; skip where the title is a text field.
+  that natural; skip where the title is a text field. *Orchestrator:* thread 3's is
+  `src/components/use-fold.ts` (`FoldT`, `nextFold`, `useFold`), landing beside you.
 
 Depends on: **1** (its components, and the same lines). **Look-ahead:** none later.
 
