@@ -2,7 +2,8 @@
 
 import { Box, Divider, Stack } from '@mui/material'
 import { SortableList } from './SortableList'
-import { TierChip, widgetingNote } from './WidgetingPanel'
+import { TierChip, WidgetingTitle } from './WidgetingPanel'
+import { RowSlots } from './room'
 import { runOrderIdxOf, runOrderListsOf } from '../lib/widgeting-edit'
 import type { HuntActionDNA } from '../models/actions'
 import type { QuizT } from '../models/quiz'
@@ -32,7 +33,8 @@ export type RunOrderListProps = {
 export function RunOrderList({ quiz, library, revisable, dispatch, rowOf }: Readonly<RunOrderListProps>) {
   const { entries, rest, isEntry } = runOrderListsOf(quiz.widgetings, library)
   return (
-    <Stack spacing={1}>
+    // Its rows' slots are measured against the list's own width (`RowSlots`).
+    <Stack spacing={1} sx={{ containerType: 'inline-size' }}>
       {entries.length === 0 ? null : (
         <div role="list" aria-label="Entries">
           {entries.map((widgeting) => (
@@ -64,19 +66,18 @@ export type RunOrderLineProps = {
 
 /**
  * One widgeting as the manage dialog's run order lists it, a line to drag and nothing to edit:
- * its handle, its label, what it works, its tier, and its description (the widgeting's own, or
- * failing that its widget's) cut to the line. It is edited in the *Widgets* panel below the grid,
+ * its handle, its title block (`WidgetingTitle`: the mark of what it is, its label, and the widget
+ * it works), its tier, and its description (the widgeting's own, or failing that its widget's)
+ * cut to the line, each in a slot as wide on every line (`RowSlots`). It is edited in the *Widgets* panel below the grid,
  * or beneath a column showing it.
  */
 export function RunOrderLine({ widgeting, widget, handle }: Readonly<RunOrderLineProps>) {
   const description = widgeting.description || (widget?.description ?? '')
   return (
     <Stack direction="row" spacing={1} role="group" aria-label={`Widgeting ${widgeting.label}`} sx={{ alignItems: 'flex-start' }}>
-      <Box sx={{ pt: 1 }}>{handle}</Box>
-      <Box sx={{ pt: 1, width: 260, flexShrink: 0, overflowWrap: 'anywhere' }}>
-        <strong>{widgeting.label}</strong> <span className={styles.microcopy}>{widgetingNote(widgeting, widget)}</span>
-      </Box>
-      <TierChip tier={widgeting.tier} />
+      <Box sx={RowSlots.grip}>{handle}</Box>
+      <WidgetingTitle widgeting={widgeting} widget={widget} />
+      <Box sx={RowSlots.tier}><TierChip tier={widgeting.tier} /></Box>
       <Box className={styles.microcopy} sx={{ pt: 1, flex: 1, minWidth: 0, maxWidth: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {description}
       </Box>

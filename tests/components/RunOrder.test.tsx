@@ -34,9 +34,15 @@ describe('RunOrderList', () => {
 })
 
 describe('RunOrderLine', () => {
-  it("says the widgeting's label, what it works, its tier and its own description", () => {
+  it("says the mark of what it works, the widgeting's label, the widget, its tier and its own description", () => {
     const widgeting = Widgeting.fill({ widget_label: 'shout', label: 'loud', description: 'For the finale.' })
-    expect(renderedText(<RunOrderLine widgeting={widgeting} widget={shout} handle={null} />)).to.eq('loud formula shouteach questionFor the finale.')
+    // The mark is an icon, named by its title: what a screen reader says of it.
+    expect(renderedText(<RunOrderLine widgeting={widgeting} widget={shout} handle={null} />)).to.eq('formulaloudshouteach questionFor the finale.')
+  })
+
+  it("marks each formulary with its own icon, named by its noun", () => {
+    const widgeting = Widgeting.fill({ widget_label: 'remark', label: 'aside' })
+    expect(renderToStaticMarkup(<RunOrderLine widgeting={widgeting} widget={remark} handle={null} />)).to.match(/<svg[^>]*role="img"[^>]*>.*<title>entry<\/title>/)
   })
 
   it("falls back to its widget's description when it has none of its own", () => {

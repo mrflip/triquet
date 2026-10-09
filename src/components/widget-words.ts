@@ -1,4 +1,9 @@
 import _ from 'es-toolkit/compat'
+import type { SvgIcon } from '@mui/material'
+import DataObjectIcon from '@mui/icons-material/DataObject'
+import FunctionsIcon from '@mui/icons-material/Functions'
+import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined'
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import type { EntryInForceT } from '../lib/formulary/entry'
 import * as Regexes from '../lib/regexes'
 import type { StatusCounts } from '../lib/formulary/runner'
@@ -12,6 +17,18 @@ export const FormularyWords: Readonly<Record<Formularykind, { noun: string, grou
   aibot:   { noun: 'prompt',  group: 'Prompts',  gist: 'A prompt: put to a model for one question when you ask from its cell' },
   entry:   { noun: 'entry',   group: 'Entries',  gist: 'An entry: typed into its cells by hand, one value per question' },
   liquidize: { noun: 'template', group: 'Templates', gist: 'A template: Liquid filled in for every question as it changes, coming to markdown' },
+}
+
+/**
+ * The mark of each formulary, at the head of a widgeting's row and wherever its widgets are
+ * listed, its noun in the mark's tooltip (`FormularyWords`): a sigma for a formula, a robot for a
+ * prompt, a keyboard for an entry typed by hand, and braces for a template's Liquid.
+ */
+export const FormularyIcons: Readonly<Record<Formularykind, typeof SvgIcon>> = {
+  jsonata:   FunctionsIcon,
+  aibot:     SmartToyOutlinedIcon,
+  entry:     KeyboardOutlinedIcon,
+  liquidize: DataObjectIcon,
 }
 
 /** How each kind of entry is spoken of on screen: what its cells take */

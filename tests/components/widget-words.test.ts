@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EntryKindWords, FormularyWords, ParamWords, StatusWords, TextLinesWords, TextPatternWords, paramsGist, statusLine, templateFromGist, statusPhrases, usageLine } from '../../src/components/widget-words'
+import { EntryKindWords, FormularyIcons, FormularyWords, ParamWords, StatusWords, TextLinesWords, TextPatternWords, paramsGist, statusLine, templateFromGist, statusPhrases, usageLine } from '../../src/components/widget-words'
 import { EntryKindVals, EntryParamsOf, FormularykindVals, TextLinesVals, TextPatternVals } from '../../src/models/widget'
 import type { EntryInForceT } from '../../src/lib/formulary/entry'
 import { WidgetedStatusVals } from '../../src/models/widgeted'
@@ -26,6 +26,13 @@ describe("usageLine", () => {
 describe("FormularyWords", () => {
   it("speaks of every formulary", () => {
     expect(Object.keys(FormularyWords)).to.have.members([...FormularykindVals])
+  })
+})
+
+describe("FormularyIcons", () => {
+  it("marks every formulary, each with an icon of its own", () => {
+    expect(Object.keys(FormularyIcons)).to.have.members([...FormularykindVals])
+    expect(new Set(Object.values(FormularyIcons)).size).to.eq(FormularykindVals.length)
   })
 })
 
