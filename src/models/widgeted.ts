@@ -137,7 +137,7 @@ export const WidgetedValidators = Validator(({ obj, lit, str, num, bool, zod, re
   })
     .describe('One cell\'s stored history, as far as its widgeted needs it: the newest row, and the newest `ok` one.')
 
-  return { err, widgeted, row, quizRow, record, enteredValue, entered, quizEntered, stored, history }
+  return { err, widgeted, value, row, quizRow, record, enteredValue, entered, quizEntered, stored, history }
 })
 
 /** A failure on a widgeted: on `errored` the failure itself, on `ok` a newer one riding along */

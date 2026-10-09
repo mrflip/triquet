@@ -19,7 +19,7 @@ export const ImportValidators = Validator(({ obj, arr, rec, label }) => {
     recap:         QuestionValidators.recap.nullable().optional(),
     viz:           QuestionValidators.viz.nullable().optional(),
   })
-    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label is the key a question is matched on, and is never itself revised; an export made while a label could be overridden carries the override as `forced_label`, which is the key in its place where it is set. A chain names the label of the question it points at; how the question is shown (its viz) is carried, null making it normal, but when it was made and edited is not: the question is stamped as the import writes it. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly; what a widgeting came to is among them, since a worked-out value is worked out again and an asked one is recorded by asking. An entry widgeting\'s value, which a person typed, is read apart from these fields, under its label.')
+    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label is the key a question is matched on, and is never itself revised; an export made while a label could be overridden carries the override as `forced_label`, which is the key in its place where it is set. A chain names the label of the question it points at; how the question is shown (its viz) is carried, null making it normal, but when it was made and edited is not: the question is stamped as the import writes it. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly; what a widgeting came to is among them, since a worked-out value is worked out again. An entry widgeting\'s value, which a person typed, and an asked widgeting\'s, which a bot replied, are read apart from these fields, under their labels.')
 
   const importPatch = obj({
     qnum:        QuestionValidators.qnum.optional(),
@@ -40,8 +40,10 @@ export const ImportValidators = Validator(({ obj, arr, rec, label }) => {
     patch:   importPatch,
     entered: rec(label, WidgetedValidators.enteredValue).default({})
       .describe('What to type into the question\'s entry cells, by the entry widgeting\'s label: a value to take, or null to empty the cell. A label absent leaves its cell as it is.'),
+    replied: rec(label, WidgetedValidators.value).default({})
+      .describe('What a bot replied, to carry into the question\'s asked cells, by the widgeting\'s label: each fills a cell holding nothing, and is never written over what one holds. A label absent carries nothing.'),
   })
-    .describe('One question as the Import panel sends it: which question, by its label, what to change, and what to type into its entry cells. A label no question of the quiz answers to adds one under it.')
+    .describe('One question as the Import panel sends it: which question, by its label, what to change, what to type into its entry cells, and the bots\' replies to carry into its asked ones. A label no question of the quiz answers to adds one under it.')
 
   const importedQuestions = arr(importedQuestion).max(PA.QuestionsPerQuiz.max).readonly()
     .check((context) => {

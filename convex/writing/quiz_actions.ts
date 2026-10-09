@@ -16,7 +16,7 @@ import type { QuizT, Sortkey } from '../../src/models/quiz'
 import type { HuntActionT } from '../../src/models/actions'
 import type { QuizEnteringT, WidgetedEnteringT, WidgetedRecordingT } from '../../src/models/widgeted'
 import type { WidgetingTier } from '../../src/models/widgeting'
-import type { EntryValueT } from '../../src/models/widget'
+import type { EntryValueT, WidgetT } from '../../src/models/widget'
 import { EntryFormulary } from '../../src/lib/formulary/entry'
 import { formularyFor } from '../../src/lib/formulary/formularies'
 import { allStoredOf, layoutOf, libraryOf, questionOf, questionsOf, quizForLabel, quizStoredOf, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
@@ -323,7 +323,8 @@ async function enteredValueOf(db: Writer, widgeting: Doc<'widgetings'>, value: W
  * Fold imported questions into the open quiz, each by its label: one a question of
  * the quiz answers to is revised by its patch; one none answers to adds a question under it,
  * at the end, titled from its label unless the patch says otherwise. What each types into its
- * entry cells is upserted there. Nothing is deleted, and Q#s are then renumbered by rank, as the
+ * entry cells is upserted there, and the bots' replies it carries fill those of its asked cells
+ * that hold nothing (`carryReplies`). Nothing is deleted, and Q#s are then renumbered by rank, as the
  * Import panel promises. A chain names its target by label: one naming no question the quiz will
  * hold, or the question itself, is no chain. A quiz that held no questions takes them in the
  * order pasted, and so takes the sort memory they were exported under, `last_sortkey`, when one
@@ -361,6 +362,7 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
   const remembered = last_sortkey !== undefined && rows.length === 0 ? { last_sortkey } : {}
   await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, ...added], ...remembered })
   await enterImported(db, { hunt_id: open.hunt_id, quiz_id: quiz._id }, imported, idFor)
+  await carryReplies(db, { hunt_id: open.hunt_id, quiz_id: quiz._id }, imported, idFor)
   if (imported.length > 0) { await archiveStarters(db, rows.filter((row) => ! idFor.has(row.label))) }
   // Read again: its order has just been written, and the renumbering works from that.
   await reorderQuiz(db, revisable(await db.get('quizzes', quiz._id)), { stored: false }, (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))
@@ -387,20 +389,46 @@ async function archiveStarters(db: Writer, rows: readonly Doc<'questions'>[]): P
  */
 async function enterImported(db: Writer, { hunt_id, quiz_id }: LayoutPlace, imported: readonly ImportedQuestionT[], idFor: ReadonlyMap<string, Id<'questions'>>): Promise<void> {
   if (imported.every(({ entered }) => _.isEmpty(entered))) { return }
-  const [widgetings, library] = await Promise.all([widgetingsOf(db, quiz_id), libraryOf(db)])
-  const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
-  const entries = new Map(widgetings.flatMap((widgeting) => {
-    const widget = widgetFor.get(widgeting.widget_label)
-    return widget?.formulary === 'entry' && widgetingFrom(widgeting).tier === 'question' ? [[widgeting.label, { widgeting, widget }] as const] : []
-  }))
+  const entries = await questionCellsOf(db, quiz_id, (widget) => widget.formulary === 'entry')
   const cells = imported.flatMap(({ label, entered }) => Object.entries(entered).flatMap(([widgeting_label, value]) => {
     const question_id = idFor.get(label)
     const entry = entries.get(widgeting_label)
-    return question_id && entry ? [{ question_id, entry, value }] : []
+    return question_id && entry?.widget.formulary === 'entry' ? [{ question_id, widgeting: entry.widgeting, widget: entry.widget, value }] : []
   }))
-  for (const { question_id, entry, value } of cells) {
-    await upsertWidgeted(db, { _id: question_id, hunt_id, quiz_id }, entry.widgeting._id, value === null ? null : EntryFormulary.kindValueOf(entry.widget).parse(value))
+  for (const { question_id, widgeting, widget, value } of cells) {
+    await upsertWidgeted(db, { _id: question_id, hunt_id, quiz_id }, widgeting._id, value === null ? null : EntryFormulary.kindValueOf(widget).parse(value))
   }
+}
+
+/**
+ * Fill the quiz's asked cells with the bots' replies an import carries, each as an `ok` row
+ * marked `result_meta.imported`, and only in a cell holding no row at all, so a pasted reply never
+ * buries what was asked here. A label naming no widgeting of the quiz asked from the cell that
+ * runs for each question (one whose adding was refused, say) is passed over.
+ */
+async function carryReplies(db: Writer, { hunt_id, quiz_id }: LayoutPlace, imported: readonly ImportedQuestionT[], idFor: ReadonlyMap<string, Id<'questions'>>): Promise<void> {
+  if (imported.every(({ replied }) => _.isEmpty(replied))) { return }
+  const asked = await questionCellsOf(db, quiz_id, (widget) => formularyFor(widget).store === 'append')
+  const cells = imported.flatMap(({ label, replied }) => Object.entries(replied).flatMap(([widgeting_label, value]) => {
+    const question_id = idFor.get(label)
+    const cell = asked.get(widgeting_label)
+    return question_id && cell ? [{ question_id, widgeting_id: cell.widgeting._id, value }] : []
+  }))
+  for (const { question_id, widgeting_id, value } of cells) {
+    const stored = await db.query('widgeteds').withIndex('by_question_id_and_widgeting_id', (cvx) => cvx.eq('question_id', question_id).eq('widgeting_id', widgeting_id)).first()
+    if (stored) { continue }
+    await insertWidgeted(db, { _id: question_id, hunt_id, quiz_id }, widgeting_id, { status: 'ok', value, message: null, result_meta: { imported: true } })
+  }
+}
+
+/** The quiz's widgetings that run for each question and work a widget `keep` takes, by label, each with that widget */
+async function questionCellsOf(db: Writer, quiz_id: Id<'quizzes'>, keep: (widget: WidgetT) => boolean): Promise<ReadonlyMap<string, { widgeting: Doc<'widgetings'>, widget: WidgetT }>> {
+  const [widgetings, library] = await Promise.all([widgetingsOf(db, quiz_id), libraryOf(db)])
+  const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
+  return new Map(widgetings.flatMap((widgeting) => {
+    const widget = widgetFor.get(widgeting.widget_label)
+    return widget && keep(widget) && widgetingFrom(widgeting).tier === 'question' ? [[widgeting.label, { widgeting, widget }] as const] : []
+  }))
 }
 
 /**
