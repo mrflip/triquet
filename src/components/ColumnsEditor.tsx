@@ -157,7 +157,7 @@ function ColumnPanel({ column, handle, ...context }: Readonly<ColumnPanelProps>)
       </Collapse>
       <ColumnIssue issue={issue} />
       {widgeting && (
-        <Box sx={{ pl: 4, pb: 1 }}>
+        <Box sx={{ pb: 1 }}>
           <WidgetingPanel widgeting={widgeting} beneath={column} foldkeyOf={() => LayoutFoldkeys.beneath(column.label)} {...context} />
         </Box>
       )}

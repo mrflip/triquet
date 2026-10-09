@@ -128,7 +128,8 @@ test.describe('with answer_reversed at work', () => {
     await expect(counts).toBeVisible()
     await page.setViewportSize({ width: 420, height: 900 })
     await expect(counts).toBeHidden()
-    await expect(row).toContainText('answer_reversed formula answer_reversed')
+    await expect(row.getByRole('img', { name: 'formula', exact: true })).toBeVisible()
+    await expect(row).toContainText('answer_reversed')
     await expect(row.getByRole('textbox', { name: 'Formula', exact: true })).toHaveValue(/\$reverse/)
   })
 

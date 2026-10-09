@@ -2,6 +2,7 @@
 
 import { Autocomplete, Box, TextField, createFilterOptions } from '@mui/material'
 import _ from 'es-toolkit/compat'
+import { FormularyMark } from './FormularyMark'
 import { FormularyWords } from './widget-words'
 import { FormularykindVals, Widget, type WidgetT } from '../models/widget'
 import styles from './workbench.module.css'
@@ -41,7 +42,8 @@ export function WidgetPicker({ library, label, helperText, disabled = false, onP
       filterOptions={filterWidgets}
       onChange={(_event, picked) => { if (picked) { onPick(picked) } }}
       renderOption={({ key, ...props }, each) => (
-        <Box component="li" key={key} {...props}>
+        <Box component="li" key={key} {...props} sx={{ gap: 1 }}>
+          <FormularyMark formulary={each.formulary} />
           <Box sx={{ minWidth: 0 }}>
             <div>{Widget.titleOf(each)} <Box component="code" sx={{ color: 'text.secondary', fontSize: 12 }}>{each.label}</Box></div>
             {each.description === '' ? null : <div className={styles.microcopy}>{each.description}</div>}

@@ -332,7 +332,7 @@ test('a widget written in the library itself chooses its formulary first', async
   await editor.getByRole('textbox', { name: 'Prompt', exact: true }).fill('Riddle me {{clueing}}. Reply as {"answer": string}.')
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toHaveCount(0)
-  await expect(page.getByRole('group', { name: `Widget ${widget_label}` })).toContainText('prompt')
+  await expect(page.getByRole('group', { name: `Widget ${widget_label}` }).getByRole('img', { name: 'prompt', exact: true })).toBeVisible()
 })
 
 test("the library is copied out and pasted back from its own dialog, a widget it lacks added", async ({ page }) => {
@@ -366,7 +366,7 @@ test('a template written in the library is previewed over a real question as it 
   await template.fill('Q: {{ question.title }}')
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toHaveCount(0)
-  await expect(page.getByRole('group', { name: `Widget ${widget_label}` })).toContainText('template')
+  await expect(page.getByRole('group', { name: `Widget ${widget_label}` }).getByRole('img', { name: 'template', exact: true })).toBeVisible()
 })
 
 test('a column is retitled in place, and the rest of it unfolds beneath its row', async ({ page }) => {
