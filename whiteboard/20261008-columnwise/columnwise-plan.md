@@ -1,7 +1,7 @@
 # Columnwise: columns lead, entries gain families, a column gains an expression
 
-Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
-Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
+Sprint plan, 2026-10-08. Mode: **YOLO** from 2026-10-09 (normal before). Review level: **medium**. At most **3** threads at once.
+Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode"; switched to YOLO on 2026-10-09 ("make good decisions, we'll fix them up later").
 **Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b landed (#197-#202); 9 underway; then 3c; then a full e2e run; then 10 and 11.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
@@ -459,6 +459,13 @@ Gloss:
 
 Depends on: 9, and the full e2e run after 3c. Side by side with 10 (the state layer, where 10 is
 `lib` and the models). Full e2e run.
+
+## Decisions taken in YOLO
+
+From 2026-10-09, after thread 9's review. Each is a two-way door, recorded here, in the chat relay,
+and in the sprint-end `human/` entry.
+
+* (none yet)
 
 ## For the Coach
 
