@@ -34,6 +34,23 @@ on 2026-10-09.
 * **Hold #211 and #215 until `main` deploys again.** #215 is a second serial deploy (`bagshape`):
   its backfills can only run once its own push lands.
 
+**Diagnosed and repaired, 11:11 UTC** (the orchestrator, as `dev_aijanitor`, on the Coach's
+say-so):
+* **The cause:** 3a's four columnwise backfills had never run on production (state `unknown`, 0
+  processed), so 70 rows still had the old shape. 6 of 9 quizzes still held `templated`, 61
+  columns used the old grammar, and one widget plus two widgetings were labelled `categories`.
+  #193's deploy never started them, the same gap as the recap backfills on 2026-10-07.
+* **The fix:** production was exported to `~/prd-exports/20261009-before-runall.zip`, which also
+  left a snapshot in the dashboard, then `migrations:runAll` was run. All four backfills report
+  `success`, and `outstanding` is `[]`.
+* **Checked:** a second export (`~/prd-exports/20261009-after-runall.zip`) finds none in all six
+  sections of `prd_checks.mts`. So #206's `*_exp` check and #215's reserved-label check pass too.
+* **Left for the Coach:** redeploy `main` from Vercel, so #209's tightening lands. Then #211 and
+  #215 in order, #215 with its own wait for `Backfills: every one has finished.`
+* **Worth fixing:** production deploys have twice not started the backfills.
+  `scripts/convex-migrations.ts after-vercel-build`, and the serial-deploy process it underpins,
+  want a look.
+
 ## PRs, in the order they landed
 
 | PR | Thread | Stacked on | State |
