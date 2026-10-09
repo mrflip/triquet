@@ -338,14 +338,19 @@ export type DrawnT = {
   issue:    string | null
 }
 
-/** What `textedOf` made, by the run, then by the column's stages and the quiz's templateable sources, then by the question */
-const TextedOf = new WeakMap<Runner.QuizRun, Map<string, Map<string, DrawnT>>>()
+/** What `textedOf` made of one column, by the question, and the time its template has left for the rest */
+type TextedColumn = { byQuestion: Map<string, DrawnT>, budget: Templating.ColumnBudgetT }
+
+/** What `textedOf` made, by the run, then by the column's stages and the quiz's templateable sources */
+const TextedOf = new WeakMap<Runner.QuizRun, Map<string, TextedColumn>>()
 
 /**
  * What a column draws for one question: what it came to (`shownOf`), and the text of it, its
  * template filled in (Liquid, through `Templating.fill`, over the question's template bag with what
  * the formula came to as `value`) or the value's own text. A template, like a formula, works only
- * on an `ok` value: `missing` and `errored` pass by, so the dash and the badge still show. Drawn as
+ * on an `ok` value: `missing` and `errored` pass by, so the dash and the badge still show. The
+ * template has `Templating.ColumnMs` for the whole column, spent cell by cell as each is asked
+ * for; once a limit stops it, every later cell says the same, its template as typed. Drawn as
  * markdown (`readoutOf`), what a formula or a bot came to has its images made links
  * (`Templating.imagesLinkedIn`): only text a person typed draws an image.
  *
@@ -372,27 +377,27 @@ export function templatedTextOf(spec: StagedSpec, run: Runner.QuizRun, templatea
   return textedOf(spec, run, templateable, question_id, false).text
 }
 
-/** What a column draws for one question (`drawnOf`), its value's images made links or not, made once per run */
+/** What a column draws for one question (`drawnOf`), its value's images made links or not, made once per run, its template's time the column's */
 function textedOf(spec: StagedSpec, run: Runner.QuizRun, templateable: readonly string[], question_id: string, linked: boolean): DrawnT {
-  const known = TextedOf.get(run) ?? new Map<string, Map<string, DrawnT>>()
+  const known = TextedOf.get(run) ?? new Map<string, TextedColumn>()
   TextedOf.set(run, known)
   const key = [keyOf(spec.source), spec.formula ?? '', spec.template ?? '', String(linked), ...templateable].join('\n')
-  const byQuestion = known.get(key) ?? new Map<string, DrawnT>()
-  known.set(key, byQuestion)
-  const held = byQuestion.get(question_id)
+  const column = known.get(key) ?? { byQuestion: new Map<string, DrawnT>(), budget: Templating.columnBudget() }
+  known.set(key, column)
+  const held = column.byQuestion.get(question_id)
   if (held !== undefined) { return held }
   const widgeted = shownOf(spec, run, templateable, question_id)
-  const drawn = textOfShown(spec.template, widgeted, run, templateable, question_id, linked)
-  byQuestion.set(question_id, drawn)
+  const drawn = textOfShown(spec.template, widgeted, run, templateable, question_id, linked, column.budget)
+  column.byQuestion.set(question_id, drawn)
   return drawn
 }
 
-/** The text of what a column came to, through its template when it has one */
-function textOfShown(template: string | null, widgeted: WidgetedT, run: Runner.QuizRun, templateable: readonly string[], question_id: string, linked: boolean): DrawnT {
+/** The text of what a column came to, through its template when it has one, filled out of the column's budget */
+function textOfShown(template: string | null, widgeted: WidgetedT, run: Runner.QuizRun, templateable: readonly string[], question_id: string, linked: boolean, budget: Templating.ColumnBudgetT): DrawnT {
   if (widgeted.status !== 'ok') { return { widgeted, text: '', issue: null } }
   const value = linked ? Templating.imagesLinkedIn(widgeted.value) as JsonT : widgeted.value
   if (template === null) { return { widgeted, text: Widgeted.textOf({ ...widgeted, value }), issue: null } }
-  const filled = Templating.fill(template, Templating.valuedBagOf(run, templateable, question_id, value))
+  const filled = Templating.fillWithin(template, Templating.valuedBagOf(run, templateable, question_id, value), budget)
   return { widgeted, text: filled.markdown, issue: filled.issue }
 }
 

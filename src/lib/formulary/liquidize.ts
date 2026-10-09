@@ -23,13 +23,6 @@ export type TemplateOutcome =
 type Picked = { thing: unknown, widgeted: boolean }
 
 /**
- * How long one column of templates may take, all told: a quarter of a second. A 300-question
- * column of ordinary templates fills in well inside it (each takes a fraction of a millisecond),
- * and it is a quarter of the second Convex gives a mutation, which a sort runs the quiz in.
- */
-const ColumnMs = 250
-
-/**
  * The formulary of a Liquid template, filled in on every render and stored nowhere: a `jsonata`
  * widget's twin with the other engine. Its input formula comes to the object the template is
  * filled in over (the whole bag, `$`, by default), so `{{ qn.title }}` reads as a formula's
@@ -61,7 +54,7 @@ export class LiquidizeFormulary {
    * milliseconds: a template filled for every question must not add up to a page that hangs, or
    * to a server sort past its mutation's time. A column past it is stopped where it stands.
    */
-  static readonly columnMs = ColumnMs
+  static readonly columnMs = Templating.ColumnMs
 
   /**
    * The validator of a widgeting's params: a `template` of its own, or a `template_from` the bag,
@@ -112,8 +105,8 @@ export class LiquidizeFormulary {
    * @example LiquidizeFormulary.input({ input_formula: "{ 'title': qn.title }" }, bag)   // => { status: 'ok', input: { title: 'Leon' } }
    * @example LiquidizeFormulary.input({ input_formula: 'qn.title' }, bag).status         // => 'errored'
    */
-  static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag): InputOutcome {
-    const outcome = JsonataFormulary.input(widget, bag)
+  static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag, deadline?: number): InputOutcome {
+    const outcome = JsonataFormulary.input(widget, bag, deadline)
     if (outcome.status !== 'ok') { return outcome }
     // The bag is built from JSON alone, so only what a formula made needs making plain.
     const input = outcome.input === bag ? bag : Formulas.plainJson(outcome.input)
@@ -145,19 +138,20 @@ export class LiquidizeFormulary {
    * @param widget - Its template, the default.
    * @param widgeting - The widgeting working it, whose params may say otherwise; null for none.
    * @param bag - The question's bag, as the widgeting sees it.
+   * @param deadline - A `clockNow()` reading by which a formula reading it must be worked out; none but the formula's own timebox when absent.
    * @returns The template; nothing, when what it is read from holds nothing; or why there is none.
    *
    * @example LiquidizeFormulary.templateOf({ formula: '{{ qn.title }}' }, null, bag)  // => { status: 'ok', template: '{{ qn.title }}' }
    * @example LiquidizeFormulary.templateOf(widget, { ...widgeting, params: { template_from: { ref: 'notes' } } }, bag)  // => { status: 'ok', template: 'See {{ qn.hint }}' }
    * @example LiquidizeFormulary.templateOf(widget, { ...widgeting, params: { template_from: { ref: 'dumdum' } } }, bag)  // => { status: 'missing' }   (not yet asked)
    */
-  static templateOf(widget: Pick<WidgetT, 'formula'>, widgeting: Pick<WidgetingT, 'params'> | null, bag: QuizBag): TemplateOutcome {
+  static templateOf(widget: Pick<WidgetT, 'formula'>, widgeting: Pick<WidgetingT, 'params'> | null, bag: QuizBag, deadline?: number): TemplateOutcome {
     const own = this.ownOf(widgeting)
     if (own.template !== undefined) { return { status: 'ok', template: own.template } }
     if (own.template_from === undefined) { return { status: 'ok', template: widget.formula } }
     const { ref, formula } = own.template_from
     const picked = pickedOf(ref, bag)
-    const read = readOf(picked, formula, ref)
+    const read = readOf(picked, formula, ref, deadline)
     if (read.widgeted.status === 'missing') { return { status: 'missing' } }
     if (read.widgeted.status === 'errored') { return { status: 'errored', message: read.widgeted.err.message, stops: read.stops } }
     const text = read.widgeted.value
@@ -175,17 +169,17 @@ export class LiquidizeFormulary {
    * @param widget - Its template and its input formula.
    * @param widgeting - The widgeting working it, whose params may give the template; null for none.
    * @param bag - The question's bag, as the widgeting sees it.
-   * @param deadline - A `Templating.clockNow()` reading by which its column must be filled in; none but each fill's own limit when absent.
+   * @param deadline - A `clockNow()` reading by which its column must be filled in (its column's or its run's, whichever is sooner); none but each fill's own limit when absent.
    * @returns The widgeted, and whether it should stop the rest of its column.
    *
    * @example LiquidizeFormulary.run({ formula: 'Q: {{ qn.title }}', input_formula: '$' }, null, bag).widgeted  // => { status: 'ok', value: 'Q: Leon', err: null }
    * @example LiquidizeFormulary.run({ formula: '{{ qn.hint }}', input_formula: '$' }, null, bag).widgeted     // => { status: 'missing', value: null, err: null }   (no hint)
    */
   static run(widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: Pick<WidgetingT, 'params'> | null, bag: QuizBag, deadline?: number): LiveRun {
-    const input = this.input(widget, bag)
+    const input = this.input(widget, bag, deadline)
     if (input.status === 'missing') { return { widgeted: Widgeted.missing, stops: false } }
     if (input.status === 'errored') { return { widgeted: failed(input.message), stops: input.stops } }
-    const template = this.templateOf(widget, widgeting, bag)
+    const template = this.templateOf(widget, widgeting, bag, deadline)
     if (template.status === 'missing') { return { widgeted: Widgeted.missing, stops: false } }
     if (template.status === 'errored') { return { widgeted: failed(template.message), stops: template.stops } }
     const filled = Templating.fill(template.template, input.input as Readonly<Record<string, unknown>>, deadline)
@@ -232,7 +226,7 @@ function pickedOf(ref: string, bag: QuizBag): Picked {
  * widgeted only when `ok`, its value with no formula; anything else itself, or what the formula
  * worked out of it.
  */
-function readOf({ thing, widgeted }: Picked, formula: string | undefined, ref: string): LiveRun {
+function readOf({ thing, widgeted }: Picked, formula: string | undefined, ref: string, deadline?: number): LiveRun {
   if (widgeted) {
     const held = (thing ?? Widgeted.missing) as WidgetedT
     if (held.status === 'missing') { return { widgeted: Widgeted.missing, stops: false } }
@@ -241,7 +235,7 @@ function readOf({ thing, widgeted }: Picked, formula: string | undefined, ref: s
   } else if (formula === undefined) {
     return { widgeted: itself(thing), stops: false }
   }
-  const worked = JsonataFormulary.worked(formula, thing)
+  const worked = JsonataFormulary.worked(formula, thing, deadline)
   return worked.widgeted.status === 'errored' ? { ...worked, widgeted: failed(`The template's formula: ${worked.widgeted.err.message}`) } : worked
 }
 

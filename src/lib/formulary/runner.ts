@@ -3,8 +3,8 @@ import * as Rank from '../rank'
 import * as Estimates from '../estimates'
 import * as Wheel from '../wheel'
 import { huntTitleOf, realmTitleOf } from '../rows'
-import { clockNow } from '../liquidry'
-import { formularyFor, type InputOutcome, type LiveFormulary } from './formularies'
+import { clockNow, soonerOf } from '../clock'
+import { formularyFor, type Formulary, type InputOutcome, type LiveFormulary } from './formularies'
 import { Hunt, type HuntT } from '../../models/hunt'
 import { ArchivedField, Question, RankField, SecondaryField, type QuestionT } from '../../models/question'
 import { Quiz, type QuizT } from '../../models/quiz'
@@ -105,6 +105,19 @@ type BagFrame = QuizPlace & Pick<QuizBag, 'categories' | 'quiz' | 'quiz_label'> 
 /** How many of a widgeting's cells are in each state */
 export type StatusCounts = Record<WidgetedStatus, number>
 
+/**
+ * How long one run of a quiz may spend working out its formulas and templates, all its columns
+ * told, in milliseconds: a second, the most a Convex mutation has (a sort runs the quiz in one),
+ * and the most one change may hang a page for. A column begun after it is not worked out at all;
+ * one under way when it runs out is stopped where it stands. An ordinary quiz's run takes a few
+ * milliseconds; a formula reading every question for each (`qns[label = $$.qn.chains_to]`) about
+ * a quarter second a column over 300 questions.
+ */
+export const RunMs = 1000
+
+/** What every cell of a column reads when the run's time ran out before the column was begun */
+const RunOverMessage = 'The quiz took too long to work out, so this column was not: a slow formula or template in a column before it, perhaps.'
+
 /** What a widgeting reads as when the library holds no widget by its name */
 const GoneMessage = (widget_label: string) => `There is no widget called "${widget_label}" any more`
 
@@ -118,8 +131,9 @@ const GoneMessage = (widget_label: string) => `There is no widget called "${widg
  * Nothing here throws, and nothing is asked of a model. A formula that fails costs its own cells;
  * one that will not stop is stopped, after which the rest of its widgeting reads the same failure
  * rather than waiting on it again; and a formulary that bounds a whole column (`columnMs`, a
- * template's) is stopped there too, once the column has had its time. A widgeting whose widget
- * is gone reads as that failure.
+ * template's) is stopped there too, once the column has had its time. The run as a whole has
+ * `RunMs`: a column under way when it runs out is stopped as at its own bound, and every column
+ * after reads that the run ran out. A widgeting whose widget is gone reads as that failure.
  *
  * @param source - The quiz, its place, its widgetings and their widgets, and its stored widgeteds.
  * @returns The run.
@@ -137,18 +151,19 @@ export function runQuiz(source: RunSource): QuizRun {
   const quizAt = new Map<string, Record<string, unknown>>()
   let qns = baseQns(quiz)
   let quizNow = frame.quiz
+  const runDeadline = clockNow() + RunMs
   for (const step of steps) {
     const { label } = step.widgeting
     qnsAt.set(label, qns)
     quizAt.set(label, quizNow)
     if (step.widgeting.tier === 'quiz') {
-      const widgeted = quizCellOf(step, quizBagOf(frame, quizNow, qns, step.widgeting), source.quizStoredOf)
+      const widgeted = quizCellOf(step, quizBagOf(frame, quizNow, qns, step.widgeting), source.quizStoredOf, runDeadline)
       quizWidgeteds.set(label, widgeted)
       quizNow = { ...quizNow, [label]: widgeted }
       continue
     }
     const bags = bagsOf(frame, quizNow, qns, step.widgeting)
-    const column = columnOf(step, bags, quiz.questions, source.storedOf)
+    const column = columnOf(step, bags, quiz.questions, source.storedOf, runDeadline)
     widgeteds.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.widgeteds[idx] ?? Widgeted.missing])))
     if (column.inputs) { inputs.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.inputs?.[idx] ?? { status: 'missing' }]))) }
     const cellParts = Estimates.isEstimating(step.widget) ? column.widgeteds.map((widgeted) => Estimates.partsOf(frame.order, widgeted)) : null
@@ -425,24 +440,33 @@ type Column = {
 }
 
 /**
- * One widgeting for the whole quiz worked out over its one bag, or projected from what the quiz
- * stored for it; one whose widget is gone reads as that failure.
+ * One widgeting for the whole quiz worked out over its one bag by `runDeadline`, or projected from
+ * what the quiz stored for it; one whose widget is gone reads as that failure.
  */
-function quizCellOf(step: RunStep, bag: QuizBag, quizStoredOf: RunSource['quizStoredOf']): WidgetedT {
+function quizCellOf(step: RunStep, bag: QuizBag, quizStoredOf: RunSource['quizStoredOf'], runDeadline: number): WidgetedT {
   const { widgeting, widget } = step
   if (widget === null) { return Widgeted.errored({ message: GoneMessage(widgeting.widget_label), at: null, response: null }) }
   const formulary = formularyFor(widget)
-  if (formulary.refresh === 'live') { return formulary.run(widget, widgeting, bag, deadlineOf(formulary)).widgeted }
+  if (formulary.refresh === 'live') {
+    if (clockNow() >= runDeadline) { return runOver }
+    return formulary.run(widget, widgeting, bag, deadlineOf(formulary, runDeadline)).widgeted
+  }
   return widgetedFrom(quizStoredOf(widgeting))
 }
 
-/** When a column of `formulary`'s, begun now, must be worked out by: its `columnMs` from now, on a clock that moves inside a Convex mutation; none for no bound */
-function deadlineOf(formulary: LiveFormulary): number | undefined {
-  return formulary.columnMs === null ? undefined : clockNow() + formulary.columnMs
+/** What a live widgeting begun after its run's time ran out reads as */
+const runOver = Widgeted.errored({ message: RunOverMessage, at: null, response: null })
+
+/**
+ * When a column of `formulary`'s, begun now, must be worked out by, on a clock that moves inside a
+ * Convex mutation: its `columnMs` from now, or the run's deadline, whichever is sooner.
+ */
+function deadlineOf(formulary: LiveFormulary, runDeadline: number): number | undefined {
+  return soonerOf(formulary.columnMs === null ? undefined : clockNow() + formulary.columnMs, runDeadline)
 }
 
-/** One widgeting worked out, or projected from what it stored (asked or typed), for every question */
-function columnOf(step: RunStep, bags: readonly QuizBag[], questions: readonly QuestionT[], storedOf: RunSource['storedOf']): Column {
+/** One widgeting worked out by `runDeadline`, or projected from what it stored (asked or typed), for every question */
+function columnOf(step: RunStep, bags: readonly QuizBag[], questions: readonly QuestionT[], storedOf: RunSource['storedOf'], runDeadline: number): Column {
   const { widgeting, widget } = step
   if (widget === null) {
     const gone = Widgeted.errored({ message: GoneMessage(widgeting.widget_label), at: null, response: null })
@@ -450,8 +474,9 @@ function columnOf(step: RunStep, bags: readonly QuizBag[], questions: readonly Q
   }
   const formulary = formularyFor(widget)
   if (formulary.refresh === 'live') {
+    if (clockNow() >= runDeadline) { return { widgeteds: bags.map(() => runOver), inputs: null } }
     const widgeteds: WidgetedT[] = []
-    const deadline = deadlineOf(formulary)
+    const deadline = deadlineOf(formulary, runDeadline)
     let stopped: WidgetedT | null = null
     for (const bag of bags) {
       if (stopped !== null) { widgeteds.push(stopped); continue }
@@ -464,6 +489,21 @@ function columnOf(step: RunStep, bags: readonly QuizBag[], questions: readonly Q
   // A stored widgeting is projected from its rows; only one asked from the cell has inputs to say.
   return {
     widgeteds: questions.map((question) => widgetedFrom(storedOf(widgeting, question))),
-    inputs:    formulary.refresh === 'click' ? bags.map((bag) => formulary.input(widget, bag)) : null,
+    inputs:    formulary.refresh === 'click' ? inputsOf(formulary, widget, bags, runDeadline) : null,
   }
+}
+
+/**
+ * What each question's ask of a widgeting asked from the cell would be put, its input formula
+ * worked out by `runDeadline`: one that will not stop stops the rest, each reading the same failure.
+ */
+function inputsOf(formulary: Formulary, widget: WidgetT, bags: readonly QuizBag[], runDeadline: number): InputOutcome[] {
+  const inputs: InputOutcome[] = []
+  let stopped: InputOutcome | null = null
+  for (const bag of bags) {
+    const input: InputOutcome = stopped ?? formulary.input(widget, bag, runDeadline)
+    if (input.status === 'errored' && input.stops) { stopped = input }
+    inputs.push(input)
+  }
+  return inputs
 }

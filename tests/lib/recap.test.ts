@@ -315,9 +315,14 @@ describe("Recap.noteOf, by a template of the quiz's own", () => {
 
   it("composes Liquid's own filters with the app's: the questions played that hold a recap, by title", () => {
     const quiz = quizOf([questionWith({ qnum: '2', title: 'Zed', clueing: 'Z?', recap: 'Hard.' }), questionWith({ qnum: '1', title: 'Ann', clueing: 'A?', recap: 'Easy.' }), questionWith({ qnum: '3', title: 'Mid', clueing: 'M?' })], {
-      recap_template: '{% assign told = qns | in_order | where_exp: "qn", "qn.recap != blank" | sort: "title" %}{% for qn in told %}{{ qn.number }} {{ qn.title }}; {% endfor %}',
+      recap_template: '{% assign told = qns | in_order | where: "recap" | sort: "title" %}{% for qn in told %}{{ qn.number }} {{ qn.title }}; {% endfor %}',
     })
     expect(recapOf(quiz)).to.eq('1 Ann; 2 Zed;')
+  })
+
+  it("refuses a filter working an expression for every question, naming the twin to use", () => {
+    expect(noteOf(quizOf([hamilton], { recap_template: '{% assign told = qns | where_exp: "qn", "qn.recap != blank" %}' })).issue)
+      .to.eq('the filter where_exp works an expression for every item of a list, which is not offered: use where, with a property and a value, line:1, col:1')
   })
 })
 

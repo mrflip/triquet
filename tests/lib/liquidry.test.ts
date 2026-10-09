@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import * as Clock from '../../src/lib/clock'
 import * as Liquidry from '../../src/lib/liquidry'
 
 /** A renderer with one shaping filter and one plain one, a value filling in as its text */
@@ -6,6 +7,19 @@ const Renderer = Liquidry.rendererFor({
   fillingOf: (val) => (typeof val === 'string' || typeof val === 'number' ? String(val) : ''),
   shapers:   { shout: (text) => text.toUpperCase() },
   filters:   { twice: (val) => [val, val] },
+})
+
+describe('Liquidry.sizeWithin', () => {
+  it("counts each character, number, list and object, per the doc examples", () => {
+    expect(Liquidry.sizeWithin(['ab', [1, 2]], 100)).to.eq(6)
+    expect(Liquidry.sizeWithin('x'.repeat(500), 100)).to.eq(101)
+  })
+
+  it("counts what is held twice, twice, and stops counting past its most", () => {
+    const long = Array.from({ length: 1000 }, (_unused, idx) => idx)
+    expect(Liquidry.sizeWithin({ one: long, other: long }, 10_000)).to.eq(2003)
+    expect(Liquidry.sizeWithin(Array.from({ length: 1000 }, () => long), 10_000)).to.eq(10_001)
+  })
 })
 
 describe('Liquidry.rendererFor', () => {
@@ -37,28 +51,84 @@ describe('Liquidry.rendererFor', () => {
 
   it('stops a loop inside a loop that writes nothing, past its time, on a clock that moves', () => {
     const nothing = '{% for aa in (1..3000) %}{% for bb in (1..3000) %}{% endfor %}{% endfor %}'
-    const beg = Liquidry.clockNow()
+    const beg = Clock.clockNow()
     const rendered = Renderer.render(nothing, {}, beg + 30)
     expect(rendered).to.deep.eq({ text: nothing, issue: 'This template takes too long to fill in: a loop inside a loop, perhaps.', failkind: 'limit' })
     // Stopped near its deadline, not at the end of nine million turns; the margin is for a machine under load.
-    expect(Liquidry.clockNow() - beg).to.be.below(1000)
+    expect(Clock.clockNow() - beg).to.be.below(1000)
   })
 
   it('stops at once a render whose deadline has passed', () => {
-    expect(Renderer.render('plain text', {}, Liquidry.clockNow() - 1).failkind).to.eq('limit')
+    expect(Renderer.render('plain text', {}, Clock.clockNow() - 1).failkind).to.eq('limit')
   })
 
   it('stops a render whose deadline has passed before reading its template, so one that will not read costs no more time', () => {
-    expect(Renderer.render('{% if %}', {}, Liquidry.clockNow() - 1)).to.deep.eq({ text: '{% if %}', issue: 'This template takes too long to fill in: a loop inside a loop, perhaps.', failkind: 'limit' })
+    expect(Renderer.render('{% if %}', {}, Clock.clockNow() - 1)).to.deep.eq({ text: '{% if %}', issue: 'This template takes too long to fill in: a loop inside a loop, perhaps.', failkind: 'limit' })
   })
 
   it("holds a render to its own time when its deadline is later", () => {
     expect(Liquidry.RenderMs).to.eq(1000)
-    expect(Renderer.render('{{ name }}', { name: 'ada' }, Liquidry.clockNow() + 60_000)).to.deep.eq({ text: 'ada', issue: null, failkind: null })
+    expect(Renderer.render('{{ name }}', { name: 'ada' }, Clock.clockNow() + 60_000)).to.deep.eq({ text: 'ada', issue: null, failkind: null })
   })
 
   it("says Liquid's own limit on allocation stopped it, as a limit", () => {
     expect(Renderer.render('{% for aa in (1..100000000) %}{% endfor %}', {}).failkind).to.eq('limit')
+  })
+
+  it("stops a range of more than it may make at once, as a limit, before any filter works through it", () => {
+    const beg = Clock.clockNow()
+    // Measured before this limit: 2.4 s, against a deadline of 250 ms.
+    const rendered = Renderer.render('{% assign rr = (1..3000000) | where: "xx" %}', {}, beg + 250)
+    expect(rendered).to.deep.eq({ text: '{% assign rr = (1..3000000) | where: "xx" %}', issue: 'This template makes too long a list or text at once: a range of more than 100,000, perhaps.', failkind: 'limit' })
+    expect(Clock.clockNow() - beg).to.be.below(250)
+  })
+
+  it("stops a filter handed more than it may take at once, Liquid's or the app's", () => {
+    const long = 'x'.repeat(Liquidry.ItemsMax + 1)
+    expect(Renderer.render('{{ long | upcase }}', { long }).failkind).to.eq('limit')
+    expect(Renderer.render('{{ long | twice | size }}', { long }).issue).to.eq('This template makes too long a list or text at once: a range of more than 100,000, perhaps.')
+    expect(Renderer.render('{{ short | upcase }}', { short: 'x'.repeat(Liquidry.ItemsMax) }).failkind).to.be.null
+  })
+
+  it("stops a render making more than it may all told, though each step is small", () => {
+    const tenth = 'x'.repeat(Liquidry.ItemsMax / 2)
+    const rendered = Renderer.render('{% for aa in (1..100) %}{% assign up = tenth | upcase %}{% endfor %}', { tenth })
+    expect(rendered.issue).to.match(/^memory alloc limit exceeded/)
+    expect(rendered.failkind).to.eq('limit')
+  })
+
+  it("counts a value pushed onto a list for all it holds, so a list cannot hold one long thing many times over", () => {
+    const long = 'x'.repeat(50_000)
+    const fanned = '{% assign many = "" | split: "," %}{% for aa in (1..1000) %}{% assign many = many | push: long %}{% endfor %}{{ many | size }}'
+    expect(Renderer.render(fanned, { long }).failkind).to.eq('limit')
+    expect(Renderer.render('{% assign two = "" | split: "," | push: long | push: long %}{{ two | size }}', { long }).text).to.eq('2')
+  })
+
+  for (const [refused, twin] of Object.entries(Liquidry.RefusedFilters)) {
+    it(`refuses ${refused} as the template is read, naming ${twin} to use instead`, () => {
+      const template = `{% assign some = list | ${refused}: "item", "item > 1" %}`
+      expect(Renderer.render(template, { list: [1, 2] })).to.deep.eq({ text: template, issue: `the filter ${refused} works an expression for every item of a list, which is not offered: use ${twin}, with a property and a value, line:1, col:1`, failkind: 'syntax' })
+      expect(Renderer.issueOf(template)).to.match(new RegExp(`^the filter ${refused} works an expression`, 'u'))
+    })
+  }
+
+  it("refuses at once the 99 characters of where_exp that took 13.7 s against a deadline of 250 ms", () => {
+    const template = '{% assign r = (1..3000000) | where_exp: "x", "x > 0 and x > 1 and x > 2 and x > 3" %}'
+    const beg = Clock.clockNow()
+    expect(Renderer.render(template, {}, beg + 250).failkind).to.eq('syntax')
+    expect(Clock.clockNow() - beg).to.be.below(250)
+  })
+
+  it("stops a filter working through a list inside its one call, at its deadline, reading each item on a clock that moves", () => {
+    // A long path read from each of many items: forty seconds of reading, were the clock read only between pieces.
+    const path = ['xx', ...Array.from({ length: 1700 }, () => 'aa')].join('.')
+    for (const template of [`{% assign rr = (1..100000) | where: "${path}" %}`, `{% assign rr = list | has: "${path}", 1 %}`, `{% assign rr = list | sort: "${path}" %}`]) {
+      const beg = Clock.clockNow()
+      const rendered = Renderer.render(template, { list: Array.from({ length: 50_000 }, (_unused, idx) => ({ xx: idx })) }, beg + 30)
+      expect(rendered.issue).to.eq('This template takes too long to fill in: a loop inside a loop, perhaps.')
+      // Stopped near its deadline, not at the end of the list; the margin is for a machine under load.
+      expect(Clock.clockNow() - beg).to.be.below(2000)
+    }
   })
 
   it('says a template that failed as it ran, as no limit', () => {
