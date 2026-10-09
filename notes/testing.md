@@ -174,9 +174,11 @@ test's hunt (`testing:makeHunt`, an internal function the spec process calls wit
 admin key, `e2e/admin.ts`). A spec that is not about the gear asks for its quiz's layout up front,
 `test.use({ layout: { widgetings: [...], columns: [...] } })`, rather than walking the dialogs
 (`addWidgetings`, `addColumns`), which stay for the specs about them. A spec that is about the way
-in itself (the front door, the hunts list, a friend's link) says `test.use({ startAt: null })` and
+in itself (the front door, the hunts list, making a hunt) says `test.use({ startAt: null })` and
 goes there itself, in a fresh anonymous session (`startHunt(page)` walks the front door and the
-hunts list); one that must stub a route before the page first asks for it stubs it and reloads. A
+hunts list); a file whose tests are only partly about it says so in a `describe`, or in an
+anonymous one, `test.describe(() => { test.use({ startAt: null }) ... })`, which leaves the
+titles of the tests in it as they were; one that must stub a route before the page first asks for it stubs it and reloads. A
 helper two specs need lives in support with a doc block; a helper one spec needs lives at the top
 of that spec.
 
@@ -210,10 +212,15 @@ from the role. A spec must pass under both servers. Each test's browser context 
 ident is the smith; the session is handed on from test to test, since each page that opens on it
 spends its refresh token (`KeptSessionT` in support). Specs share one database, and a worker's
 tests share one ident, so find rows and pages by your own labels and titles, never by position or
-by the hunts an ident is on, and never change who the page's session is. A second visitor is a
-second browser context (`otherVisitor`), a session of their own, closed after the test; a context
-made any other way inherits the worker's session. A smith puts them on the hunt through the
-members panel (`addMember`) before they can open it.
+by the hunts an ident is on, and never change who the page's session is. A second visitor is the
+fixture's `friend`: a page in a browser of its own, signed in as a second ident each worker says
+it is once (`friendLabel`), its session handed on from test to test as the worker's own is. The
+friend is on no hunt of the test's, a stranger to it, until put on one: by the backend,
+`putOnHunt(huntOf(page), friendLabel, 'reviewer')` (`e2e/admin.ts`, through `testing:putOnHunt`),
+or through the Members panel (`addMember`) in a spec about the panel. A visitor nobody has seen,
+or one whose own way in is what the spec is about, is `otherVisitor(browser)`: a browser context
+with no session, closed after the test, who says who they are with `assumeIdent`. A context made
+any other way inherits the worker's session.
 The grid is `grid(page)`, the table named *Questions*: the page holds other tables.
 
 A change lands one round trip after the author makes it: the screen shows it once the server

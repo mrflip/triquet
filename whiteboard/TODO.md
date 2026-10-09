@@ -394,3 +394,7 @@ headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (abo
   (`claimFor`), and `hunts.open` tells anyone a hunt's smiths' usernames. Close out unheld idents;
   name smiths only to a session with a username.
 * **O9, info.** An image may be any `https` address, the viewer's own network included.
+
+## From perf_improvements sprint, thread 1: spine_test_split
+
+* `scripts/spine.ts`'s `E2eLockPollMs` (2000) makes the two waiting tests in `tests/scripts/spine-e2e-lock.test.ts` sleep ~2 s each. An env override, set short in tests, would cut ~4 s from the slowest unit file. Left alone because it changes `scripts/spine.ts` and so rules out that thread's e2e skip.

@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 import * as Routes from '../src/lib/routes'
-import { addMember, assumeIdent, expect, huntOf, manageDialog, openManage, otherVisitor, reloadOnceSaved, test } from './support'
+import { putOnHunt } from './admin'
+import { expect, huntOf, manageDialog, openManage, reloadOnceSaved, test } from './support'
 
 /** The tile of the category titled `title`, wherever it sits on the editor's board: its name says where, after the title */
 function tileOf(page: Page, title: string): Locator {
@@ -181,11 +182,13 @@ test.describe("a hunt's category wheel", () => {
     await expect(masie).toContainText('Worst: Math & Econ')
   })
 
-  test("shows a reviewer the total order, read-only, and a stranger who to ask", async ({ page, browser }) => {
+  test("shows a reviewer the total order, read-only, and a stranger who to ask", async ({ page, friend, friendLabel }) => {
     const path = Routes.categoriesPath(huntOf(page))
-    const reviewer = await otherVisitor(browser)
-    const label = await assumeIdent(reviewer)
-    await addMember(page, label, 'Reviewer')
+    // The friend, on no hunt of this test's yet, is a stranger to it until put on as its reviewer.
+    await friend.goto(path)
+    await expect(friend.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
+    await putOnHunt(huntOf(page), friendLabel, 'reviewer')
+    const reviewer = friend
 
     // Art into the pool, and TV into its slot: TV's own slot is left empty, and Art fills it.
     await page.goto(path)
@@ -203,11 +206,6 @@ test.describe("a hunt's category wheel", () => {
     await expect(reviewer.getByRole('group', { name: 'Artie' })).toContainText('Best: TV')
     await expect(reviewer.getByRole('button', { name: /^Art, / })).toHaveCount(0)
     await expect(reviewer.getByRole('region', { name: 'Pool' })).toHaveCount(0)
-
-    const stranger = await otherVisitor(browser)
-    await assumeIdent(stranger)
-    await stranger.goto(path)
-    await expect(stranger.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
   })
 })
 

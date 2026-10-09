@@ -1,6 +1,7 @@
 /**
  * The spec process's own line to the suite's Convex backend, as its admin: how the way in makes a
- * hunt without walking the hunts list (`testing:makeHunt`).
+ * hunt without walking the hunts list (`testing:makeHunt`), and how a spec puts a second visitor on
+ * it without walking the Members panel (`putOnHunt`).
  *
  * The admin key is the one `scripts/convex_backend` wrote beside the role's data when it started
  * the backend (`data/convex-<role>/cli.env`), which `scripts/convex_dev` and `scripts/convex_reset`
@@ -13,6 +14,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { parseEnv } from 'node:util'
 import * as Z from 'zod'
+import type * as Routes from '../src/lib/routes'
+import type { HuntRole } from '../src/models/hunting'
 import * as Environment from './environment'
 
 /** Where the suite's backend answers, and the key that makes a call an admin's */
@@ -50,6 +53,22 @@ export async function runAsAdmin(fnpath: string, args: Record<string, unknown>):
   if (! reply.success) { throw new Error(`${fnpath} was answered ${String(response.status)}, ${body}`) }
   if (reply.data.status === 'error') { throw new Error(`${fnpath} refused: ${reply.data.errorMessage}`) }
   return reply.data.value
+}
+
+/**
+ * Put the ident labelled `label` on `hunt` as `role`, as a smith would from the Members panel, but
+ * through the backend (`testing:putOnHunt`): for a spec whose second visitor is not what it is
+ * about. The panel's own way stays with the specs about the panel (`addMember` in support).
+ *
+ * @param hunt - The hunt, by its org and label: `huntOf(page)` for the one a page has open.
+ * @param label - The ident to put on it, which must have been chosen at the front door.
+ * @param role - What they are to do on it.
+ * @throws When the hunt or the ident is not there; with what the backend said.
+ *
+ * @example await putOnHunt(huntOf(page), friendLabel, 'reviewer')
+ */
+export async function putOnHunt(hunt: Routes.HuntLabels, label: string, role: HuntRole): Promise<void> {
+  await runAsAdmin('testing:putOnHunt', { org: hunt.org, hunt: hunt.hunt, ident: label, role })
 }
 
 /** `body` read as JSON; null when it is not */

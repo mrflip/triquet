@@ -10,7 +10,7 @@ import { present } from '../support/present'
 /** How many rows each table holds that has any */
 async function countsIn(tt: Tester): Promise<Record<string, number>> {
   return await tt.run(async (ctx) => {
-    const tablenames = ['hunts', 'realms', 'quizzes', 'questions', 'widgets', 'widgetings', 'widgeteds', 'columns', 'idents', 'signals'] as const
+    const tablenames = ['hunts', 'realms', 'quizzes', 'questions', 'widgets', 'widgetings', 'widgeteds', 'columns', 'idents', 'huntings', 'signals'] as const
     const counts = await Promise.all(tablenames.map(async (tablename) => {
       const rows = await ctx.db.query(tablename).collect()
       return [tablename, rows.length] as const
@@ -67,11 +67,17 @@ describe("testing.clearAll", () => {
   })
 })
 
+/** The org and hunt labels an address `/~<org>/<hunt>/...` names */
+function huntLabelsOf(address: string): { org: string, hunt: string } {
+  const [, org = '', hunt = ''] = address.split('/', 3)
+  return { org: org.replace(/^~/, ''), hunt }
+}
+
 /** What a hunt `makeHunt` made holds, read past authorization: its org and label, its smiths, and its one quiz's layout in order */
 async function madeOf(tt: Tester, address: string) {
-  const [, org = '', hunt = ''] = address.split('/', 3)
+  const { org, hunt } = huntLabelsOf(address)
   return await tt.run(async (ctx) => {
-    const row = present(await ctx.db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', org.replace(/^~/, '')).eq('label', hunt)).first())
+    const row = present(await ctx.db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', org).eq('label', hunt)).first())
     const huntings = await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', row._id)).collect()
     const quiz = present(await ctx.db.query('quizzes').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', row._id)).first())
     const widgetings = await ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz._id)).collect()
@@ -169,6 +175,74 @@ describe("testing.makeHunt", () => {
     await identified(tt, 'tester_maker')
     const before = await countsIn(tt)
     await expect(tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
+    expect(await countsIn(tt)).to.deep.eq(before)
+  })
+})
+
+/** Who is on the hunt `makeHunt` handed back the address of, read past authorization: each member's label and role, in the order they were put on */
+async function membersOf(tt: Tester, address: string): Promise<[string, string][]> {
+  const { org, hunt } = huntLabelsOf(address)
+  return await tt.run(async (ctx) => {
+    const row = present(await ctx.db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', org).eq('label', hunt)).first())
+    const huntings = await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', row._id)).collect()
+    return huntings.map((hunting): [string, string] => [hunting.ident_label, hunting.role])
+  })
+}
+
+/** A hunt `tester_maker` made, and `tester_friend`, who has chosen their label and is on no hunt */
+async function huntAndFriend(tt: Tester): Promise<string> {
+  await identified(tt, 'tester_maker')
+  await identified(tt, 'tester_friend')
+  return await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })
+}
+
+describe("testing.putOnHunt", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("puts an ident on a hunt of an org with the role given, beside its smith", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const address = await huntAndFriend(tt)
+    await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), ident: 'tester_friend', role: 'reviewer' })
+    expect(await membersOf(tt, address)).to.deep.eq([['tester_maker', 'smith'], ['tester_friend', 'reviewer']])
+  })
+
+  it("changes the role of an ident already on the hunt, never putting them on twice", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const address = await huntAndFriend(tt)
+    await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), ident: 'tester_friend', role: 'reviewer' })
+    await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), ident: 'tester_friend', role: 'smith' })
+    expect(await membersOf(tt, address)).to.deep.eq([['tester_maker', 'smith'], ['tester_friend', 'smith']])
+  })
+
+  it("refuses an ident nobody has chosen, writing nothing", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const address = await huntAndFriend(tt)
+    const before = await countsIn(tt)
+    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), ident: 'tester_nobody', role: 'smith' })).rejects.toThrow(/tester_nobody/)
+    expect(await countsIn(tt)).to.deep.eq(before)
+  })
+
+  it("refuses a hunt the org lacks, writing nothing", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const address = await huntAndFriend(tt)
+    const before = await countsIn(tt)
+    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), org: 'tester_friend', ident: 'tester_friend', role: 'smith' })).rejects.toThrow(/~tester_friend has no hunt/)
+    expect(await countsIn(tt)).to.deep.eq(before)
+  })
+
+  it("refuses a deployment that may not be made into, writing nothing", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const address = await huntAndFriend(tt)
+    vi.stubEnv('TRIQUET_CLEARABLE', '')
+    const before = await countsIn(tt)
+    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), ident: 'tester_friend', role: 'smith' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
     expect(await countsIn(tt)).to.deep.eq(before)
   })
 })
