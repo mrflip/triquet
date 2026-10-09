@@ -136,7 +136,8 @@ test.describe('the front door', () => {
     await expect(account).toContainText(`@${label}`)
     await account.getByRole('textbox', { name: 'Your name' }).fill('Menu Named')
     await account.getByRole('textbox', { name: 'Your name' }).blur()
-    await page.keyboard.press('Escape')
+    // Said to the menu itself: the blur leaves focus on the page's body, which the menu does not hear.
+    await account.press('Escape')
     await expect(account).toBeHidden()
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('Menu Named')
     await expect(page.getByRole('banner').getByRole('button', { name: 'Account' })).toHaveText('M')
