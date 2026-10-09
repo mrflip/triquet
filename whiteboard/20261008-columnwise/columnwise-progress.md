@@ -18,7 +18,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 5a | folding editors | landed #199 |
 | 5b | run order in both places, row preview | landed #202 |
 | 8 | seeds pass (optional) | landed #200 |
-| 9 | compute budgets (added) | review flagged: two calls for the Coach |
+| 9 | compute budgets (added) | review flagged, ruled: building two fixes |
 | 3c | columns tighten (last) | pending |
 
 Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). Next asked-for full run: thread 9 (asked: core libraries, security), the twelfth landing, or the sprint's end.
@@ -273,6 +273,22 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   locks in TODO.
 * **For the Coach**: decisions 1-3 in `thread-5b-cw_runorder.md` (the menus at the panel's head;
   the run order as plain lines; the folded row's description snippet gone).
+
+### From thread 9's review (flagged, ruled)
+
+* *Reviewer:* `RunMs` (1 s) stops the classic layout's butnot columns from about 200 questions,
+  and leaves the server sort no headroom under Convex's 1 s mutation limit; column formulas
+  (`workedOf`) sit outside every budget. Root causes: `sort_questions` runs the whole quiz on the
+  server, and `ButnotHint` (`qns[label = $$.qn.chains_to]`) is O(n²).
+* **The Coach ruled:**
+  - Every bag also carries the questions keyed by label, generic, so the butnot lookup is O(1).
+    `qns` stays the ordered list. No code defending butnot or the ishes, which are to become
+    expressions later.
+  - Sort on the client: the browser sends the order, the server checks it and writes it.
+  - Loose time limits.
+  - Be judicious: the Coach is opening a separate thread on sending the whole quiz on every
+    update.
+  - Done in thread 9.
 
 ### From thread 2's review (flagged, ruled)
 
