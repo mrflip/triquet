@@ -19,6 +19,11 @@ describe('ColumnToggles', () => {
     expect(togglesMarkup({ ...notes, readout: 'markdown' }, false)).to.contain('aria-label="Readout of Notes: markdown"')
   })
 
+  it("says in its tooltip what its readout is drawn as, and what a click makes it", () => {
+    expect(togglesMarkup(notes, false)).to.contain('title="Drawn as the cells choose. Click to draw it as plain text."')
+    expect(togglesMarkup({ ...notes, readout: 'label' }, false)).to.contain('title="Drawn as a label. Click to draw it as the cells choose."')
+  })
+
   it("says whether it is templated and collapsed by aria-pressed, under names that stay the same", () => {
     const markup = togglesMarkup({ ...notes, collapsed: true }, false)
     expect(markup).to.match(/aria-label="Templated: Notes" aria-pressed="false"/)
