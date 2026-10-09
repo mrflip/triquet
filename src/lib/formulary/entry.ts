@@ -73,7 +73,8 @@ export class EntryFormulary {
   /**
    * The validator of a widgeting's params, given the entry widget it works: its family's, each
    * param optional, none it does not know; and the params taken together with the widget's
-   * defaults beneath them, so a least above a most is refused whichever of the two said it.
+   * defaults beneath them, and its kind's preset beneath those (`entryParamsIssues`), so a least
+   * above a most is refused whichever of them said it.
    *
    * @param widget - The entry widget, whose kind names its family and whose config holds its defaults.
    * @returns The validator; its shape has one key per param, which a params editor draws a field for.
