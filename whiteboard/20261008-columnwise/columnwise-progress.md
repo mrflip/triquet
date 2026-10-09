@@ -16,7 +16,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 7 | `liquidize` formulary | landed #201 |
 | 6 | free regex (optional) | landed #198 |
 | 5a | folding editors | landed #199 |
-| 5b | run order in both places, row preview | in review |
+| 5b | run order in both places, row preview | landing (review fixed) |
 | 8 | seeds pass (optional) | landed #200 |
 | 9 | compute budgets (added) | underway |
 | 3c | columns tighten (last) | pending |
