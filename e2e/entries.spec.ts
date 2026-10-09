@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { AppNotices } from '../src/lib/notices'
-import { addWidgeting, cellOf, closeManage, columnPanel, expect, exportedQuizzes, faceOf, freshWidgetLabel, manageDialog, openManage, openPanel, pickWidget, preparedExport, relabelWidgeting, reloadOnceSaved, showTab, test, waitUntilSaved, widgetingPanel } from './support'
+import { addWidgeting, cellOf, closeManage, columnPanel, expect, exportedQuizzes, faceOf, freshWidgetLabel, manageDialog, openManage, openPanel, pickWidget, preparedExport, relabelWidgeting, reloadOnceSaved, showTab, test, unfoldBy, waitUntilSaved, widgetingPanel } from './support'
 
 /** The widget editor writing a new widget, open over the gear's dialog that opened it */
 function newWidgetDialog(page: Page) {
@@ -17,7 +17,8 @@ async function newWidgetFromColumns(page: Page) {
 /**
  * Write a new entry widget into the library, labelled `widget_label` and taking the kind whose
  * words match `kind`, through *+ New column…*'s *A new widget…*, which puts it to work in the open
- * quiz with its column as it is written; relabel it `label`, and close the gear's dialog.
+ * quiz with its column as it is written; close the gear's dialog, and relabel it `label` in the
+ * Widgets panel.
  */
 async function addNewEntry(page: Page, widget_label: string, kind: RegExp, label: string) {
   await openManage(page)
@@ -32,8 +33,8 @@ async function addNewEntry(page: Page, widget_label: string, kind: RegExp, label
   await expect(maker.getByRole('textbox', { name: 'Formula', exact: true })).toHaveCount(0)
   await maker.getByRole('button', { name: 'Apply' }).click()
   await expect(maker).toHaveCount(0)
-  await relabelWidgeting(page, widget_label, label)
   await closeManage(page)
+  await relabelWidgeting(page, widget_label, label)
 }
 
 /** The box of the entry column `colname` in the row at `rowIdx` */
@@ -61,16 +62,16 @@ test('what is typed into an entry is kept, and emptying it empties the cell', as
 })
 
 /**
- * Let `settle` say the params of the widgeting labelled `label` in its folded line, in the run
- * order of the gear's dialog, each kept as it is left or picked; close the gear's dialog.
+ * Let `settle` say the params of the widgeting labelled `label` in its folded line, in the Widgets
+ * panel's run order, each kept as it is left or picked, and wait until they have been kept.
  */
 async function setParams(page: Page, label: string, settle: (settings: Locator) => Promise<void>) {
-  await openManage(page)
+  await openPanel(page, 'Widgets')
   await settle(settingsOf(page, label))
-  await closeManage(page)
+  await waitUntilSaved(page)
 }
 
-/** The params of the widgeting labelled `label`, in its folded line in the run order of the gear's dialog */
+/** The params of the widgeting labelled `label`, in its folded line in the Widgets panel's run order, which must be open */
 function settingsOf(page: Page, label: string): Locator {
   return widgetingPanel(page, label).getByRole('group', { name: `Settings of ${label}` })
 }
@@ -88,7 +89,7 @@ test('a new entry and its column are made in one go from + New column…, its se
   const settings = column.getByRole('group', { name: 'Settings of figure' })
   await settings.getByRole('textbox', { name: 'Least' }).fill('5')
   await settings.getByRole('textbox', { name: 'Least' }).press('Tab')
-  await expect(widgetingPanel(page, 'figure')).toContainText('entry figure')
+  await expect(column.getByRole('group', { name: 'Widgeting figure' })).toContainText('entry figure')
   await closeManage(page)
   const box = cellOf(page, 0, 'Figure').getByRole('textbox', { name: 'Figure', exact: true })
   await box.fill('2')
@@ -187,7 +188,7 @@ test.describe('the seeded families', () => {
   })
 
   test('a regular expression that could take too long to match is refused beside its field, and by the server', async ({ page }) => {
-    await openManage(page)
+    await openPanel(page, 'Widgets')
     const settings = settingsOf(page, 'memo')
     const regex = settings.getByRole('textbox', { name: 'Regular expression' })
     await regex.fill('^(a+)+$')
@@ -197,38 +198,42 @@ test.describe('the seeded families', () => {
   })
 
   test('a regular expression that will not compile is said so beside its field, kept as typed, and not applied', async ({ page }) => {
-    await openManage(page)
+    await openPanel(page, 'Widgets')
     const settings = settingsOf(page, 'memo')
     const regex = settings.getByRole('textbox', { name: 'Regular expression' })
     await regex.fill('(a')
     await regex.blur()
     await expect(regex).toHaveValue('(a')
     await expect(settings).toContainText('will not compile: Unterminated group')
-    await closeManage(page)
     await reloadOnceSaved(page)
-    await openManage(page)
+    await openPanel(page, 'Widgets')
     await expect(settingsOf(page, 'memo').getByRole('textbox', { name: 'Regular expression' })).toHaveValue('')
   })
 
-  test('the entries head the run order, run first wherever they were placed, and are never dragged', async ({ page }) => {
+  test('the entries head the run order in both its places, run first wherever they were placed, and are never dragged', async ({ page }) => {
     await addWidgeting(page, 'clueing_full')
-    await openManage(page)
-    const entries = manageDialog(page).getByRole('list', { name: 'Entries' })
-    await expect(entries.getByRole('group', { name: /^Widgeting / })).toHaveCount(4)
-    await expect(entries.getByRole('button', { name: /^Reorder/ })).toHaveCount(0)
-    await expect(manageDialog(page).getByRole('list', { name: 'Widgetings' }).getByRole('button', { name: 'Reorder clueing_full' })).toBeVisible()
+    const openings = [
+      async () => await openPanel(page, 'Widgets'),
+      async () => { await openManage(page); return manageDialog(page) },
+    ]
+    for (const opening of openings) {
+      const place = await opening()
+      const entries = place.getByRole('list', { name: 'Entries' })
+      await expect(entries.getByRole('group', { name: /^Widgeting / })).toHaveCount(4)
+      await expect(entries.getByRole('button', { name: /^Reorder/ })).toHaveCount(0)
+      await expect(place.getByRole('list', { name: 'Widgetings' }).getByRole('button', { name: 'Reorder clueing_full' })).toBeVisible()
+    }
   })
 
   test('a widgeting refuses params that do not agree, saying which beside the field, and the one that does not agree is not kept', async ({ page }) => {
-    await openManage(page)
+    await openPanel(page, 'Widgets')
     const settings = settingsOf(page, 'figure')
     await settings.getByRole('textbox', { name: 'Least' }).fill('5')
     await settings.getByRole('textbox', { name: 'Most' }).fill('1')
     await settings.getByRole('textbox', { name: 'Least' }).click()
     await expect(settings).toContainText('should be no less than the least, «5»')
-    await closeManage(page)
     await reloadOnceSaved(page)
-    await openManage(page)
+    await openPanel(page, 'Widgets')
     await expect(settingsOf(page, 'figure').getByRole('textbox', { name: 'Most' })).toHaveValue('')
   })
 
@@ -237,8 +242,9 @@ test.describe('the seeded families', () => {
     const beneath = columnPanel(page, 'Figure').getByRole('group', { name: 'Settings of figure' })
     await beneath.getByRole('textbox', { name: 'Least' }).fill('3')
     await beneath.getByRole('textbox', { name: 'Least' }).press('Tab')
-    await expect(settingsOf(page, 'figure').getByRole('textbox', { name: 'Least' })).toHaveValue('3')
     await closeManage(page)
+    await openPanel(page, 'Widgets')
+    await expect(settingsOf(page, 'figure').getByRole('textbox', { name: 'Least' })).toHaveValue('3')
     const box = cellOf(page, 0, 'Figure').getByRole('textbox', { name: 'Figure', exact: true })
     await box.fill('2')
     await leaveBox(page)
@@ -252,7 +258,7 @@ test('the Widgets panel counts what has been typed, and says what the entry take
   await leaveBox(page)
   const panel = await openPanel(page, 'Widgets')
   await expect(panel.getByRole('group', { name: 'Cells of points' })).toHaveText(/^1 current • \d+ blank$/)
-  await panel.getByRole('button', { name: /^points/ }).click()
+  await unfoldBy(widgetingPanel(page, 'points'), 'Widgeting points in full')
   await expect(panel).toContainText('Typed into its cells, one value per question. A number, between bounds if you like.')
   await expect(panel.getByRole('button', { name: 'Copy a prompt for a chatbot' })).toHaveCount(0)
 })

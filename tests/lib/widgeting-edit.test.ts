@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EstimatesColumnWidthPx, NewColumnWidthPx, newColumnShowing, planWidgetingEdit, runOrderIdxOf, type WidgetingEdit } from '../../src/lib/widgeting-edit'
+import { EstimatesColumnWidthPx, NewColumnWidthPx, newColumnShowing, planWidgetingEdit, runOrderIdxOf, runOrderListsOf, type WidgetingEdit } from '../../src/lib/widgeting-edit'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
 import { Widgeting, type WidgetingT } from '../../src/models/widgeting'
@@ -263,6 +263,35 @@ describe("runOrderIdxOf", () => {
 
   it("lands among the entries' rest wherever they are, the entries themselves never counted", () => {
     expect(runOrderIdxOf([...remark, ...listOf('guess')], isEntry, 'guess', 0)).to.eq(1)
+  })
+})
+
+/** The labels of `widgetings`, in order */
+const labelsOf = (widgetings: readonly WidgetingT[]) => widgetings.map((widgeting) => widgeting.label)
+
+describe("runOrderListsOf", () => {
+  it("puts the entries at the head and the rest below, each in position order, per the doc example", () => {
+    const { entries, rest } = runOrderListsOf(listOf('clueing_full', 'memo', 'dumdum', 'figure'), library)
+    expect(labelsOf(entries)).to.deep.eq(['memo', 'figure'])
+    expect(labelsOf(rest)).to.deep.eq(['clueing_full', 'dumdum'])
+  })
+
+  it("tells an entry by the widget it works, not by its own label", () => {
+    const { entries, isEntry } = runOrderListsOf([Widgeting.fill({ widget_label: 'memo', label: 'remarks' })], library)
+    expect(labelsOf(entries)).to.deep.eq(['remarks'])
+    expect(isEntry(Widgeting.fill({ widget_label: 'dumdum', label: 'memo' }))).to.be.false
+  })
+
+  it("keeps a widgeting whose widget the library no longer holds among the rest", () => {
+    const { entries, rest } = runOrderListsOf(listOf('vanished', 'memo'), library)
+    expect(labelsOf(entries)).to.deep.eq(['memo'])
+    expect(labelsOf(rest)).to.deep.eq(['vanished'])
+  })
+
+  it("splits no widgetings into two empty lists", () => {
+    const { entries, rest } = runOrderListsOf([], library)
+    expect(entries).to.deep.eq([])
+    expect(rest).to.deep.eq([])
   })
 })
 

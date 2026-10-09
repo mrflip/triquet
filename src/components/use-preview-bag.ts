@@ -9,20 +9,42 @@ import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import { useOtherQuiz } from '../state/use-other-quiz'
 
+/** The question of one quiz a preview is pointed at */
+export type PreviewQuestionHandle = {
+  /** The quiz's questions but the archived, in Q# order */
+  ranked:       readonly QuestionT[]
+  /** The question picked; the lowest-numbered one until another is, or when the one picked is gone */
+  question:     QuestionT | undefined
+  /** Point the preview at another question; null goes back to the lowest-numbered */
+  pickQuestion: (question_id: string | null) => void
+}
+
 /** The quiz and question a widget editor's preview is pointed at, and the bag it reads there */
-export type PreviewBagHandle = {
+export type PreviewBagHandle = PreviewQuestionHandle & {
   /** Every quiz of the hunt, for the preview to be pointed at */
   quizzes:     readonly ShallowHuntT['realms'][number]['quizzes'][number][]
   quiz_id:     string
   /** Point the preview at another quiz, starting on its lowest-numbered question */
   pickQuiz:    (quiz_id: string) => void
-  /** The quiz's questions, in Q# order */
-  ranked:      readonly QuestionT[]
-  /** The question picked; the lowest-numbered one until another is */
-  question:    QuestionT | undefined
-  pickQuestion: (question_id: string) => void
   /** The bag the widget reads for that question, once its quiz is to hand */
   bag:         Runner.QuizBag | undefined
+}
+
+/**
+ * Which question of `quiz` a preview is pointed at: the lowest-numbered of those the grid shows
+ * until another is picked, and again should the one picked be archived or deleted.
+ *
+ * @param quiz - The quiz whose questions are offered; null while it is not yet to hand.
+ * @returns The questions offered, the one picked, and how to pick another.
+ */
+export function usePreviewQuestion(quiz: QuizT | null): PreviewQuestionHandle {
+  const [question_id, setQuestionId] = useState<string | null>(null)
+  const ranked = useMemo(() => Rank.inRankOrder(Question.unarchived(quiz?.questions ?? [])), [quiz])
+  return {
+    ranked,
+    question:     ranked.find((held) => held._id === question_id) ?? ranked[0],
+    pickQuestion: setQuestionId,
+  }
 }
 
 /**
@@ -41,14 +63,12 @@ export type PreviewBagHandle = {
  */
 export function usePreviewBag(hunt: ShallowHuntT, library: readonly WidgetT[], openQuiz: QuizT, widgeting_label: string): PreviewBagHandle {
   const [quiz_id, setQuizId] = useState<string>(openQuiz._id)
-  const [question_id, setQuestionId] = useState<string | null>(null)
 
   const quizzes = useMemo(() => hunt.realms.flatMap((realm) => realm.quizzes), [hunt])
   const picked = quiz_id === openQuiz._id ? null : quizzes.find((row) => row._id === quiz_id) ?? null
   const other = useOtherQuiz(hunt, picked?._id ?? null)
   const quiz: QuizT | null = picked ? other : openQuiz
-  const ranked = useMemo(() => Rank.inRankOrder(Question.unarchived(quiz?.questions ?? [])), [quiz])
-  const question = ranked.find((held) => held._id === question_id) ?? ranked[0]
+  const { ranked, question, pickQuestion } = usePreviewQuestion(quiz)
   const realm = quiz && hunt.realms.find((held) => held.quizzes.some((row) => row._id === quiz._id))
   const bags = useMemo((): ReadonlyMap<string, Runner.QuizBag> => {
     if (! quiz || ! realm) { return new Map() }
@@ -59,10 +79,10 @@ export function usePreviewBag(hunt: ShallowHuntT, library: readonly WidgetT[], o
   return {
     quizzes,
     quiz_id,
-    pickQuiz:     (picking) => { setQuizId(picking); setQuestionId(null) },
+    pickQuiz:     (picking) => { setQuizId(picking); pickQuestion(null) },
     ranked,
     question,
-    pickQuestion: setQuestionId,
+    pickQuestion,
     bag:          question ? bags.get(question._id) : undefined,
   }
 }

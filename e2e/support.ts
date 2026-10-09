@@ -191,9 +191,17 @@ export async function pickWidget(page: Page, picker: Locator, widget_label: stri
   await page.getByRole('option').filter({ has: page.getByText(widget_label, { exact: true }) }).click()
 }
 
-/** A widgeting's panel in the manage dialog's run order (rather than its copy beneath a column) */
+/** The Widgets panel below the grid, where the quiz's widgetings are put to work and edited, in run order */
+export function widgetsPanel(page: Page): Locator {
+  return page.getByRole('region', { name: 'Widgets', exact: true })
+}
+
+/**
+ * A widgeting's panel in the Widgets panel's run order (rather than its copy beneath a column, or
+ * its line in the manage dialog's run order), which must be open (`openPanel`)
+ */
 export function widgetingPanel(page: Page, label: string): Locator {
-  return manageDialog(page).getByRole('list', { name: /^(Entries|Widgetings)$/ }).getByRole('group', { name: `Widgeting ${label}`, exact: true })
+  return widgetsPanel(page).getByRole('list', { name: /^(Entries|Widgetings)$/ }).getByRole('group', { name: `Widgeting ${label}`, exact: true })
 }
 
 /** A column's panel in the manage dialog's columns editor, by its title: the last, where two share it */
@@ -211,18 +219,24 @@ export async function foldBy(scope: Locator, foldname: string): Promise<void> {
   await foldTo(scope, foldname, false)
 }
 
-/** Set a panel's triangle, named `foldname`, to `open` */
+/**
+ * Set a panel's triangle, named `foldname`, to `open`; folding, wait until what it folds away is
+ * hidden, so nothing it held is still found while it closes.
+ */
 async function foldTo(scope: Locator, foldname: string, open: boolean): Promise<void> {
   const fold = scope.getByRole('button', { name: foldname, exact: true }).first()
   if (await fold.getAttribute('aria-expanded') !== String(open)) { await fold.click() }
   await expect(fold).toHaveAttribute('aria-expanded', String(open))
+  const controls = await fold.getAttribute('aria-controls')
+  if (! open && controls !== null) { await expect(scope.page().locator(`[id="${controls}"]`)).toBeHidden() }
 }
 
 /**
- * Relabel the widgeting labelled `from` to `onto` through its panel in the run order, which the
- * gear's dialog must be showing.
+ * Relabel the widgeting labelled `from` to `onto` through its panel in the Widgets panel's run
+ * order, opening the Widgets panel first if it is folded.
  */
 export async function relabelWidgeting(page: Page, from: string, onto: string): Promise<void> {
+  await openPanel(page, 'Widgets')
   const panel = widgetingPanel(page, from)
   await unfoldBy(panel, `Widgeting ${from} in full`)
   await panel.getByRole('textbox', { name: 'Widgeting label' }).fill(onto)
@@ -232,34 +246,34 @@ export async function relabelWidgeting(page: Page, from: string, onto: string): 
 
 /**
  * Put the library's widget `widget_label` to work in the open quiz, under `label` (blank takes the
- * widget's), with the column it brings, and close the gear's dialog.
+ * widget's), with the column it brings, through the Widgets panel, folded again afterwards.
  */
 export async function addWidgeting(page: Page, widget_label: string, label = ''): Promise<void> {
-  await openManage(page)
+  await openPanel(page, 'Widgets')
   await widgetingAdded(page, widget_label, label)
-  await closeManage(page)
+  await closePanel(page, 'Widgets')
 }
 
 /**
  * Put each of the library's widgets `widget_labels` to work in the open quiz, in the order given,
  * each under its own label with the column it brings, headed after it (`clueing_full` brings
- * *Clueing Full*), and close the gear's dialog. A new quiz starts lean: a spec about the bots or
- * the sums adds what it is about, the widgets a widget reads before it.
+ * *Clueing Full*), through the Widgets panel, folded again afterwards. A new quiz starts lean: a
+ * spec about the bots or the sums adds what it is about, the widgets a widget reads before it.
  */
 export async function addWidgetings(page: Page, widget_labels: readonly string[]): Promise<void> {
-  await openManage(page)
+  await openPanel(page, 'Widgets')
   for (const widget_label of widget_labels) { await widgetingAdded(page, widget_label) }
-  await closeManage(page)
+  await closePanel(page, 'Widgets')
 }
 
 /**
- * Through the gear's dialog, which must be open: a new widgeting of `widget_label`, made as it is
+ * Through the Widgets panel, which must be open: a new widgeting of `widget_label`, made as it is
  * picked with the column it brings (headed after the widget), then relabelled `label` if one is given.
  */
-async function widgetingAdded(page: Page, widget_label: string, label = ''): Promise<void> {
-  await manageDialog(page).getByRole('button', { name: '+ New widgeting…' }).click()
-  await pickWidget(page, manageDialog(page).getByRole('combobox', { name: 'A new widgeting, for each question' }), widget_label)
-  await expect(columnPanel(page, Labelmaker.titleize(widget_label))).toBeVisible()
+export async function widgetingAdded(page: Page, widget_label: string, label = ''): Promise<void> {
+  await widgetsPanel(page).getByRole('button', { name: '+ New widgeting…' }).click()
+  await pickWidget(page, widgetsPanel(page).getByRole('combobox', { name: 'A new widgeting, for each question' }), widget_label)
+  await expect(grid(page).getByRole('columnheader', { name: Labelmaker.titleize(widget_label), exact: true })).toBeVisible()
   if (label !== '') { await relabelWidgeting(page, widget_label, label) }
 }
 
@@ -447,6 +461,11 @@ export async function openPanel(page: Page, title: string): Promise<Locator> {
   const panel = page.getByRole('region', { name: title, exact: true })
   await unfold(panel)
   return panel
+}
+
+/** Fold the panel titled `title` below the grid to its title bar, if it is open */
+export async function closePanel(page: Page, title: string): Promise<void> {
+  await foldBy(page.getByRole('region', { name: title, exact: true }), 'Show this panel')
 }
 
 /** Open `panel` by its fold triangle, if it is folded */

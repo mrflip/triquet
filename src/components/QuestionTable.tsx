@@ -121,29 +121,24 @@ export function QuestionTable({ questions, specs, run, templateable, locked, gri
               // A collapsed column's cells are empty, so there is nothing on screen to order by.
               const sortkey = column.collapsed ? null : column.sortkey ?? null
               return (
-                <th
+                <ColumnHead
                   key={column.colkey}
-                  scope="col"
-                  className={clsx(styles.head, headClassOf(column.headkind), alignClassOf(column.align), sortkey !== null && sortkey === lastSortkey && styles.headSorted)}
-                  data-sorted={(sortkey !== null && sortkey === lastSortkey) || undefined}
-                  data-collapsed={column.collapsed || undefined}
-                  style={{ width: `${String(column.widthPx)}px` }}
-                  aria-sort={ariaSortFor(sortkey, sortMark)}
-                  title={onCollapse ? collapseHintOf(column) : undefined}
+                  column={column}
+                  sorted={sortkey !== null && sortkey === lastSortkey}
+                  ariaSort={ariaSortFor(sortkey, sortMark)}
+                  hint={onCollapse ? collapseHintOf(column) : undefined}
                   onDoubleClick={onCollapse ? () => { onCollapse(column.colkey, ! column.collapsed) } : undefined}
                 >
-                  <span className={clsx(column.headkind === 'vertical' && styles.headVerticalInner)}>
-                    {sortkey === null ? column.title : (
-                      // The second click of a double-click, which collapses the column, sorts nothing more.
-                      <button type="button" className={styles.headButton} disabled={locked} onClick={(event) => { if (event.detail <= 1) { onSort(sortkey) } }}>
-                        {column.title}
-                        {/* Decorative: the direction is already on the header as aria-sort, and
-                            folding the arrow into the button's name would rename it on every click. */}
-                        <span className={styles.headArrow} aria-hidden="true">{arrowFor(sortkey, sortMark)}</span>
-                      </button>
-                    )}
-                  </span>
-                </th>
+                  {sortkey === null ? column.title : (
+                    // The second click of a double-click, which collapses the column, sorts nothing more.
+                    <button type="button" className={styles.headButton} disabled={locked} onClick={(event) => { if (event.detail <= 1) { onSort(sortkey) } }}>
+                      {column.title}
+                      {/* Decorative: the direction is already on the header as aria-sort, and
+                          folding the arrow into the button's name would rename it on every click. */}
+                      <span className={styles.headArrow} aria-hidden="true">{arrowFor(sortkey, sortMark)}</span>
+                    </button>
+                  )}
+                </ColumnHead>
               )
             })}
           </tr>
@@ -182,6 +177,41 @@ export function QuestionTable({ questions, specs, run, templateable, locked, gri
         </tbody>
       </table>
     </div>
+  )
+}
+
+export type ColumnHeadProps = {
+  column:         ColumnSpec
+  /** Whether the quiz was last committed to its order, marked bold across reloads */
+  sorted?:        boolean
+  /** What a screen reader is told of its part in the current order; nothing for a column that does not sort */
+  ariaSort?:      'ascending' | 'descending' | 'none'
+  /** What hovering over it says */
+  hint?:          string
+  onDoubleClick?: () => void
+  /** What it says: its title, or the button that sorts by it */
+  children:       React.ReactNode
+}
+
+/**
+ * One column's head in the grid, as wide as the column, aligned and turned as it is, holding its
+ * title or the button sorting by it. The grid's own heads and the manage dialog's row preview
+ * both draw it.
+ */
+export function ColumnHead({ column, sorted = false, ariaSort, hint, onDoubleClick, children }: Readonly<ColumnHeadProps>) {
+  return (
+    <th
+      scope="col"
+      className={clsx(styles.head, headClassOf(column.headkind), alignClassOf(column.align), sorted && styles.headSorted)}
+      data-sorted={sorted || undefined}
+      data-collapsed={column.collapsed || undefined}
+      style={{ width: `${String(column.widthPx)}px` }}
+      aria-sort={ariaSort}
+      title={hint}
+      onDoubleClick={onDoubleClick}
+    >
+      <span className={clsx(column.headkind === 'vertical' && styles.headVerticalInner)}>{children}</span>
+    </th>
   )
 }
 

@@ -69,7 +69,8 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
   const [chainDescending, setChainDescending] = useState(true)
   const [managing, setManaging] = useState(false)
-  // Kept here, outside the manage dialog, so its panels stay as they were left across a reopen.
+  // Kept here, outside the manage dialog, so its panels stay as they were left across a reopen;
+  // the Widgets panel's widgetings keep theirs here too, beside them.
   const layoutFolds = useFoldSet(quiz._id)
   const [editingLibrary, setEditingLibrary] = useState(false)
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
@@ -165,8 +166,8 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           dispatch={dispatch}
           changeLibrary={librarian.dispatch}
           folds={layoutFolds}
+          run={run}
           onOpen={goTo}
-          onEditLibrary={() => { setEditingLibrary(true) }}
           onRetitleHunt={(title) => { dispatch({ kind: 'retitle_hunt', title }) }}
           onRelabelHunt={(label) => {
             // Followed once it has landed, and not at all when it was refused (the label taken):
@@ -277,6 +278,8 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         carryOut={carryOut}
         saveNotice={saveNotice}
         changeLibrary={librarian.dispatch}
+        dispatch={dispatch}
+        folds={layoutFolds}
         onImport={(actions) => {
           void HuntMirror.markedChange(hunt, quiz, 'import', () => {
             for (const action of actions) { dispatch(action) }

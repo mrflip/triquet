@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { closeManage, expect, freshWidgetLabel, manageDialog, openManage, relabelWidgeting, stubAsk, test, widgetingPanel } from './support'
+import { expect, freshWidgetLabel, openPanel, relabelWidgeting, stubAsk, test, widgetingPanel } from './support'
 
 // Every widget here is the spec's own (`freshWidgetLabel`): the library is every hunt's, and the
 // specs share one database, so a seeded prompt is never edited.
@@ -16,12 +16,12 @@ function promptDialog(page: Page) {
 
 /**
  * Paste `prompt` in as a new widget labelled `widget_label`, written through the door beside the
- * catalogue of *+ New widgeting…*, without applying it
+ * Widgets panel's catalogue of *+ New widgeting…*, without applying it
  */
 async function pastePrompt(page: Page, widget_label: string, prompt = Riddle) {
-  await openManage(page)
-  await page.getByRole('button', { name: '+ New widgeting…' }).click()
-  await manageDialog(page).getByRole('button', { name: 'New widget…' }).click()
+  const panel = await openPanel(page, 'Widgets')
+  await panel.getByRole('button', { name: '+ New widgeting…' }).click()
+  await panel.getByRole('button', { name: 'New widget…' }).click()
   const editor = promptDialog(page)
   await editor.getByRole('combobox', { name: 'Formulary' }).click()
   await page.getByRole('option', { name: /^A prompt/ }).click()
@@ -30,15 +30,14 @@ async function pastePrompt(page: Page, widget_label: string, prompt = Riddle) {
 }
 
 /**
- * Apply the new prompt `widget_label`, which puts it to work as it is written, relabel the
- * widgeting that works it `label`, and close the gear's dialog behind them
+ * Apply the new prompt `widget_label`, which puts it to work as it is written, and relabel the
+ * widgeting that works it `label`
  */
 async function applyPrompt(page: Page, widget_label: string, label: string) {
   await promptDialog(page).getByRole('button', { name: 'Apply' }).click()
   await expect(promptDialog(page)).toHaveCount(0)
   await expect(widgetingPanel(page, widget_label)).toBeVisible()
   await relabelWidgeting(page, widget_label, label)
-  await closeManage(page)
 }
 
 test.beforeEach(async ({ page }) => {

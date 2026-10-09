@@ -1,16 +1,16 @@
 import type { HuntActionDNA } from '../models/actions'
 
 /**
- * The keys of the manage dialog's folding panels, one per place a panel is drawn, so a
- * widgeting's panel beneath one column folds apart from its copy beneath another and from its
- * row in the run order. A `FoldSet` keeps them (`useFoldSet`).
+ * The keys of the folding panels of the manage dialog and the Widgets panel, one per place a panel
+ * is drawn, so a widgeting's panel beneath one column folds apart from its copy beneath another and
+ * from its row in the Widgets panel's run order. A `FoldSet` keeps them (`useFoldSet`).
  */
 export const LayoutFoldkeys = {
   /** A column's panel, in the columns editor */
   column:    (columnLabel: string) => `column:${columnLabel}`,
   /** The panel of the widgeting a column shows, beneath that column */
   beneath:   (columnLabel: string) => `column:${columnLabel}:widgeting`,
-  /** A widgeting's panel, in the run order */
+  /** A widgeting's panel, in the Widgets panel's run order */
   widgeting: (widgetingLabel: string) => `widgeting:${widgetingLabel}`,
   /** A column, as a widgeting's panel lists the columns showing it */
   listed:    (widgetingLabel: string, columnLabel: string) => `widgeting:${widgetingLabel}:column:${columnLabel}`,

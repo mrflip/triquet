@@ -158,6 +158,36 @@ function editWidgetingActions(held: WidgetingT, next: WidgetingT, quiz: QuizT): 
   ]
 }
 
+/** A quiz's run order as its lists show it: the entries at the head, never dragged, then the rest */
+export type RunOrderListsT = {
+  /** The entry widgetings, which read nothing and so run first wherever they are placed */
+  entries: WidgetingT[]
+  /** Every other widgeting, in position order, both tiers mixed: the ones dragged into order */
+  rest:    WidgetingT[]
+  /** Whether a widgeting is one of the entries */
+  isEntry: (widgeting: WidgetingT) => boolean
+}
+
+/**
+ * A quiz's widgetings split as the run-order lists show them: the entries at the head, the rest
+ * below in position order. A widgeting whose widget the library no longer holds is among the rest.
+ *
+ * @param widgetings - The quiz's widgetings, in position order.
+ * @param library - The widgets they work.
+ * @returns The two lists, and how one was told from the other (for `runOrderIdxOf`).
+ *
+ * @example runOrderListsOf([shout, remark, guess], library)  // => { entries: [remark], rest: [shout, guess], isEntry }
+ */
+export function runOrderListsOf(widgetings: readonly WidgetingT[], library: readonly WidgetT[]): RunOrderListsT {
+  const entryLabels = new Set(library.filter((widget) => widget.formulary === 'entry').map((widget) => widget.label))
+  const isEntry = (widgeting: WidgetingT) => entryLabels.has(widgeting.widget_label)
+  return {
+    entries: widgetings.filter((widgeting) => isEntry(widgeting)),
+    rest:    widgetings.filter((widgeting) => ! isEntry(widgeting)),
+    isEntry,
+  }
+}
+
 /**
  * Where a widgeting dropped in the run-order list lands in the quiz's whole run order, for
  * `move_widgeting`. The list shows the entries at its head, where nothing is dragged, and the rest
