@@ -125,9 +125,10 @@ async function sessionMadeAtFrontDoor(browser: Browser, baseURL: string | undefi
 /**
  * The storage `context` leaves its session in, for the next test: once a page of it that opened
  * the app on the refresh token `began` holds has exchanged that token for its own, should it have
- * opened one. A test that ends a moment after its page first loads would otherwise hand on a token
- * the server has already spent (`KeptSessionT`). One that never turns over within the wait (a page
- * that opened only a page of no session's) is handed on as it stands.
+ * opened one. Belt and braces: a test that ends a moment after its page first loads would hand on
+ * a token the server has already spent, which Convex Auth still answers with the child it issued,
+ * so long as that child was never used (`KeptSessionT`). One that never turns over within the
+ * wait (a page that opened only a page of no session's) is handed on as it stands.
  */
 async function sessionLeftBy(context: BrowserContext, began: StorageT): Promise<StorageT> {
   const before = refreshTokenIn(began)

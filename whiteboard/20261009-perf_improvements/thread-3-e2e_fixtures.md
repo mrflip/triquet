@@ -29,7 +29,8 @@ compare a later thread's numbers.
 * **`sessionLeftBy`**, a guard for the hand-on. At teardown, every page of the context that opened
   the app is given up to 5 s to exchange the refresh token the test began with. A test that ends
   a moment after its friend's first load would otherwise hand on a token the server has already
-  spent. Over 30 probed teardowns it waited 2 to 200 ms, and never ran out of time.
+  spent. The review found it belt and braces: Convex Auth answers a spent token whose child was
+  never used with that child. Over 30 probed teardowns it waited 2 to 200 ms, and never ran out of time.
 * **`routing.spec.ts`**:
   * The file-wide `startAt: null` is gone. `the front door` and `the hunts` keep it per describe.
   * Two tests keep it in an anonymous `test.describe(() => ...)`, so their titles are unchanged:
