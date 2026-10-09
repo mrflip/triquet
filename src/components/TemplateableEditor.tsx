@@ -18,15 +18,12 @@ export type TemplateableEditorProps = {
 /**
  * Which of the quiz's sources are templateable, their own text a template: a checkbox for each of its questions' markdown
  * fields and each text entry (`Templating.templatableSources`). Each tick sends the whole list
- * again, in the order offered.
+ * again, in the order offered (`Templating.nominationsWith`), as a column's own *Templated* does.
  */
 export function TemplateableEditor({ quiz, library, revisable, dispatch }: Readonly<TemplateableEditorProps>) {
   const offered = Templating.templatableSources(quiz, library)
   const nominate = (source: string, on: boolean) => {
-    const templateable = offered
-      .map((each) => each.source)
-      .filter((each) => (each === source ? on : Templating.templates(quiz, each)))
-    dispatch({ kind: 'set_templateable', templateable })
+    dispatch({ kind: 'set_templateable', templateable: Templating.nominationsWith(quiz, library, source, on) })
   }
   return (
     <FormGroup row role="group" aria-label="Templateable sources">

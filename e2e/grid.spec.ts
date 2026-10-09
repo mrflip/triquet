@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { addColumns, addWidgeting, cellOf, closeManage, columnPanel, expect, faceOf, fillRows, foldedRows, grid, openManage, reloadOnceSaved, rowAt, test, unfoldBy, valuesOf, waitUntilSaved } from './support'
+import { addColumns, addWidgeting, cellOf, closeManage, columnPanel, expect, faceOf, fillRows, foldBy, foldedRows, grid, manageDialog, openManage, reloadOnceSaved, rowAt, test, unfoldBy, valuesOf, waitUntilSaved } from './support'
 
 /** The triangle in the grid's corner, which folds every row or unfolds them all */
 function foldAll(page: Page): Locator {
@@ -276,6 +276,33 @@ test("a double-click on a column's head collapses it to its turned header, its c
   await expect(head).not.toHaveAttribute('data-collapsed')
   await expect.poll(widthOf).toBeCloseTo(wasPx, 0)
   await expect(cellOf(page, 0, 'Notes').getByRole('textbox', { name: 'Notes' })).toHaveCount(1)
+})
+
+test("a folded column's toggles set its readout, its templating and its collapse in place, the Templates section ticking with it, and give way to the full controls unfolded", async ({ page }) => {
+  await openManage(page)
+  const row = columnPanel(page, 'Notes')
+  const templated = row.getByRole('button', { name: 'Templated: Notes', exact: true })
+  await templated.click()
+  // Pressed once the server has it: the toggle and the Templates section show one nomination.
+  await expect(templated).toHaveAttribute('aria-pressed', 'true')
+  await expect(manageDialog(page).getByRole('group', { name: 'Templateable sources' }).getByRole('checkbox', { name: 'Notes' })).toBeChecked()
+  // Q# shows nothing a template could be made of: a blank where its toggle would be.
+  await expect(columnPanel(page, 'Q#').getByRole('button', { name: /^Templated:/ })).toHaveCount(0)
+
+  // Notes are typed into, so their editor draws them whatever the readout: a formula makes them a readout.
+  await unfoldBy(row, 'Column Notes in full')
+  await row.getByRole('combobox', { name: 'Formula' }).fill('$uppercase($)')
+  await row.getByRole('textbox', { name: 'Template' }).click()
+  await expect(row.getByRole('checkbox', { name: 'Templated' })).toBeChecked()
+  await expect(row.getByRole('button', { name: /^Readout of Notes/ })).toHaveCount(0)
+  await foldBy(row, 'Column Notes in full')
+  await row.getByRole('button', { name: 'Readout of Notes: as the cells choose' }).click()
+  await expect(row.getByRole('button', { name: 'Readout of Notes: plain text' })).toBeVisible()
+  const collapsed = row.getByRole('button', { name: 'Collapsed: Notes', exact: true })
+  await collapsed.click()
+  await expect(collapsed).toHaveAttribute('aria-pressed', 'true')
+  await closeManage(page)
+  await expect(grid(page).getByRole('columnheader', { name: 'Notes', exact: true })).toHaveAttribute('data-collapsed', 'true')
 })
 
 test("a double-click on a sortable head sorts once, not twice, as it collapses the column", async ({ page }) => {

@@ -22,6 +22,6 @@ export function hiddenUntil(room: `@${string}`) {
 export const RowSlots = {
   grip:  { width: 16, flexShrink: 0, pt: 1, textAlign: 'center' },
   fold:  { width: 24, flexShrink: 0, pt: 0.5 },
-  title: { width: { '@': 150, '@560': 260 }, flexShrink: 0 },
+  title: { width: { '@': 150, '@600': 260 }, flexShrink: 0 },
   tier:  { width: 112, flexShrink: 0 },
 } as const

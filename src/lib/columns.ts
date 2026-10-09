@@ -2,13 +2,13 @@ import * as Runner from './formulary/runner'
 import { clockNow } from './clock'
 import * as Templating from './templating'
 import { JsonataFormulary } from './formulary/jsonata'
-import { ColumnAlignVals, refOf, sortkeyOf, type BagWord, type ColumnAlign, type ColumnReadout, type ColumnT, type QuestionField, type QuestionKey, type QuestionView } from '../models/column'
+import { ColumnAlignVals, ColumnReadoutVals, refOf, sortkeyOf, type BagWord, type ColumnAlign, type ColumnReadout, type ColumnT, type QuestionField, type QuestionKey, type QuestionView } from '../models/column'
 import { Bagged } from '../models/quiz-bag'
 import { Widgeted, type JsonT, type WidgetedT } from '../models/widgeted'
 import type { WidgetingT } from '../models/widgeting'
 import type { WidgetT } from '../models/widget'
 import { formularyFor } from './formulary/formularies'
-import type { Sortkey } from '../models/quiz'
+import type { QuizT, Sortkey } from '../models/quiz'
 import { widgetingShownNotice } from './notices'
 
 /** How a column's header is drawn: along the row, or rotated into it */
@@ -168,6 +168,45 @@ export function headAlignOf(column: ColumnT): ColumnAlign {
  */
 export function alignAfter(align: ColumnAlign): ColumnAlign {
   return ColumnAlignVals[(ColumnAlignVals.indexOf(align) + 1) % ColumnAlignVals.length] ?? 'left'
+}
+
+/**
+ * The readout a click on a column's moves it to: from none named (as the cells choose) to plain,
+ * markdown, code, label, and back to none.
+ *
+ * @example readoutAfter(undefined)  // => 'plain'
+ * @example readoutAfter('code')     // => 'label'
+ * @example readoutAfter('label')    // => null
+ */
+export function readoutAfter(readout: ColumnReadout | undefined): ColumnReadout | null {
+  if (readout === undefined) { return ColumnReadoutVals[0] }
+  return ColumnReadoutVals[ColumnReadoutVals.indexOf(readout) + 1] ?? null
+}
+
+/**
+ * The source a column's *Templated* nominates: what it shows, when that is a source the quiz may
+ * nominate as templateable (`Templating.templatableSources`) -- a question's markdown field, or a
+ * widgeting for each question typed into as text -- whatever the column's formula makes of it.
+ *
+ * @param source - The column's source.
+ * @param quiz - The quiz: its widgetings, and what it nominates now.
+ * @param library - The library's widgets, which say what each widgeting is.
+ * @returns The source to nominate, or null when what the column shows cannot be templated.
+ *
+ * @example templatableOf('clueing', quiz, library)  // => 'clueing'
+ * @example templatableOf('author', quiz, library)   // => 'author'   (a text entry)
+ * @example templatableOf('qnum', quiz, library)     // => null
+ */
+export function templatableOf(source: string, quiz: Pick<QuizT, 'widgetings' | 'templateable'>, library: readonly WidgetT[]): string | null {
+  const nominee = nomineeOf(resolve(source, quiz.widgetings))
+  if (nominee === null) { return null }
+  return Templating.templatableSources(quiz, library).some((each) => each.source === nominee) ? nominee : null
+}
+
+/** What a column showing `shown` would nominate, were it templatable: a question's field, or a widgeting for each question */
+function nomineeOf(shown: Resolved | null): string | null {
+  if (shown?.kind === 'field') { return shown.field }
+  return shown?.kind === 'widgeting' && shown.widgeting.tier === 'question' ? shown.widgeting.label : null
 }
 
 /**
