@@ -184,6 +184,11 @@ describe('widgetingSourceOf and widgetingLabelOf', () => {
   })
 })
 
+/** A namer knowing one preset's names, `$.sum` heading its column *Summed*, and naming the rest as `namesFor` does */
+function namedWithSum(source: string, formula: string | null): { label: string, title: string } {
+  return formula === '$.sum' ? { label: 'summed', title: 'Summed' } : namesFor(source, formula)
+}
+
 describe('retitledPatch', () => {
   const RetitledCases: [Pick<ColumnT, 'title' | 'source' | 'formula'>, ColumnPatch, ColumnPatch, string][] = [
     // the doc examples:
@@ -199,6 +204,13 @@ describe('retitledPatch', () => {
   ]
   it.each(RetitledCases)('%j patched %j => %j: %s', (column, patch, expected) => {
     expect(retitledPatch(column, patch)).to.deep.eq(expected)
+  })
+
+  it('heads a column by the namer it is given, so a preset carrying names is followed to them and back', () => {
+    const column = { title: 'Numnum Hint', source: 'numnum_hint' }
+    expect(retitledPatch(column, { formula: '$.sum' }, namedWithSum)).to.deep.eq({ formula: '$.sum', title: 'Summed' })
+    expect(retitledPatch({ ...column, title: 'Summed', formula: '$.sum' }, { formula: null }, namedWithSum)).to.deep.eq({ formula: null, title: 'Numnum Hint' })
+    expect(retitledPatch({ ...column, title: 'Summed', formula: '$.sum' }, { formula: null })).to.deep.eq({ formula: null })
   })
 })
 

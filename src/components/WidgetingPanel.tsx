@@ -14,7 +14,7 @@ import type { FoldSet } from './use-folds'
 import { FormularyWords } from './widget-words'
 import * as Labelmaker from '../lib/labelmaker'
 import * as UU from '../lib/useful'
-import type * as ColumnMenu from '../lib/column-menu'
+import * as ColumnMenu from '../lib/column-menu'
 import { columnsShowing, widgetingRemovalRefusal } from '../lib/columns'
 import { EntryFormulary } from '../lib/formulary/entry'
 import { formularyFor } from '../lib/formulary/formularies'
@@ -295,7 +295,7 @@ function noColumnLine(widgeting: WidgetingT, beneath: ColumnT | undefined): stri
 function ColumnFold({ widgeting, column, quiz, library, sources, revisable, dispatch, folds }: Readonly<WidgetingPanelContext & { widgeting: WidgetingT, column: ColumnT }>) {
   const fieldsId = useId()
   const foldkey = LayoutFoldkeys.listed(widgeting.label, column.label)
-  const { commit, issue } = useColumnCommit(column, dispatch)
+  const { commit, issue } = useColumnCommit(column, dispatch, ColumnMenu.namerOf(quiz, library))
   const columnName = column.title || column.label
   return (
     <Box role="listitem">

@@ -1,7 +1,7 @@
 import * as Labelmaker from './labelmaker'
 import * as Estimates from './estimates'
-import type { Resolved } from './columns'
-import { BagWordVals, type BagWord, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, WidgetingPartTitles, WidgetingPartVals, namesFor, partFormulaOf, widgetingSourceOf } from '../models/column'
+import { resolve, type Resolved } from './columns'
+import { BagWordVals, type BagWord, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, WidgetingPartTitles, WidgetingPartVals, namesFor, partFormulaOf, widgetingSourceOf, type ColumnNamer } from '../models/column'
 import { QuizBagValidators } from '../models/quiz-bag'
 import { SeedPresets } from '../models/seeds'
 import type { WidgetingT } from '../models/widgeting'
@@ -154,4 +154,22 @@ export function subjectOf(shown: Resolved, library: readonly WidgetT[]): PresetS
 export function namesOf(source: string, formula: string | null, presets: readonly FormulaPreset[]): { label: string, title: string } {
   const taken = formula === null ? undefined : presets.find((preset) => preset.formula === formula)
   return taken?.names ?? namesFor(source, formula)
+}
+
+/**
+ * How a column of `quiz` is named for what it shows (`namesOf`), the presets offered beside each
+ * ref found among its widgetings and the library: what `retitledPatch` heads a column by, so a
+ * header still after what a column shows follows a preset it takes to the preset's own names.
+ *
+ * @param quiz - The quiz's widgetings, which say what a ref picks.
+ * @param library - The library, which says what a widgeting's widget is.
+ * @returns The namer.
+ *
+ * @example namerOf(quiz, library)('numnum_hint', '$floor($sum($append([0], $.value.items.value)) + 0.5)')  // => { label: 'hint_full', title: 'Hint Full Sum' }
+ */
+export function namerOf(quiz: { widgetings: readonly WidgetingT[] }, library: readonly WidgetT[]): ColumnNamer {
+  return (source, formula) => {
+    const shown = resolve(source, quiz.widgetings)
+    return namesOf(source, formula, shown === null ? [] : presetsFor(subjectOf(shown, library)))
+  }
 }

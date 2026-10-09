@@ -110,7 +110,7 @@ type ColumnPanelProps = WidgetingPanelContext & {
  */
 function ColumnPanel({ column, handle, ...context }: Readonly<ColumnPanelProps>) {
   const { quiz, library, sources, revisable, dispatch, folds } = context
-  const { commit, issue } = useColumnCommit(column, dispatch)
+  const { commit, issue } = useColumnCommit(column, dispatch, ColumnMenu.namerOf(quiz, library))
   const restId = useId()
   const foldkey = LayoutFoldkeys.column(column.label)
   const columnName = column.title || column.label

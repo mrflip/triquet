@@ -11,7 +11,7 @@ import { useDraft } from './use-draft'
 import * as ColumnMenu from '../lib/column-menu'
 import * as Labelmaker from '../lib/labelmaker'
 import { isDrawnByEditor, resolve } from '../lib/columns'
-import { ColumnReadoutVals, ColumnValidators, WidthPxMax, plainOf, retitledPatch, type ColumnPatch, type ColumnReadout, type ColumnT } from '../models/column'
+import { ColumnReadoutVals, ColumnValidators, WidthPxMax, plainOf, retitledPatch, type ColumnNamer, type ColumnPatch, type ColumnReadout, type ColumnT } from '../models/column'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { HuntActionDNA } from '../models/actions'
@@ -206,12 +206,13 @@ export type ColumnCommit = {
  *
  * @param column - The column the fields change.
  * @param dispatch - Carries out the edit.
+ * @param named - How a column is named for what it shows (`ColumnMenu.namerOf`), so a header follows a preset's own names.
  * @returns The commit, and the last sentence.
  */
-export function useColumnCommit(column: ColumnT, dispatch: (action: HuntActionDNA) => void): ColumnCommit {
+export function useColumnCommit(column: ColumnT, dispatch: (action: HuntActionDNA) => void, named: ColumnNamer): ColumnCommit {
   const [issue, setIssue] = useState<string | null>(null)
   const commit = (patch: ColumnPatch) => {
-    const checked = ColumnValidators.columnPatch.safeParse(retitledPatch(column, patch))
+    const checked = ColumnValidators.columnPatch.safeParse(retitledPatch(column, patch, named))
     if (! checked.success) { setIssue(checked.error.issues[0]?.message ?? 'That will not do.'); return }
     setIssue(null)
     dispatch({ kind: 'edit_column', label: column.label, patch: checked.data })

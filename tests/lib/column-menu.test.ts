@@ -126,4 +126,12 @@ describe("the seeds' presets", () => {
     const parts = ColumnMenu.presetsFor(subjectFor('category_data'))
     expect(ColumnMenu.namesOf('category_data', '$.masie', parts)).to.deep.eq({ label: 'category_data_masie', title: 'Masie' })
   })
+
+  it('names a column of the quiz for what it shows, through the presets offered beside its ref', () => {
+    const named = ColumnMenu.namerOf({ widgetings: spotters }, SeedWidgets)
+    const [full] = seededFor('numnum_clueing').map(({ formula }) => formula)
+    expect(named('numnum_clueing', present(full))).to.deep.eq({ label: 'clueing_full', title: 'Clueing Full Sum' })
+    expect(named('numnum_clueing', null)).to.deep.eq({ label: 'numnum_clueing', title: 'Numnum Clueing' })
+    expect(named('notes', '$uppercase($)')).to.deep.eq({ label: 'notes', title: 'Notes' })
+  })
 })
