@@ -494,6 +494,15 @@ and in the sprint-end `human/` entry.
     notes, imports, deletions, moves of columns or widgetings, the library.
   - Entered values are not held to params in the update.
   - The git history may record an in-flight edit a moment early.
+* **10, by its worker** (decisions 1-13 in its thread file), among them:
+  - `questions` sits at the bag's top level, not under `quiz`.
+  - `rank`, `archived`, `secondary` and an estimate's parts stay out of the ball.
+  - Quiz-tier widgeteds sit flat in the ball.
+  - The template bag's `questions` includes archived ones; old loops are rewritten to reject them.
+  - `hunt_label` and `realm_label` are added at the top.
+  - `Hunt`, `Realm` and `Quiz.exposed` are removed.
+  - `notes/examples/20261008-but_not_recap.json` is left alone: it is gitignored, and the importer
+    rewrites it.
 
 ## For the Coach
 
