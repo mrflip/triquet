@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { OptimisticLocalStore } from 'convex/browser'
 import { getFunctionName, type FunctionReference } from 'convex/server'
 import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 import type { QuizFrameT, SeenQuestionT } from '../../src/lib/rows'
 import { Hunt } from '../../src/models/hunt'
 import type { HuntActionDNA } from '../../src/models/actions'
@@ -72,6 +73,12 @@ function storedOf(seen: SeenQuestionT | undefined): unknown {
   return seen && 'stored' in seen ? seen.stored : null
 }
 
+/** When the row in a question's cell was made, as watched results hold it; undefined for a cell holding none */
+function madeAt(held: readonly HeldT[], question_id: string, widgeting_label: string): number | undefined {
+  const seen = held.find((each) => each.fnname === getFunctionName(api.questions.open) && (each.value as SeenQuestionT | null)?._id === (question_id as Id<'questions'>))?.value as SeenQuestionT | undefined
+  return seen && 'stored' in seen ? seen.stored[widgeting_label]?.newest._creationTime : undefined
+}
+
 /**
  * Show `action` early on what the smith's screen watches, carry it out on the server, and say what
  * each came to: what the screen showed, and what the server's answer then was.
@@ -126,6 +133,17 @@ describe("showPerformed", () => {
     expect(typed.shown).to.deep.eq(typed.written)
     const emptied = await shownAndWritten(seeded, { kind: 'enter_widgeted', entered: { question_id: present(first), widgeting_label: 'memo', value: null } })
     expect(emptied.shown).to.deep.eq(emptied.written)
+  })
+
+  it("keeps when a cell's row was made as what is typed revises it, as the server replaces the row", async () => {
+    const seeded = await seededQuiz()
+    const first = present(seeded.question_ids[0])
+    const store = storeOf(await watched(seeded))
+    const { action: affirms } = await affirmsOf(seeded.tt, seeded.smith, seeded.open)
+    const action = { kind: 'enter_widgeted', entered: { question_id: first, widgeting_label: 'memo', value: 'again' } } as const
+    showPerformed(store, { affirms, action })
+    await seeded.act(action)
+    expect(madeAt(store.held(), first, 'memo')).to.be.a('number').and.eq(madeAt(await watched(seeded), first, 'memo'))
   })
 
   it("shows what is typed into the quiz's own entry as the server keeps it", async () => {
