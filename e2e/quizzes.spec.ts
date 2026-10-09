@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import * as Tsv from '../src/lib/tsv'
-import { actDangerously, addColumns, addWidgetings, closeManage, columnPanel, expect, faceOf, grid, holderOf, huntOf, manageDialog, newQuiz, openManage, openPanel, openQuiz, quizPathOf, reloadOnceSaved, test, unfoldBy, waitUntilSaved } from './support'
+import { actDangerously, addColumns, addWidgetings, closeManage, columnPanel, expect, faceOf, grid, holderOf, huntOf, manageDialog, newQuiz, openManage, openPanel, openQuiz, quizPathOf, reloadOnceSaved, switcherQuizzes, test, unfoldBy, waitUntilSaved } from './support'
 
 /** The label of the quiz `page` is at, from its address */
 function quizLabelIn(page: Page): string {
@@ -40,7 +40,7 @@ test('a quiz with its title cleared shows as Untitled quiz in the switcher, whic
   await page.getByLabel('Quiz name').fill('')
   await page.getByLabel('Quiz name').blur()
   const titled = new Map([[first, 'Quiz one'], [second, 'Untitled quiz']])
-  await expect(page.getByLabel('Open quiz').locator('option')).toHaveText([first, second].toSorted(Tsv.byCode).map((label) => titled.get(label) ?? ''))
+  await expect(await switcherQuizzes(page)).toHaveText([first, second].toSorted(Tsv.byCode).map((label) => titled.get(label) ?? ''))
 })
 
 test('deleting is the gear\'s, asks for the quiz\'s label, and the neighbouring quiz opens', { tag: '@smoke' }, async ({ page }) => {
@@ -60,7 +60,7 @@ test('deleting is the gear\'s, asks for the quiz\'s label, and the neighbouring 
 
   await actDangerously(page, 'Delete this quiz', label)
   await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
-  await expect(page.getByLabel('Open quiz').locator('option')).toHaveText(['Quiz one'])
+  await expect(await switcherQuizzes(page)).toHaveText(['Quiz one'])
 })
 
 test('a hunt goes only with its last quiz', async ({ page }) => {
@@ -177,7 +177,7 @@ test('unlocking finds the quiz exactly as it was', async ({ page }) => {
 
 test('the switcher marks a locked quiz', async ({ page }) => {
   await page.getByRole('button', { name: 'Lock quiz' }).click()
-  await expect(page.getByLabel('Open quiz').locator('option')).toHaveText(['🔒 Quiz one'])
+  await expect(await switcherQuizzes(page)).toHaveText(['🔒 Quiz one'])
 })
 
 test('the smith\'s note grows by paragraphs, pushing the grid down, then scrolls, and survives a reload', async ({ page }) => {

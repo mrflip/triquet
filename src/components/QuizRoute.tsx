@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import * as Routes from '../lib/routes'
 import { Hunting } from '../models/hunting'
 import { useHunt } from '../state/use-hunt'
 import { useIdent } from '../state/use-ident'
-import { useShowHunt } from '../state/shown-hunt'
+import { useShowHunt, useShowQuiz } from '../state/shown'
 import { NotOnHunt } from './NotOnHunt'
 import { OpeningNotice } from './SyncNotices'
 import { QuizNotFound } from './QuizNotFound'
@@ -43,6 +43,15 @@ export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
   const { ident, loaded } = useIdent()
   const { finding, hunt, realm, quiz, library, claims, smiths, reviews, dispatch, carryOut, movedTo, unsaved, saveNotice } = useHunt(org, labels)
   useShowHunt(hunt)
+  // Held still while the quiz is edited, so the header is told again only when what it shows changes.
+  const quizzes = realm?.quizzes ?? null
+  const realmLabel = realm?.label ?? null
+  const opensIn = hunt && (mode ?? Hunting.modeFor(hunt.role))
+  const { _id: quiz_id = null, label: quizLabel = null, title: quizTitle = null, locked = false } = quiz ?? {}
+  useShowQuiz(useMemo(() => {
+    if (quizzes === null || realmLabel === null || opensIn === null || quiz_id === null || quizLabel === null || quizTitle === null) { return null }
+    return { realm: realmLabel, quizzes, mode: opensIn, quiz: { _id: quiz_id, label: quizLabel, title: quizTitle, locked } }
+  }, [quizzes, realmLabel, opensIn, quiz_id, quizLabel, quizTitle, locked]))
 
   useEffect(() => {
     if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
@@ -50,7 +59,6 @@ export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
 
   // The quiz's labels as they stand, once the hunt has arrived to say its org.
   const now = hunt && { org: hunt.org, hunt: hunt.label, realm: realm?.label ?? labels.realm, quiz: movedTo ?? labels.quiz }
-  const opensIn = hunt && (mode ?? Hunting.modeFor(hunt.role))
   useCanonical(org === null ? null : Routes.quizPath({ org, ...labels }, mode ?? undefined), now && opensIn && Routes.quizPath(now, opensIn))
 
   if (! loaded || ! ident) { return <OpeningNotice notice={saveNotice} /> }

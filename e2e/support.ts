@@ -632,17 +632,27 @@ export function exportedQuizzes(exported: string): ExportedQuizT[] {
 export async function newQuiz(page: Page): Promise<void> {
   const before = new URL(page.url()).pathname
   const title = await page.getByLabel('Quiz name').inputValue()
-  await page.getByRole('button', { name: '+ New quiz' }).click()
+  await page.getByRole('banner').getByRole('button', { name: 'New quiz', exact: true }).click()
   await expect.poll(() => new URL(page.url()).pathname).not.toBe(before)
   // The address moves a moment before the screen does; a fresh quiz's generated title never
   // matches the one it was made from.
   await expect(page.getByLabel('Quiz name')).not.toHaveValue(title)
 }
 
+/**
+ * The quizzes the header's switcher lists, each a menu item named by its title, a locked one
+ * marked: the switcher opened to list them. Close it with Escape, or pick one.
+ */
+export async function switcherQuizzes(page: Page): Promise<Locator> {
+  await page.getByRole('navigation', { name: 'Where you are' }).locator('[aria-haspopup="menu"]').click()
+  return page.getByRole('menu', { name: 'Open quiz' }).getByRole('menuitem')
+}
+
 /** Switch to the quiz titled `title` from the switcher, and wait until the browser is there */
 export async function openQuiz(page: Page, title: string): Promise<void> {
   const before = new URL(page.url()).pathname
-  await page.getByLabel('Open quiz').selectOption({ label: title })
+  await switcherQuizzes(page)
+  await page.getByRole('menu', { name: 'Open quiz' }).getByRole('menuitem', { name: title, exact: true }).click()
   await expect.poll(() => new URL(page.url()).pathname).not.toBe(before)
   await expect(page.getByLabel('Quiz name')).toHaveValue(title)
 }
