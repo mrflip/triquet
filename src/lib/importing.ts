@@ -14,6 +14,7 @@ import { CategoryDataLabel, SeedWidgets } from '../models/seeds'
 import { QuizValidators, isTemplatableField, type QuizT, type Sortkey } from '../models/quiz'
 import { EntryFormulary } from './formulary/entry'
 import * as Formularies from './formulary/formularies'
+import * as Runner from './formulary/runner'
 import { Widget, WidgetValidators, type EntryValueT, type EntryWidgetT, type WidgetT } from '../models/widget'
 import { WidgetedValidators, type JsonT } from '../models/widgeted'
 import { WidgetingValidators, type WidgetingT } from '../models/widgeting'
@@ -49,6 +50,15 @@ export type ColumnLogEntry = {
   /** Its label, or '' where the paste named none */
   label:   string
   outcome: 'added' | 'revised' | 'kept' | 'removed' | 'skipped'
+  /** Why it was skipped; null otherwise */
+  reason:  string | null
+}
+
+/** What became of one of the quiz's own entries the paste typed into */
+export type QuizEntryLogEntry = {
+  label:   string
+  /** Typed into the quiz's entry; already as the paste has it; or not carried */
+  outcome: 'carried' | 'kept' | 'skipped'
   /** Why it was skipped; null otherwise */
   reason:  string | null
 }
@@ -109,7 +119,9 @@ export type ImportOutcome = {
   fieldLog:      FieldLogEntry[]
   /** What to send for the quiz's own fields: one per field that changes */
   fieldActions:  HuntActionDNA[]
-  /** Everything to send, in order: the quiz's fields, its widgetings, its columns, what it templates (which may name a widgeting just added), then its questions (`import_questions`); empty when nothing could be read */
+  /** A line per entry of the quiz's own the paste typed into */
+  quizEntryLog:  QuizEntryLogEntry[]
+  /** Everything to send, in order: the quiz's fields, its widgetings, its columns, what it templates (which may name a widgeting just added), what its own entries hold, then its questions (`import_questions`); empty when nothing could be read */
   actions:       HuntActionDNA[]
 }
 
@@ -149,7 +161,8 @@ export type ImportOutcome = {
  * holds nothing, so a pasted reply never buries one asked here. A failure carries nothing, as
  * nothing does: the cell is filled by asking. A reply that will not read carries nothing and is
  * named in the question's line, and so is what a question holds under a widgeting the quiz will
- * not have.
+ * not have. What the quiz's own entries held (under `widgeteds`) is typed back into those the
+ * quiz will have, read as a question's entry cell is, and held to the widgeting's params too.
  *
  * Columns hold nothing but how the grid is laid out, so a paste that holds any makes the quiz's
  * columns its own (`columnsMerged`): each is added, or revised to the paste's title, source, width
@@ -174,7 +187,7 @@ export type ImportOutcome = {
  * @example importInto(quiz, rawExportOfAnotherHunt, library).elsewhere  // => { label: 'legends', take: 0 }
  */
 export function importInto(quiz: QuizT, pasted: string, library: readonly WidgetT[], options: ImportOptionsT = {}): ImportOutcome {
-  const nothing = { elsewhere: null, log: [], questions: null, widgetingLog: [], widgetingActions: [], columnLog: [], columnActions: [], fieldLog: [], fieldActions: [], actions: [] }
+  const nothing = { elsewhere: null, log: [], questions: null, widgetingLog: [], widgetingActions: [], columnLog: [], columnActions: [], fieldLog: [], fieldActions: [], quizEntryLog: [], actions: [] }
   const payload = readPayload(pasted, quiz, options)
   if (payload.ok === 'elsewhere') { return { ...nothing, ok: true, summary: payload.summary, elsewhere: payload.elsewhere } }
   if (! payload.ok) { return { ok: false, summary: payload.summary, ...nothing } }
@@ -194,17 +207,18 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
   const showable = showableAfter(quiz, widgetings.actions)
   const columns = columnsMerged(quiz, read.columns, showable)
   const fields = fieldsCarried(quiz, read, showable)
+  const quizEntries = quizEntriesCarried(quiz, read, widgetings, library)
   const questions = chainsResolved(merge, held)
   const remembered = fields.last_sortkey === undefined ? {} : { last_sortkey: fields.last_sortkey }
 
   const tallied = (outcome: ImportLogEntry['outcome']) => merge.log.filter((entry) => entry.outcome === outcome).length
   const skipped = tallied('skipped')
-  const anySkipped = [...widgetings.log, ...columns.log, ...fields.log].some((entry) => entry.outcome === 'skipped')
+  const anySkipped = [...widgetings.log, ...columns.log, ...fields.log, ...quizEntries.log].some((entry) => entry.outcome === 'skipped')
 
   return {
     ok:               skipped === 0 && ! anySkipped,
     elsewhere:        null,
-    summary:          `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped${replySummary(questions)}${widgetingSummary(widgetings.log)}${columnSummary(columns.log)}${fieldSummary(fields.log)} — see log below. Renumbered Q# by rank.`,
+    summary:          `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped${replySummary(questions)}${widgetingSummary(widgetings.log)}${columnSummary(columns.log)}${fieldSummary(fields.log)}${quizEntrySummary(quizEntries.log)} — see log below. Renumbered Q# by rank.`,
     log:              merge.log,
     questions,
     widgetingLog:     widgetings.log,
@@ -213,8 +227,46 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
     columnActions:    columns.actions,
     fieldLog:         fields.log,
     fieldActions:     [...fields.actions, ...fields.afterLayout],
-    actions:          [...fields.actions, ...widgetings.actions, ...columns.actions, ...fields.afterLayout, { kind: 'import_questions', questions, ...remembered }],
+    quizEntryLog:     quizEntries.log,
+    actions:          [...fields.actions, ...widgetings.actions, ...columns.actions, ...fields.afterLayout, ...quizEntries.actions, { kind: 'import_questions', questions, ...remembered }],
   }
+}
+
+/** The quiz's own entries' share of the summary, or nothing when the paste typed into none */
+function quizEntrySummary(log: readonly QuizEntryLogEntry[]): string {
+  const carried = log.filter((entry) => entry.outcome === 'carried').length
+  const skipped = log.filter((entry) => entry.outcome === 'skipped').length
+  if (carried === 0 && skipped === 0) { return '' }
+  return `; quiz entries ${String(carried)} carried, ${String(skipped)} skipped`
+}
+
+/**
+ * What the paste typed into the quiz's own entries (`widgeteds`, as an export writes them), against
+ * the widgetings the quiz will run once for the whole quiz once the import's widgeting actions are
+ * sent: an action for each that changes, and a line for each. A value is unwrapped as a question's
+ * entry cell is (`pastedEntryOf`), and held to its widget's kind and its widgeting's params, as the
+ * server will hold it. What a formula or a bot for the whole quiz came to is not carried, and nor is
+ * what sits under a widgeting the import skips, which its own line names.
+ */
+function quizEntriesCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, merged: { actions: readonly HuntActionDNA[], log: readonly WidgetingLogEntry[] }, library: readonly WidgetT[]): { actions: HuntActionDNA[], log: QuizEntryLogEntry[] } {
+  if (pasted.widgeteds === undefined) { return { actions: [], log: [] } }
+  const skippedLabels = new Set(merged.log.flatMap((entry) => (entry.outcome === 'skipped' ? [entry.label] : [])))
+  const added = merged.actions.flatMap((action) => (action.kind === 'add_widgeting' ? [action.widgeting] : []))
+  const own = new Map([...quiz.widgetings, ...added].filter((widgeting) => widgeting.tier === 'quiz').map((widgeting) => [widgeting.label, widgeting]))
+  const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
+  const read = Object.entries(pasted.widgeteds).flatMap(([label, raw]): { action: HuntActionDNA | null, entry: QuizEntryLogEntry }[] => {
+    const widgeting = own.get(label)
+    const widget = widgeting && widgetFor.get(widgeting.widget_label)
+    if (! widgeting || widget?.formulary !== 'entry' || skippedLabels.has(label)) { return [] }
+    const skipped = (reason: string) => [{ action: null, entry: { label, outcome: 'skipped' as const, reason } }]
+    const typed = pastedEntryOf(raw)
+    if (! typed.ok) { return skipped(typed.message) }
+    const checked = typed.value === null ? { success: true as const, data: null } : EntryFormulary.valueOf(widget, { params: widgeting.params ?? {} }).safeParse(typed.value)
+    if (! checked.success) { return skipped(Reporting.explain(checked.error)) }
+    if (EST.isEqual(Runner.widgetedFrom(quiz.stored[label] ?? null).value, checked.data)) { return [{ action: null, entry: { label, outcome: 'kept', reason: null } }] }
+    return [{ action: { kind: 'enter_quiz_widgeted', entered: { widgeting_label: label, value: checked.data } }, entry: { label, outcome: 'carried', reason: null } }]
+  })
+  return { actions: read.flatMap(({ action }) => (action ? [action] : [])), log: read.map(({ entry }) => entry) }
 }
 
 /** The bots' replies' share of the summary, or nothing when the paste carried none */

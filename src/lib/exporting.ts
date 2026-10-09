@@ -283,6 +283,27 @@ export function workedBalls(library: readonly WidgetT[], quizzes: readonly Pick<
 }
 
 /**
+ * One quiz as a copy of it needs it, to make another quiz the same on another hunt, login or
+ * device: what its ball holds at its key path (`quizBodyOf`: its fields, its recap's parts and
+ * template, what it nominates as templateable, its questions with what was typed and asked into
+ * their cells, its widgetings and columns, and what its own entries hold), and the balls of the
+ * library's widgets its widgetings work, merged at its root, so a library that lacks them can take
+ * them in first. It names no quiz and no hunt, so it pastes into any quiz's Import, whatever it is
+ * called; nor does it say whether the quiz is locked, which an import never reads.
+ *
+ * @param quiz - The quiz.
+ * @param run - The quiz, run: what its widgetings came to.
+ * @param library - The library's widgets; those the quiz works come along.
+ *
+ * @example Object.keys(quizCopyOf(quiz, run, library))  // => ['title', 'smiths_note', ..., 'questions', 'widgetings', 'columns', 'pub']
+ * @example quizCopyOf(quiz, run, library).pub.widgets.dumdum.formulary  // => 'aibot'
+ */
+export function quizCopyOf(quiz: QuizT, run: Runner.QuizRun, library: readonly WidgetT[]): Jsonball.JsonballT {
+  const body = _.omit(quizBodyOf(quiz, run), ['locked'])
+  return Jsonball.merged([body, ...workedBalls(library, [quiz]).map(({ ball }) => ball)])
+}
+
+/**
  * Every ball of a hunt: its own, its categories', its members', each quiz's and its questions
  * alone, each shared review's, and each widget its quizzes work. The questions alone are among
  * them, though no merge reads them (`Addresses.isMerged`).

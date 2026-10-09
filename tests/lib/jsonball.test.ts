@@ -102,6 +102,13 @@ describe('quizzesIn', () => {
     expect(keyed?.quizzes[0]?.widgetings).to.deep.eq([{ position: 0, widget_label: 'dumdum', label: 'dumdum' }])
   })
 
+  it("carries what a quiz's widgetings for the whole quiz came to when it holds them keyed, and says nothing of them otherwise", () => {
+    const widgeteds = { playtesters: { status: 'ok', value: 'Ada and Grace' } }
+    expect(Jsonball.quizzesIn({ questions: {}, widgeteds })?.quizzes[0]?.widgeteds).to.deep.eq(widgeteds)
+    expect(Jsonball.quizzesIn({ questions: {}, widgeteds: 'Ada' })?.quizzes[0]).to.not.have.property('widgeteds')
+    expect(Jsonball.quizzesIn({ questions: {} })?.quizzes[0]).to.not.have.property('widgeteds')
+  })
+
   it("reads quizzes by realm and label, each named by its key", () => {
     expect(Jsonball.quizzesIn({ quizzes: { home: { legends: { title: 'Legends' } } } })?.quizzes[0]?.label).to.eq('legends')
   })

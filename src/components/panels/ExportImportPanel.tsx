@@ -56,8 +56,8 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     },
     offers.exportHunt && {
       label:   'Raw Export',
-      blurb:   'Every quiz of this hunt, not just this one, with its categories, its members and the widgets its quizzes work, read when you ask for it. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz back, or through the Widgets tab to bring its widgets back. Any change on screen takes the box away again, so what it holds is never behind you: prepare it afresh, or refresh it to catch up with the hunt\'s other quizzes.',
-      content: <RawExport hunt={hunt} exporting={exporting} library={library} />,
+      blurb:   'The whole hunt, every quiz of it and not just this one, with its categories, its members and the widgets its quizzes work, read when you ask for it; or this quiz alone. Copy either somewhere safe to back up your progress, or paste it back through Import to bring a quiz back, or through the Widgets tab to bring its widgets back. This quiz alone names no quiz, so it pastes into any quiz\'s Import: to copy it to another hunt, login or device, make a new quiz there, paste it into the Widgets tab for the widgets it works, then into Import. Any change on screen takes the whole hunt\'s box away again, so what it holds is never behind you: prepare it afresh, or refresh it to catch up with the hunt\'s other quizzes.',
+      content: <RawExport hunt={hunt} exporting={exporting} quiz={quiz} run={run} library={library} />,
     },
     {
       label:   'Import',

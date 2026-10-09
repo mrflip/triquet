@@ -214,6 +214,8 @@ export const PastedValidators = Validator(({ obj, arr, rec, union, str, unk, lab
     questions:    collection.default([]),
     widgetings:   collection.default([]),
     columns:      collection.optional(),
+    widgeteds:    unk.optional()
+      .describe('What the quiz\'s widgetings run once for the whole quiz came to, by label, as its export writes them: Import types what its own entries held back into them, and works out the rest again.'),
   })
     .describe('One quiz as a paste holds it: its label and title, which pick it out of several; its smith\'s note, Q1 preamble, recap head, tail and template, what it nominates as templateable and its sort memory, each read by Import against its own rule; and its questions, widgetings and columns, in a list or keyed by label. Its lock is not read: it says how far someone else\'s draft had come, not what it holds. An export made while a label could be overridden carries the override as `forced_label`, the label it answered to then.')
 
@@ -254,6 +256,8 @@ export type PastedQuizT = {
   widgetings: unknown[]
   /** Its columns in order, as pasted, read the same way; null when the paste holds none, so says nothing of how the grid is laid out */
   columns:    unknown[] | null
+  /** What its widgetings for the whole quiz came to, by label, as pasted; only when the paste holds them, keyed */
+  widgeteds?: Readonly<Record<string, unknown>>
 }
 
 /** A quiz's own fields, beside its title, that a paste may carry */
@@ -318,8 +322,8 @@ function readQuizzes(raw: Record<string, unknown>): { shape: PastedShape, quizze
 }
 
 /**
- * A pasted quiz as its own fields, its questions, widgetings and columns in order, and the label it
- * answered to: an older export's override, the label it carries, or the key it sat under. An empty
+ * A pasted quiz as its own fields, its questions, widgetings and columns in order, what its
+ * widgetings for the whole quiz came to, and the label it answered to: an older export's override, the label it carries, or the key it sat under. An empty
  * list of columns, as exports made before columns were exported hold, says nothing of the grid.
  */
 function pastedQuizOf(quiz: PastedQuizRawT, key: string | null): PastedQuizT {
@@ -331,6 +335,7 @@ function pastedQuizOf(quiz: PastedQuizRawT, key: string | null): PastedQuizT {
     questions:  chainedByLabel(listedOf(quiz.questions)),
     widgetings: listedOf(quiz.widgetings),
     columns:    columns.length === 0 ? null : columns,
+    ...(EST.isPlainObject(quiz.widgeteds) && { widgeteds: quiz.widgeteds }),
   }
 }
 
