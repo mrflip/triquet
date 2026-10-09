@@ -541,6 +541,11 @@ function withQuizEntry(quiz: QuizT, typed: string): QuizT {
   }
 }
 
+/** `quiz` with its `playtesters` widgeting held to at most `max_length` characters */
+function cappedEntry(quiz: QuizT, max_length: number): QuizT {
+  return { ...quiz, widgetings: quiz.widgetings.map((widgeting) => (widgeting.label === 'playtesters' ? { ...widgeting, params: { max_length } } : widgeting)) }
+}
+
 /** `quiz`'s copy (`quizCopyOf`), run over the library holding its entry */
 const copyOf = (quiz: QuizT) => Exporting.quizCopyOf(quiz, runOf(quiz, EntryLibrary), EntryLibrary) as Jsonball.QuizBodyT & { pub: { widgets: Record<string, { formulary: string }> } }
 
@@ -638,6 +643,18 @@ describe("a quiz's export, imported", () => {
     const outcome = Importing.importInto(quiz, JSON.stringify(copyOf(quiz)), EntryLibrary)
     expect(outcome.quizEntryLog).to.deep.eq([{ label: 'playtesters', outcome: 'kept', reason: null }])
     expect(outcome.actions.map((action) => action.kind)).to.not.include('enter_quiz_widgeted')
+  })
+
+  it("holds a quiz entry to the params the paste revises its widgeting to, which the server will hold it to", () => {
+    const quiz = withQuizEntry(chainedQuiz(), 'Ada and Grace')
+    const target = cappedEntry(withQuizEntry(chainedQuiz(), 'Ada'), 5)
+    const loosened = Importing.importInto(target, JSON.stringify(copyOf(quiz)), EntryLibrary)
+    expect(loosened.actions).to.deep.include({ kind: 'edit_widgeting', label: 'playtesters', patch: { description: '', params: {} } })
+    expect(loosened.quizEntryLog).to.deep.eq([{ label: 'playtesters', outcome: 'carried', reason: null }])
+    const tightenedCopy = copyOf(cappedEntry(quiz, 5))
+    const tightened = Importing.importInto(quiz, JSON.stringify(tightenedCopy), EntryLibrary)
+    expect(tightened.quizEntryLog.map((entry) => entry.outcome)).to.deep.eq(['skipped'])
+    expect(tightened.actions.map((action) => action.kind)).to.not.include('enter_quiz_widgeted')
   })
 
   it("skips a quiz entry whose value will not do, naming why, and carries the rest", () => {

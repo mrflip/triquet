@@ -243,16 +243,19 @@ function quizEntrySummary(log: readonly QuizEntryLogEntry[]): string {
 /**
  * What the paste typed into the quiz's own entries (`widgeteds`, as an export writes them), against
  * the widgetings the quiz will run once for the whole quiz once the import's widgeting actions are
- * sent: an action for each that changes, and a line for each. A value is unwrapped as a question's
- * entry cell is (`pastedEntryOf`), and held to its widget's kind and its widgeting's params, as the
- * server will hold it. What a formula or a bot for the whole quiz came to is not carried, and nor is
- * what sits under a widgeting the import skips, which its own line names.
+ * sent, with the params a revision among them gives: an action for each that changes, and a line
+ * for each. A value is unwrapped as a question's entry cell is (`pastedEntryOf`), and held to its
+ * widget's kind and its widgeting's params, as the server will hold it. What a formula or a bot for
+ * the whole quiz came to is not carried, and nor is what sits under a widgeting the import skips,
+ * which its own line names.
  */
 function quizEntriesCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, merged: { actions: readonly HuntActionDNA[], log: readonly WidgetingLogEntry[] }, library: readonly WidgetT[]): { actions: HuntActionDNA[], log: QuizEntryLogEntry[] } {
   if (pasted.widgeteds === undefined) { return { actions: [], log: [] } }
   const skippedLabels = new Set(merged.log.flatMap((entry) => (entry.outcome === 'skipped' ? [entry.label] : [])))
   const added = merged.actions.flatMap((action) => (action.kind === 'add_widgeting' ? [action.widgeting] : []))
-  const own = new Map([...quiz.widgetings, ...added].filter((widgeting) => widgeting.tier === 'quiz').map((widgeting) => [widgeting.label, widgeting]))
+  const revised = new Map(merged.actions.flatMap((action) => (action.kind === 'edit_widgeting' ? [[action.label, action.patch.params] as const] : [])))
+  const held = quiz.widgetings.map((widgeting) => ({ ...widgeting, params: revised.get(widgeting.label) ?? widgeting.params }))
+  const own = new Map([...held, ...added].filter((widgeting) => widgeting.tier === 'quiz').map((widgeting) => [widgeting.label, widgeting]))
   const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
   const read = Object.entries(pasted.widgeteds).flatMap(([label, raw]): { action: HuntActionDNA | null, entry: QuizEntryLogEntry }[] => {
     const widgeting = own.get(label)
