@@ -1,6 +1,7 @@
 import { globSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import * as Redos from '../../src/lib/redos'
+import { RoomyMs } from '../support/redos'
 
 const regexOf = (source: string, flags = '') => ({ source, flags })
 
@@ -19,9 +20,10 @@ describe('Redos.refusalOf', () => {
     [String.raw`^\p{Lu}\p{Ll}+$`,                          'u', 'a Unicode property'],
     [String.raw`^(\w+)\s\1$`,                             '',  'a word said twice, by a backreference'],
   ]
+  // Each verdict with room to settle however busy the machine (`RoomyMs`); the budgets are tested below.
   for (const [source, flags, describes] of Safe) {
     it(`takes ${describes}`, () => {
-      expect(Redos.refusalOf(regexOf(source, flags), VerdictMs)).to.be.null
+      expect(Redos.refusalOf(regexOf(source, flags), RoomyMs)).to.be.null
     })
   }
 
@@ -40,7 +42,7 @@ describe('Redos.refusalOf', () => {
   }
 
   it("says where a vulnerable pattern's trouble lies", () => {
-    expect(Redos.refusalOf(regexOf('^x(a+)+$'), VerdictMs)).to.contain('around «')
+    expect(Redos.refusalOf(regexOf('^x(a+)+$'), RoomyMs)).to.contain('around «')
   })
 
   it("refuses a pattern it cannot settle in the time it has", () => {
@@ -51,7 +53,7 @@ describe('Redos.refusalOf', () => {
 describe('Redos.firstRefusalOf', () => {
   it("finds nothing wrong with safe patterns, and names the first refused, per the doc examples", () => {
     expect(Redos.firstRefusalOf([regexOf('^[a-z]+$')])).to.be.null
-    expect(Redos.firstRefusalOf([regexOf('^[a-z]+$'), regexOf('(x+x+)+y'), regexOf('^(a+)+$')])).to.match(/^The pattern «\/\(x\+x\+\)\+y\/» could take far too long/)
+    expect(Redos.firstRefusalOf([regexOf('^[a-z]+$'), regexOf('(x+x+)+y'), regexOf('^(a+)+$')], RoomyMs, RoomyMs)).to.match(/^The pattern «\/\(x\+x\+\)\+y\/» could take far too long/)
   })
 
   it("finds nothing wrong with no patterns at all", () => {
@@ -66,6 +68,10 @@ describe('Redos.firstRefusalOf', () => {
     const beg = performance.now()
     expect(Redos.firstRefusalOf([regexOf(String.raw`^(a+)\1$`)], 10)).to.contain('took too long to check for safety')
     expect(performance.now() - beg).to.be.below(Redos.CheckMs)
+  })
+
+  it("gives each check no more than the most it is handed for one", () => {
+    expect(Redos.firstRefusalOf([regexOf(String.raw`^(a+)\1$`)], RoomyMs, 10)).to.contain('took too long to check for safety')
   })
 
   it("checks a pattern named twice once", () => {

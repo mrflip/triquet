@@ -1,9 +1,10 @@
 import _ from 'es-toolkit/compat'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { BlankJsonataDraft, draftOf, planNewWidget, planWidgetEdit, type JsonataDraft } from '../../../src/state/widget-edit'
 import { planWidgetingEdit } from '../../../src/lib/widgeting-edit'
 import * as Wheel from '../../../src/lib/wheel'
 import { Question } from '../../../src/models/question'
+import { Widgeting } from '../../../src/models/widgeting'
 import { Hunt, type HuntT } from '../../../src/models/hunt'
 import type { HuntActionDNA } from '../../../src/models/actions'
 import type { WidgetedRecordingDNA } from '../../../src/models/widgeted'
@@ -12,6 +13,12 @@ import { huntHolding, openOf, openTester, refusedAs, seedHunt, type Seeded, type
 import { classicHunt } from '../../support/layouts'
 import { expectSound } from '../../support/soundness'
 import { noticeOf } from '../../../src/lib/refusals'
+
+// recheck's verdicts are timed by the wall clock; a busy machine would refuse a pattern for time (`tests/support/redos.ts`).
+vi.mock('../../../src/lib/redos', async (importOriginal) => {
+  const Support = await import('../../support/redos')
+  return Support.roomy(await importOriginal())
+})
 
 /** A fresh hunt with its quiz laid out as every new quiz was before they started lean */
 function standard(locked = false): HuntT {
@@ -607,6 +614,16 @@ describe("a widgeting's params", () => {
     const held = await seeded.read()
     await expect(seeded.act({ kind: 'edit_widgeting', label: 'grade', patch: { params: { integer: 'yes' } } })).rejects.toThrow()
     expect(await seeded.read()).to.deep.eq(held)
+  })
+
+  it("are held, for a widgeting whose widget is gone, as a formula's are: any names but the reserved words, no formulary's own among them", async () => {
+    const orphan = Widgeting.fill({ label: 'orphan', widget_label: 'no_such_widget', params: { min: 1 } })
+    const seeded = await seed(huntHolding([{ ...standardQuiz(), widgetings: [...standardQuiz().widgetings, orphan] }]))
+    await expectRefused(seeded,
+      [{ kind: 'edit_widgeting', label: 'orphan', patch: { params: { min: 2 } } },              'invalid'],
+      [{ kind: 'edit_widgeting', label: 'orphan', patch: { params: { template: '{{ qn.title }}' } } }, 'invalid'])
+    await seeded.act({ kind: 'edit_widgeting', label: 'orphan', patch: { params: { size: 3 } } })
+    expect(paramsOf(await seeded.read(), 'orphan')).to.deep.eq({ size: 3 })
   })
 
   it("keep a text's regular expression recheck finds safe, and refuse, writing nothing, one it does not", async () => {

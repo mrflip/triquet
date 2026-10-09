@@ -27,6 +27,12 @@ import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, 
 import { SeedOrg } from '../support/seed'
 import { Here } from '../support/places'
 
+// recheck's verdicts are timed by the wall clock; a busy machine would refuse a pattern for time (`tests/support/redos.ts`).
+vi.mock('../../src/lib/redos', async (importOriginal) => {
+  const Support = await import('../support/redos')
+  return Support.roomy(await importOriginal())
+})
+
 /** A hunt holding one quiz built from `qnum, title` pairs, with the default layout */
 function huntOf(...pairs: [string, string][]): HuntT {
   const questions = pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))

@@ -1,5 +1,5 @@
 import _ from 'es-toolkit/compat'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import * as PA from '../../../src/lib/vv/patterns'
 import type { HuntT } from '../../../src/models/hunt'
 import { Quiz } from '../../../src/models/quiz'
@@ -10,6 +10,12 @@ import type { LibraryActionDNA } from '../../../src/models/actions'
 import { present } from '../../support/present'
 import { huntHolding, openOf, openTester, refusedAs, seedHunt, type Seeded, type Seen, type Tester } from '../../support/convex'
 import { classicHunt } from '../../support/layouts'
+
+// recheck's verdicts are timed by the wall clock; a busy machine would refuse a pattern for time (`tests/support/redos.ts`).
+vi.mock('../../../src/lib/redos', async (importOriginal) => {
+  const Support = await import('../../support/redos')
+  return Support.roomy(await importOriginal())
+})
 
 /** A hunt of one blank quiz, working no widget */
 const bare = (): HuntT => huntHolding([Quiz.blank('Quiz one')])

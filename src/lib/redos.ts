@@ -46,18 +46,19 @@ export function refusalOf(regex: RegexT, timeoutMs = CheckMs): string | null {
  *
  * @param regexes - The patterns being written.
  * @param budgetMs - The longest the checks may take together.
+ * @param checkMs - The longest one check may take.
  * @returns The sentence for the first refused, naming it; null when none is.
  *
  * @example firstRefusalOf([{ source: '^[a-z]+$', flags: '' }])  // => null
  * @example firstRefusalOf([{ source: '(x+x+)+y', flags: '' }])  // => 'The pattern «/(x+x+)+y/» could take far too long ...'
  */
-export function firstRefusalOf(regexes: readonly RegexT[], budgetMs = BudgetMs): string | null {
+export function firstRefusalOf(regexes: readonly RegexT[], budgetMs = BudgetMs, checkMs = CheckMs): string | null {
   // Convex's runtime holds `Date.now()` still through a function; `performance.now()` moves on.
   const beg = performance.now()
   const each = new Map(regexes.map((regex) => [Regexes.shown(regex), regex]))
   for (const [shownAs, regex] of each) {
     // recheck takes its timeout in whole milliseconds only.
-    const leftMs = Math.floor(Math.min(CheckMs, budgetMs - (performance.now() - beg)))
+    const leftMs = Math.floor(Math.min(checkMs, budgetMs - (performance.now() - beg)))
     const refusal = leftMs <= 0 ? OutOfBudget : refusalOf(regex, leftMs)
     if (refusal !== null) { return `The pattern «${shownAs}» ${refusal}.` }
   }
