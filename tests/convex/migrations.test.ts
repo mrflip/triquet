@@ -1,7 +1,9 @@
 import migrationsTest from '@convex-dev/migrations/test'
 import { getFunctionName } from 'convex/server'
+import _ from 'es-toolkit/compat'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { internal } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 import * as Migrations from '../../convex/migrations'
 import { StampedTables, type StampedTablename } from '../../convex/stamping'
 import { Hunt } from '../../src/models/hunt'
@@ -99,6 +101,90 @@ describe("the stamp backfills", () => {
     const before = await stampsIn(tt)
     for (const fn of StampBackfills) { await migrate(tt, `migrations:${fn}`) }
     expect(await stampsIn(tt)).to.deep.eq(before)
+  })
+})
+
+/** The bagshape chain's backfills, in the order they run */
+const BagshapeBackfills = ['backfillBagshapeWidgets', 'backfillBagshapeWidgetings', 'backfillBagshapeColumns', 'backfillBagshapeQuizzes', 'backfillBagshapeQuestions', 'backfillBagshapeWidgeteds']
+
+/**
+ * A hunt whose stored texts read the bag as it was before it took the export's shape: a formula
+ * widget, a template widget and its widgeting's own template, a column showing `qns` with a
+ * template, the recap's head, a nominated clueing and text entry, and a hint and an entry the
+ * quiz does not nominate.
+ */
+async function bagBeforeOctober(tt: Tester) {
+  const held = await seedHunt(tt, Hunt.blank('spring_hunt'), { smith: 'pat_smiths' })
+  const { hunt_id, quiz_id } = held.open
+  const [question] = openOf(await held.read()).questions
+  const question_id = present(question)._id as Id<'questions'>
+  return await tt.run(async (ctx) => {
+    const widget = { scope: 'pub' as const, title: '', description: '', config: {}, position: 90 }
+    await ctx.db.insert('widgets', { ...widget, label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)', input_formula: '$' })
+    await ctx.db.insert('widgets', { ...widget, label: 'blurbish', formulary: 'liquidize', formula: '{{ qn.title }}', input_formula: '$', position: 91 })
+    await ctx.db.insert('widgets', { ...widget, label: 'noted', formulary: 'entry', formula: '', input_formula: '', config: { entry_kind: 'text' }, position: 92 })
+    const widgeting = { hunt_id, quiz_id, description: '', tier: 'question' as const }
+    await ctx.db.insert('widgetings', { ...widgeting, widget_label: 'blurbish', label: 'blurbed', params: { template: '{{ qn.hint }}' }, position: 90 })
+    const byline = await ctx.db.insert('widgetings', { ...widgeting, widget_label: 'noted', label: 'byline', params: {}, position: 91 })
+    const aside = await ctx.db.insert('widgetings', { ...widgeting, widget_label: 'noted', label: 'aside', params: {}, position: 92 })
+    await ctx.db.insert('columns', { hunt_id, quiz_id, label: 'every', title: 'Every', source: 'qns', template: '{{ value }} of {{ qns.size }}', formula: '$count($)', width_px: 100, position: 90 })
+    await ctx.db.patch('quizzes', quiz_id, { recap_head: 'Thanks, {{ qn_label }}', templateable: ['clueing', 'byline'] })
+    await ctx.db.patch('questions', question_id, { clueing: 'By {{qn.byline}}', hint: 'Not {{qn.title}}' })
+    const cell = { hunt_id, quiz_id, question_id, status: 'ok' as const, message: null, result_meta: {} }
+    await ctx.db.insert('widgeteds', { ...cell, widgeting_id: byline, value: '{{ qn.title }}!' })
+    await ctx.db.insert('widgeteds', { ...cell, widgeting_id: aside, value: '{{ qn.title }}?' })
+    return { quiz_id, question_id }
+  })
+}
+
+/** The texts `bagBeforeOctober` stored, as they stand */
+async function bagTextsIn(tt: Tester, { quiz_id, question_id }: { quiz_id: Id<'quizzes'>, question_id: Id<'questions'> }) {
+  return await tt.run(async (ctx) => {
+    const widgets = await ctx.db.query('widgets').collect()
+    const widgetOf = (label: string) => present(widgets.find((widget) => widget.label === label))
+    const widgetings = await ctx.db.query('widgetings').collect()
+    const columns = await ctx.db.query('columns').collect()
+    const quiz = present(await ctx.db.get('quizzes', quiz_id))
+    const question = present(await ctx.db.get('questions', question_id))
+    const cells = await ctx.db.query('widgeteds').collect()
+    return {
+      shout:   widgetOf('shout').formula,
+      blurb:   widgetOf('blurbish').formula,
+      params:  present(widgetings.find((widgeting) => widgeting.label === 'blurbed')).params,
+      column:  _.pick(present(columns.find((column) => column.label === 'every')), ['source', 'template', 'formula']),
+      head:    quiz.recap_head,
+      fields:  _.pick(question, ['clueing', 'hint']),
+      cells:   cells.map((cell) => cell.value),
+      stamped: [quiz.updated_at ?? null, question.updated_at ?? null, quiz._creationTime],
+    }
+  })
+}
+
+describe("the bagshape backfills", () => {
+  it("rewrite each stored text that reads the bag in the words it has now, and leave what reads no bag, and no stamp moved", async () => {
+    const { tt } = deployment()
+    const ids = await bagBeforeOctober(tt)
+    const before = await bagTextsIn(tt, ids)
+    for (const fn of BagshapeBackfills) { await migrate(tt, `migrations:${fn}`) }
+    expect(await bagTextsIn(tt, ids)).to.deep.eq({
+      shout:   '$uppercase(question.title)',
+      blurb:   '{{ question.title }}',
+      params:  { template: '{{ question.hint }}' },
+      column:  { source: 'questions', template: '{{ value }} of {{ questions.size }}', formula: '$count($)' },
+      head:    'Thanks, {{ question_label }}',
+      fields:  { clueing: 'By {{question.byline}}', hint: 'Not {{qn.title}}' },
+      cells:   ['{{ question.title }}!', '{{ qn.title }}?'],
+      stamped: before.stamped,
+    })
+  })
+
+  it("change nothing run again", async () => {
+    const { tt } = deployment()
+    const ids = await bagBeforeOctober(tt)
+    for (const fn of BagshapeBackfills) { await migrate(tt, `migrations:${fn}`) }
+    const once = await bagTextsIn(tt, ids)
+    for (const fn of BagshapeBackfills) { await tt.mutation(internal.migrations.run, { fn: `migrations:${fn}`, reset: true }); await tt.finishAllScheduledFunctions(vi.runAllTimers) }
+    expect(await bagTextsIn(tt, ids)).to.deep.eq(once)
   })
 })
 

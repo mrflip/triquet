@@ -9,7 +9,7 @@ import * as Reporting from './vv/reporting'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
 import { ColumnValidators, widgetingLabelOf, type ColumnPatch, type ColumnT } from '../models/column'
-import { CategoriesDescription, CategoriesWidgetLabel, categoryDataLabelsFor, plainOf, relabelledSource, templateableFrom } from '../models/before-october'
+import { CategoriesDescription, CategoriesWidgetLabel, beforeOctoberColumn, beforeOctoberParams, beforeOctoberQuizTexts, beforeOctoberTemplated, beforeOctoberWidgetTexts, categoryDataLabelsFor, plainOf, relabelledSource, templateableFrom } from '../models/before-october'
 import { CategoryDataLabel, SeedWidgets } from '../models/seeds'
 import { QuizValidators, isTemplatableField, type QuizT, type Sortkey } from '../models/quiz'
 import { EntryFormulary } from './formulary/entry'
@@ -179,7 +179,7 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
   if (payload.ok === 'elsewhere') { return { ...nothing, ok: true, summary: payload.summary, elsewhere: payload.elsewhere } }
   if (! payload.ok) { return { ok: false, summary: payload.summary, ...nothing } }
 
-  const read = beforeOctoberRead(payload.quiz)
+  const read = beforeOctoberBagRead(beforeOctoberRead(payload.quiz), library)
   const incoming = read.questions
   if (incoming.length === 0) {
     return { ok: false, summary: `${payload.reading} It holds no questions, so nothing was changed.`, ...nothing }
@@ -363,6 +363,31 @@ function beforeOctoberRead(quiz: Jsonball.PastedQuizT): Jsonball.PastedQuizT {
   const named = Array.isArray(templated) && templated.every((source) => typeof source === 'string') ? templateableFrom(templated).map((source) => labelFor.get(source) ?? source) : templated
   const nominated = Object.hasOwn(quiz.fields, 'templated') && ! Object.hasOwn(fields, 'templateable') ? { templateable: named } : {}
   return { ...quiz, widgetings, questions, columns, fields: { ...fields, ...nominated } }
+}
+
+/**
+ * A pasted quiz, its grammar already read as it is now (`beforeOctoberRead`), with every text that
+ * reads the bag read in the words the bag has now, as the `bagshape` backfill rewrote the
+ * database's, and for good: a `liquidize` widgeting's params (`beforeOctoberParams`, its widget's
+ * input formula from the library), each column's ref and template (`beforeOctoberColumn`), the
+ * recap's head, tail and template (`beforeOctoberQuizTexts`), and each templateable text the paste
+ * nominates, a question's field or an entry's value (`beforeOctoberTemplated`). What is in the
+ * words of today is unchanged, so an export of today reads as it is.
+ */
+function beforeOctoberBagRead(quiz: Jsonball.PastedQuizT, library: readonly WidgetT[]): Jsonball.PastedQuizT {
+  const inputFor = new Map(library.map((widget) => [widget.label, widget.input_formula]))
+  const widgetings = quiz.widgetings.map((raw) => {
+    if (! EST.isPlainObject(raw) || ! EST.isPlainObject(raw.params)) { return raw }
+    const input_formula = typeof raw.widget_label === 'string' ? inputFor.get(raw.widget_label) : undefined
+    return { ...raw, params: beforeOctoberParams(raw.params, input_formula) }
+  })
+  const { templateable } = quiz.fields
+  const nominated = Array.isArray(templateable) ? templateable.filter((source) => typeof source === 'string') : []
+  const questions = nominated.length === 0 ? quiz.questions : quiz.questions.map((raw) => (
+    EST.isPlainObject(raw) ? { ...raw, ...Object.fromEntries(nominated.filter((source) => Object.hasOwn(raw, source)).map((source) => [source, beforeOctoberTemplated(raw[source])])) } : raw
+  ))
+  const columns = quiz.columns?.map((raw) => (EST.isPlainObject(raw) ? beforeOctoberColumn(raw) : raw)) ?? null
+  return { ...quiz, widgetings, questions, columns, fields: beforeOctoberQuizTexts(quiz.fields) }
 }
 
 /** The labels of the widgetings the quiz will hold once `actions` are sent: those it holds, and those added */
@@ -839,7 +864,7 @@ export type LibraryImportOutcome = {
  * @param pasted - Whatever is in the library's Import box: the library's export, any ball holding widgets, an older library export, or a bare list of widgets (`Jsonball.widgetsIn`).
  * @returns The widgets to send, a one-line summary, and a line per pasted widget.
  *
- * @example libraryImported(library, '{"widgets":{"pub":{"shout":{"formulary":"jsonata","formula":"$uppercase(qn.title)"}}}}').log[0]?.outcome  // => 'added'
+ * @example libraryImported(library, '{"widgets":{"pub":{"shout":{"formulary":"jsonata","formula":"$uppercase(question.title)"}}}}').log[0]?.outcome  // => 'added'
  */
 export function libraryImported(library: readonly WidgetT[], pasted: string): LibraryImportOutcome {
   let raw: unknown
@@ -879,12 +904,15 @@ const CategoryDataSeed = SeedWidgets.find((widget) => widget.label === CategoryD
 /**
  * A pasted widget as a library export from before October 2026 holds it, read as it is now, and
  * for good: the category-estimate entry `categories` as `category_data`, its seeded description
- * with it. Any other widget is as pasted.
+ * with it; and a formula's, a bot's or a template's texts reading the bag in the words it has now
+ * (`beforeOctoberWidgetTexts`). Any other widget is as pasted.
  *
  * @example beforeOctoberWidget({ label: 'categories', formulary: 'entry' })  // => { label: 'category_data', formulary: 'entry' }
+ * @example beforeOctoberWidget({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })  // => { label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' }
  */
 export function beforeOctoberWidget(raw: unknown): unknown {
-  if (! EST.isPlainObject(raw) || fieldOf(raw, 'label') !== CategoriesWidgetLabel) { return raw }
+  if (! EST.isPlainObject(raw)) { return raw }
+  if (fieldOf(raw, 'label') !== CategoriesWidgetLabel) { return beforeOctoberWidgetTexts(raw) }
   const held = fieldOf(raw, 'description')
   const description = held === CategoriesDescription ? CategoryDataSeed?.description : held
   return { ...raw, label: CategoryDataLabel, ...(description !== undefined && { description }) }

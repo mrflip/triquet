@@ -953,6 +953,34 @@ describe('importInto: an export from before October 2026', () => {
   })
 })
 
+describe("importInto: an export whose formulas and templates read the bag before it took the export's shape", () => {
+  const pasted = {
+    templateable:   ['clueing', 'remark'],
+    recap_head:     'Thanks to all {{ qns.size }}',
+    recap_template: '{% for qn in qns %}{{ qn.title }}{% endfor %}',
+    widgetings:     { remark: { position: 0, widget_label: 'remark' }, blurb: { position: 1, widget_label: 'blurb', params: { template: '{{ qn.hint }}' } } },
+    columns:        { every: { position: 0, title: 'Every', source: 'qns', width_px: 100, template: '{{ value }} of {{ qn_label }}' } },
+    questions:      { leon: { position: 0, clueing: 'By {{qn.remark}}', hint: 'Not {{qn.title}}', remark: { status: 'ok', value: '{{ qn.title }}!' } } },
+  }
+  const outcome = read(laidOut(), pasted)
+
+  it("reads the recap's head and template in the words the bag has now", () => {
+    expect(outcome.fieldActions).to.deep.include({ kind: 'set_recap_head', recap_head: 'Thanks to all {{ questions.size }}' })
+    expect(outcome.fieldActions).to.deep.include({ kind: 'set_recap_template', recap_template: '{% assign shown_questions = questions | values | reject: "archived" %}{% for question in shown_questions %}{{ question.title }}{% endfor %}' })
+  })
+
+  it("reads a template widgeting's own template, and a column's ref and template, in the words the bag has now", () => {
+    expect(outcome.widgetingActions).to.deep.include({ kind: 'add_widgeting', widgeting: { widget_label: 'blurb', label: 'blurb', description: '', params: { template: '{{ question.hint }}' }, tier: 'question' } })
+    const added = outcome.columnActions.flatMap((action) => (action.kind === 'add_column' ? [[action.column.source, action.column.template]] : []))
+    expect(added).to.deep.eq([['questions', '{{ value }} of {{ question_label }}']])
+  })
+
+  it("reads each templateable text in the words the bag has now, and any other as it was", () => {
+    const leon = present(present(outcome.questions).find((question) => question.label === 'leon'))
+    expect([leon.patch.clueing, leon.patch.hint, leon.entered]).to.deep.eq(['By {{question.remark}}', 'Not {{qn.title}}', { remark: '{{ question.title }}!' }])
+  })
+})
+
 describe('beforeOctoberWidget', () => {
   it("reads the category-estimate entry of a library export from before October 2026 as `category_data`", () => {
     expect(Importing.beforeOctoberWidget({ label: 'categories', formulary: 'entry' })).to.deep.eq({ label: 'category_data', formulary: 'entry' })
@@ -961,19 +989,33 @@ describe('beforeOctoberWidget', () => {
 })
 
 describe('libraryImported', () => {
-  const shout = { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' }
+  const shout = { label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' }
   const dumdum = present(SeedWidgets.find((widget) => widget.label === 'dumdum'))
   const answerReversed = present(SeedWidgets.find((widget) => widget.label === 'answer_reversed'))
 
   it("adds a label the library lacks", () => {
     const outcome = Importing.libraryImported(SeedWidgets, JSON.stringify({ widgets: [shout] }))
     expect(present(outcome.log[0]).outcome).to.eq('added')
-    expect(outcome.widgets).to.deep.eq([Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })])
+    expect(outcome.widgets).to.deep.eq([Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' })])
     expect(outcome.ok).to.be.true
   })
 
+  it("reads a widget's texts written before the bag took the export's shape in the words it has now, a bot's prompt left as it was", () => {
+    const old = [
+      { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' },
+      { label: 'asker', formulary: 'aibot', formula: 'Is {{ qn }} right?', input_formula: "{ 'qn': qn.clueing }", config: dumdum.config },
+      { label: 'blurbish', formulary: 'liquidize', formula: '{{ qn.title }}' },
+    ]
+    const outcome = Importing.libraryImported([], JSON.stringify(old))
+    expect(present(outcome.widgets).map(({ formula, input_formula }) => [formula, input_formula])).to.deep.eq([
+      ['$uppercase(question.title)', '$'],
+      ['Is {{ qn }} right?', "{ 'qn': question.clueing }"],
+      ['{{ question.title }}', '$'],
+    ])
+  })
+
   it("reads the doc block's example", () => {
-    expect(Importing.libraryImported(SeedWidgets, '{"widgets":[{"label":"shout","formulary":"jsonata","formula":"$uppercase(qn.title)"}]}').log[0]?.outcome).to.eq('added')
+    expect(Importing.libraryImported(SeedWidgets, '{"widgets":{"pub":{"shout":{"formulary":"jsonata","formula":"$uppercase(question.title)"}}}}').log[0]?.outcome).to.eq('added')
   })
 
   it("takes a bare list of widgets too", () => {

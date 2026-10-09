@@ -2,8 +2,16 @@ import { Migrations, type MigrationFunctionReference } from '@convex-dev/migrati
 import { components, internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
 import { zInternalQuery } from './functions'
+import { widgetForLabel } from './reading'
 import * as Stamps from '../src/lib/stamps'
 import { ValidatorKit } from '../src/lib/validator'
+import { beforeOctoberColumn, beforeOctoberParams, beforeOctoberQuizTexts, beforeOctoberTemplated, beforeOctoberWidgetTexts, QuizTemplateFieldnames } from '../src/models/before-october'
+import { ColumnValidators } from '../src/models/column'
+import { QuestionValidators } from '../src/models/question'
+import { QuizValidators, TemplatableFieldVals } from '../src/models/quiz'
+import { WidgetValidators } from '../src/models/widget'
+import { WidgetedValidators } from '../src/models/widgeted'
+import { WidgetingValidators } from '../src/models/widgeting'
 import schema from './schema'
 import type { StampedTablename } from './stamping'
 
@@ -64,8 +72,113 @@ export const backfillReviewStamps    = stampBackfill('reviews')
 export const backfillReviewingStamps = stampBackfill('reviewings')
 export const backfillHuntingStamps   = stampBackfill('huntings')
 
+// The `bagshape` chain (the columnwise sprint's thread 10): every stored text that reads the bag,
+// rewritten in the words the bag has since it took the export's shape (`question`, `questions`,
+// `question_label`; `src/models/before-october.ts`, whose functions the importer reads older
+// exports with too). Text only, so no schema changes and nothing tightens after them; each leaves a
+// text in today's words as it is, so running one again changes nothing. A rewritten text its
+// validator refuses (grown past its length) is left, and said in the log. The rows are written raw,
+// so no stamp moves and no trigger sees them: the rewrite is no author's edit.
+
+/** Whether a text holds a Liquid tag or output, the only place a template reads the bag */
+const isTemplate = (text: unknown): text is string => typeof text === 'string' && (text.includes('{{') || text.includes('{%'))
+
+/** What a backfill says of a row it leaves, its rewrite refused */
+const leftAs = (what: string, id: string, why: string) => { console.warn(`${what} ${id} is left as it was: its rewrite will not do (${why})`) }
+
 /**
- * Every backfill still defined, in the order they run: the stamps', which stay for good.
+ * Each widget's texts that read the bag (`beforeOctoberWidgetTexts`): a formula's input formula,
+ * and its formula; a bot's input formula, not its prompt; a template's input formula, and its
+ * template where its input is the whole bag. The seeded widgets among them come out as the seeds
+ * read now.
+ */
+export const backfillBagshapeWidgets = migrations.define({
+  table:      'widgets',
+  migrateOne: async (ctx, widget) => {
+    const rewritten = beforeOctoberWidgetTexts(widget)
+    if (rewritten.formula === widget.formula && rewritten.input_formula === widget.input_formula) { return }
+    const read = WidgetValidators.row.safeParse(rewritten)
+    if (! read.success) { leftAs('Widget', widget.label, read.error.message); return }
+    await ctx.db.patch('widgets', widget._id, { formula: read.data.formula, input_formula: read.data.input_formula })
+  },
+})
+
+/** Each `liquidize` widgeting's own template, where its widget's input is the whole bag, and its `template_from`'s ref (`beforeOctoberParams`) */
+export const backfillBagshapeWidgetings = migrations.define({
+  table:      'widgetings',
+  migrateOne: async (ctx, widgeting) => {
+    if (! ('template' in widgeting.params || 'template_from' in widgeting.params)) { return }
+    const widget = await widgetForLabel(ctx.db, widgeting.widget_label)
+    const params = beforeOctoberParams(widgeting.params, widget?.input_formula)
+    if (JSON.stringify(params) === JSON.stringify(widgeting.params)) { return }
+    const read = WidgetingValidators.params.safeParse(params)
+    if (! read.success) { leftAs('Widgeting', widgeting.label, read.error.message); return }
+    await ctx.db.patch('widgetings', widgeting._id, { params: read.data })
+  },
+})
+
+/** Each column's ref and template (`beforeOctoberColumn`); its formula reads what its ref picks, not the bag */
+export const backfillBagshapeColumns = migrations.define({
+  table:      'columns',
+  migrateOne: async (ctx, column) => {
+    const rewritten = beforeOctoberColumn(column)
+    if (rewritten.source === column.source && rewritten.template === column.template) { return }
+    const source = ColumnValidators.source.safeParse(rewritten.source)
+    const template = ColumnValidators.template.optional().safeParse(rewritten.template)
+    if (! source.success || ! template.success) { leftAs('Column', column.label, (source.error ?? template.error)?.message ?? ''); return }
+    await ctx.db.patch('columns', column._id, { source: source.data, template: template.data })
+  },
+})
+
+/** Each quiz's recap head, tail and template (`beforeOctoberQuizTexts`) */
+export const backfillBagshapeQuizzes = migrations.define({
+  table:      'quizzes',
+  migrateOne: async (ctx, quiz) => {
+    const rewritten = beforeOctoberQuizTexts(quiz)
+    if (QuizTemplateFieldnames.every((fieldname) => rewritten[fieldname] === quiz[fieldname])) { return }
+    const head = QuizValidators.recap_head.safeParse(rewritten.recap_head)
+    const tail = QuizValidators.recap_tail.safeParse(rewritten.recap_tail)
+    const template = QuizValidators.recap_template.optional().safeParse(rewritten.recap_template)
+    if (! head.success || ! tail.success || ! template.success) { leftAs('Quiz', quiz.label, (head.error ?? tail.error ?? template.error)?.message ?? ''); return }
+    await ctx.db.patch('quizzes', quiz._id, { recap_head: head.data, recap_tail: tail.data, recap_template: template.data })
+  },
+})
+
+/** Each question's fields its quiz nominates as templateable, each a template over the bag (`beforeOctoberTemplated`) */
+export const backfillBagshapeQuestions = migrations.define({
+  table:      'questions',
+  migrateOne: async (ctx, question) => {
+    if (TemplatableFieldVals.every((fieldname) => ! isTemplate(question[fieldname]))) { return }
+    const quiz = await ctx.db.get('quizzes', question.quiz_id)
+    const nominated = TemplatableFieldVals.filter((fieldname) => quiz?.templateable.includes(fieldname) === true && isTemplate(question[fieldname]))
+    const patch: Partial<Record<typeof TemplatableFieldVals[number], string>> = {}
+    for (const fieldname of nominated) {
+      const read = QuestionValidators[fieldname].safeParse(beforeOctoberTemplated(question[fieldname]))
+      if (! read.success) { leftAs('Question', question.label, read.error.message); return }
+      if (read.data !== question[fieldname]) { patch[fieldname] = read.data }
+    }
+    if (Object.keys(patch).length > 0) { await ctx.db.patch('questions', question._id, patch) }
+  },
+})
+
+/** Each value typed into a text entry its quiz nominates as templateable, a template over the bag (`beforeOctoberTemplated`) */
+export const backfillBagshapeWidgeteds = migrations.define({
+  table:      'widgeteds',
+  migrateOne: async (ctx, widgeted) => {
+    if (! isTemplate(widgeted.value)) { return }
+    const widgeting = await ctx.db.get('widgetings', widgeted.widgeting_id)
+    const quiz = await ctx.db.get('quizzes', widgeted.quiz_id)
+    if (widgeting === null || quiz?.templateable.includes(widgeting.label) !== true) { return }
+    const read = WidgetedValidators.value.safeParse(beforeOctoberTemplated(widgeted.value))
+    if (! read.success) { leftAs('Widgeted', widgeted._id, read.error.message); return }
+    if (read.data !== widgeted.value) { await ctx.db.patch('widgeteds', widgeted._id, { value: read.data }) }
+  },
+})
+
+/**
+ * Every backfill still defined, in the order they run: the stamps', which stay for good; then the
+ * `bagshape` chain's, which change no schema and so have no tightening to retire them: any later
+ * pull request may, once production's deploy has said they finished.
  * What `runAll` runs and `outstanding` reports on. A new backfill joins the end, and leaves with the tightening after it.
  * It is never empty: `runAll`, a runner of the series, refuses to run none.
  */
@@ -82,6 +195,12 @@ export const Backfills: readonly MigrationFunctionReference[] = [
   internal.migrations.backfillReviewStamps,
   internal.migrations.backfillReviewingStamps,
   internal.migrations.backfillHuntingStamps,
+  internal.migrations.backfillBagshapeWidgets,
+  internal.migrations.backfillBagshapeWidgetings,
+  internal.migrations.backfillBagshapeColumns,
+  internal.migrations.backfillBagshapeQuizzes,
+  internal.migrations.backfillBagshapeQuestions,
+  internal.migrations.backfillBagshapeWidgeteds,
 ]
 
 /**
