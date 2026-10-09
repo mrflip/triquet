@@ -465,7 +465,11 @@ Depends on: 9, and the full e2e run after 3c. Side by side with 10 (the state la
 From 2026-10-09, after thread 9's review. Each is a two-way door, recorded here, in the chat relay,
 and in the sprint-end `human/` entry.
 
-* (none yet)
+* **Thread 9, by its worker:** the save-wait workaround also goes into `ordering.spec.ts`'s
+  `fillQuiz`, which is one spec past the one named, since it hit the same race. The export test
+  in `entries.spec.ts` is called a load flake, after passing 3 of 3 runs on both the base and the
+  branch. "Decision 5" is read as the thread file's `RunMs` decision, amended with the decision
+  record's §11.
 
 ## For the Coach
 

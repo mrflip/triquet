@@ -18,7 +18,7 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 5a | folding editors | landed #199 |
 | 5b | run order in both places, row preview | landed #202 |
 | 8 | seeds pass (optional) | landed #200 |
-| 9 | compute budgets (added) | finishing: option 1 ruled; A moved to thread 10 |
+| 9 | compute budgets (added) | ready again; second review underway |
 | 3c | columns tighten (last of the chain) | pending |
 | 10 | one bag shape (added) | pending: after 3c and a full e2e run |
 | 11 | optimistic updates (added) | pending: after 3c and a full e2e run |
