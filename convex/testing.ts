@@ -10,9 +10,11 @@ import { Column, namesFor, QuestionFieldVals, QuestionViewVals, type QuestionFie
 import { ActionValidators, isLayoutAction } from '../src/models/actions'
 import { AddedColumnWidthPx } from '../src/models/layout'
 import { HomeRealmLabel } from '../src/models/realm'
+import { HuntRoleVals } from '../src/models/hunting'
 import { zInternalMutation } from './functions'
 import { huntInOrg, identForLabel, layoutOf, realmsOf, widgetForLabel, wholeQuizOf } from './reading'
 import { makeHuntFor } from './writing/account_actions'
+import { addHunting } from './writing/hunting_actions'
 import { addColumn, performLayout } from './writing/layout_actions'
 import type { OpenQuizT, Writer } from './writing/quiz_writing'
 
@@ -126,3 +128,37 @@ async function layOutColumn(db: Writer, open: OpenQuizT, quiz: Doc<'quizzes'>, f
   const taken = columns.some((column) => column.label === named.label)
   await addColumn(db, open, Column.fill({ label: taken ? Labelmaker.appendFallback(named.label) : named.label, title: named.title, source, width_px: AddedColumnWidthPx }))
 }
+
+/**
+ * Put the ident labelled `ident` on the hunt `hunt` of the org `org` as `role`, the way a smith
+ * does from the Members panel (`add_hunting`): a new hunting, or a new role on the one they
+ * already hold. The e2e suite's way to bring a second visitor onto a hunt, in a spec that is not about
+ * the panel. Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production never has.
+ *
+ * Internal, never public: a smith's say over who is on their hunt is for a holder of the
+ * deployment's admin key alone to bypass.
+ *
+ * @param org - The label of the org whose hunt it is.
+ * @param hunt - The hunt's label, within its org.
+ * @param ident - The label of the ident to put on it, which must have been chosen at the front door.
+ * @param role - What they are to do on it.
+ * @throws On a deployment that may not be made into, a hunt the org lacks, or an ident nobody has chosen; nothing is written.
+ *
+ * @example npx convex run testing:putOnHunt '{"org": "tester_0123abcd", "hunt": "quiet_otter", "ident": "tester_4567cdef", "role": "reviewer"}'
+ */
+export const putOnHunt = zInternalMutation({
+  args: {
+    org:   userlabel,
+    hunt:  label,
+    ident: userlabel,
+    role:  oneof(HuntRoleVals),
+  },
+  returns: zod.null(),
+  handler: async (ctx, { org, hunt, ident, role }) => {
+    if (env.TRIQUET_CLEARABLE !== 'yes') { throw new Error('This deployment is not one to put members on by hand: TRIQUET_CLEARABLE is not yes') }
+    const row = await huntInOrg(ctx.db, org, hunt)
+    if (! row) { throw new Error(`~${org} has no hunt ${hunt}`) }
+    await addHunting(ctx.db, row._id, ident, role)
+    return null
+  },
+})
