@@ -272,6 +272,34 @@ export function columnFrom(row: Doc<'columns'>): ColumnT {
   return _.pick(row, ['label', 'title', 'source', 'width_px', 'align', 'formula', 'template', 'readout', 'collapsed'])
 }
 
+/** What a question `quizFromSeen` made was made of: its reading, what put its stored cells under labels (`storedKeyOf`), and the id its chain came to */
+type MadeOfT = { reading: SeenQuestionT, storedKey: string, target: string | null }
+
+/** What each question `quizFromSeen` made was made of, so a later assembly can hand back the very same question */
+const QuestionsMadeOf = new WeakMap<QuestionT, MadeOfT>()
+
+/** The frame each quiz `quizFromSeen` made was made from */
+const QuizzesFramedBy = new WeakMap<QuizT, QuizFrameT>()
+
+/** `storedKeyOf`, by the frame */
+const StoredKeys = new WeakMap<QuizFrameT, string>()
+
+/** The parts of a quiz that are the frame's own, which keep their identity across frames while they hold the same */
+const FrameParts = ['widgetings', 'columns', 'stored', 'templateable'] as const
+
+/**
+ * What decides where a frame puts a question's stored cells (`storedUnder`), as one string: its
+ * widgetings' labels and tiers, in its order, and their ids. Two frames of the same key put every
+ * question's cells under the same labels.
+ */
+function storedKeyOf(frame: QuizFrameT): string {
+  const known = StoredKeys.get(frame)
+  if (known !== undefined) { return known }
+  const made = JSON.stringify([frame.widgetings.map(({ label, tier }) => [label, tier]), frame.widgeting_ids])
+  StoredKeys.set(frame, made)
+  return made
+}
+
 /**
  * The quiz a frame and its questions make up, as the tree the rest of the tool reads: the
  * questions in the order given, each chain naming the question it points at, and what each stored
@@ -283,20 +311,48 @@ export function columnFrom(row: Doc<'columns'>): ColumnT {
  * frame's widgeting of that id, in run order (`storedUnder`). A field the reader was not sent
  * (`Question.sentTo`) reads as blank.
  *
+ * Given the quiz this assembly follows (`was`), it hands back each of its questions whose reading
+ * is the very same object, put under the same labels and chained to the same question, rather
+ * than one made afresh; each of its own parts (widgetings, columns, stored, templateable) while it
+ * holds the same; and the very quiz `was` when nothing at all is new. So a screen can tell what
+ * changed by identity, and an edit to one question makes one question new. What it hands back is
+ * shared from one assembly to the next, and is never to be changed in place.
+ *
  * @param frame - The quiz without its questions.
  * @param seen - Its questions, in its order, as the reader was sent them.
+ * @param was - The quiz the last assembly of this quiz came to; null for none.
  * @returns The quiz.
  *
- * @example quizFromSeen(frame, seen).questions.length
+ * @example quizFromSeen(frame, seen, null).questions.length
+ * @example quizFromSeen(frame, [first, edited], was).questions[0] === was.questions[0]  // => true
+ * @example quizFromSeen(frame, seen, quizFromSeen(frame, seen, null))  // => the very quiz passed as `was`
  */
-export function quizFromSeen(frame: QuizFrameT, seen: readonly SeenQuestionT[]): QuizT {
-  const filled = seen.map((reading) => ({ ...Unsent, ...reading, stored: 'stored' in reading ? storedUnder(frame, reading.stored) : Unsent.stored }))
-  const idForLabel = new Map(filled.map((question) => [question.label, question._id]))
-  const questions = filled.map((row): QuestionT => {
-    const target = row.chains_to === null ? null : idForLabel.get(row.chains_to) ?? null
-    return { ...row, chains_to: target === row._id ? null : target }
+export function quizFromSeen(frame: QuizFrameT, seen: readonly SeenQuestionT[], was: QuizT | null = null): QuizT {
+  const storedKey = storedKeyOf(frame)
+  const idForLabel = new Map(seen.map((reading) => ['label' in reading ? reading.label : Unsent.label, reading._id]))
+  const wasFor = new Map(was?.questions.map((question) => [question._id, question]))
+  const questions = seen.map((reading): QuestionT => {
+    const chain = 'chains_to' in reading ? reading.chains_to : null
+    const found = chain === null ? null : idForLabel.get(chain) ?? null
+    const target = found === reading._id ? null : found
+    const held = wasFor.get(reading._id)
+    const madeOf = held && QuestionsMadeOf.get(held)
+    if (held && madeOf?.reading === reading && madeOf.storedKey === storedKey && madeOf.target === target) { return held }
+    const question = { ...Unsent, ...reading, stored: 'stored' in reading ? storedUnder(frame, reading.stored) : Unsent.stored, chains_to: target }
+    QuestionsMadeOf.set(question, { reading, storedKey, target })
+    return question
   })
-  return { ..._.omit(frame, ['row_ordering', 'widgeting_ids']), questions }
+  if (was && QuizzesFramedBy.get(was) === frame && isSameList(was.questions, questions)) { return was }
+  const own = _.omit(frame, ['row_ordering', 'widgeting_ids'])
+  const kept = was ? Object.fromEntries(FrameParts.filter((part) => _.isEqual(was[part], own[part])).map((part) => [part, was[part]])) : {}
+  const quiz = { ...own, ...kept, questions }
+  QuizzesFramedBy.set(quiz, frame)
+  return quiz
+}
+
+/** Whether two lists hold the very same members, in order */
+function isSameList(aa: readonly unknown[], bb: readonly unknown[]): boolean {
+  return aa.length === bb.length && aa.every((each, idx) => each === bb[idx])
 }
 
 /**
@@ -316,18 +372,20 @@ export function quizFrom(rows: QuizRows): QuizT {
 /**
  * The quiz a frame and its questions' readings come to, once every question it orders has been
  * read: undefined while one is still on its way. A question read as gone (deleted a moment ago)
- * is left out.
+ * is left out. Given the quiz the last assembly came to, what has not changed keeps its identity
+ * (`quizFromSeen`).
  *
  * @param frame - The quiz without its questions.
  * @param seenFor - Each question's reading, by row id: undefined while on its way, null when gone.
+ * @param was - The quiz the last assembly of this quiz came to; null for none.
  * @returns The quiz, or undefined.
  *
- * @example assembledQuiz(frame, (question_id) => byId[question_id])?.questions.length
+ * @example assembledQuiz(frame, (question_id) => byId[question_id], null)?.questions.length
  */
-export function assembledQuiz(frame: QuizFrameT, seenFor: (question_id: Id<'questions'>) => SeenQuestionT | null | undefined): QuizT | undefined {
+export function assembledQuiz(frame: QuizFrameT, seenFor: (question_id: Id<'questions'>) => SeenQuestionT | null | undefined, was: QuizT | null = null): QuizT | undefined {
   const seen = frame.row_ordering.map((question_id) => seenFor(question_id))
   if (seen.includes(undefined)) { return undefined }
-  return quizFromSeen(frame, seen.filter((question) => question !== null && question !== undefined))
+  return quizFromSeen(frame, seen.filter((question) => question !== null && question !== undefined), was)
 }
 
 /** A widget of the library, from its row: its fields, without its place */

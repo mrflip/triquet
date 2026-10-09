@@ -581,7 +581,8 @@ function watched<QT extends FunctionReference<'query'>>(client: WatcherT, query:
  * A quiz read as the screen reads it: its frame (`quizzes.open`), a watch for each question the
  * frame orders (`questions.open`), followed as the order changes, and its reviews
  * (`reviews.forQuiz`). Assembled again only when the frame or a question's reading has changed, so
- * an unchanged quiz is the same object.
+ * an unchanged quiz is the same object, and what did not change in a changed one keeps its
+ * identity (`quizFromSeen`).
  */
 function liveSource(client: WatcherT, affirms: HuntAffirmsDNA, quiz_id: Id<'quizzes'>, onUpdate: () => void, hunt_label: string): QuizSourceT {
   const questions = new Map<Id<'questions'>, WatchedT<FunctionReturnType<typeof api.questions.open>>>()
@@ -610,7 +611,7 @@ function liveSource(client: WatcherT, affirms: HuntAffirmsDNA, quiz_id: Id<'quiz
     if (! isSameList(held.inputs, inputs)) {
       const readingFor = new Map(read.row_ordering.map((question_id, idx) => [question_id, readings[idx]]))
       held.inputs = inputs
-      held.quiz = assembledQuiz(read, (question_id) => readingFor.get(question_id))
+      held.quiz = assembledQuiz(read, (question_id) => readingFor.get(question_id), held.quiz ?? null)
     }
     return held.quiz
   }

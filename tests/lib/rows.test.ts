@@ -261,6 +261,57 @@ describe('quizFromSeen', () => {
     const [question] = quizFromSeen(frameOf(QuizRow, [], [], new Map()), reviewed).questions
     expect(question).to.deep.include({ full_answer: 'Leontes', notes: '', alt_text: '', stored: {}, chains_to: idOf('questions', 'qn2') })
   })
+
+  describe('following the quiz it last came to', () => {
+    const frame = frameOf(QuizRow, [WidgetingRow], [], new Map())
+    const stored = seenQuestionFor(QuestionRow, new Map([[widgeting_id, FailedSince]]), Smith)
+    const was = quizFromSeen(frame, [stored, second], null)
+
+    it('is the very quiz it follows when nothing is new', () => {
+      expect(quizFromSeen(frame, [stored, second], was)).to.equal(was)
+    })
+
+    it('hands back each question whose reading is the very same, and makes afresh only the one that is new', () => {
+      const edited = { ...second, title: 'Lear, retitled' }
+      const quiz = quizFromSeen(frame, [stored, edited], was)
+      expect(quiz).to.not.equal(was)
+      expect(quiz.questions[0]).to.equal(was.questions[0])
+      expect(quiz.questions[1]).to.not.equal(was.questions[1])
+      expect(quiz.questions[1]?.title).to.eq('Lear, retitled')
+      expect(quiz.widgetings).to.equal(was.widgetings)
+    })
+
+    it('makes afresh a question whose reading is new but holds the same, the reading being what is followed', () => {
+      const quiz = quizFromSeen(frame, [{ ...stored }, second], was)
+      expect(quiz.questions[0]).to.not.equal(was.questions[0])
+      expect(quiz.questions[0]).to.deep.eq(was.questions[0])
+    })
+
+    it('makes every question afresh when a widgeting is relabelled, though their readings are the same', () => {
+      const relabelled = frameOf(QuizRow, [{ ...WidgetingRow, label: 'hasty' }], [], new Map())
+      const quiz = quizFromSeen(relabelled, [stored, second], was)
+      expect(quiz.questions[0]?.stored).to.deep.eq({ hasty: historyOf(FailedSince) })
+      expect(quiz.questions[0]).to.not.equal(was.questions[0])
+    })
+
+    it('makes a question afresh when the question its chain names answers to another label, though its reading is the same', () => {
+      const chained = { ...stored, chains_to: 'lear' }
+      const before = quizFromSeen(frame, [chained, second], null)
+      const quiz = quizFromSeen(frame, [chained, { ...second, label: 'king_lear' }], before)
+      expect(quiz.questions[0]?.chains_to).to.be.null
+      expect(quiz.questions[0]).to.not.equal(before.questions[0])
+    })
+
+    it("keeps the quiz's own parts the same while they hold the same, from a frame sent again", () => {
+      const resent = frameOf({ ...QuizRow, title: 'Retitled' }, [WidgetingRow], [], new Map())
+      const quiz = quizFromSeen(resent, [stored, second], was)
+      expect(quiz).to.not.equal(was)
+      expect(quiz.title).to.eq('Retitled')
+      expect(quiz.widgetings).to.equal(was.widgetings)
+      expect(quiz.questions).to.deep.eq(was.questions)
+      expect(quiz.questions[0]).to.equal(was.questions[0])
+    })
+  })
 })
 
 describe('assembledQuiz', () => {
@@ -273,6 +324,11 @@ describe('assembledQuiz', () => {
 
   it('leaves out a question read as gone, and is the quiz once every question has been read', () => {
     expect(assembledQuiz(frame, (id) => (id === question_id ? seen : null))?.questions.length).to.eq(1)
+  })
+
+  it('hands back the quiz it last came to, given it, when nothing is new', () => {
+    const was = assembledQuiz(frame, (id) => (id === question_id ? seen : null)) ?? null
+    expect(assembledQuiz(frame, (id) => (id === question_id ? seen : null), was)).to.equal(was)
   })
 })
 
