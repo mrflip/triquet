@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
-import { realmsOf, quizRowsOf } from '../../convex/reading'
+import { affirmReadQuestion } from '../../convex/authorize'
+import { realmsOf, quizRowsOf, storedFor } from '../../convex/reading'
 import { Hunt } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { Widgeting } from '../../src/models/widgeting'
+import { counting, plainReads } from '../support/counting'
 import { present } from '../support/present'
 import { affirmsOf, huntHolding, identified, openTester, putOn, seedHunt } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
@@ -28,7 +30,7 @@ async function holding() {
     { ...Question.blank(), label: 'bb' },
   ]
   const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, huntHolding([{ ...Quiz.blank(), questions, widgetings: Widgetings }])))
-  const { question_id, place } = await tt.run(async (ctx) => {
+  const { question_id, dumdum_id, place } = await tt.run(async (ctx) => {
     const [home] = await realmsOf(ctx.db, hunt_id)
     const realm = present(home)
     const quiz = present(realm.quizzes[0])
@@ -41,7 +43,7 @@ async function holding() {
       { status: 'ok' as const,      value: { guess: 'Leon', explanation: 'A lion.' },     message: null },
       { status: 'errored' as const, value: null,                                          message: 'Overloaded' },
     ]) { await ctx.db.insert('widgeteds', { hunt_id, quiz_id: quiz._id, question_id: first, widgeting_id, result_meta: {}, ...recorded }) }
-    return { question_id: first, place: { hunt_id, realm_id: realm.realm._id, quiz_id: quiz._id } }
+    return { question_id: first, dumdum_id: widgeting_id, place: { hunt_id, realm_id: realm.realm._id, quiz_id: quiz._id } }
   })
   const alice = await identified(tt, 'alice_reviews')
   await putOn(tt, hunt_id, alice.ident_id, 'reviewer')
@@ -49,7 +51,7 @@ async function holding() {
   await putOn(tt, hunt_id, sam.ident_id, 'smith')
   const { hunt: affirms } = await affirmsOf(tt, alice, place)
   const { hunt: smiths } = await affirmsOf(tt, sam, place)
-  return { tt, question_id, place, alice, affirms, sam, smiths }
+  return { tt, question_id, dumdum_id, place, alice, affirms, sam, smiths }
 }
 
 /** A question as a smith reads it: every field, and what was stored */
@@ -60,16 +62,32 @@ async function smithsRead(holds: Awaited<ReturnType<typeof holding>>, question_i
 }
 
 describe("questions.open", () => {
-  it("reads one question for a smith: every field, and for each widgeting that stored, the newest row and the newest ok one", async () => {
+  it("reads one question for a smith: every field, and for each widgeting that stored, by its id, the newest row and the newest ok one", async () => {
     const holds = await holding()
     const { question_id } = holds
     const seen = await smithsRead(holds)
     expect(seen).to.deep.include({ _id: question_id, label: 'aa', clueing: 'Who?', notes: 'Check the folio.', alt_text: 'A prince.', full_answer: 'Hamlet' })
-    expect(Object.keys(seen.stored)).to.deep.eq(['dumdum'])
-    const cell = present(seen.stored.dumdum)
+    expect(Object.keys(seen.stored)).to.deep.eq([holds.dumdum_id])
+    const cell = present(seen.stored[holds.dumdum_id])
     expect(cell.newest).to.deep.include({ status: 'errored', value: null, message: 'Overloaded', result_meta: {} })
     expect(cell.ok).to.deep.include({ status: 'ok', value: { guess: 'Leon', explanation: 'A lion.' }, message: null })
     expect(present(cell.ok)._creationTime).to.be.below(cell.newest._creationTime)
+  })
+
+  it("reads nothing of its quiz, not even its widgetings: a widgeting relabelled leaves a question's reading as it was", async () => {
+    const holds = await holding()
+    const { tt, question_id, dumdum_id, sam, smiths } = holds
+    const before = await smithsRead(holds)
+    const reads = await tt.run(async (ctx) => {
+      const { db, reads: counted } = counting(ctx.db)
+      await affirmReadQuestion(db, smiths, sam.actor, question_id)  // what `questions.open` reads, then...
+      await storedFor(db, question_id)                              // ...for a smith
+      return plainReads(counted)
+    })
+    expect(reads.tables).to.deep.eq(['huntings', 'questions', 'widgeteds'])
+    expect(reads).to.deep.include({ docs: 4, ranges: 4 })   // before: 7 and 6, the quiz's three widgetings among them
+    await tt.run(async (ctx) => { await ctx.db.patch('widgetings', dumdum_id, { label: 'hasty_guess' }) })
+    expect(await smithsRead(holds)).to.deep.eq(before)
   })
 
   it("reads nothing stored for a question none of its widgetings has recorded for", async () => {

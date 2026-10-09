@@ -27,8 +27,15 @@ export type CellRows = {
   ok:     StoredRowT | null
 }
 
-/** Each stored widgeting's history for one question, or for the quiz, by the widgeting's label; one with nothing recorded is absent */
+/** Each stored widgeting's history for the quiz itself, by the widgeting's label; one with nothing recorded is absent */
 export type StoredRows = ReadonlyMap<string, CellRows>
+
+/**
+ * Each stored widgeting's history for one question, by the widgeting's row id; one with nothing
+ * recorded is absent. A question's own read knows no labels (it reads none of its quiz's
+ * widgetings), so the quiz puts each under its label (`quizFromSeen`).
+ */
+export type QuestionStoredRows = ReadonlyMap<Id<'widgetings'>, CellRows>
 
 /** One quiz's rows: its own, its children's in their committed order, what each question stored, by its id, and what the quiz itself stored */
 export type QuizRows = {
@@ -36,13 +43,16 @@ export type QuizRows = {
   questions:  readonly Doc<'questions'>[]
   widgetings: readonly Doc<'widgetings'>[]
   columns:    readonly Doc<'columns'>[]
-  stored:     ReadonlyMap<string, StoredRows>
+  stored:     ReadonlyMap<string, QuestionStoredRows>
   /** What each widgeting run once for the whole quiz stored for it */
   quizStored: StoredRows
 }
 
-/** Everything a question's own query could send of it: its row, stamped (`Stamps.of`), and what its stored widgetings recorded */
-type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT> & Stamps.StampsT & Pick<QuestionT, 'stored'>
+/** What a question's stored widgetings recorded, as its own query sends it: each cell's history by the widgeting's row id */
+export type SentStoredT = Readonly<Record<Id<'widgetings'>, WidgetedHistoryT>>
+
+/** Everything a question's own query could send of it: its row, stamped (`Stamps.of`), and what its stored widgetings recorded, by widgeting id */
+type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT> & Stamps.StampsT & { stored: SentStoredT }
 
 /** A question as its own query sends it to someone of `SS` on its hunt: its id, and the fields that standing is sent (`Question.sentTo`) */
 export type SeenQuestionAsT<SS extends Actor.HuntStanding> = Pick<SendableQuestionT, '_id' | (typeof Question.sentTo)[SS][number]>
@@ -50,7 +60,8 @@ export type SeenQuestionAsT<SS extends Actor.HuntStanding> = Pick<SendableQuesti
 /**
  * A question as its own query reads it, for whoever asked: its id, and what their standing on its
  * hunt is sent of it (`Question.sentTo`); for a smith, all of it. Its chain is still the label the
- * row holds: only the quiz knows which sibling answers to it.
+ * row holds, and what it stored is keyed by widgeting id: only the quiz knows which sibling
+ * answers to the one, and which widgeting to the other.
  */
 export type SeenQuestionT = { [SS in Actor.HuntStanding]: SeenQuestionAsT<SS> }[Actor.HuntStanding]
 
@@ -61,8 +72,15 @@ export type SeenQuestionT = { [SS in Actor.HuntStanding]: SeenQuestionAsT<SS> }[
  */
 const Unsent: Omit<QuestionT, '_id'> = { qnum: '', clueing: '', hint: '', title: '', label: '', chains_to: null, alt_text: '', notes: '', full_answer: '', recap: '', viz: DefaultViz, stored: {}, created_at: null, updated_at: null }
 
-/** A quiz without its questions, as its own query reads it: its fields, its questions' order by row id, and its widgetings and columns */
-export type QuizFrameT = Omit<QuizT, 'questions'> & { row_ordering: readonly Id<'questions'>[] }
+/**
+ * A quiz without its questions, as its own query reads it: its fields, its questions' order by row
+ * id, its widgetings and columns, and each widgeting's row id by its label, by which what a
+ * question stored is put under its widgeting's label (`quizFromSeen`)
+ */
+export type QuizFrameT = Omit<QuizT, 'questions'> & {
+  row_ordering:  readonly Id<'questions'>[]
+  widgeting_ids: Readonly<Record<string, Id<'widgetings'>>>
+}
 
 /** One quiz's own row, and its widgetings' and columns' in their committed order: what its layout needs */
 export type LayoutRows = Pick<QuizRows, 'quiz' | 'widgetings' | 'columns'>
@@ -200,33 +218,49 @@ const Whole = { standing: 'smith' } as const
  * it, with what its widgetings stored; a reviewer what a review needs, its answer included.
  *
  * @param row - The question's row.
- * @param stored - Each stored widgeting's history for it, by the widgeting's label; for a standing not sent it, nothing need be read.
+ * @param stored - Each stored widgeting's history for it, by the widgeting's row id; for a standing not sent it, nothing need be read.
  * @param claims - The reader's claims on the question's hunt, of which only the standing counts.
  * @returns The question, as that standing is sent it.
  *
- * @example seenQuestionFor(row, stored, claims).stored.dumdum?.newest.status  // => 'ok', for a smith
- * @example 'notes' in seenQuestionFor(row, new Map(), claims)                 // => false, for a reviewer
+ * @example seenQuestionFor(row, stored, claims).stored[widgeting_id]?.newest.status  // => 'ok', for a smith
+ * @example 'notes' in seenQuestionFor(row, new Map(), claims)                         // => false, for a reviewer
  */
-export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { standing }: Pick<Actor.HuntClaimsT, 'standing'>): SeenQuestionT {
-  const sendable: SendableQuestionT = { ...row, ...Stamps.of(row), stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
+export function seenQuestionFor(row: Doc<'questions'>, stored: QuestionStoredRows, { standing }: Pick<Actor.HuntClaimsT, 'standing'>): SeenQuestionT {
+  const sendable: SendableQuestionT = { ...row, ...Stamps.of(row), stored: Object.fromEntries([...stored].map(([widgeting_id, cell]) => [widgeting_id, historyOf(cell)])) }
   return _.pick(sendable, ['_id', ...Question.sentTo[standing]])
 }
 
 /**
  * A quiz without its questions, from its own row (stamped, `Stamps.of`), its widgetings' and
  * columns' rows in order, and what its widgetings run once for the whole quiz stored for it, for
- * a reader sent that (a smith; nothing, and nothing read, for anyone else).
+ * a reader sent that (a smith; nothing, and nothing read, for anyone else). Each widgeting's row
+ * id goes beside it, by its label, for its questions' stored cells to be found by.
  *
  * @example frameOf(quiz, widgetings, columns, new Map()).row_ordering.length
+ * @example frameOf(quiz, widgetings, columns, new Map()).widgeting_ids.dumdum  // => the dumdum widgeting's row id
  */
 export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[], stored: StoredRows): QuizFrameT {
   return {
     ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id']),
     ...Stamps.of(quiz),
-    widgetings:   widgetings.map((row) => widgetingFrom(row)),
-    columns:      columns.map((row) => columnFrom(row)),
-    stored:     Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])),
+    widgetings:    widgetings.map((row) => widgetingFrom(row)),
+    widgeting_ids: Object.fromEntries(widgetings.map((row) => [row.label, row._id])),
+    columns:       columns.map((row) => columnFrom(row)),
+    stored:        Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])),
   }
+}
+
+/**
+ * What a question stored, as sent by widgeting id, put under each widgeting's label: in the run
+ * order of the frame's widgetings that run for each question. A widgeting the frame does not hold
+ * (one deleted a moment ago), or one run once for the whole quiz, has no cell here.
+ */
+function storedUnder(frame: Pick<QuizFrameT, 'widgetings' | 'widgeting_ids'>, stored: SentStoredT): QuestionT['stored'] {
+  return Object.fromEntries(frame.widgetings.flatMap(({ label, tier }) => {
+    const widgeting_id = frame.widgeting_ids[label]
+    const history = tier === 'question' && widgeting_id !== undefined ? stored[widgeting_id] : undefined
+    return history ? [[label, history]] : []
+  }))
 }
 
 /**
@@ -240,11 +274,14 @@ export function columnFrom(row: Doc<'columns'>): ColumnT {
 
 /**
  * The quiz a frame and its questions make up, as the tree the rest of the tool reads: the
- * questions in the order given, each chain naming the question it points at.
+ * questions in the order given, each chain naming the question it points at, and what each stored
+ * under its widgetings' labels.
  *
  * The tree's ids are the rows' ids. A chain is held as a label, and here names the sibling that
  * answers to it; a chain to a label no sibling answers to, or to the question itself, reads as no
- * chain. A field the reader was not sent (`Question.sentTo`) reads as blank.
+ * chain. What a question stored is sent by widgeting id, and here is put under the label of the
+ * frame's widgeting of that id, in run order (`storedUnder`). A field the reader was not sent
+ * (`Question.sentTo`) reads as blank.
  *
  * @param frame - The quiz without its questions.
  * @param seen - Its questions, in its order, as the reader was sent them.
@@ -253,13 +290,13 @@ export function columnFrom(row: Doc<'columns'>): ColumnT {
  * @example quizFromSeen(frame, seen).questions.length
  */
 export function quizFromSeen(frame: QuizFrameT, seen: readonly SeenQuestionT[]): QuizT {
-  const filled = seen.map((reading) => ({ ...Unsent, ...reading }))
+  const filled = seen.map((reading) => ({ ...Unsent, ...reading, stored: 'stored' in reading ? storedUnder(frame, reading.stored) : Unsent.stored }))
   const idForLabel = new Map(filled.map((question) => [question.label, question._id]))
   const questions = filled.map((row): QuestionT => {
     const target = row.chains_to === null ? null : idForLabel.get(row.chains_to) ?? null
     return { ...row, chains_to: target === row._id ? null : target }
   })
-  return { ..._.omit(frame, ['row_ordering']), questions }
+  return { ..._.omit(frame, ['row_ordering', 'widgeting_ids']), questions }
 }
 
 /**

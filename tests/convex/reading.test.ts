@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntingFor, huntsCountedInOrg, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, usageOf,
-  wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
+  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntingFor, huntsCountedInOrg, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
+  usageOf, wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
+import type { CellRows } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
@@ -12,6 +13,7 @@ import { SeedWidgets } from '../../src/models/seeds'
 import { Widgeting } from '../../src/models/widgeting'
 import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
+import { counting, plainReads } from '../support/counting'
 import { present } from '../support/present'
 import { huntHolding, identified, openTester, putOn, signedIn, type Tester } from '../support/convex'
 import { seedHuntRows, seedQuizRows } from '../support/seed'
@@ -23,11 +25,13 @@ async function holding(hunt: HuntT, tt: Tester = openTester(), orglabel?: string
   return { tt, hunt_id, quiz_id: present(present(home).quizzes[0])._id }
 }
 
-/** One quiz's rows, as plain values, which must be there: what each question stored, by its id and then the widgeting's label */
+/** One quiz's rows, as plain values, which must be there: what each question stored, by its id and then the widgeting's label (the rows hold it by the widgeting's id) */
 async function rowsOf(tt: Tester, quiz_id: Id<'quizzes'>) {
   return await tt.run(async (ctx) => {
     const rows = present(await quizRowsOf(ctx.db, quiz_id))
-    return { ...rows, stored: Object.fromEntries([...rows.stored].map(([question_id, cells]) => [question_id, Object.fromEntries(cells)])), quizStored: Object.fromEntries(rows.quizStored) }
+    const labelFor = new Map<string, string>(rows.widgetings.map((widgeting) => [widgeting._id, widgeting.label]))
+    const labelled = (cells: ReadonlyMap<string, CellRows>) => Object.fromEntries([...cells].map(([widgeting_id, cell]) => [labelFor.get(widgeting_id) ?? widgeting_id, cell]))
+    return { ...rows, stored: Object.fromEntries([...rows.stored].map(([question_id, cells]) => [question_id, labelled(cells)])), quizStored: Object.fromEntries(rows.quizStored) }
   })
 }
 
@@ -203,6 +207,81 @@ describe("quizRowsOf", () => {
     const cells = present(stored[question_id])
     expect(Object.keys(cells)).to.have.members(['numnum_clueing', 'numnum_again'])
     expect([sayingOf(present(cells.numnum_clueing).newest), sayingOf(present(cells.numnum_again).newest)]).to.deep.eq(['first', 'second'])
+  })
+})
+
+/**
+ * A fresh deployment holding one quiz of two questions working ten numnums (`nn_0` to `nn_9`);
+ * the first question's history recorded for three of them, oldest first, and one more row for
+ * the second question in the first of them.
+ */
+async function recorded() {
+  const labels = Array.from({ length: 10 }, (_unused, idx) => `nn_${String(idx)}`)
+  const { tt, quiz_id } = await holding(huntHolding([quizWorking(labels, 2)]))
+  const { questions, widgetings } = await rowsOf(tt, quiz_id)
+  const [first, second] = [present(questions[0]), present(questions[1])]
+  const idOf = (label: string) => present(widgetings.find((widgeting) => widgeting.label === label))._id
+  await tt.run(async (ctx) => {
+    for (const row of [
+      numnum(first, idOf('nn_0'), 'ok', 'oldest'), numnum(first, idOf('nn_0'), 'ok', 'answered'), numnum(first, idOf('nn_0'), 'errored', 'failed since'),
+      numnum(first, idOf('nn_4'), 'errored', 'failed once'), numnum(first, idOf('nn_4'), 'errored', 'failed twice'),
+      numnum(first, idOf('nn_7'), 'ok', 'answered at once'),
+      numnum(second, idOf('nn_0'), 'ok', 'the other question'),
+    ]) { await ctx.db.insert('widgeteds', row) }
+  })
+  return { tt, quiz_id, first, second, idOf }
+}
+
+describe("storedFor", () => {
+  it("reads each cell the question has, by its widgeting's id: its newest row, and its newest ok one", async () => {
+    const { tt, first, idOf } = await recorded()
+    const stored = await tt.run(async (ctx) => Object.fromEntries(await storedFor(ctx.db, first._id)))
+    const said = Object.fromEntries(Object.entries(stored).map(([widgeting_id, cell]) => [widgeting_id, [sayingOf(cell.newest), sayingOf(cell.ok)]]))
+    expect(said).to.deep.eq({
+      [idOf('nn_0')]: ['failed since', 'answered'],
+      [idOf('nn_4')]: ['failed twice', null],
+      [idOf('nn_7')]: ['answered at once', 'answered at once'],
+    })
+  })
+
+  it("reads what reading each of the quiz's widgetings' cells would, and nothing of another question's", async () => {
+    const { tt, quiz_id, first, second, idOf } = await recorded()
+    const [walked, celled, others] = await tt.run(async (ctx) => {
+      const widgetings = await widgetingsOf(ctx.db, quiz_id)
+      return [
+        Object.fromEntries(await storedFor(ctx.db, first._id)),
+        Object.fromEntries(await storedOf(ctx.db, first._id, widgetings)),
+        Object.fromEntries(await storedFor(ctx.db, second._id)),
+      ]
+    })
+    expect(walked).to.deep.eq(celled)
+    const shared = idOf('nn_0')
+    expect(Object.keys(others)).to.deep.eq([shared])
+    expect(sayingOf(present(others[shared]).newest)).to.eq('the other question')
+  })
+
+  it("reads nothing for a question with nothing recorded", async () => {
+    const { tt, quiz_id } = await holding(huntHolding([quizWorking(['nn_0', 'nn_1'])]))
+    const { questions } = await rowsOf(tt, quiz_id)
+    const question_id = present(questions[0])._id
+    const stored = await tt.run(async (ctx) => Object.fromEntries(await storedFor(ctx.db, question_id)))
+    expect(stored).to.deep.eq({})
+  })
+
+  it("reads only widgeteds, and of each cell only as far as its newest ok row: one range per cell with one, and one to find the end", async () => {
+    const { tt, quiz_id, first } = await recorded()
+    const [walked, celled] = await tt.run(async (ctx) => {
+      const walking = counting(ctx.db)
+      await storedFor(walking.db, first._id)
+      const celling = counting(ctx.db)
+      await storedOf(celling.db, first._id, await widgetingsOf(celling.db, quiz_id))
+      return [plainReads(walking.reads), plainReads(celling.reads)]
+    })
+    // nn_0 reads its failure and the answer before it, not the oldest; nn_4 its two failures; nn_7 its one answer.
+    // Two cells end in an ok row, so two ranges, and one more finds nothing below the last.
+    expect(walked).to.deep.eq({ docs: 5, ranges: 3, tables: ['widgeteds'] })
+    // As `questions.open` read before: the quiz's ten widgetings, then one range for each
+    expect(celled).to.deep.eq({ docs: 15, ranges: 11, tables: ['widgeteds', 'widgetings'] })
   })
 })
 
