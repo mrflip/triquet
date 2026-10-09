@@ -289,6 +289,9 @@ test('a deleted quiz\'s files are removed in a commit, and its history keeps the
   await expect.poll(() => gitSays(page, 'ls-files', filepath)).toBe(filepath)
   await openManage(page)
   await actDangerously(page, 'Delete this quiz', label)
+  // On the neighbouring quiz before the switcher is opened: the move draws the switcher afresh.
+  await expect.poll(() => quizLabelOf(page)).not.toBe(label)
+  await expect(page.getByLabel('Quiz name')).toBeVisible()
   await expect(await switcherQuizzes(page)).toHaveCount(1)
 
   await expect.poll(() => gitSays(page, 'log', '--format=%s', '--', filepath)).toMatch(new RegExp(String.raw`^-${label}\n`))
