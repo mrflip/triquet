@@ -340,6 +340,25 @@ and in the gear (*Run order*, lines to drag); one question's row previewed above
   `ref` and `source`; `'question'` written as a literal in `ReservedWidgetingLabels`.
 * Should `categories` and `category` become global reserved words, after a grep of production?
 
+## From columnwise sprint, thread 11: optimistic updates' review leftovers
+
+* **#210 against #211:** #210 (`20261009-convex_reads`) sends `questions.open`'s cells keyed by
+  widgeting id. Whichever of #210 and #211 lands second must re-key `enteredInto` and the relabel
+  in `src/state/optimistic-quiz.ts`; `tests/state/optimistic-quiz.test.ts` fails until then.
+* The hunt feed can commit an optimistic reading into the quiz's git history (accepted: the
+  history is not a source of truth).
+* `chainOf` searches every watched `questions.open`, not only this quiz's (nothing reachable
+  sends a cross-quiz id).
+* `enter_widgeted`'s update doesn't check the widgeting's tier or formulary (the cells send only
+  entries).
+* `updated_at` isn't bumped early.
+* `showMoved` scans the store once per question, and a widgeting relabel rewrites every
+  question's reading: small costs.
+* A throwing update is reported again on each replay, and can leave the screen half-patched until
+  the server answers (only on a bug).
+* Chain resolution, the sort's exactness check and the column relabel are restated from
+  `convex/writing/` rather than shared.
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and
