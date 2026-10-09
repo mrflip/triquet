@@ -72,9 +72,9 @@ export function LeagueExport({ quiz, revisable, onQ1Preamble }: Readonly<LeagueE
           )
           : null}
       </Box>
-      <ReadonlyBox label="LL Export" text={LLSmithExport.recordsOf(quiz, mode)} rows={6} dense />
+      <ReadonlyBox label="LL Export" text={LLSmithExport.recordsOf(quiz, mode)} rows={6} dense resizable />
       <p className={styles.microcopy}>The smith&apos;s note, with its bold and italics written the same way, and a [br] ending each of its lines.</p>
-      <ReadonlyBox label="LL Smith's note" text={LLBBCode.translateKeepingLines(quiz.smiths_note)} rows={3} dense />
+      <ReadonlyBox label="LL Smith's note" text={LLBBCode.translateKeepingLines(quiz.smiths_note)} rows={3} dense resizable />
     </>
   )
 }

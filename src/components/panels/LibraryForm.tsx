@@ -45,7 +45,7 @@ export function LibraryForm({ library, changeable, dispatch }: Readonly<LibraryF
 
   return (
     <>
-      <ReadonlyBox label="Library export" text={UU.jsonify(Exporting.libraryBall(library))} rows={6} dense />
+      <ReadonlyBox label="Library export" text={UU.jsonify(Exporting.libraryBall(library))} rows={6} dense resizable />
       {changeable ? <LibraryImport pasted={pasted} summary={summary} log={log} onPaste={setPasted} onImport={runImport} /> : <p className={styles.microcopy}>{AppNotices.libraryReadOnly}</p>}
     </>
   )

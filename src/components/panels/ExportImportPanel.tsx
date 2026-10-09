@@ -86,7 +86,7 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
 
 /** The Spreadsheet tab's box: the quiz as a spreadsheet paste, worked out only while the tab is built */
 function SheetsExport({ quiz, run }: Readonly<{ quiz: QuizT, run: QuizRun }>) {
-  return <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz, run)} />
+  return <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz, run)} resizable />
 }
 
 /** The LL Export tab: the quiz with its templated fields filled in over its run (`Templating.filledQuiz`), worked out only while the tab is built */
