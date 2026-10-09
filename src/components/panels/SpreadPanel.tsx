@@ -13,6 +13,7 @@ import type { PersonaChancesT } from '../../lib/personas'
 import * as Spread from '../../lib/spread'
 import { Category, WheelSlotCount } from '../../models/category'
 import { Persona, PersonaLabelVals } from '../../models/persona'
+import type { FoldT } from '../use-fold'
 import styles from '../workbench.module.css'
 
 export type SpreadPanelProps = {
@@ -41,11 +42,12 @@ const CountFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
  * category no question draws on sits a tenth of the way out rather than in the hub. The panel
  * takes two columns of the row of panels where there is room for two.
  *
- * Widened to the whole row by the panel's arrow, the chart grows with it. Every number the chart
+ * Made big, widened to the whole row, the chart grows with it. Every number the chart
  * draws is also in a table, folded beneath it.
  */
 export function SpreadPanel({ run }: Readonly<SpreadPanelProps>) {
-  const [wide, setWide] = useState(false)
+  const [fold, setFold] = useState<FoldT>('folded')
+  const wide = fold === 'big'
   const quizEstimates = Estimates.quizEstimatesOf(run)
   if (! quizEstimates) {
     return (
@@ -62,7 +64,7 @@ export function SpreadPanel({ run }: Readonly<SpreadPanelProps>) {
   const scale = SpreadChart.radiusScaleOf(spread)
 
   return (
-    <Panel title="Category spread" blurb={Blurb} double widened={wide} onWidenedChange={setWide}>
+    <Panel title="Category spread" blurb={Blurb} double fold={fold} onFoldChange={setFold}>
       <p className={styles.microcopy}>
         {questionsWords(spread.placedCount)} placed, from the estimates under <strong>{quizEstimates.widgeting.label}</strong>.
       </p>
