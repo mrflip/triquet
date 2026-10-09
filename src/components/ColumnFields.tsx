@@ -63,10 +63,20 @@ export function ColumnRefField({ source, choices, locked, onPick, sx }: Readonly
     >
       {groups.flatMap((group) => [
         <ListSubheader key={`group:${group}`}>{group}</ListSubheader>,
-        ...listed.filter((each) => each.group === group).map((each) => <MenuItem key={each.source} value={each.source}>{`${each.source} — ${each.group}`}</MenuItem>),
+        ...listed.filter((each) => each.group === group).map((each) => <MenuItem key={choiceKeyOf(each)} value={each.source}>{`${each.source} — ${each.group}`}</MenuItem>),
       ])}
     </TextField>
   )
+}
+
+/**
+ * A choice's key in the source menu, scoped by the group it is listed under, so a ref offered under
+ * two groups is still two items.
+ *
+ * @example choiceKeyOf({ source: 'categories', group: 'The same in every row' })  // => 'The same in every row/categories'
+ */
+export function choiceKeyOf(choice: ColumnMenu.RefChoice): string {
+  return `${choice.group}/${choice.source}`
 }
 
 export type RefPickerProps = {
@@ -93,6 +103,7 @@ export function RefPicker({ choices, label, onPick }: Readonly<RefPickerProps>) 
           openOnFocus
           groupBy={(each) => each.group}
           getOptionLabel={(each) => each.source}
+          getOptionKey={choiceKeyOf}
           isOptionEqualToValue={(each, picked) => each.source === picked.source}
           onChange={(_event, picked) => { if (picked) { onPick(picked.source) } }}
           renderOption={({ key, ...props }, each) => <Box component="li" key={key} {...props}>{`${each.source} — ${each.group}`}</Box>}

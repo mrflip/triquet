@@ -1,7 +1,7 @@
 import * as Labelmaker from './labelmaker'
 import * as Estimates from './estimates'
 import { resolve, type Resolved } from './columns'
-import { BagWordVals, type BagWord, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, namesFor, widgetingSourceOf, type ColumnNamer } from '../models/column'
+import { BagWordVals, type BagWord, QuestionFieldVals, QuestionKeyVals, QuestionViewVals, namesFor, refOf, widgetingSourceOf, type ColumnNamer } from '../models/column'
 import { QuizBagValidators } from '../models/quiz-bag'
 import { SeedPresets } from '../models/seeds'
 import type { WidgetingT } from '../models/widgeting'
@@ -30,9 +30,10 @@ export const RefGroups = {
 } as const
 
 /**
- * Every ref a column of the quiz may name, as the source menu lists them: each of the question's
- * own fields, its view, the keys it has in the bag, each widgeting for each question by its label,
- * each widgeting for the whole quiz as `quiz.<label>`, and the words at the bag's top level.
+ * Every ref a column of the quiz may name, as the source menu lists them, each once: each of the
+ * question's own fields, its view, the keys it has in the bag, each widgeting for each question by
+ * its label, each widgeting for the whole quiz as `quiz.<label>`, and the words at the bag's top
+ * level.
  *
  * @param quiz - The quiz's widgetings.
  * @returns The choices, in the menu's order.
@@ -41,7 +42,9 @@ export const RefGroups = {
  *   // => ['title', 'clueing', ..., 'butnot', 'label', 'rank', 'archived', 'secondary', 'dumdum', 'quiz.playtesters', 'quiz', 'hunt', 'realm', 'categories', 'questions']
  */
 export function refChoicesOf(quiz: { widgetings: readonly WidgetingT[] }): RefChoice[] {
-  const atTier = (tier: WidgetingT['tier']) => quiz.widgetings.filter((widgeting) => widgeting.tier === tier)
+  // A widgeting is offered only where its ref finds it: one held under a field's name or a word of
+  // the bag, from before such labels were refused, is never what that ref shows.
+  const atTier = (tier: WidgetingT['tier']) => quiz.widgetings.filter((widgeting) => widgeting.tier === tier && refOf(widgetingSourceOf(widgeting.label, tier)).kind === 'widgeting')
   return [
     ...QuestionFieldVals.map((source) => ({ source, group: RefGroups.field })),
     ...QuestionViewVals.map((source) => ({ source, group: RefGroups.view })),
