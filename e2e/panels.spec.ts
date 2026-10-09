@@ -253,3 +253,31 @@ test('a panel under the quiz starts folded to its title bar, opens, and folds ag
   // A panel the whole row wide already has no arrow to widen it.
   await expect(page.getByRole('region', { name: 'Widgets' }).getByRole('button', { name: 'Widen this panel to the whole row' })).toHaveCount(0)
 })
+
+test('a double-click on a panel\'s title turns it folded, open, big and folded again, and its arrows make a folded one big and open at once', async ({ page }) => {
+  const panel = page.getByRole('region', { name: 'Members' })
+  const title = panel.getByRole('heading', { name: 'Members' })
+  const fold = panel.getByRole('button', { name: 'Show this panel' })
+  const arrow = panel.getByRole('button', { name: 'Widen this panel to the whole row' })
+  const turned = async (expanded: string, pressed: string) => {
+    await expect(fold).toHaveAttribute('aria-expanded', expanded)
+    await expect(arrow).toHaveAttribute('aria-pressed', pressed)
+  }
+  await turned('false', 'false')
+  await title.dblclick()
+  await turned('true', 'false')
+  await title.dblclick()
+  await turned('true', 'true')
+  await title.dblclick()
+  await turned('false', 'false')
+
+  // No big but folded: the arrows open a folded panel as they widen it, and shrink it back to open.
+  await arrow.click()
+  await turned('true', 'true')
+  await arrow.click()
+  await turned('true', 'false')
+  // The fold button folds a big panel outright.
+  await arrow.click()
+  await fold.click()
+  await turned('false', 'false')
+})
