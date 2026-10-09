@@ -135,6 +135,14 @@ place of a zero. Such a test is a `tests/**/*.test.tsx`, and reads the view thro
 environment, with no DOM, no effects and no testing library. Anything a view does in a browser --
 focus, clicks, effects, heights -- is the e2e suite's.
 
+One thing neither can see is how much one change draws again. A `tests/**/*.dom.test.tsx` runs in
+Vitest's `dom` project, under happy-dom, and renders a screen with `react-dom/client` and React's
+`act` over a stand-in for the Convex client (`tests/support/fake-convex-react.ts`, whose answers keep
+their identity until the test changes them, as the client's do). It counts renders by spying on a
+function each render calls once (`QuizRoute.dom.test.tsx` counts the Workbench by its offers and a
+row by its grip), and asserts the counts: the guard on a memo. It is not for asserting what a
+view looks like or does.
+
 ## End to End (Playwright)
 
 The suite is a thin layer: the handful of flows a unit test cannot see -- the grid's heights,

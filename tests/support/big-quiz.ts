@@ -1,7 +1,7 @@
 import type { Id } from '../../convex/_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
 import * as Wheel from '../../src/lib/wheel'
-import type { ShallowHuntT, ShallowRealmT } from '../../src/lib/rows'
+import type { QuizFrameT, SeenQuestionT, ShallowHuntT, ShallowRealmT } from '../../src/lib/rows'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import type { IshItemT } from '../../src/models/ish'
@@ -78,4 +78,33 @@ export function bigHuntFor(quiz: QuizT): { hunt: ShallowHuntT, realm: ShallowRea
 export function smithClaimsOn(hunt: ShallowHuntT, quiz: QuizT): Actor.QuizClaimsT {
   const smith = Actor.asIdent('users_smith' as Id<'users'>, { _id: 'idents_smith' as Id<'idents'>, label: 'seed_smith' }, true)
   return { ...Actor.claimsOn(smith, hunt._id, { role: 'smith' }), quiz: { locked: quiz.locked } }
+}
+
+/** A big quiz as the screen reads it: its frame (`quizzes.open`), and each question's reading (`questions.open`), by its id */
+export type BigReadingsT = {
+  frame:    QuizFrameT
+  readings: Map<string, SeenQuestionT>
+}
+
+/**
+ * `quiz` as a smith's screen is sent it: the frame, ordering its questions and naming each
+ * widgeting's id, and each question as its own query sends it, its chain a label and what it
+ * stored by widgeting id. What `assembledQuiz` makes `quiz` of again.
+ *
+ * @example assembledQuiz(frame, (question_id) => readings.get(question_id))  // => quiz, as a tree
+ */
+export function bigReadingsOf(quiz: QuizT): BigReadingsT {
+  const widgeting_ids = Object.fromEntries(quiz.widgetings.map((widgeting) => [widgeting.label, `widgeting_${widgeting.label}` as Id<'widgetings'>]))
+  const labelOf = new Map(quiz.questions.map((question) => [question._id, question.label]))
+  const { questions, ...rest } = quiz
+  const frame: QuizFrameT = { ...rest, row_ordering: questions.map((question) => question._id as Id<'questions'>), widgeting_ids }
+  const readings = new Map(questions.map((question): [string, SeenQuestionT] => [question._id, {
+    ...question,
+    _id:       question._id as Id<'questions'>,
+    chains_to: question.chains_to === null ? null : labelOf.get(question.chains_to) ?? null,
+    stored:    Object.fromEntries(Object.entries(question.stored).map(([label, history]) => [widgeting_ids[label] ?? label, history])),
+    created_at: 1,
+    updated_at: 1,
+  }]))
+  return { frame, readings }
 }

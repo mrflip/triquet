@@ -280,6 +280,12 @@ Settled; reach for these before writing the equivalent.
   stays vitest's. No vitest-specific plugin exists. Added Sept 2026.
 * **convex-test** (with **@edge-runtime/vm**) for Convex functions: Vitest's `convex` project
   runs `tests/convex/**` under the edge runtime, everything else under node.
+* **happy-dom** for Vitest's `dom` project (`tests/**/*.dom.test.tsx`): a screen rendered in a
+  DOM, over a stand-in for the Convex client (`tests/support/fake-convex-react.ts`), to count
+  what one change draws again. Vitest's own recommended DOM, lighter than jsdom; added Oct 2026
+  (perf_improvements sprint, thread 6) under the rule above, since `react-dom/server` cannot see
+  a re-render. It does not answer the *Discuss* question of component tests below: what a view
+  does in a browser stays the e2e suite's.
 * **Playwright** for end-to-end, especially the handful of flows where a break is
   invisible to unit tests (the grid, autosave and reload survival, routing, the history store).
   Its web-first assertions are the e2e style; see `notes/testing.md`.

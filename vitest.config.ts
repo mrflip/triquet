@@ -30,7 +30,17 @@ export default defineConfig({
           name:        'unit',
           environment: 'node',
           include:     ['tests/**/*.test.{ts,tsx}'],
-          exclude:     ['tests/convex/**'],
+          exclude:     ['tests/convex/**', 'tests/**/*.dom.test.tsx'],
+        },
+      },
+      // A screen rendered in a DOM, to count what one change draws again: never what a view looks
+      // like or does in a browser, which is the e2e suite's.
+      {
+        extends: true,
+        test: {
+          name:        'dom',
+          environment: 'happy-dom',
+          include:     ['tests/**/*.dom.test.tsx'],
         },
       },
     ],
