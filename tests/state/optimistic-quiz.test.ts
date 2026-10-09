@@ -168,11 +168,12 @@ describe("showPerformed", () => {
     expect(shown).to.deep.eq(written)
   })
 
-  it("shows a widgeting relabelled, its columns, its templateable place and what it stored following it, as the server writes it", async () => {
+  it("shows a widgeting relabelled, its columns (a header still after its label too), its templateable place and what it stored following it, as the server writes it", async () => {
     const seeded = await seededQuiz()
     await seeded.act({ kind: 'set_templateable', templateable: ['memo'] })
     const { shown, written } = await shownAndWritten(seeded, { kind: 'edit_widgeting', label: 'memo', patch: { label: 'remark', description: 'What we said.' } })
     expect(shown.questions[present(seeded.question_ids[0])]).to.deep.include({ stored: storedOf(written.questions[present(seeded.question_ids[0])]) })
+    expect(shown.frame.columns.find((column) => column.label === 'memo')).to.deep.include({ source: 'remark', title: 'Remark' })
     expect(shown).to.deep.eq(written)
   })
 

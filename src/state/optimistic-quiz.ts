@@ -4,6 +4,7 @@ import type { FunctionArgs } from 'convex/server'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { qnumSortkeyOf } from '../lib/columns'
+import * as Labelmaker from '../lib/labelmaker'
 import * as Postmortem from '../lib/postmortem'
 import * as Rank from '../lib/rank'
 import { assembledQuiz, type QuizFrameT, type SeenQuestionT } from '../lib/rows'
@@ -153,7 +154,7 @@ function columnEdited(frame: QuizFrameT, label: string, patch: ColumnPatch): Qui
 
 /**
  * The widgeting `label` revised by `patch`, as `editWidgeting` writes it: a rename carrying with it
- * the columns showing it, its place among the templateable sources, and what it stored, for the
+ * the columns showing it (and their headers, while still after the old label), its place among the templateable sources, and what it stored, for the
  * quiz and each question. New params are not shown early: the folded line shows what it sent
  * itself, and keeps showing params the server refuses beside the sentence saying why
  * (`FoldedParams`), which a rollback here would take away.
@@ -169,7 +170,7 @@ function showWidgetingEdited(store: OptimisticLocalStore, quiz_id: string, label
   reviseQuestions(store, frame.row_ordering, (seen) => ('stored' in seen ? { ...seen, stored: rekeyed(seen.stored, label, renamedOnto) } : seen))
 }
 
-/** `frame` with the widgeting `held` revised by `patch`, a rename carried to its columns, its templateable place and what it stored for the quiz */
+/** `frame` with the widgeting `held` revised by `patch`, a rename carried to its columns (a header still after the old label following it), its templateable place and what it stored for the quiz */
 function widgetingEdited(frame: QuizFrameT, held: WidgetingT, patch: WidgetingPatch): QuizFrameT {
   const { label } = held
   const widgetings = frame.widgetings.map((widgeting) => (widgeting.label === label ? { ...widgeting, ...patch } : widgeting))
@@ -177,7 +178,9 @@ function widgetingEdited(frame: QuizFrameT, held: WidgetingT, patch: WidgetingPa
   if (renamedOnto === label) { return { ...frame, widgetings } }
   const columns = frame.columns.map((column) => {
     const ref = refOf(column.source)
-    return ref.kind === 'widgeting' && ref.label === label ? { ...column, source: widgetingSourceOf(renamedOnto, ref.tier) } : column
+    if (ref.kind !== 'widgeting' || ref.label !== label) { return column }
+    const headedAfter = column.title === Labelmaker.titleize(label)
+    return { ...column, source: widgetingSourceOf(renamedOnto, ref.tier), ...(headedAfter && { title: Labelmaker.titleize(renamedOnto) }) }
   })
   const templateable = frame.templateable.map((source) => (source === label ? renamedOnto : source))
   return { ...frame, widgetings, columns, templateable, stored: rekeyed(frame.stored, label, renamedOnto) }
