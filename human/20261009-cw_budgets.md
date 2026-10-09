@@ -15,7 +15,9 @@ template; nothing in the seeds or fixtures does.
 
 Also worth a look, none blocking:
 
-* `Runner.RunMs` is a second for a run's formulas and templates all told; a 300-question quiz with
-  four columns of the seeded `butnot` sums would see the last stopped (about 260 ms a column here).
+* A sort is now worked out in the browser and the server commits the order it is sent
+  (`sort_questions` carries every question's id); no mutation runs the quiz any more.
+  `Runner.RunMs`, the browser's bound on a run, is a loose five seconds, and a column's own formula
+  has as long.
 * A face (a templateable field's cell in the grid) is still filled outside any column's budget, and
-  a JSONata range of millions runs a sort's mutation out of memory: both in `whiteboard/TODO.md`.
+  a JSONata range of millions allocates in one step: both in `whiteboard/TODO.md`.

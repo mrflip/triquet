@@ -51,8 +51,10 @@ security expert who knows what questions to ask.
   `Date.now()` inside Convex (it finds no `global.performance` there), which stands still through a
   mutation, so it never fired on the server (probed on a local backend, 2026-10-08).
 * 2026-10-09 (columnwise sprint, thread 9): every author's template and formula is bounded in
-  time on `performance.now()` (`src/lib/clock.ts`), in the browser and in the mutation that sorts
-  (`notes/decisions/20261008-columnwise.md` §11). Liquid's clock is read by taking over LiquidJS
+  time on `performance.now()` (`src/lib/clock.ts`) (`notes/decisions/20261008-columnwise.md` §11).
+  A sort is now worked out in the browser, which sends the order; the server checks it names
+  exactly the quiz's questions and commits it, and no mutation runs a quiz, so an author's template
+  or formula, and model output read as one, is worked only in a browser. Liquid's clock is read by taking over LiquidJS
   internals pinned to its exact version: its render and allocation limits on the context
   (`heldTo`), and its `Context.readProperty` and `spawn` (`ClockedContext`), so a filter is stopped
   inside its call; its `*_exp` filters are refused by a getter on the engine's filter table that
@@ -60,5 +62,5 @@ security expert who knows what questions to ask.
   items or characters, nor a render 1,000,000 all told; `push`/`unshift`/`concat` are charged for
   everything they add. JSONata's timebox now reads the same clock (probed on a local backend,
   2026-10-09: stopped at 101 ms with `Date.now()` still); its range operator can still allocate ten
-  million items in one step, which runs a Convex mutation out of its 64 MB. A run has a second all
-  told (`Runner.RunMs`). A widgeting whose widget is gone takes params held to no reserved word.
+  million items in one step (in a Convex mutation, past its 64 MB). A run has five seconds all
+  told (`Runner.RunMs`), and a column's own formula as long. A widgeting whose widget is gone takes params held to no reserved word.

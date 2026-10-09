@@ -296,14 +296,14 @@ column of fills, JSONata on the moving clock, `Runner.RunMs` (record §11). Left
   The fix: a face whose draft is the stored text reads the budgeted fill `finishedQnsOf` already
   made (keeping each fill's `issue`), and only the cell being typed fills alone. A view change
   (`QuestionRow`, `GrowingField`, `StretchField`, `EntryCell`), so left for a thread in views.
-* **A JSONata range of millions runs a mutation out of memory.** `[1..10000000]` (JSONata's own
-  cap is 1e7) allocates in one step, before any timebox is asked: in a Convex mutation, "ran out of
-  memory (maximum memory usage: 64 MB)" (probed 2026-10-09), so a sort fails; in a browser, 80 MB.
+* **A JSONata range of millions allocates in one step.** `[1..10000000]` (JSONata's own cap is
+  1e7) allocates before any timebox is asked: in a Convex mutation, "ran out of memory (maximum
+  memory usage: 64 MB)" (probed 2026-10-09; no mutation runs a quiz since the sort moved to the
+  browser); in a browser, 80 MB.
   A compile-time walk of the AST could refuse a range with literal bounds past `ItemsMax`; a
   computed bound needs a hook JSONata does not offer.
-* **`RunMs` is a second**, so a 300-question quiz with four columns of formulas reading every
-  question for each (the seeded `butnot` sums, about 260 ms a column here) would see its last
-  column stopped. Typical quizzes are tens of questions. Tune it if a real quiz meets it.
+* **`RunMs` is five seconds**, the browser's alone since the sort moved there: loose on purpose.
+  Tune it if a real quiz meets it, or a slow page asks for less.
 * **A template building text by `append` in a loop** is charged its whole text again each turn,
   so meets `AllocMax` at about a hundred questions of 200 characters; `capture` builds the same
   text uncharged. Say so in the template advice if an author meets it.

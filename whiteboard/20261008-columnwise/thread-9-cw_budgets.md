@@ -33,7 +33,7 @@ Branch `20261009-cw_budgets`, PR filed at landing; see the report. Suites: `pnpm
   - **JSONata, `src/lib/formulas.ts`**: the timebox reads `clockNow()`; `evaluate(formula, input,
     deadline?)`, the sooner wins, a passed deadline stops at once. Deadlines thread through every
     formulary's `input`, `JsonataFormulary.run`/`worked`, and `liquidize`'s `template_from` formula.
-  - **m1, `src/lib/formulary/runner.ts`**: `RunMs` 1000, the run's deadline; each live column's is the
+  - **m1, `src/lib/formulary/runner.ts`**: `RunMs` (5000 since review; was 1000), the run's deadline; each live column's is the
     sooner of its own and the run's; a live column begun after it reads "The quiz took too long to
     work out, so this column was not: ...". An asked widgeting's inputs (`inputsOf`) stop at the
     first that will not, as a live column does.
@@ -58,7 +58,9 @@ Branch `20261009-cw_budgets`, PR filed at landing; see the report. Suites: `pnpm
      their own time. The runner keeps deadlines (its loop is tight).
   4. **JSONata has no column budget**: the seeded `butnot` formula (`qns[label = $$.qn.chains_to]`)
      takes ~260 ms a column over 300 questions; 250 would stop honest columns. The run's second holds.
-  5. **`RunMs` is 1000**: a mutation's whole second, the most one change may hang a page.
+  5. **`RunMs` is 5000** (*amended on review*; it was 1000, a mutation's whole second): the server
+     no longer runs the quiz to sort, so the run's bound is the browser's alone, and loose. A
+     column's own formula (`Columns.workedOf`) has as long for its whole column.
   6. **Steadying recheck by room, not warm-up**: the flakes were recheck's wall-clock timeout on a
      cold Scala.js first check (70-120 ms, 3-25 ms warm) multiplied by load; a warm-up shrinks it but
      does not remove it. Proven green with 24 busy loops on 16 cores.
@@ -80,10 +82,25 @@ Branch `20261009-cw_budgets`, PR filed at landing; see the report. Suites: `pnpm
     `memoryLimit.use`, `engine.filters`. All pinned by tests (each fails without its hook: the
     long-path test ran 40 s with the read check off); LiquidJS is pinned to 10.30.0.
 
+* **After review (the Coach's rulings)**:
+  - **B, sort on the client**: `Sortings.sortedIdsOf`; `Workbench` sends `sort_questions` with every
+    question's id in order; `Quiz.sortQuestions` checks the ids are exactly the quiz's questions
+    (`sortStale`) and commits them with `last_sortkey`. The library, place and stored reads there
+    are gone (`placeOfOpen`, `reorderQuiz`'s `reads`). **No mutation calls `runQuiz` now.** Tests
+    sort through `sortAction` (`tests/support/convex.ts`), as the browser does; `Seen` carries the
+    hunt's `wheel`. `descending` rides along, unstored, as the memory keeps only the sortkey.
+  - **C, loose limits**: `RunMs` 5000; `Columns.workedOf` holds a column's formula to `RunMs` for its
+    whole column (one deadline in its one pass). Record §4 (sorts) and §11 amended.
+  - **A, questions keyed by label (`qnbag`)**: built, then held by the orchestrator while the
+    Coach settles the bag's shape. Parked, unlanded, on the local branch
+    `20261009-cw_budgets-qnbag-parked` (`1b7661f`, on `4bfaa3f`): `qnbag` in every bag, reserved,
+    the five chained seeds rewritten to `qn.chains_to ? $lookup(qnbag, qn.chains_to)`. Rework or drop
+    it once the shape is known; nothing on this branch depends on it.
+
 * **For thread 3c**: nothing here touches the column grammar; `shownOf`/`drawnOf` read as before,
   the sorts too.
 
 * **For the Coach**:
   - **Before deploying**: grep production for stored templates naming a `*_exp` filter
     (`human/20261009-cw_budgets.md`); each would stop filling in.
-  - Tune `RunMs` (1 s) and `AllocMax` (1M) if a real quiz meets them.
+  - Tune `RunMs` (5 s) and `AllocMax` (1M) if a real quiz meets them.

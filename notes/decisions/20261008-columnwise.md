@@ -209,7 +209,10 @@ The grid's TSV is built from the column specs (`specsFor`), so every stage lives
 sheet carries what the column shows: the ref, the formula, the template. The raw export carries
 rows, not the grid, and is untouched; nothing imports the sheet. **A sort reads the value the
 formula came to**, never the template's text, under the existing rules (`Sortings.sortValueOf`):
-a number dressed by a template still sorts as a number.
+a number dressed by a template still sorts as a number. *Amended by thread 9:* a sort is worked out
+in the browser, over the run it already holds (`Sortings.sortedIdsOf`); the `sort_questions` action
+carries the order, every question's id, and the server checks it holds exactly the quiz's questions
+(`sortStale` otherwise) and commits it with the sortkey. No mutation runs the quiz.
 
 ### The source menu (3b)
 
@@ -426,8 +429,9 @@ widgetings. Named in the code as "the grammar before October 2026", so the somed
 ## 11. Compute budgets (thread 9)
 
 Every place an author's template or formula is worked, or a model's reply read as one, is bounded
-in time, in the browser and on the server (`sortQuestions` runs the quiz inside a mutation) alike,
-on `Clock.clockNow()` (`performance.now()`): `Date.now()` stands still inside a Convex function.
+in time, on `Clock.clockNow()` (`performance.now()`), which moves inside a Convex function where
+`Date.now()` stands still. Only the browser runs a quiz now (a sort is worked out there, §4 *The
+sheet and the sorts*), so the bounds on a run are the browser's, and loose.
 
 * **Liquid** (`Liquidry`, every renderer of the app: field, column, recap and `liquidize`
   templates, and the prompts once they move to Liquid). The render's clock is read at every piece
@@ -449,17 +453,22 @@ on `Clock.clockNow()` (`performance.now()`): `Date.now()` stands still inside a 
 * **JSONata** (`Formulas.evaluate`): its timebox (`TimeboxMs`, 100 ms a formula) reads the moving
   clock, and it takes a deadline, the sooner wins. A formula's column has no budget of its own: a
   formula reading every question for each (`qns[label = $$.qn.chains_to]`, as the seeded `butnot`
-  sums do) takes about a quarter second over 300 questions, so a column's bound would stop honest
-  columns. The run holds them.
-* **The run** (`Runner.RunMs`, 1000 ms): the most a run's live columns may take all told, a
-  mutation's whole second. A column under way when it runs out is stopped as at its own bound; a
-  column begun after reads that the quiz took too long to work out. Input formulas, and a
-  `template_from`'s formula, are worked out by the same deadline; an asked widgeting's inputs stop
-  at the first that will not.
+  sums do) takes about a quarter second over 300 questions, so a tight column's bound would stop
+  honest columns. A widgeting's column of formulas is held by the run's bound; a column's own
+  formula (`Columns.workedOf`, worked out apart from the run, for the grid and the sorts) has a
+  bound of the same length, `Runner.RunMs`, for its whole column, and stops there as at a timeout.
+* **The run** (`Runner.RunMs`, 5000 ms): the most a run's live columns may take all told, a loose
+  bound on how long one change may hang a page. *Amended:* it was a second, a mutation's whole
+  time, while the server ran the quiz to sort; that left a sort no headroom, and stopped a
+  300-question classic layout's chained sums. A column under way when it runs out is stopped as at
+  its own bound; a column begun after reads that the quiz took too long to work out. Input
+  formulas, and a `template_from`'s formula, are worked out by the same deadline; an asked
+  widgeting's inputs stop at the first that will not.
 * **Not bounded here**: a face (a templateable field's cell in the grid, `faceOf`) fills its own
   text with `RenderMs`, cell by cell, outside any column's budget; one runaway text costs its own
-  cell a second at each draw. And a JSONata range of millions (`[1..10000000]`) runs a mutation out
-  of its 64 MB before any timebox is asked. Both in `whiteboard/TODO.md`.
+  cell a second at each draw. And a JSONata range of millions (`[1..10000000]`) allocates in one
+  step before any timebox is asked (in a mutation, past its 64 MB; no mutation runs one now). Both
+  in `whiteboard/TODO.md`.
 
 ## Superseded in `2026-10-widgets.md`
 
