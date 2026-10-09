@@ -1,4 +1,4 @@
-import { Context, Liquid, LiquidError, Tag, filters as LiquidFilters, toValueSync, type Emitter, type Liquid as LiquidT, type TagToken, type TopLevelToken } from 'liquidjs'
+import { CaptureTag, Context, Liquid, LiquidError, Tag, filters as LiquidFilters, toValueSync, type Emitter, type Liquid as LiquidT, type TagToken, type TopLevelToken } from 'liquidjs'
 import { clockNow } from './clock'
 
 /**
@@ -72,7 +72,8 @@ export const RenderMs = 1000
 /**
  * The most one step of a render may make or be handed at once: the numbers of a range
  * (`(1..100000)`), the items of a list a filter is handed or makes, the characters of a text a
- * filter makes, or what one value pushed onto a list holds. As many as `FillBudget`: a filter
+ * filter makes, the characters a `{% capture %}` makes, or what one value pushed onto a list holds.
+ * As many as `FillBudget`: a filter
  * working through this many takes a few milliseconds, and a quiz's whole bag is far smaller.
  */
 export const ItemsMax = 100_000
@@ -81,7 +82,8 @@ export const ItemsMax = 100_000
  * The most one render may make or hand its filters, all told, counted as Liquid counts its own
  * allocation: ten steps of `ItemsMax`, a tenth of Liquid's own default. A list built up a step at
  * a time (`push` in a loop) counts each step's whole list again, so builds a list of no more than
- * about fourteen hundred items; `capture` builds text without counting.
+ * about fourteen hundred items. A `{% capture %}` is held to `ItemsMax` but not counted here, so
+ * text built up a question at a time by capturing it again does not meet this.
  */
 export const AllocMax = 1_000_000
 
@@ -263,6 +265,20 @@ class RefusedTag extends Tag {
 }
 
 /**
+ * Liquid's `{% capture %}`, held to `ItemsMax`: it builds its text with no allocation counted, so a
+ * capture of itself twice over, in a loop, would double its text each time round, a few hundred
+ * million characters inside the render's time. Not counted towards `AllocMax`, so text built up a
+ * piece at a time, captured again with each, is held only to `ItemsMax` and the render's time.
+ */
+class CappedCapture extends CaptureTag {
+  override * render(ctx: Context): Generator<unknown, void, string> {
+    yield * super.render(ctx)
+    const captured: unknown = (ctx.bottom() as Record<string, unknown>)[this.variable]
+    if (typeof captured === 'string' && captured.length > ItemsMax) { throw new Stopped(OverLarge) }
+  }
+}
+
+/**
  * Where a render writes what it comes to: each piece, a value a tag fills in or a run of the
  * template's own text, as it fills in, counted against the render's budget as it is written, so a
  * runaway template is stopped before its text is built.
@@ -323,6 +339,7 @@ export function rendererFor(spec: RendererSpecT): RendererT {
     })
   }
   for (const name of ['include', 'render', 'layout']) { engine.registerTag(name, RefusedTag) }
+  engine.registerTag('capture', CappedCapture)
 
   return {
     render(template, scope, deadline = Infinity) {

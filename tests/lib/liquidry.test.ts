@@ -104,6 +104,13 @@ describe('Liquidry.rendererFor', () => {
     expect(Renderer.render('{% assign two = "" | split: "," | push: long | push: long %}{{ two | size }}', { long }).text).to.eq('2')
   })
 
+  it("stops a capture making more text than it may at once, though it counts nothing towards the whole", () => {
+    const doubling = '{% capture ss %}x{% endcapture %}{% for aa in (1..27) %}{% capture ss %}{{ ss }}{{ ss }}{% endcapture %}{% endfor %}{{ ss | size }}'
+    expect(Renderer.render(doubling, {})).to.deep.eq({ text: doubling, issue: 'This template makes too long a list or text at once: a range of more than 100,000, perhaps.', failkind: 'limit' })
+    const built = '{% for item in items %}{% capture all %}{{ all }}{{ item }}{% endcapture %}{% endfor %}{{ all | size }}'
+    expect(Renderer.render(built, { items: Array.from({ length: 300 }, () => 'x'.repeat(200)) })).to.deep.eq({ text: '60000', issue: null, failkind: null })
+  })
+
   for (const [refused, twin] of Object.entries(Liquidry.RefusedFilters)) {
     it(`refuses ${refused} as the template is read, naming ${twin} to use instead`, () => {
       const template = `{% assign some = list | ${refused}: "item", "item > 1" %}`
