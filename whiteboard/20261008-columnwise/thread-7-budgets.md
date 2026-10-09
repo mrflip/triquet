@@ -15,7 +15,21 @@ column." So:
   the same failure, as a `jsonata` timeout does. A template that will not read costs its own cell.
 * The column has one budget for all its fills: `LiquidizeFormulary.columnMs`, **250 ms**. The runner
   gives each live column a deadline (`columnMs` from now; `jsonata` has none), and each fill's own
-  deadline is the sooner of `Liquidry.RenderMs` (1000 ms) and what the column has left.
+  deadline is the sooner of `Liquidry.RenderMs` (1000 ms) and what the column has left. A render
+  whose deadline has passed is stopped before its template is parsed (the second review's
+  `d01e061`).
+* **Where the budget holds**: between a template's pieces and at every turn of a loop, where
+  LiquidJS asks its render limit. Never inside one filter's call: a slow filter, or a huge range
+  handed to one filter, runs to its end before the clock is read again. Until thread 9 lands, "a
+  quarter second all told" holds only between pieces.
+
+## Handed to thread 9, *compute budgets* (the Coach, on the second review)
+
+* S1: untimed `*_exp` filters, and huge ranges inside one filter's call.
+* C1: a column's own template, and the templateable fills, have no column budget.
+* m1: no cap per run, across all its columns.
+* JSONata's timebox on a clock that stands still in Convex (below).
+* m2: a widgeting whose widget is gone is held only to the row's params validator.
 
 ## Why 250 ms
 

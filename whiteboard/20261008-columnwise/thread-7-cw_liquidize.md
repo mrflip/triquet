@@ -88,6 +88,12 @@ schema (`widgets.formulary` gains `liquidize`, its config `{}`): no chain, no ba
 * **For 5a**: it retires the widgeting dialog `LiquidizeParamsFields` sits in. Its thread file says
   how: `folded: 'template'` and a `'template'` arm in `FoldedLine`, the fields lifted as they are.
 
+* **Handed to thread 9, *compute budgets*** (the Coach, on the second review; not fixed here): S1,
+  untimed `*_exp` filters and huge ranges inside one filter's call; C1, a column's own template and
+  the templateable fills have no column budget; m1, no cap per run; JSONata's frozen-clock timebox;
+  m2, a widgeting whose widget is gone is held only to the row's params validator. The column's
+  quarter second holds between template pieces, not inside one filter's call, until thread 9.
+
 * **Also here**: `thread-7-budgets.md`, beside this file: why the column has 250 ms, and the probe
   showing LiquidJS's own time limit never fired inside a Convex mutation. Read it before touching a
   timebox that runs on the server.

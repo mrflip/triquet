@@ -111,7 +111,10 @@ A `jsonata` widget's twin with Liquid. `src/lib/formulary/liquidize.ts`, `Liquid
   time, `Liquidry.RenderMs`; our counted budgets; Liquid's allocation limit) stops its column,
   every later question reading the same failure, as a `jsonata` timeout does; and the whole column
   has one budget of time for all its fills (`LiquidizeFormulary.columnMs`, 250 ms), so many
-  medium-slow fills cannot add up to the same harm. Time is read on `performance.now()`, which
+  medium-slow fills cannot add up to the same harm. The budget is asked between a template's
+  pieces and at every turn of a loop, never inside one filter's call: a slow filter, or a huge
+  range handed to one, runs to its end first (thread 9, *compute budgets*, takes that on, with a
+  column's own template, the templateable fills and a cap per run). Time is read on `performance.now()`, which
   moves inside a Convex mutation where `Date.now()` stands still. A template that will not read
   costs only its own cell: one read from the bag differs question by question.
 * **One fill path.** Through `Templating.fill`, shared with the templateable nomination (§5),
