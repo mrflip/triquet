@@ -282,6 +282,7 @@ function adviceSpec(input_formula: string, sample: Record<string, unknown> | nul
       "A column worked out before this one fills in as its value's text: `{{ qn.my_column }}`. Its parts are read as `qn.my_column.value.part`.",
       'Besides Liquid\'s own filters, `quote` keeps a many-lined text inside a `> ` quote, `oneline` joins its lines, `apart` keeps a first line of `---` from making the line above a heading, and `in_order` puts `qns` in the order a recap reads them. A filter goes in an `{% assign %}`, never in a `{% for %}` tag.',
       'No `{% include %}` or `{% render %}`: there are no other templates.',
+      'No filter ending `_exp` (`where_exp`, `find_exp` and the rest): use its twin with a property and a value, `qns | where: "category", "art"`.',
     ],
   }
 }

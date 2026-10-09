@@ -284,11 +284,29 @@ Built: `LiquidizeFormulary` (`src/lib/formulary/liquidize.ts`), its params, the 
   (`$.value.<key>` for each key the last reply held) would save the typing.
 * **The widget editor previews the widget's own template**, never a widgeting's own or one read
   from the bag; the grid shows those.
-* **JSONata's timebox reads a clock that stands still on the server.** `Formulas.evaluate` times a
-  formula with `Date.now()`, which does not move inside a Convex mutation (thread 7 probed it), so a
-  formula column run by `sortQuestions` is stopped only by its depth guard, never by
-  `TimeboxMs`. `Liquidry.clockNow` (`performance.now()`) moves there; one line to use it. And a
-  whole column of formulas has no budget of its own, as a column of templates now does.
+
+## From columnwise sprint, thread 9: compute budgets
+
+Built: the clock read inside Liquid's filters, `*_exp` refused, `ItemsMax`/`AllocMax`, a budget per
+column of fills, JSONata on the moving clock, `Runner.RunMs` (record §11). Left:
+
+* **A face fills outside any column's budget.** A templateable field's cell in the grid
+  (`faceOf` in `cells/markdown.tsx`, through `useFace`) fills its draft over `Templating.bagOf`
+  with `RenderMs`, at every draw, cell by cell; a column of runaway texts costs a second a cell.
+  The fix: a face whose draft is the stored text reads the budgeted fill `finishedQnsOf` already
+  made (keeping each fill's `issue`), and only the cell being typed fills alone. A view change
+  (`QuestionRow`, `GrowingField`, `StretchField`, `EntryCell`), so left for a thread in views.
+* **A JSONata range of millions runs a mutation out of memory.** `[1..10000000]` (JSONata's own
+  cap is 1e7) allocates in one step, before any timebox is asked: in a Convex mutation, "ran out of
+  memory (maximum memory usage: 64 MB)" (probed 2026-10-09), so a sort fails; in a browser, 80 MB.
+  A compile-time walk of the AST could refuse a range with literal bounds past `ItemsMax`; a
+  computed bound needs a hook JSONata does not offer.
+* **`RunMs` is a second**, so a 300-question quiz with four columns of formulas reading every
+  question for each (the seeded `butnot` sums, about 260 ms a column here) would see its last
+  column stopped. Typical quizzes are tens of questions. Tune it if a real quiz meets it.
+* **A template building text by `append` in a loop** is charged its whole text again each turn,
+  so meets `AllocMax` at about a hundred questions of 200 characters; `capture` builds the same
+  text uncharged. Say so in the template advice if an author meets it.
 
 ## From columnwise sprint, thread 5b: the run order's two homes, the row preview
 
