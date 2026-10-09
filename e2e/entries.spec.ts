@@ -273,7 +273,6 @@ test('an entry rides the export, and an import puts it back', { tag: '@smoke' },
 
   await entryBox(page, 0, 'Points').fill('7')
   await leaveBox(page)
-  await waitUntilSaved(page)
   const section = await showTab(page, 'Import')
   await section.getByRole('textbox', { name: 'Import' }).fill(exported)
   await page.getByRole('button', { name: 'Import', exact: true }).click()
