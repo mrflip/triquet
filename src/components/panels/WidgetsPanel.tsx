@@ -70,7 +70,7 @@ export function WidgetsPanel({ run, ...props }: Readonly<WidgetsPanelProps>) {
           <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setAdding('question') }}>+ New widgeting…</Button>
           <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setAdding('quiz') }}>+ New quiz widgeting…</Button>
         </Stack>
-        {adding !== null && <NewWidgetingPicker key={adding} tier={adding} entriesOnly={false} label={NewLabels[adding]} {...props} onDone={() => { setAdding(null) }} />}
+        {adding !== null && revisable && <NewWidgetingPicker key={adding} tier={adding} entriesOnly={false} label={NewLabels[adding]} {...props} onDone={() => { setAdding(null) }} />}
         {quiz.widgetings.length === 0 && <p className={styles.microcopy}>This quiz puts no widgets to work yet.</p>}
         <Box sx={{ containerType: 'inline-size' }}>
           <RunOrderList
