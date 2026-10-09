@@ -331,6 +331,15 @@ export default defineConfig([
       'vitest/valid-title': 'off',
     },
   },
+  {
+    // A benchmark (`vitest bench`, never part of the unit suite) times what it runs, and asserts
+    // nothing: the unit tests assert on what it runs. The rule reads each `bench(...)` as a test.
+    name: 'triquet/benches',
+    files: ['tests/**/*.bench.{ts,tsx}'],
+    rules: {
+      'vitest/expect-expect': 'off',
+    },
+  },
 
   // chai's property assertions (`to.be.true`, `.null`, `.empty`) are the house style
   // (notes/testing.md), and vitest/valid-expect reports every one as a matcher left uncalled,
