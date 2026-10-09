@@ -61,7 +61,7 @@ The test asserts the after counts, so a memo that stops paying fails it. Most of
     reads something another question changed meanwhile, and the face is veiled while typing.
   - **`usePageWriting` is React state, not `useSyncExternalStore`.** The latter renders at sync
     priority. That let `data-unsaved="false"` commit a render ahead of the watches the write
-    brought current, which raced `waitUntilSaved` (commit `c8fc526a`). A write's end now lands in
+    brought current, which raced `waitUntilSaved` (the `fix:` commit after the DOM harness). A write's end now lands in
     the same default-lane batch as Convex's updates. The asks store keeps `useSyncExternalStore`;
     an ask's end comes before its reading in either case.
   - **`useQuiz` keeps `setHeld` during render.** It holds the quiz a missing reading falls back
