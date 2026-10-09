@@ -1,6 +1,6 @@
 'use client'
 
-import { Box, Stack } from '@mui/material'
+import { Box, Divider, Stack } from '@mui/material'
 import { SortableList } from './SortableList'
 import { TierChip, widgetingNote } from './WidgetingPanel'
 import { runOrderIdxOf, runOrderListsOf } from '../lib/widgeting-edit'
@@ -24,9 +24,10 @@ export type RunOrderListProps = {
 /**
  * A quiz's widgetings in run order, both tiers in one list, as the manage dialog's *Run order* and
  * the *Widgets* panel below the grid both show it: the entries at its head, which read nothing and
- * so run first wherever they are, never dragged; below them the rest, dragged into a new order by
- * their handles, or stepped by the arrow keys. Each reads what those above it came to. A drop is
- * sent as `move_widgeting`, counted in the quiz's whole run order (`runOrderIdxOf`).
+ * so run first wherever they are, never dragged; below them, ruled off when there are both, the
+ * rest, dragged into a new order by their handles, or stepped by the arrow keys. Each reads what
+ * those above it came to. A drop is sent as `move_widgeting`, counted in the quiz's whole run
+ * order (`runOrderIdxOf`).
  */
 export function RunOrderList({ quiz, library, revisable, dispatch, rowOf }: Readonly<RunOrderListProps>) {
   const { entries, rest, isEntry } = runOrderListsOf(quiz.widgetings, library)
@@ -39,9 +40,9 @@ export function RunOrderList({ quiz, library, revisable, dispatch, rowOf }: Read
               {rowOf(widgeting, <Box component="span" className={styles.grip} sx={{ visibility: 'hidden' }} aria-hidden>⠿</Box>)}
             </Box>
           ))}
-          <p className={styles.microcopy}>Entries are typed, and read nothing, so they run first, ahead of everything below.</p>
         </div>
       )}
+      {entries.length > 0 && rest.length > 0 && <Divider />}
       <SortableList
         label="Widgetings"
         items={rest}
