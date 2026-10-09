@@ -15,7 +15,8 @@ import { theme } from './theme'
 /**
  * MUI's styling and theme, which everything on the page draws in, the header included; the
  * page's one alarm, which any screen can raise a failure to (`useRaiseAlarm`); and what the page
- * shows the header, which only the page knows: the hunt and quiz it is about (`useShown`).
+ * shows the header, which only the page knows: the hunt and quiz it is about, and who is looking
+ * (`useShown`).
  */
 export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   return (

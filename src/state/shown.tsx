@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { HuntListingT } from '../lib/rows'
 import type * as Routes from '../lib/routes'
+import type { IdentT } from '../models/ident'
 import type { QuizT } from '../models/quiz'
 
 /** The hunt a page is about, as the header names it: its title, and its org and label to link to */
@@ -29,17 +30,24 @@ export type QuizActsT = {
   onSetLock: (locked: boolean) => void
 }
 
+/** Who is looking, as the header's account menu shows them: their ident, null until they have said one; and how to retitle it */
+export type ShownAccountT = {
+  ident:     IdentT | null
+  onRetitle: (title: string) => void
+}
+
 /** Everything the header shows that only the page beneath it knows; null for each part the page says nothing of */
 export type ShownT = {
   hunt:     ShownHuntT | null
   quiz:     ShownQuizT | null
   quizActs: QuizActsT | null
+  account:  ShownAccountT | null
 }
 
 /** Say one part of what the header shows; null for nothing */
 type Show = <PT extends keyof ShownT>(part: PT, val: ShownT[PT]) => void
 
-const NothingShown: ShownT = { hunt: null, quiz: null, quizActs: null }
+const NothingShown: ShownT = { hunt: null, quiz: null, quizActs: null, account: null }
 
 // Two contexts, so a page that only says what the header shows is not drawn again when it does.
 const ShowContext = createContext<Show | null>(null)
@@ -47,8 +55,8 @@ const ShownContext = createContext<ShownT>(NothingShown)
 
 /**
  * What the page shows the header, said by the page and read by the header above it, which sits
- * outside the page and its connection to the database: the hunt and the quiz it is about, and what
- * the quiz's screen lets the header do. Wraps the whole app, header included.
+ * outside the page and its connection to the database: the hunt and the quiz it is about, what the
+ * quiz's screen lets the header do, and who is looking. Wraps the whole app, header included.
  */
 export function ShownProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [shown, setShown] = useState<ShownT>(NothingShown)
@@ -118,9 +126,21 @@ export function useShowQuizActs(acts: QuizActsT | null): void {
 }
 
 /**
+ * Say who is looking, for the header's account menu, for as long as the caller is on screen. Hand
+ * over an object held still until who it is changes.
+ *
+ * @param account - The visitor's ident and how to retitle it; null to say nothing.
+ *
+ * @example useShowAccount(useMemo(() => ({ ident, onRetitle }), [ident, onRetitle]))
+ */
+export function useShowAccount(account: ShownAccountT | null): void {
+  useShowPart('account', account)
+}
+
+/**
  * What the page shows the header: each part null that the page has said nothing of.
  *
- * @returns The hunt, the quiz, and what may be done with it.
+ * @returns The hunt, the quiz, what may be done with it, and who is looking.
  */
 export function useShown(): ShownT {
   return useContext(ShownContext)

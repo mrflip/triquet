@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, IconButton, InputBase, Link, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
+import { Button, IconButton, Link, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import * as Actor from '../lib/actor'
 import * as Approve from '../lib/approve'
@@ -12,15 +12,15 @@ import * as Routes from '../lib/routes'
 import { HomeRealmLabel } from '../models/realm'
 import type { ListedHuntT } from '../lib/rows'
 import { Hunting, HuntRoleTitles } from '../models/hunting'
-import { Ident, type IdentT } from '../models/ident'
+import { Ident } from '../models/ident'
 import { useRaiseAlarm } from '../state/alarms'
-import { useAccountActions, type AccountActionsHandle } from '../state/use-account-actions'
+import { useAccountActions } from '../state/use-account-actions'
 import { useHuntsList } from '../state/use-hunts-list'
 import { useIdent } from '../state/use-ident'
 import { HuntEditModal } from './HuntEditModal'
+import { IdentTitle, useRetitleIdent } from './IdentTitle'
 import NextLink from './NextLink'
 import { OrphanedRepos } from './OrphanedRepos'
-import { useDraft } from './use-draft'
 import { Panel } from './panels/Panel'
 import { OpeningNotice } from './SyncNotices'
 import styles from './workbench.module.css'
@@ -75,6 +75,7 @@ export function HuntsList({ org }: Readonly<HuntsListProps>) {
   const { ident, actor, loaded } = useIdent()
   const listed = useHuntsList()
   const { act, busy } = useAccountActions()
+  const retitle = useRetitleIdent()
   const raise = useRaiseAlarm()
   const here = org === undefined ? Routes.huntsPath() : Routes.orgPath(org)
 
@@ -113,7 +114,7 @@ export function HuntsList({ org }: Readonly<HuntsListProps>) {
     <main className={styles.page}>
       <Stack direction="row" useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap', columnGap: 1, mb: 1 }}>
         <Typography>You are</Typography>
-        <IdentTitle ident={ident} act={act} />
+        <IdentTitle ident={ident} onRetitle={retitle} />
         <Typography>({Ident.atLabel(ident)}).</Typography>
         <Link component={NextLink} href={Routes.switchIdentPath()}>Be someone else</Link>
       </Stack>
@@ -144,36 +145,6 @@ export function HuntsList({ org }: Readonly<HuntsListProps>) {
       </Panel>
       {org === undefined && <OrphanedRepos hunts={hunts} />}
     </main>
-  )
-}
-
-/**
- * What the visitor is called on screen, retitled in place: saved when it loses focus, and put
- * back as it was when left blank. A retitle not kept raises an alarm.
- */
-function IdentTitle({ ident, act }: Readonly<{ ident: IdentT, act: AccountActionsHandle['act'] }>) {
-  const raise = useRaiseAlarm()
-  const retitle = async (title: string) => {
-    const outcome = await act({ kind: 'retitle_ident', title })
-    if (! outcome.kept) { raise(outcome.alarm) }
-  }
-  const { draft, onChange, onBlur } = useDraft(ident.title, (title) => { void retitle(title) }, (typed) => typed.trim() || ident.title)
-  return (
-    <InputBase
-      value={draft}
-      inputProps={{ 'aria-label': 'Your name', size: Math.max(draft.length, 4) }}
-      onChange={(event) => { onChange(event.target.value) }}
-      onBlur={onBlur}
-      sx={{
-        fontWeight:    700,
-        px:            0.5,
-        '& input':     { fieldSizing: 'content', minWidth: '4ch' },
-        border:        '1px solid transparent',
-        borderRadius:  'var(--radius-input)',
-        '&:hover':       { borderColor: 'var(--border)' },
-        '&.Mui-focused': { borderColor: 'var(--accent)' },
-      }}
-    />
   )
 }
 
