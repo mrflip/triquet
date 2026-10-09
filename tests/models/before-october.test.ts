@@ -120,6 +120,8 @@ describe('beforeOctoberFormula', () => {
     ['/* qn */ qn.title', '/* qn */ question.title', 'a comment, left as it is'],
     [String.raw`'it\'s qn' & qn.title`, String.raw`'it\'s qn' & question.title`, 'a string holding its own quote'],
     ['question.title & questions.*.label & categories.*', 'question.title & questions.*.label & categories.*', 'a formula of today, unchanged'],
+    ['$count(categories) & categories.title & $.categories[0]', '$count(categories.*) & categories.*.title & $.categories.*[0]', "the hunt's categories read as a list"],
+    ["categories.math_econ.title & $.categories.tv & $lookup(categories, 'art').title & $keys( categories )", "categories.math_econ.title & $.categories.tv & $lookup(categories, 'art').title & $keys( categories )", "the hunt's categories read by label, as a formula of today does, unchanged"],
   ]
   for (const [formula, expected, describes] of Cases) {
     it(`rewrites ${describes}`, () => {

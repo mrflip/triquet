@@ -1,5 +1,6 @@
 import * as Estimates from '../lib/estimates'
 import * as Labelmaker from '../lib/labelmaker'
+import { CategoryLabelVals } from './category'
 import { QuestionFieldVals, QuestionViewVals, QuizRefPrefix } from './column'
 import { CategoryDataLabel } from './seeds'
 
@@ -158,8 +159,14 @@ const Searched = /(?<![\w$.])qns\s*\[\s*label\s*=\s*\$\$\.qn\.(\w+)\s*\]/g
 // but for a path from the root, `$.` or `$$.`.
 const QnLabelWord   = /(?:(?<![\w$.])|(?<=\$\.))qn_label(?!\w)/g
 const QnsWord       = /(?:(?<![\w$.])|(?<=\$\.))qns(?!\w)/g
-const CategoriesWord = /(?:(?<![\w$.])|(?<=\$\.))categories(?!\w|\.\*)/g
 const QnWord        = /(?:(?<![\w$.])|(?<=\$\.))qn(?!\w)/g
+
+// `categories` is no reserved word, and a formula of today reads it too: by a category's label
+// (`categories.tv`), as its values (`categories.*`), or handed whole to a function that reads an
+// object by its keys (`$lookup(categories, ...)`). Each of those is left; anything else read the list.
+const CategoriesKeyedAfter  = String.raw`\.(?:\*|(?:${CategoryLabelVals.join('|')})(?!\w))`
+const CategoriesKeyedBefore = String.raw`\$(?:lookup|keys|each|sift)\(\s*`
+const CategoriesWord = new RegExp(String.raw`(?:(?<![\w$.])|(?<=\$\.))(?<!${CategoriesKeyedBefore})categories(?!\w|${CategoriesKeyedAfter})`, 'g')
 
 /** The lookup of the question whose label `field` of this one holds: nothing for none, since `$lookup` refuses a null key */
 const lookedUp = (field: string) => `(question.${field} ? $lookup(questions, question.${field}))`
