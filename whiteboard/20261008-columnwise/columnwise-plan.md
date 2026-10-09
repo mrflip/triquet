@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode".
-**Status: threads 1, 4, 3a merged (#191-#193); 2, 3b, 6, 5a landed (#196-#199); 7 and 8 landing; 5b underway; 9 queued.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8 landed (#197-#200); 7 landing; 5b underway; 9 queued; 3c last.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -423,3 +423,7 @@ thread, 9 included (last, the top of the series).
   key (one written by a direct call before the deploy would never be checked); expect none.
 * **5a's call to confirm** (minor): a column whose header is still the automatic one follows what
   it shows, its formula and its widgeting's relabel (`retitledPatch`); a typed header stays.
+* **`pnpm lane` is shadowed** by pnpm 12's own `lane` command; `pnpm run lane` gives the project's.
+  CLAUDE.md's *Global resources* says `pnpm lane` (thread 8).
+* **8's open call** (minor): should a column whose formula reads an `aibot` widgeting re-ask on a
+  double-click, as a seeded sum's cell does?

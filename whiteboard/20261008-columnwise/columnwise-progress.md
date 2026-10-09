@@ -17,11 +17,11 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 6 | free regex (optional) | landed #198 |
 | 5a | folding editors | landed #199 |
 | 5b | run order in both places, row preview | underway |
-| 8 | seeds pass (optional) | landing (review clean; full e2e, the eighth) |
+| 8 | seeds pass (optional) | landed #200 |
 | 9 | compute budgets (added) | pending (after 7) |
 | 3c | columns tighten (last) | pending |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 asked for one (the eighth landing).
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). Next asked-for full run: the twelfth landing, or the sprint's end.
 
 ## What the threads have taught
 
@@ -215,6 +215,22 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   in TODO: `retitledPatch` reads a column as last loaded (a race with a title blur; the real fix is
   optimistic updates on the quiz's dispatch); a refused relabel still retitles its column;
   `ExplicitField` gives way to a relabel made elsewhere while typing (documented).
+
+### From thread 8 (seeds pass, #200)
+
+* **Presets for the seeded sums**: `SeedPresets` in `src/models/seeds.ts` (by widget label:
+  `numnum_clueing`, `numnum_hint`, `butnot_ishes`), built from the same `SumOf` as the seeded
+  widgets; offered by a `seedPresets` source in `ColumnMenu.PresetSources`. The four reshaping
+  sums **stay in the seed list** (a seeded sum's cell re-asks on a double-click; a formula'd
+  column is read-only).
+* **Naming through presets**: `FormulaPreset.names`; `ColumnMenu.namesOf` and `namerOf(quiz,
+  library)`; `retitledPatch` takes an optional namer and `useColumnCommit` requires one, so a
+  column still headed after what it shows takes a preset's header when its formula is picked.
+* A preset on a failed ask (no earlier ok) shows the errored badge where the seeded sum shows the
+  dash: by design, now in the record. *Review:* `clean`.
+* **`pnpm lane` is shadowed** by pnpm 12's own `lane` command (it says "All packages are on the
+  main lane"): `pnpm run lane` or `node scripts/lanes.ts lane` give the project's lane. CLAUDE.md
+  still says `pnpm lane` (the Coach's).
 
 ### From thread 2's review (flagged, ruled)
 
