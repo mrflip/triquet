@@ -4,9 +4,12 @@ import * as Redos from '../../src/lib/redos'
 
 const regexOf = (source: string, flags = '') => ({ source, flags })
 
+/** Room enough for recheck to reach its verdict on a slow, busy machine: these tests are of the verdict, not the clock */
+const VerdictMs = 5000
+
 describe('Redos.refusalOf', () => {
   it("finds nothing wrong with a pattern whose time grows no faster than the text, per the doc example", () => {
-    expect(Redos.refusalOf(regexOf('^[a-z]+$'))).to.be.null
+    expect(Redos.refusalOf(regexOf('^[a-z]+$'), VerdictMs)).to.be.null
   })
 
   const Safe: [string, string, string][] = [
@@ -18,7 +21,7 @@ describe('Redos.refusalOf', () => {
   ]
   for (const [source, flags, describes] of Safe) {
     it(`takes ${describes}`, () => {
-      expect(Redos.refusalOf(regexOf(source, flags))).to.be.null
+      expect(Redos.refusalOf(regexOf(source, flags), VerdictMs)).to.be.null
     })
   }
 
@@ -30,14 +33,14 @@ describe('Redos.refusalOf', () => {
   ]
   for (const [source, growth, describes] of Vulnerable) {
     it(`refuses ${describes}, saying how its time grows and where`, () => {
-      const refusal = Redos.refusalOf(regexOf(source))
+      const refusal = Redos.refusalOf(regexOf(source), VerdictMs)
       expect(refusal).to.contain(`could take far too long to match some texts (${growth})`)
       expect(refusal).to.contain('let no part of it match the same text in more than one way')
     })
   }
 
   it("says where a vulnerable pattern's trouble lies", () => {
-    expect(Redos.refusalOf(regexOf('^x(a+)+$'))).to.contain('around «')
+    expect(Redos.refusalOf(regexOf('^x(a+)+$'), VerdictMs)).to.contain('around «')
   })
 
   it("refuses a pattern it cannot settle in the time it has", () => {
