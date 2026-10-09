@@ -131,10 +131,15 @@ function chainOf(store: OptimisticLocalStore, question_id: string, chains_to: st
   return target && 'label' in target ? { chains_to: target.label } : {}
 }
 
-/** `stored` with what was typed into the cell of `widgeting_label`, as `upsertWidgeted` keeps it: one `ok` row, or none for a cell emptied */
+/**
+ * `stored` with what was typed into the cell of `widgeting_label`, as `upsertWidgeted` keeps it:
+ * one `ok` row, or none for a cell emptied. The row a cell holds is replaced, which keeps when it
+ * was made; a cell that held none is given one made now.
+ */
 function enteredInto(stored: Readonly<Record<string, WidgetedHistoryT>>, widgeting_label: string, entered: EntryValueT | null): Record<string, WidgetedHistoryT> {
   if (entered === null) { return _.omit(stored, [widgeting_label]) }
-  const row = { status: 'ok', value: entered, message: null, result_meta: {}, _creationTime: Date.now() } as const
+  const _creationTime = stored[widgeting_label]?.newest._creationTime ?? Date.now()
+  const row = { status: 'ok', value: entered, message: null, result_meta: {}, _creationTime } as const
   return { ...stored, [widgeting_label]: { newest: row, ok: row } }
 }
 
