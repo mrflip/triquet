@@ -92,17 +92,24 @@ prove before you bid, and bid cheaply. Two ideas were proposed along the way and
 ## Flaky specs
 
 Most full e2e runs under load have at least one spec that then passes alone, unchanged
-(`pnpm e2e:log` keeps count). The most frequent, 2026-10-06 to 2026-10-08:
+(`pnpm e2e:log` keeps count). A spec that flakes on a round trip fails every run under
+`TQ_E2E_LAG_MS=300` (`notes/testing.md`): try that first.
 
-* **`reviews.spec.ts` › "the smith's note folded to a line"** (7 flakes; about 1 in 4 even run
-  alone): its locator is built from the fold's `aria-controls`, a `useId` value, and sometimes finds
-  no element by it. A locator by role or label inside the *Smith's note* region would not depend on
-  the id.
+CI's flakes, 2026-10-06 to 10-09 (177 runs, 162 flaky or failed records), once the relabel and
+library races (`20261009-flake_fix`) and the milestone's branch (`6fee267`) are set aside:
+
+* **`addMember`'s role options sometimes never appear** (`support.ts`: the *Role* select clicked,
+  no listbox; about 19, all before #207 moved reviews and categories onto `putOnHunt`). Three
+  `routing.spec.ts` tests about the Members panel still walk it. No cause found without a trace.
 * `routing.spec.ts` › "opens in the mode the visitor works in when it names none" (5), and
-  › "takes the author's address along when the friend relabels the quiz" (4).
+  › "takes the author's address along when the friend relabels the quiz" (4), from the local log.
 * `reviews.spec.ts` › "opens a first review for a reviewer who arrives straight at the review's
-  address" (5).
-* `quiz-history.spec.ts` › "an edit commits only the files it changed ... a milestone ... tags it" (4).
+  address" (5), from the local log.
+* `archiving.spec.ts` › "the gear un-archives a question … and deletes another at once" (4): the
+  delete waits behind `HuntMirror.markedChange`, which commits the hunt's waiting history in the
+  browser first, so on a slow runner the list empties late.
+* `alarms.spec.ts` › "a refusal shown beside the field…" (2): the Members panel's sentence is the
+  hunt-wide `saveNotice`, which any later write that lands clears.
 
 ## From widgets sprint: imported replies, and staleness back
 
