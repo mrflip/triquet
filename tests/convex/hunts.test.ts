@@ -23,7 +23,7 @@ import type { EstimatesDNA } from '../../src/models/estimate'
 import type { EntryConfigT } from '../../src/models/widget'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
-import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seeded, type Seen, type Session, type Tester } from '../support/convex'
+import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seeded, type Seen, type Session, type Tester, sortAction } from '../support/convex'
 import { SeedOrg } from '../support/seed'
 import { Here } from '../support/places'
 
@@ -409,19 +409,19 @@ describe("hunts.perform", () => {
   describe("sort_questions", () => {
     it("commits the new order into the quiz rather than draping it over the top", async () => {
       const { act, read } = await seed(huntOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana']))
-      await act({ kind: 'sort_questions', sortkey: 'column:title', descending: false })
+      await act(sortAction(await read(), 'column:title', false))
       expect(titlesOf(await read())).to.deep.eq(['apple', 'banana', 'cherry'])
     })
 
     it("remembers which column put the quiz in this order", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
-      await act({ kind: 'sort_questions', sortkey: 'column:qnum', descending: false })
+      await act(sortAction(await read(), 'column:qnum', false))
       expect(openOf(await read()).last_sortkey).to.eq('column:qnum')
     })
 
     it("reverses when asked", async () => {
       const { act, read } = await seed(huntOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana']))
-      await act({ kind: 'sort_questions', sortkey: 'column:title', descending: true })
+      await act(sortAction(await read(), 'column:title', true))
       expect(titlesOf(await read())).to.deep.eq(['cherry', 'banana', 'apple'])
     })
 
@@ -432,14 +432,28 @@ describe("hunts.perform", () => {
       for (const [question_id, clueing] of clueings) { await act({ kind: 'edit_question', question_id, patch: { clueing } }) }
       await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_word_count', label: 'words' } })
       await act({ kind: 'add_column', column: { label: 'words', title: 'Words', source: 'words', width_px: 60 } })
-      await act({ kind: 'sort_questions', sortkey: 'column:words', descending: false })
+      await act(sortAction(await read(), 'column:words', false))
       expect(titlesOf(await read())).to.deep.eq(['b', 'c', 'a'])
     })
 
     it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(lockedAll(huntOf(['3', 'cherry'], ['1', 'apple'])))
-      await expectRefusal(act({ kind: 'sort_questions', sortkey: 'column:title', descending: false }), 'quizLocked')
+      const sorted = sortAction(await read(), 'column:title', false)
+      await expectRefusal(act(sorted), 'quizLocked')
       expect(titlesOf(await read())).to.deep.eq(['cherry', 'apple'])
+    })
+
+    it("refuses an order that is not exactly the quiz's questions, each once, writing nothing: the questions changed meanwhile", async () => {
+      const { act, read } = await seed(huntOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana']))
+      const sorted = sortAction(await read(), 'column:title', false)
+      const ids = sorted.kind === 'sort_questions' ? sorted.question_ids : []
+      const ante = await read()
+      for (const question_ids of [ids.slice(1), [...ids, present(ids[0])], [present(ids[0]), present(ids[0]), present(ids[1])]]) {
+        await expectRefusal(act({ ...sorted, question_ids } as typeof sorted), 'sortStale')
+      }
+      await act({ kind: 'add_question' })
+      await expectRefusal(act(sorted), 'sortStale')
+      expect(titlesOf(await read()).slice(0, 3)).to.deep.eq(titlesOf(ante))
     })
   })
 
@@ -454,7 +468,7 @@ describe("hunts.perform", () => {
 
     it("does not claim the quiz is now in Q# order, which would immediately re-sort it", async () => {
       const { act, read } = await seed(huntOf(['4', 'd'], ['1', 'a']))
-      await act({ kind: 'sort_questions', sortkey: 'column:title', descending: false })
+      await act(sortAction(await read(), 'column:title', false))
       await act({ kind: 'renumber_qnums' })
       expect(openOf(await read()).last_sortkey).to.eq('column:title')
     })
@@ -506,7 +520,7 @@ describe("hunts.perform", () => {
       await expectOrderHolds()
       await act({ kind: 'move_question', question_id: firstOf(await read())._id, onto_idx: 2 })
       await expectOrderHolds()
-      await act({ kind: 'sort_questions', sortkey: 'column:title', descending: true })
+      await act(sortAction(await read(), 'column:title', true))
       await expectOrderHolds()
       await act({ kind: 'delete_questions', question_ids: [firstOf(await read())._id] })
       await expectOrderHolds()
@@ -1952,7 +1966,7 @@ describe("a quiz's export, imported into an empty quiz", () => {
     await source.act({ kind: 'set_templateable', templateable: ['recap', 'remark'] })
     await source.act({ kind: 'add_column', column: { label: 'remark', title: 'Remark', source: 'remark', width_px: 140, align: 'center' }, onto_idx: 1 })
     await source.act({ kind: 'edit_column', label: 'qnum', patch: { width_px: 44, align: 'right' } })
-    await source.act({ kind: 'sort_questions', sortkey: 'column:title', descending: true })
+    await source.act(sortAction(await source.read(), 'column:title', true))
     const exported = await source.read()
     const quiz = openOf(exported)
     const { ball } = Exporting.quizBall({ org: 'seed_smith', hunt: exported.hunt.label }, 'home', quiz, runOfOpen(exported))
@@ -1991,7 +2005,7 @@ describe("a quiz's export, imported into an empty quiz", () => {
     const { ball } = Exporting.quizBall({ org: 'seed_smith', hunt: exported.hunt.label }, 'home', openOf(exported), runOfOpen(exported))
 
     const target = await seedHunt(tt, huntOf(['1', 'z']))
-    await target.act({ kind: 'sort_questions', sortkey: 'column:clueing', descending: false })
+    await target.act(sortAction(await target.read(), 'column:clueing', false))
     const before = await target.read()
     const outcome = Importing.importInto(openOf(before), JSON.stringify(ball), before.library)
     for (const action of outcome.actions) { await target.act(action) }

@@ -26,6 +26,7 @@ import * as Runner from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Rank from '../lib/rank'
 import * as Routes from '../lib/routes'
+import * as Sortings from '../lib/sortings'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import { Question, type QuestionViz } from '../models/question'
 import type { QuizT } from '../models/quiz'
@@ -116,7 +117,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   const onSort = (sortkey: SortMark['sortkey']) => {
     const descending = sortMark?.sortkey === sortkey ? ! sortMark.descending : false
     setSortMark({ sortkey, descending })
-    dispatch({ kind: 'sort_questions', sortkey, descending })
+    dispatch({ kind: 'sort_questions', sortkey, descending, question_ids: Sortings.sortedIdsOf(sortkey, quiz, run, descending) })
   }
 
   return (

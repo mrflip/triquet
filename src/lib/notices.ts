@@ -68,6 +68,7 @@ export const RefusalNotices = {
   realmGone:        'That realm is no longer part of this hunt.',
   huntGone:         'That hunt is no longer here.',
   questionGone:     'That question is no longer in this quiz.',
+  sortStale:        'The questions changed while they were being sorted — sort again.',
   widgetGone:       'That widget is no longer in the library.',
   widgetingGone:    'That widgeting is no longer in this quiz.',
   columnGone:       'That column is no longer in this quiz.',

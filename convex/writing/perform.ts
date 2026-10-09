@@ -44,7 +44,7 @@ export async function perform(db: Writer, census: CensusT, claims: PerformClaims
   case 'add_question':        { await Quiz.addQuestion(db, claims); return }
   case 'delete_questions':    { await Quiz.deleteQuestions(db, claims, action.question_ids); return }
   case 'set_viz':             { await Quiz.setViz(db, claims, action.question_ids, action.viz); return }
-  case 'sort_questions':      { await Quiz.sortQuestions(db, claims, action.sortkey, action.descending); return }
+  case 'sort_questions':      { await Quiz.sortQuestions(db, claims, action.sortkey, action.question_ids); return }
   case 'renumber_qnums':      { await Quiz.renumberQnums(db, claims); return }
   case 'move_question':       { await Quiz.moveQuestion(db, claims, action.question_id, action.onto_idx); return }
   case 'set_chain':           { await Quiz.setChain(db, claims, action.question_id, action.chains_to); return }

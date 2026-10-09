@@ -3,13 +3,11 @@ import type { Doc, Id } from '../_generated/dataModel'
 import * as Chain from '../../src/lib/chain'
 import * as Labelmaker from '../../src/lib/labelmaker'
 import * as Rank from '../../src/lib/rank'
-import * as Runner from '../../src/lib/formulary/runner'
-import * as Sortings from '../../src/lib/sortings'
 import * as Stamps from '../../src/lib/stamps'
 import * as PA from '../../src/lib/vv/patterns'
 import { qnumSortkeyOf } from '../../src/lib/columns'
 import { refuse } from '../../src/lib/refusals'
-import { quizFrom, widgetFrom, widgetingFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
+import { quizFrom, widgetingFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
 import type { ImportedQuestionT } from '../../src/models/import'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT, type QuestionViz } from '../../src/models/question'
 import type { QuizT, Sortkey } from '../../src/models/quiz'
@@ -19,7 +17,7 @@ import type { WidgetingTier } from '../../src/models/widgeting'
 import type { EntryValueT, WidgetT } from '../../src/models/widget'
 import { EntryFormulary } from '../../src/lib/formulary/entry'
 import { formularyFor } from '../../src/lib/formulary/formularies'
-import { allStoredOf, layoutOf, libraryOf, questionOf, questionsOf, quizForLabel, quizStoredOf, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
+import { layoutOf, libraryOf, questionOf, questionsOf, quizForLabel, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
 import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, upsertQuizWidgeted, upsertWidgeted, type LayoutPlace, type OpenQuizT, type Writer } from './quiz_writing'
 
 // Each action reads what it needs and no more: the open quiz's own row comes with the claims
@@ -59,27 +57,15 @@ async function questionIn(db: Writer, quiz: Doc<'quizzes'>, question_id: string)
   return held
 }
 
-/** Where the open quiz sits, as its formulas are told: its hunt and realm, refusing as a gone quiz when either is */
-async function placeOfOpen(db: Writer, open: OpenQuizT): Promise<Runner.QuizPlace> {
-  const hunt = await db.get('hunts', open.hunt_id)
-  if (! hunt || ! open.realm) { refuse('quizGone') }
-  return Runner.placeOf(hunt, open.realm)
-}
-
-/** What a new order is worked out from: the quiz's own rows and questions, with what they stored only when asked for */
-type ReorderReads = { stored: boolean }
-
 /**
- * The quiz `quiz` and its questions, put in a new order. What the questions and the quiz stored is
- * read only for an order that can depend on it (a sort, by a widgeting's column, which may read
- * the quiz's own entries); every other order leaves it unread, and the quiz it is handed shows
- * none.
+ * The quiz `quiz` and its questions, put in a new order. No order here reads what the questions or
+ * the quiz stored (a sort by a widgeting's column is worked out in the browser), so the quiz it is
+ * handed shows none.
  */
-async function reorderQuiz(db: Writer, quiz: Doc<'quizzes'>, reads: ReorderReads, reorder: (tree: QuizT) => { questions: readonly QuestionT[], last_sortkey?: Sortkey | null }): Promise<void> {
+async function reorderQuiz(db: Writer, quiz: Doc<'quizzes'>, reorder: (tree: QuizT) => { questions: readonly QuestionT[], last_sortkey?: Sortkey | null }): Promise<void> {
   const layout = await layoutOf(db, quiz)
   const questions = await questionsOf(db, layout.quiz)
-  const [stored, quizStored] = reads.stored ? await Promise.all([allStoredOf(db, questions, layout.widgetings), quizStoredOf(db, quiz._id, layout.widgetings)]) : [new Map(), new Map()]
-  const rows = { ...layout, questions, stored, quizStored }
+  const rows = { ...layout, questions, stored: new Map(), quizStored: new Map() }
   const ordered = reorder(quizFrom(rows))
   await writeOrder(db, rows, ordered.questions, ordered.last_sortkey)
 }
@@ -200,16 +186,19 @@ export async function setViz(db: Writer, open: OpenQuizT, question_ids: readonly
 }
 
 /**
- * Sort the open quiz's questions by a column, or by any sort memory, and commit the order: the
- * new positions are written, not draped over the top, and the quiz remembers what put it so.
+ * Commit the order a sort of the open quiz by a column, or by any sort memory, came to in the
+ * browser, which runs the quiz (`Sortings.sortedIdsOf`): the new positions are written, not draped
+ * over the top, and the quiz remembers the sortkey that put it so. The server runs nothing.
+ *
+ * @param question_ids - Every question of the quiz, by id, in the sorted order.
+ * @throws A refusal (`sortStale`) when they are not exactly the quiz's questions, each once (one added or deleted meanwhile); nothing is written.
  */
-export async function sortQuestions(db: Writer, open: OpenQuizT, sortkey: Sortkey, descending: boolean): Promise<void> {
-  const rows = await libraryOf(db)
-  const library = rows.map((row) => widgetFrom(row))
-  const place = await placeOfOpen(db, open)
-  await reorderQuiz(db, openQuizRow(open), { stored: true }, (quiz) => {
-    const run = Runner.runQuiz(Runner.sourceOf(quiz, library, place))
-    return { questions: Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(sortkey, quiz, run), descending), last_sortkey: sortkey }
+export async function sortQuestions(db: Writer, open: OpenQuizT, sortkey: Sortkey, question_ids: readonly string[]): Promise<void> {
+  await reorderQuiz(db, openQuizRow(open), (quiz) => {
+    const heldFor = new Map(quiz.questions.map((question) => [question._id, question]))
+    const ordered = question_ids.flatMap((question_id) => heldFor.get(question_id) ?? [])
+    if (ordered.length !== quiz.questions.length || new Set(question_ids).size !== question_ids.length || question_ids.length !== ordered.length) { refuse('sortStale') }
+    return { questions: ordered, last_sortkey: sortkey }
   })
 }
 
@@ -220,12 +209,12 @@ export async function sortQuestions(db: Writer, open: OpenQuizT, sortkey: Sortke
  * mode that re-sorts at once, undoing the promise that nothing moved.
  */
 export async function renumberQnums(db: Writer, open: OpenQuizT): Promise<void> {
-  await reorderQuiz(db, openQuizRow(open), { stored: false }, (quiz) => ({ questions: Rank.renumberByRank(quiz.questions) }))
+  await reorderQuiz(db, openQuizRow(open), (quiz) => ({ questions: Rank.renumberByRank(quiz.questions) }))
 }
 
 /** Drag one question of the open quiz to `onto_idx`, then number every question by where it sits. A drag leaves the quiz in Q# order. */
 export async function moveQuestion(db: Writer, open: OpenQuizT, question_id: string, onto_idx: number): Promise<void> {
-  await reorderQuiz(db, openQuizRow(open), { stored: false }, (quiz) => ({
+  await reorderQuiz(db, openQuizRow(open), (quiz) => ({
     questions:    Rank.renumberByPosition(Rank.moveQuestion(quiz.questions, question_id, onto_idx)),
     last_sortkey: qnumSortkeyOf(quiz),
   }))
@@ -242,7 +231,7 @@ export async function setChain(db: Writer, open: OpenQuizT, question_id: string,
 
 /** Put the open quiz in the order its chains walk, and remember that */
 export async function sortByChainOrder(db: Writer, open: OpenQuizT, descending: boolean): Promise<void> {
-  await reorderQuiz(db, openQuizRow(open), { stored: false }, (quiz) => ({ questions: Chain.chainOrder(quiz.questions, descending), last_sortkey: 'chain_order' }))
+  await reorderQuiz(db, openQuizRow(open), (quiz) => ({ questions: Chain.chainOrder(quiz.questions, descending), last_sortkey: 'chain_order' }))
 }
 
 /**
@@ -365,7 +354,7 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
   await carryReplies(db, { hunt_id: open.hunt_id, quiz_id: quiz._id }, imported, idFor)
   if (imported.length > 0) { await archiveStarters(db, rows.filter((row) => ! idFor.has(row.label))) }
   // Read again: its order has just been written, and the renumbering works from that.
-  await reorderQuiz(db, revisable(await db.get('quizzes', quiz._id)), { stored: false }, (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))
+  await reorderQuiz(db, revisable(await db.get('quizzes', quiz._id)), (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))
 }
 
 /**

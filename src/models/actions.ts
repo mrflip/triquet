@@ -76,7 +76,8 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('add_question') }),
     obj({ kind: lit('delete_questions'),    question_ids }),
     obj({ kind: lit('set_viz'),             question_ids, viz: QuestionValidators.viz }),
-    obj({ kind: lit('sort_questions'),      sortkey: QuizValidators.sortkey, descending: bool }),
+    obj({ kind: lit('sort_questions'),      sortkey: QuizValidators.sortkey, descending: bool, question_ids })
+      .describe('Commit the order a sort by `sortkey` came to in the browser, which ran the quiz: every question of the quiz, by id, in its new order. The quiz remembers the sortkey.'),
     obj({ kind: lit('renumber_qnums') }),
     obj({ kind: lit('move_question'),       question_id: zid('questions'), onto_idx: uint }),
     obj({ kind: lit('set_chain'),           question_id: zid('questions'), chains_to: zid('questions').nullable() }),
