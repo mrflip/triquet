@@ -276,8 +276,8 @@ A backend the script started stops with the command; one that was already runnin
 `scripts/convex_reset <role>` empties a role's backend, every row of every table, through
 `testing:clearAll`, which a backend refuses unless `TRIQUET_CLEARABLE` is `yes` on it. Only the
 local scripts set it, and only on `127.0.0.1`; production never has it. The e2e suite's way in
-makes each test's hunt through `testing:makeHunt` (`e2e/admin.ts`), refused the same way. Both are
-internal functions, so they deploy with the rest, but nothing without the deployment's admin key
+makes each test's hunt through `testing:makeHunt` (`e2e/admin.ts`), and puts a second visitor on
+it through `testing:putOnHunt`, refused the same way. All three are internal functions, so they deploy with the rest, but nothing without the deployment's admin key
 can call them, and production refuses them even then.
 
 `scripts/convex_healthcheck <role>` asks whether a role's backend answers and whether it holds
