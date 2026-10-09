@@ -133,4 +133,6 @@ browser per change, both of which the phase 4 measurements report
   nothing extra.
 * There is no entity cache. Two facets that both carry a quiz row each hold their own copy, and
   an optimistic update patches each affected facet by hand. Keep the number of facet shapes
-  small for that reason.
+  small for that reason. The quiz's are all in `src/state/optimistic-quiz.ts` (`showPerformed`,
+  on `hunts.perform`), one per action kind whose wait shows, so they move with the quiz's queries:
+  a change to what `quizzes.open` or `questions.open` sends is a change there too.

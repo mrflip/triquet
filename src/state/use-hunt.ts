@@ -25,6 +25,7 @@ import { useSession } from './use-session'
 import * as HuntMirror from './hunt-mirror'
 import { useHuntFeed } from './hunt-feed'
 import { useQuiz } from './use-quiz'
+import { showPerformed } from './optimistic-quiz'
 
 /**
  * Where finding the quiz an address names stands: still looking, looked and it is not there,
@@ -175,9 +176,11 @@ const NoWidgets: readonly WidgetT[] = []
  * none of it, only who could add them, and nothing more is asked for them.
  *
  * There is no save button and no save queue: a change goes to the server as soon as it is
- * dispatched, and the screen shows it once the server has it. Leaving the page before then asks
- * first. A change the server refuses writes nothing, and says why in `saveNotice` and in an alarm
- * (`useRaiseAlarm`), which the author sees wherever they are on the page. One the policies refuse
+ * dispatched. The screen shows an edit to a question or a column, a widgeting relabelled, an
+ * entry typed, a sort and a drag at once (`showPerformed`), anything else once the server has it. Leaving the
+ * page before then asks first. A change the server refuses writes nothing, is taken back from the
+ * screen, and says why in `saveNotice` and in an alarm (`useRaiseAlarm`), which the author sees
+ * wherever they are on the page. One the policies refuse
  * of the browser's own claims (`denialOf`) is not sent at all, and is said the same way. For a smith, every
  * reading of the hunt, whoever changed it, goes into its history (`useHuntFeed`, `HuntMirror`).
  *
@@ -187,7 +190,9 @@ const NoWidgets: readonly WidgetT[] = []
  */
 export function useHunt(orglabel: string | null, labels: QuizLabels): HuntHandle {
   const { ready } = useSession()
-  const perform = useMutation(api.hunts.perform)
+  const performBare = useMutation(api.hunts.perform)
+  // Made once: a mutation `withOptimisticUpdate` makes is a new one each time it is asked.
+  const perform = useMemo(() => performBare.withOptimisticUpdate(showPerformed), [performBare])
   const raise = useRaiseAlarm()
   const [saveNotice, setSaveNotice] = useState<string | null>(null)
   const [writing, setWriting] = useState(0)

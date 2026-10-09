@@ -1,4 +1,4 @@
-import { addWidgetings, expect, reloadOnceSaved, startHunt, test, valuesOf, waitUntilSaved } from './support'
+import { addWidgetings, expect, reloadOnceSaved, startHunt, test, valuesOf } from './support'
 
 // The client-first rule (notes/decisions/20260928-database-decisions.md, *Client-first*) as a test: with nothing reachable
 // but the page itself and its database -- no bots route, no other host -- the app still opens,
@@ -36,9 +36,6 @@ test('asking is the one server function, and with it blocked the cell says so an
   // A title that sorts ahead of every generated one, so the sort is seen to put it first.
   await page.getByRole('textbox', { name: 'Title' }).nth(2).fill('aaa hamlet')
   await page.getByLabel('Quiz name').click()
-  // Workaround, until optimistic updates: the browser sorts its own run, which reads an edit only
-  // once the server echoes it, so a sort clicked at once would sort the titles as they were.
-  await waitUntilSaved(page)
   await page.getByRole('button', { name: 'Title', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('aaa hamlet')
   await page.getByLabel('Quiz name').fill('Still editing')

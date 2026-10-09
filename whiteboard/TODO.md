@@ -253,13 +253,12 @@ Built: columns lead, each widgeting a panel folded to its line, the dialogs reti
   left before the echo builds on the first). The planner holds params to the widget as the server
   does, so a refusal there is a race (the widget revised meanwhile); the alarm says so, and the
   fields show what was sent until the next change. The same shape as thread 2's `useDraft` leftover.
+  Kept by thread 11 on purpose: the regex field's courtesy sentence (thread 6) stays beside a
+  pattern the server refused only because the line keeps it, and an optimistic update would be
+  taken back on the refusal, so `showPerformed` leaves params to this line.
 * **A new widget written from the folding editor's doors is not told the widgeting it is for**
   (`NewWidgetDoor`): the widgeting is made after the widget, labelled as it. The widget editor's
   preview and advice prompt therefore name no widgeting there; *Edit the widget…* in a panel does.
-* **A header can be put back over a typed one** (review): `retitledPatch` reads the column as last
-  loaded, so a ref or formula picked within a round trip of a title's blur can send the default
-  header over the title just typed. The fix is Convex optimistic updates on the quiz's dispatch
-  (`use-hunt`), which would also make the switches and checkboxes turn at once.
 * **A refused widgeting relabel still retitles its column** (review): `planWidgetingEdit` sends the
   relabel and the column's retitle as separate actions, so a relabel the server refuses (a race on
   the label) leaves the column headed after a label it never took. One action carrying both, or the
@@ -304,15 +303,6 @@ column of fills, JSONata on the moving clock, `Runner.RunMs` (record §11). Left
   computed bound needs a hook JSONata does not offer.
 * **`RunMs` is five seconds**, the browser's alone since the sort moved there: loose on purpose.
   Tune it if a real quiz meets it, or a slow page asks for less.
-* **A sort clicked within a round trip of an edit sorts the quiz as it was.** The browser works a
-  sort out over its own run (the server only commits the order), and the browser has no optimistic
-  updates, so an edit reaches its run only once the server echoes it. The Coach accepted the race
-  (2026-10-09); optimistic updates on the quiz's dispatch remove it, and with it the
-  `waitUntilSaved` workarounds in `e2e/widgets.spec.ts` ("sorting by a computed column…"),
-  `e2e/ordering.spec.ts` (its `fillQuiz`) and `e2e/client-first.spec.ts` (its sort).
-* **A refused sort leaves its arrow wrong** (for the optimistic-updates thread): `Workbench.onSort`
-  sets the sort mark before it dispatches, so a sort the server refuses (`sortStale`) keeps the
-  arrow it set, and the next click on that head flips the direction from there.
 * **A template building text by `append` in a loop** is charged its whole text again each turn,
   so meets `AllocMax` at about a hundred questions of 200 characters; `capture` builds the same
   text uncharged. Say so in the template advice if an author meets it.
@@ -322,11 +312,6 @@ column of fills, JSONata on the moving clock, `Runner.RunMs` (record §11). Left
 Built: the run order in the Widgets panel (widgeting panels, the new-widgeting menus at its head)
 and in the gear (*Run order*, lines to drag); one question's row previewed above the columns. Left:
 
-* **An edit made within a round trip of a relabel is addressed to the old label** and refused
-  (`useColumnCommit`, `WidgetingPanel`'s `revise`: each sends the label as last loaded). Seen as an
-  e2e flake under load (`widgets.spec.ts`, *a column can be added for anything…*: relabel, then
-  width and title at once, the title lost). The same cure as 5a's `retitledPatch` item: optimistic
-  updates on the quiz's dispatch, or actions addressed by id.
 * **The Widgets panel draws every widgeting's panel even while it is folded** (`Panel` keeps its
   content mounted, so a draft survives), each re-rendered on every change to the quiz. Cheap at a
   dozen widgetings; if a quiz grows many, mount the rows only while the panel is open.

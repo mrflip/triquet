@@ -677,9 +677,6 @@ test('sorting by a computed column orders the questions by what it came to', asy
     await grid(page).locator('tbody tr').nth(idx).getByRole('textbox', { name: 'Full Answer' }).fill(answer)
   }
   await page.getByLabel('Quiz name').click()
-  // Workaround, until optimistic updates: the browser sorts its own run, which reads an edit only
-  // once the server echoes it, so a sort clicked at once would sort the answers as they were.
-  await waitUntilSaved(page)
   await page.getByRole('button', { name: 'Answer Letter Count' }).click()
   const answers = grid(page).locator('tbody tr').getByRole('textbox', { name: 'Full Answer' })
   // The two blank rows have no letters, which is nought and sorts first.
