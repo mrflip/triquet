@@ -22,6 +22,7 @@ export type ChainPickerProps = {
  * to, marked as archived.
  */
 export function ChainPicker({ question, questions, locked, onChain }: Readonly<ChainPickerProps>) {
+  const offered = chainOptionsOf(questions).filter(({ _id, archived }) => _id !== question._id && (! archived || _id === question.chains_to))
   return (
     <select
       className={styles.field}
@@ -31,13 +32,36 @@ export function ChainPicker({ question, questions, locked, onChain }: Readonly<C
       onChange={(event) => { onChain(event.target.value === '' ? null : event.target.value) }}
     >
       <option value="">{CellNotices.chainUnset}</option>
-      {questions.filter((other) => other._id !== question._id && (! Question.isArchived(other) || other._id === question.chains_to)).map((other) => (
-        <option key={other._id} value={other._id}>
-          {Question.titleShown(other, CellNotices.chainTargetUnnamed)}{Question.isArchived(other) ? ` ${CellNotices.chainTargetArchived}` : ''}
-        </option>
-      ))}
+      {offered.map(({ option }) => option)}
     </select>
   )
+}
+
+/** One question as a chain picker may offer it: its option, and what decides whether a picker offers it */
+type ChainOptionT = { _id: string, archived: boolean, option: React.JSX.Element }
+
+/** The options `chainOptionsOf` made, by the questions they were made from */
+const ChainOptionsOf = new WeakMap<readonly QuestionT[], readonly ChainOptionT[]>()
+
+/**
+ * Every question of `questions` as a chain picker may offer it, made once for all of a quiz's
+ * pickers rather than once for each of them: each picker passes over itself, and over the
+ * archived but the one it chains to.
+ */
+function chainOptionsOf(questions: readonly QuestionT[]): readonly ChainOptionT[] {
+  const known = ChainOptionsOf.get(questions)
+  if (known !== undefined) { return known }
+  const made = questions.map((other) => {
+    const archived = Question.isArchived(other)
+    const option = (
+      <option key={other._id} value={other._id}>
+        {Question.titleShown(other, CellNotices.chainTargetUnnamed)}{archived ? ` ${CellNotices.chainTargetArchived}` : ''}
+      </option>
+    )
+    return { _id: other._id, archived, option }
+  })
+  ChainOptionsOf.set(questions, made)
+  return made
 }
 
 export type ButnotPreviewProps = {

@@ -7,6 +7,7 @@ import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
 import { Widgeting } from '../../src/models/widgeting'
 import type { StoredWidgetedT, WidgetedHistoryT } from '../../src/models/widgeted'
+import { present } from '../support/present'
 import { runOf } from '../support/runs'
 
 /** A typed cell holding `value` */
@@ -320,6 +321,17 @@ describe("bagOf", () => {
     expect(Templating.bagOf(run, 'nowhere').question).to.deep.eq({})
   })
 
+  it("hands back the very same bag for the same run and question, and another for another of either", () => {
+    const second_id = present(TwoQuiz.questions[1])._id
+    expect(Templating.bagOf(run, first._id)).to.eq(bag)
+    expect(Templating.bagOf(run, null)).to.eq(Templating.bagOf(run, null))
+    expect(Templating.bagOf(run, second_id)).not.to.eq(bag)
+    expect(Templating.bagOf(run, second_id).questions).to.eq(bag.questions)
+    const rerun = runOf(TwoQuiz, Library)
+    expect(Templating.bagOf(rerun, first._id)).not.to.eq(bag)
+    expect(Templating.bagOf(rerun, first._id)).to.deep.eq(bag)
+  })
+
   it("holds what each widgeting for the whole quiz came to, as quiz.<label>, which a recap's head fills in", () => {
     const entered = { ...TwoQuiz, stored: { playtesters: typed('Ada and Grace') }, widgetings: [Widgeting.fill({ widget_label: 'authors', label: 'playtesters', tier: 'quiz' }), ...TwoQuiz.widgetings] }
     const quizBag = Templating.bagOf(runOf(entered, Library), null)
@@ -471,7 +483,12 @@ describe("filledBagOf", () => {
   })
 
   it("is the bag for no question when the quiz templates nothing", () => {
-    expect(Templating.filledBagOf({ templateable: [] }, run)).to.deep.eq(Templating.bagOf(run, null))
+    expect(Templating.filledBagOf({ templateable: [] }, run)).to.eq(Templating.bagOf(run, null))
+  })
+
+  it("hands back the very same bag for the same run, apart from the bag of the questions as typed", () => {
+    expect(Templating.filledBagOf(TwoQuiz, run)).to.eq(Templating.filledBagOf(TwoQuiz, run))
+    expect(Templating.filledBagOf(TwoQuiz, run)).not.to.eq(Templating.bagOf(run, null))
   })
 })
 
