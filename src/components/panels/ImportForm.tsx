@@ -42,7 +42,7 @@ export type ImportFormProps = {
 export function ImportForm({ quiz, library, locked, onImport, onElsewhere, arrival }: Readonly<ImportFormProps>) {
   const [pasted, setPasted] = useState('')
   const [shown, setShown] = useState<Importing.ImportOutcome | null>(arrival.outcome)
-  const { summary = arrival.turnedAway ? AppNotices.importSentToLocked : null, ok = false, log = [], widgetingLog = [], columnLog = [], fieldLog = [] } = shown ?? {}
+  const { summary = arrival.turnedAway ? AppNotices.importSentToLocked : null, ok = false, log = [], widgetingLog = [], columnLog = [], fieldLog = [], quizEntryLog = [] } = shown ?? {}
 
   const runImport = () => {
     const outcome = Importing.importInto(quiz, pasted, library)
@@ -109,6 +109,11 @@ export function ImportForm({ quiz, library, locked, onImport, onElsewhere, arriv
               {entry.fieldname} — {entry.outcome}{entry.reason === null ? '' : `: ${entry.reason}`}
             </div>
           ))}
+          {quizEntryLog.map((entry) => (
+            <div key={`quiz-entry-${entry.label}`}>
+              quiz entry {entry.label} — {entry.outcome}{entry.reason === null ? '' : `: ${entry.reason}`}
+            </div>
+          ))}
         </div>
       )}
     </>
@@ -162,5 +167,5 @@ export function useArrival({ hunt_id, quiz, library, locked, onImport }: Readonl
 
 /** What an import came to, in the console too, for anyone who wants to dig */
 function reported(outcome: Importing.ImportOutcome): void {
-  console.warn('Triquet import:', outcome.summary, outcome.log, outcome.widgetingLog, outcome.columnLog, outcome.fieldLog)
+  console.warn('Triquet import:', outcome.summary, outcome.log, outcome.widgetingLog, outcome.columnLog, outcome.fieldLog, outcome.quizEntryLog)
 }
