@@ -3,7 +3,7 @@
 The orchestrator's document. Newer than `little_fixes_b-plan.md` wherever the two disagree. Each
 worker writes its own `thread-<N>-<label>.md` beside this file.
 
-**Status: threads 1 and 3 landed (#212, #214); 2 underway, 4 landing (full e2e).**
+**Status: threads 1 and 3 landed (#212, #214); 2 underway, 4 landing (full e2e). Both resumed 11:10 UTC after an API rate limit cut them off.**
 
 Sprint doc (live mirror): https://claude.ai/code/artifact/8cc61164-58c9-4990-b805-f640ae8d3d7b
 
@@ -32,3 +32,4 @@ Sprint doc (live mirror): https://claude.ai/code/artifact/8cc61164-58c9-4990-b80
 * *Orchestrator:* **#209 retired `quiz.templated`**; the field is `quiz.templateable`, set by `set_templateable`. Thread 2's gloss is corrected.
 * *Orchestrator:* **Thread 4's header lives outside the database connection**; pages feed it through `src/state/shown.tsx` (was `shown-hunt.tsx`): `useShowHunt`, `useShowQuiz`, `useShowQuizActs`, `useShowAccount`. The quiz switcher is a crumb opening a `Menu` of links; *New quiz* / *Lock quiz* carry icons (e2e helpers `newQuiz` by exact name, `switcherQuizzes`). `AccountMenu` is a `Popover` with your name (editable), @label, *Your hunts*, *Be someone else*, *About*.
 * *Orchestrator:* **`percent` widens the widget row's `config` union** in `convex/schema.ts` (no backfill, no Serial Deploy; `_generated` unchanged). A seed widget *Percent* (`percentage`) reaches production only when the Coach runs `seeding:seedWidgets` there (`human/20261009-lfb_topbar.md`).
+* *Orchestrator:* **2026-10-09, about 10:00 UTC: an API session limit stopped threads 2 and 4 mid-step**; resumed at 11:10 with their context. Thread 4 had caught up and repaired two specs, clean, just before its full e2e run; thread 2 had asks 3 and 4 committed and its InfoTip sweep uncommitted in its worktree.
