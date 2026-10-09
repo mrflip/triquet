@@ -7,6 +7,7 @@ import { Widget } from '../../src/models/widget'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { Widgeted, type JsonT, type WidgetedHistoryT } from '../../src/models/widgeted'
+import * as Runner from '../../src/lib/formulary/runner'
 import { runOf } from '../support/runs'
 import { present } from '../support/present'
 
@@ -489,5 +490,25 @@ describe("a column's template, held to one budget of time for the whole column",
       return drawnOf(spec, run, [], question._id)
     })
     expect(cells.every((cell, idx) => cell.text === `T${String(idx)}`)).to.be.true
+  })
+})
+
+describe("a column's formula, held to a loose budget of time for the whole column", () => {
+  const many: QuestionT[] = Array.from({ length: 300 }, (_unused, idx) => ({ ...Question.blank(), label: `q_${String(idx)}`, qnum: String(idx + 1), title: `T${String(idx)}` }))
+  // Each question's formula reads the clock some two thousand times: twenty ticking milliseconds, well inside its own timebox.
+  const spec = present(specFor({ ...columnOf('title'), formula: '$count([1..1000].($ + 1)) > 0 ? $' }, []))
+
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it(`stops every question after the one that ran out the column's ${String(Runner.RunMs)} ms, each reading the same failure`, () => {
+    let tick = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => { tick += 0.01; return tick })
+    const run = runOf({ ...Quiz.blank('Many'), questions: many }, [])
+    const cells = many.map((question) => shownOf(spec, run, [], question._id))
+    const firstStopped = cells.findIndex((cell) => cell.status === 'errored')
+    expect(cells[0]).to.deep.eq(Widgeted.ok('T0'))
+    expect(firstStopped).to.be.above(0)
+    expect(cells.slice(firstStopped).every((cell) => cell === cells[firstStopped])).to.be.true
+    expect(cells[firstStopped]).to.deep.eq(Widgeted.errored({ message: 'The formula took too long to finish', at: null, response: null }))
   })
 })

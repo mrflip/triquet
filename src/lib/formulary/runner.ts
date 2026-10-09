@@ -107,13 +107,15 @@ export type StatusCounts = Record<WidgetedStatus, number>
 
 /**
  * How long one run of a quiz may spend working out its formulas and templates, all its columns
- * told, in milliseconds: a second, the most a Convex mutation has (a sort runs the quiz in one),
- * and the most one change may hang a page for. A column begun after it is not worked out at all;
- * one under way when it runs out is stopped where it stands. An ordinary quiz's run takes a few
- * milliseconds; a formula reading every question for each (`qns[label = $$.qn.chains_to]`) about
- * a quarter second a column over 300 questions.
+ * told, in milliseconds: five seconds, a loose bound on how long one change may hang a page. Only
+ * the browser runs a quiz (a sort is worked out there, and the server commits its order), so no
+ * mutation's time limit sets it. A column begun after it is not worked out at all; one under way
+ * when it runs out is stopped where it stands. An ordinary quiz's run takes a few milliseconds; a
+ * formula reading every question for each (`qns[label = $$.qn.chains_to]`) about a quarter second
+ * a column over 300 questions. A column's own formula, worked out apart from the run, has as long
+ * (`Columns.shownOf`).
  */
-export const RunMs = 1000
+export const RunMs = 5000
 
 /** What every cell of a column reads when the run's time ran out before the column was begun */
 const RunOverMessage = 'The quiz took too long to work out, so this column was not: a slow formula or template in a column before it, perhaps.'

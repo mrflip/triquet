@@ -1,4 +1,5 @@
 import * as Runner from './formulary/runner'
+import { clockNow } from './clock'
 import * as Templating from './templating'
 import { JsonataFormulary } from './formulary/jsonata'
 import { ColumnAlignVals, plainOf, refOf, sortkeyOf, type BagWord, type ColumnAlign, type ColumnReadout, type ColumnT, type QuestionField, type QuestionKey, type QuestionView } from '../models/column'
@@ -425,7 +426,8 @@ function isTyped(source: Resolved, run: Runner.QuizRun): boolean {
  * A widgeted is worked on only when `ok` (or carrying parts worked out from nothing, `isWorkable`):
  * `missing` and `errored` pass through, so the dash and the badge still show. What the formula comes to reads as a `jsonata` widgeted does
  * (`JsonataFormulary.worked`); a formula that will not stop is stopped once, and every later
- * question reads the same failure rather than waiting on it again.
+ * question reads the same failure rather than waiting on it again. The column has `Runner.RunMs`
+ * for all its questions, a loose bound, as a run has for all its columns.
  */
 function workedOf(source: Resolved, formula: string, run: Runner.QuizRun, templateable: readonly string[]): ReadonlyMap<string, WidgetedT> {
   const known = WorkedOf.get(run) ?? new Map<string, ReadonlyMap<string, WidgetedT>>()
@@ -435,13 +437,14 @@ function workedOf(source: Resolved, formula: string, run: Runner.QuizRun, templa
   if (held !== undefined) { return held }
   const qns = Templating.finishedQnsOf(run, templateable)
   const worked = new Map<string, WidgetedT>()
+  const deadline = clockNow() + Runner.RunMs
   let stopped: WidgetedT | null = null
   for (const [idx, question_id] of run.frame.question_ids.entries()) {
     const thing = thingOf(source, qns, run, idx)
     if (source.kind === 'widgeting' && ! isWorkable(thing)) {
       worked.set(question_id, passedThrough(thing))
     } else if (stopped === null) {
-      const outcome = JsonataFormulary.worked(formula, thing)
+      const outcome = JsonataFormulary.worked(formula, thing, deadline)
       if (outcome.stops) { stopped = outcome.widgeted }
       worked.set(question_id, outcome.widgeted)
     } else {
