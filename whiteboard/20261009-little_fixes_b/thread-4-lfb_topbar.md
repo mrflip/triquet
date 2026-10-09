@@ -1,9 +1,10 @@
 # Thread 4: The top bar, the account, and small removals (2026-10-09)
 
 Branch `20261009-lfb_topbar`, PR filed at landing; see the report. Suites: justify green
-(typecheck, lint, 5644 unit tests); e2e not yet proved -- the specs this thread touched
-(`quizzes`, `routing`, `brand`, `failing-pages`, `categories`, `entries`) pass on the lane, with
-load-driven timeouts in `routing` that pass on rerun (container load ~50-60).
+(typecheck, lint, unit tests); the full e2e suite is run at landing, its result in the report and
+the PR. The review's three `fix:` commits ride along: a percent's params are checked with its
+preset beneath them (`entryParamsIssues`), the header names no quiz to a visitor refused its
+mode, and the account-menu spec says Escape to the dialog.
 
 One commit per ask, in the Coach's order:
 
