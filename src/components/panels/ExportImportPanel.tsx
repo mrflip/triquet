@@ -52,7 +52,7 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     {
       label:   'Spreadsheet',
       blurb:   'Tab-separated: a header row, then one line per question, with every column the grid has, always in rank order whatever the grid is sorted into. Click the box to select the lot, then paste straight into a spreadsheet.',
-      content: <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz, run)} />,
+      content: <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz, run)} resizable />,
     },
     offers.exportHunt && {
       label:   'Raw Export',
