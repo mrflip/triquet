@@ -1,10 +1,9 @@
 # Thread 5a: Folding editors, columns leading (2026-10-08)
 
 Branch `20261008-cw_folding`, PR filed at landing; see the report. Stacked on the spine's top at landing (thread 6's #198 among it).
-Suites: `pnpm justify` green; on lane 2 the touched specs green (widgets, entries, quiz-entries,
-prompts, grid, sheets, importing, estimates, quizzes); a full run on the lane, 274 passed and four
-failed under load that pass alone (`panels.spec.ts:140`, `:207`; `routing.spec.ts:605`, `:680`),
-and `routing.spec.ts:621` flaked on the rerun, green alone (thread 4 met it too). No schema
+Suites: `pnpm justify` green; at landing `pnpm e2e --touched` reached the whole suite (276 passed;
+thread 6's three regex specs ported to the folded line and green; `panels.spec.ts:43`, `:197` and
+`routing.spec.ts:718` failed under load and passed alone). No schema
 change, no new dependency.
 
 * **Built**:
