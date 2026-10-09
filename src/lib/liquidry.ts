@@ -22,7 +22,8 @@ import { clockNow } from './clock'
  * rest.
  *
  * Every Liquid renderer of the app is made here: field, column and recap templates, `liquidize`
- * templates, and prompt templates alike, so each is held to the same limits.
+ * templates, and prompt templates alike, so each is held to the same limits. Each renderer reads a
+ * template once, however often it fills it in (`ReadMax`).
  */
 
 /**
@@ -116,6 +117,15 @@ export const RefusedFilters: Readonly<Record<string, string>> = Object.freeze({
  * so each is charged for everything the value holds (`sizeWithin`), not just one item.
  */
 const ListingFilters = ['push', 'unshift', 'concat'] as const
+
+/**
+ * How many templates one renderer remembers as read, and how many characters they may come to all
+ * told, before it forgets them all and starts over: a template is read once however many renders
+ * fill it, so a grid filling a templated box for every question reads each text once until it is
+ * changed. Room for every templated box of the largest quiz, a few times over.
+ */
+const ReadMax = 4096
+const ReadCharsMax = 4_000_000
 
 /** Said when a render is stopped for taking longer than it may */
 const OverTime = 'This template takes too long to fill in: a loop inside a loop, perhaps.'
@@ -343,43 +353,72 @@ export function rendererFor(spec: RendererSpecT): RendererT {
   }
   for (const name of ['include', 'render', 'layout']) { engine.registerTag(name, RefusedTag) }
   engine.registerTag('capture', CappedCapture)
+  const readingOf = readerFor(engine)
 
   return {
     render(template, scope, deadline = Infinity) {
       // A deadline already past stops the render before its template is read, which takes time too.
       if (clockNow() >= deadline) { return { text: template, issue: OverTime, failkind: 'limit' } }
       const budget: Budget = { left: FillBudget, charsLeft: FilledMax, shapingLeft: ShapedMax, deadline: Math.min(deadline, clockNow() + RenderMs) }
-      let parsed: ReturnType<typeof engine.parse>
-      try {
-        parsed = engine.parse(template)
-      } catch (err) {
-        return { text: template, issue: issueMessageOf(err), failkind: 'syntax' }
-      }
+      const reading = readingOf(template)
+      if ('issue' in reading) { return { text: template, issue: reading.issue, failkind: 'syntax' } }
       try {
         const context = new ClockedContext(scope, engine.options, { sync: true, globals: { [BudgetKey]: budget } }, { liquid: engine })
         heldTo(context, budget)
         const emitter = new CountingEmitter(budget, spec.fillingOf)
-        toValueSync(engine.renderer.renderTemplates(parsed, context, emitter))
+        toValueSync(engine.renderer.renderTemplates(reading.parsed, context, emitter))
         return { text: emitter.buffer, issue: null, failkind: null }
       } catch (err) {
         return { text: template, issue: issueMessageOf(err), failkind: isLimit(err) ? 'limit' : 'runtime' }
       }
     },
     issueOf(template) {
-      try {
-        engine.parse(template)
-        return null
-      } catch (err) {
-        return issueMessageOf(err)
-      }
+      const reading = readingOf(template)
+      return 'issue' in reading ? reading.issue : null
     },
     globalsOf(template) {
+      const reading = readingOf(template)
+      if ('issue' in reading) { return [] }
       try {
-        return engine.globalVariablesSync(template)
+        return engine.globalVariablesSync(reading.parsed)
       } catch {
         return []
       }
     },
+  }
+}
+
+/** A template as `engine` read it: ready to render, or what is wrong with it */
+type ReadingT = { parsed: ReturnType<LiquidT['parse']> } | { issue: string }
+
+/**
+ * What `engine` makes of a template, read once and remembered by its text (`ReadMax`,
+ * `ReadCharsMax`), a template that will not read as well as one that will: the same text always
+ * reads the same way, and a parsed template holds nothing of any one render.
+ */
+function readerFor(engine: LiquidT): (template: string) => ReadingT {
+  const readings = new Map<string, ReadingT>()
+  const held = { chars: 0 }
+  return (template) => {
+    const known = readings.get(template)
+    if (known !== undefined) { return known }
+    if (readings.size >= ReadMax || held.chars + template.length > ReadCharsMax) {
+      readings.clear()
+      held.chars = 0
+    }
+    const reading = readingIn(engine, template)
+    readings.set(template, reading)
+    held.chars += template.length
+    return reading
+  }
+}
+
+/** `template` read by `engine`, or what is wrong with it */
+function readingIn(engine: LiquidT, template: string): ReadingT {
+  try {
+    return { parsed: engine.parse(template) }
+  } catch (err) {
+    return { issue: issueMessageOf(err) }
   }
 }
 
