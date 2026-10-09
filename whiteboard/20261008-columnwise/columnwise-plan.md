@@ -486,6 +486,14 @@ and in the sprint-end `human/` entry.
   - 3a's `shadowedBy` item is closed.
   - A part column is named by its menu preset, so `column.ts` knows nothing of parts.
   - The importer's old-grammar parts list is the live `Estimates.PartVals`.
+* **11, by its worker:**
+  - Params are not shown early, and `FoldedParams`' `pendingShown` is kept: the regex refusal's
+    sentence depends on it.
+  - `useReorderable`'s `sentTo` is kept: column and widgeting moves are not shown early.
+  - These are not shown early: `retitle_quiz`, `relabel_quiz`, `set_viz`, `set_templateable`,
+    notes, imports, deletions, moves of columns or widgetings, the library.
+  - Entered values are not held to params in the update.
+  - The git history may record an in-flight edit a moment early.
 
 ## For the Coach
 
