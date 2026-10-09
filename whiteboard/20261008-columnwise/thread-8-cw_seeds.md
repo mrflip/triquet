@@ -17,7 +17,8 @@ Branch `20261008-cw_seeds`, PR filed at landing; see the report. Suites: `pnpm j
     *Clueing Full Sum*; `hint_numeral`, *Hint Numeral Sum*; `butnot_full`, *BUT NOT Full Sum*),
     else as `namesFor` names it. The new-column dialog (`ColumnsEditor.tsx`) uses it.
   - Tests: `tests/models/seeds.test.ts` runs each preset through `Columns.shownOf` on the classic
-    layout and holds it equal to the seeded sum it stands in for, unasked and failed included;
+    layout and holds it equal to the seeded sum it stands in for, and missing when unasked (a
+    failed ask is the one difference: see *Review*);
     `tests/lib/column-menu.test.ts` the offer and the naming; `e2e/ishes.spec.ts` a column made
     from the spotter and the digits preset, headed *Clueing Numeral Sum*, showing 36 once asked.
   - The decision record (`notes/decisions/20261008-columnwise.md`, beside *The parts are
@@ -46,6 +47,11 @@ Branch `20261008-cw_seeds`, PR filed at landing; see the report. Suites: `pnpm j
     thread, and `isDrawnByEditor` holds it read-only on purpose).
   - `--touched` reaches the whole suite: `src/models/seeds.ts` is under `src/models/`, which no
     corner names.
+
+* **Review** (`clean`, one minor finding, by design): a spotter whose ask failed with no earlier
+  `ok` reply shows the errored badge through a preset, where the seeded sum shows the dash (the sum
+  reads `status = 'ok'` itself and comes to nothing; a column passes an `errored` widgeted by, as
+  `SpotterSums`' doc block says). The decision record names the difference.
 
 * **For later threads**:
   - **5a**: the automatic header (`retitledPatch`, "follows what it shows, its formula") should go

@@ -213,7 +213,9 @@ One menu for every column: every question field and view, every `question` widge
 * **The seeded sums that reshape one widgeted are presets too** (thread 8): beside a widgeting of
   `numnum_clueing`, `numnum_hint` or `butnot_ishes`, by the widget's label, the column offers the
   two sums (`SeedPresets` in `src/models/seeds.ts`), naming the column as the seeded sum
-  (`hint_full`, *Hint Full Sum*). A seed knows its own reply's shape, so this is the one place a
+  (`hint_full`, *Hint Full Sum*), and stands in for it but in one thing: a spotter whose ask failed
+  with no earlier `ok` reply shows the badge through a preset (a column passes an `errored`
+  widgeted by), where the seeded sum shows the dash. A seed knows its own reply's shape, so this is the one place a
   bot's result is offered presets. The sums reading two things or another question (`butnot_*`,
   `clueing_plus_*`) stay widgets, and **the four reshaping sums stay seeded too**: a sum's cell
   re-asks its spotter on a double-click, which a formula'd column (read-only) does not, and a quiz
