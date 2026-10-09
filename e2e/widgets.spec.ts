@@ -243,6 +243,9 @@ test('a column can be added for anything the quiz can show, made at once, then t
   await expect(panel.getByRole('textbox', { name: 'Column label' })).toHaveValue('notes_2')
   await panel.getByRole('textbox', { name: 'Column label' }).fill('more_notes')
   await panel.getByRole('button', { name: 'Relabel column Notes' }).click()
+  // The relabel lands a round trip later, its panel made again under the new label, which its row
+  // then shows: what is typed into the panel before then is typed into the column as it was.
+  await expect(columnPanel(page, 'Notes')).toContainText('more_notes')
   await expect(columnPanel(page, 'Notes').getByRole('textbox', { name: 'Column label' })).toHaveValue('more_notes')
   await columnPanel(page, 'Notes').getByRole('textbox', { name: 'Width (px)' }).first().fill('200')
   await columnPanel(page, 'Notes').getByRole('textbox', { name: 'Column title' }).first().fill('More notes')
