@@ -21,9 +21,9 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 9 | compute budgets (added) | landed #206 |
 | 3c | columns tighten (last of the chain) | landed #209 |
 | 10 | one bag shape (added) | building (lane 1) |
-| 11 | optimistic updates (added) | landing (review fixed); full e2e |
+| 11 | optimistic updates (added) | landed #211 |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). thread 9 (#206: full run, 279 passed, 7 flakes cleared alone). thread 3c (#209: full run on e15f0db2, 281 passed, 7 flakes cleared alone; the run the Coach asked for before 10 and 11). Next full runs: 10's and 11's landings, and the sprint's end.
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). thread 9 (#206: full run, 279 passed, 7 flakes cleared alone). thread 3c (#209: full run on e15f0db2, 281 passed, 7 flakes cleared alone; the run the Coach asked for before 10 and 11). thread 11 (#211: full run at load 38-58, 277 passed, 11 failed and each passed alone; most were server latency under load). Next full runs: 10's landing, and the sprint's end.
 
 ## What the threads have taught
 
@@ -275,6 +275,19 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   locks in TODO.
 * **For the Coach**: decisions 1-3 in `thread-5b-cw_runorder.md` (the menus at the panel's head;
   the run order as plain lines; the folded row's description snippet gone).
+
+### From thread 11 (optimistic updates, #211)
+
+* `src/state/optimistic-quiz.ts` (`showPerformed`): Convex's `withOptimisticUpdate` on
+  `hunts.perform`, for question edits, chains, entries, column edits, widgeting relabels, sort and
+  move. About 210 lines, with no new browser state. A unit test compares each update with the real
+  mutation's write.
+* Removed: six race waits in e2e (thread 9's three among them), and three TODO race items. Kept:
+  `FoldedParams`' `pendingShown` and `useReorderable`'s `sentTo`.
+* The relabel race flake did not appear in either full run.
+* *Review:* `fixed` (`8fd0b361`, an entry's creation time); minor findings in `whiteboard/TODO.md`.
+* **#210 (the Coach's `convex_reads`, off the spine) re-keys `questions.open` by widgeting id:**
+  whichever of #210 and #211 lands second re-keys this module.
 
 ### From thread 3c (columns tighten, #209)
 
