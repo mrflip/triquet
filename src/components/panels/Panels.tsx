@@ -31,7 +31,7 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   offers:    WorkbenchOffersT
   /** The quiz, run: what its widgetings came to */
   run:       QuizRun
-  /** Carry out a change to the library, from the Library tab's import or a widgeting's door to the widget editor (`useLibraryActions`) */
+  /** Carry out a change to the library, from the Widgets tab's import or a widgeting's door to the widget editor (`useLibraryActions`) */
   changeLibrary: (action: LibraryActionDNA) => void
   /** Carry out a change to the quiz, from the Widgets panel's widgetings */
   dispatch:  (action: HuntActionDNA) => void

@@ -26,7 +26,7 @@ export type LibraryFormProps = {
  * The library of widgets on its own, apart from any hunt, to copy out; and a box to paste one
  * back, merged by label, for whoever may change it, or a line saying who may when the reader
  * cannot. Widgets the library lacks are added, those it holds are revised, and one whose formulary
- * differs is skipped and named in the log. Nothing is removed. Shown in the Library tab of the
+ * differs is skipped and named in the log. Nothing is removed. Shown in the Widgets tab of the
  * Export / Import panel, and in the library's own dialog.
  */
 export function LibraryForm({ library, changeable, dispatch }: Readonly<LibraryFormProps>) {
