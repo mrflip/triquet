@@ -76,7 +76,9 @@ function storedOf(seen: SeenQuestionT | undefined): unknown {
 /** When the row in a question's cell was made, as watched results hold it; undefined for a cell holding none */
 function madeAt(held: readonly HeldT[], question_id: string, widgeting_label: string): number | undefined {
   const seen = held.find((each) => each.fnname === getFunctionName(api.questions.open) && (each.value as SeenQuestionT | null)?._id === (question_id as Id<'questions'>))?.value as SeenQuestionT | undefined
-  return seen && 'stored' in seen ? seen.stored[widgeting_label]?.newest._creationTime : undefined
+  const frame = held.find((each) => each.fnname === getFunctionName(api.quizzes.open))?.value as QuizFrameT | null | undefined
+  const widgeting_id = frame?.widgeting_ids[widgeting_label]
+  return widgeting_id !== undefined && seen && 'stored' in seen ? seen.stored[widgeting_id]?.newest._creationTime : undefined
 }
 
 /**
