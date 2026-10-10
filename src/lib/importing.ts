@@ -161,7 +161,7 @@ export type ImportOutcome = {
  * holds nothing, so a pasted reply never buries one asked here. A failure carries nothing, as
  * nothing does: the cell is filled by asking. A reply that will not read carries nothing and is
  * named in the question's line, and so is what a question holds under a widgeting the quiz will
- * not have. What the quiz's own entries held (under `widgeteds`) is typed back into those the
+ * not have. What the quiz's own entries held (beside its fields, or under `widgeteds` in an older export) is typed back into those the
  * quiz will have, read as a question's entry cell is, and held to the widgeting's params too.
  *
  * Columns hold nothing but how the grid is laid out, so a paste that holds any makes the quiz's
@@ -241,7 +241,8 @@ function quizEntrySummary(log: readonly QuizEntryLogEntry[]): string {
 }
 
 /**
- * What the paste typed into the quiz's own entries (`widgeteds`, as an export writes them), against
+ * What the paste typed into the quiz's own entries (each beside the quiz's fields under its
+ * widgeting's label, as an export writes them, or under `widgeteds` as an older one did), against
  * the widgetings the quiz will run once for the whole quiz once the import's widgeting actions are
  * sent, with the params a revision among them gives: an action for each that changes, and a line
  * for each. A value is unwrapped as a question's entry cell is (`pastedEntryOf`), and held to its
@@ -250,14 +251,14 @@ function quizEntrySummary(log: readonly QuizEntryLogEntry[]): string {
  * which its own line names.
  */
 function quizEntriesCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, merged: { actions: readonly HuntActionDNA[], log: readonly WidgetingLogEntry[] }, library: readonly WidgetT[]): { actions: HuntActionDNA[], log: QuizEntryLogEntry[] } {
-  if (pasted.widgeteds === undefined) { return { actions: [], log: [] } }
+  const pastedEntries = { ...pasted.widgeteds, ...pasted.beside }
   const skippedLabels = new Set(merged.log.flatMap((entry) => (entry.outcome === 'skipped' ? [entry.label] : [])))
   const added = merged.actions.flatMap((action) => (action.kind === 'add_widgeting' ? [action.widgeting] : []))
   const revised = new Map(merged.actions.flatMap((action) => (action.kind === 'edit_widgeting' ? [[action.label, action.patch.params] as const] : [])))
   const held = quiz.widgetings.map((widgeting) => ({ ...widgeting, params: revised.get(widgeting.label) ?? widgeting.params }))
   const own = new Map([...held, ...added].filter((widgeting) => widgeting.tier === 'quiz').map((widgeting) => [widgeting.label, widgeting]))
   const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
-  const read = Object.entries(pasted.widgeteds).flatMap(([label, raw]): { action: HuntActionDNA | null, entry: QuizEntryLogEntry }[] => {
+  const read = Object.entries(pastedEntries).flatMap(([label, raw]): { action: HuntActionDNA | null, entry: QuizEntryLogEntry }[] => {
     const widgeting = own.get(label)
     const widget = widgeting && widgetFor.get(widgeting.widget_label)
     if (! widgeting || widget?.formulary !== 'entry' || skippedLabels.has(label)) { return [] }
