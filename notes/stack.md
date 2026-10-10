@@ -282,7 +282,7 @@ Settled; reach for these before writing the equivalent.
   runs `tests/convex/**` under the edge runtime, everything else under node.
 * **Playwright** for end-to-end, especially the handful of flows where a break is
   invisible to unit tests (the grid, autosave and reload survival, routing, the history store).
-  Its web-first assertions are the e2e style; see `notes/testing.md`.
+  Its web-first assertions are the e2e style; see `notes/e2e.md`.
 * **proper-lockfile** for the e2e lock, which lets one full or touched `pnpm e2e` run at a time in
   a container (`scripts/spine.ts`, `underE2eLock`; `notes/git_hygiene-laptop.md`, *One full run at a
   time*). It takes the lock with the process's lifetime: it keeps a lock fresh while its holder
@@ -290,7 +290,7 @@ Settled; reach for these before writing the equivalent.
   remember to remove. Widely used, small (three dependencies), and settled at 4.1.2 since 2022.
   Named by the e2e_triage sprint's plan and added Oct 2026 under the rule above. The spine's own
   hold (`withSpineHeld`) is older, synchronous, and stays a directory of its own.
-* **`eslint-plugin-playwright`** on `e2e/**`: the mechanical form of testing.md's Playwright
+* **`eslint-plugin-playwright`** on `e2e/**`: the mechanical form of notes/e2e.md's Playwright
   section (`no-wait-for-selector`, `prefer-web-first-assertions`, `prefer-to-have-count` and
   the rest of its recommended set). Added Sept 2026 after a review found one-shot reads and
   hand waits that nothing was watching for.

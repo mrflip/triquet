@@ -37,36 +37,24 @@ commits for unrelated changes; a large `convex/_generated/` regeneration in a co
 reclaimed when the session idles out, and an unpushed commit goes with it. Push only this
 session's branches: never `main`, never another session's branch.
 
-**Which branches are this session's** is read from the commits, not remembered: every commit a
-cloud session makes ends with a `Claude-Session:` trailer naming it, and
-`$CLAUDE_CODE_REMOTE_SESSION_ID` holds the same id (`cse_<id>` there, `session_<id>` in the
-trailer). A branch is this session's
-when every commit on it past `origin/main` carries this session's trailer:
-
-```
-git log origin/main..origin/<branch> --format='%(trailers:key=Claude-Session,valueonly)'
-```
-
-Only such a branch may be rebased or force-pushed. One holding a commit from anyone else (the
-Coach, another session) takes only plain new commits on top; ask before rewriting it. A blank or
-foreign trailer counts as someone else's.
+**Rewrite only your own branches.** A branch is this session's when every commit on it past
+`origin/main` ends with this session's `Claude-Session:` trailer (`$CLAUDE_CODE_REMOTE_SESSION_ID`
+holds the id; `git log origin/main..origin/<branch> --format='%(trailers:key=Claude-Session,valueonly)'`
+lists them). Only such a branch may be rebased or force-pushed. One holding anyone else's commit,
+or a blank trailer, takes plain new commits on top; ask before rewriting it.
 
 ## 3. Prove the thread, cheaply
 
-**Why the bar is lower here.** The Coach uses cloud sessions from a small machine. A full local
-e2e run takes about twenty minutes, often five times as long as the change it checks, and the
-Coach waits through it between prompts. CI runs the whole suite on every push in about five
-minutes, across six shards. A bug that CI catches, or that the Coach cleans up later in the
-session or in a later PR, costs little next to those waits. So prove locally only what a quick
-run can tell you, and let CI be the full gate. When the cost changes (a change that is hard to
-undo, a schema or migration, something the Coach said to be careful with), weigh it again.
+Prove locally what a quick run can tell you and leave the full suite to CI (`notes/cloud.md`,
+*Waiting is the expensive part*). Weigh it again when the cost changes: a change that is hard to
+undo, a schema or migration, something the Coach said to be careful with.
 
 * **Static checks and nearby tests**: typecheck, lint, and the unit tests near the change (`pnpm
   typecheck`, `pnpm lint`, `pnpm exec vitest run <paths>`). `pnpm justify` runs all three over every
   unit test, about four minutes here. Run it before the PR when the change is broad; otherwise
   leave the full unit suite to CI, which runs it too.
 * **e2e, the corner**: `pnpm e2e --touched` when the branch reaches app code, as long as the corner
-  it prints is small. When it says the whole suite (anything under `convex/` or `src/models/`,
+  it prints is small: about five spec files or fewer, a few minutes. When it says the whole suite (anything under `convex/` or `src/models/`,
   the dependencies, a new file the map does not know), run `pnpm e2e:smoke` instead (one test per spec
   file, about three minutes here) and let CI run the rest.
 * **No e2e** when e2e could not notice the change: `notes/git_hygiene.md`, *When e2e is not
