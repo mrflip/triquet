@@ -215,8 +215,9 @@ export const PastedValidators = Validator(({ obj, arr, rec, union, str, unk, lab
     widgetings:   collection.default([]),
     columns:      collection.optional(),
     widgeteds:    unk.optional()
-      .describe('What the quiz\'s widgetings run once for the whole quiz came to, by label, as its export writes them: Import types what its own entries held back into them, and works out the rest again.'),
+      .describe('What the quiz\'s widgetings run once for the whole quiz came to, by label, as an export before the bag took its shape wrote them. An export now writes each beside the quiz\'s fields, under its widgeting\'s label.'),
   })
+    .catchall(unk)
     .describe('One quiz as a paste holds it: its label and title, which pick it out of several; its smith\'s note, Q1 preamble, recap head, tail and template, what it nominates as templateable and its sort memory, each read by Import against its own rule; and its questions, widgetings and columns, in a list or keyed by label. Its lock is not read: it says how far someone else\'s draft had come, not what it holds. An export made while a label could be overridden carries the override as `forced_label`, the label it answered to then.')
 
   const ball = obj({ quizzes: rec(str, rec(str, quiz)) })
@@ -256,8 +257,10 @@ export type PastedQuizT = {
   widgetings: unknown[]
   /** Its columns in order, as pasted, read the same way; null when the paste holds none, so says nothing of how the grid is laid out */
   columns:    unknown[] | null
-  /** What its widgetings for the whole quiz came to, by label, as pasted; only when the paste holds them, keyed */
+  /** What its widgetings for the whole quiz came to, by label, under `widgeteds`, as an export before the bag took its shape wrote them; only when the paste holds them, keyed */
   widgeteds?: Readonly<Record<string, unknown>>
+  /** Whatever sits beside its fields, questions, widgetings and columns, as pasted: where an export writes what each widgeting for the whole quiz came to, under the widgeting's label. Import matches it against the widgetings the quiz will run; only when the paste holds any */
+  beside?: Readonly<Record<string, unknown>>
 }
 
 /** A quiz's own fields, beside its title, that a paste may carry */
@@ -305,29 +308,33 @@ function isOneQuizBall(raw: Record<string, unknown>, quizzes: readonly PastedQui
 
 /** The quizzes of a pasted object, each with the key it sat under, by the shape it is in; null when it holds a shape that will not read */
 function readQuizzes(raw: Record<string, unknown>): { shape: PastedShape, quizzes: [string | null, PastedQuizRawT][] } | null {
-  const parsed = (() => {
-    if (Object.hasOwn(raw, 'realms')) { return PastedValidators.realmsHunt.safeParse(raw) }
-    if (Array.isArray(raw.quizzes)) { return PastedValidators.workspace.safeParse(raw) }
-    if (Object.hasOwn(raw, 'quizzes')) { return PastedValidators.ball.safeParse(raw) }
-    if (Object.hasOwn(raw, 'questions')) { return PastedValidators.quiz.safeParse(raw) }
-    return null
-  })()
-  if (parsed === null) { return { shape: 'none', quizzes: [] } }
-  if (! parsed.success) { return null }
-  const { data } = parsed
-  if ('realms' in data) { return { shape: 'hunt', quizzes: data.realms.flatMap((realm) => realm.quizzes.map((quiz) => [null, quiz] as [null, PastedQuizRawT])) } }
-  if (! ('quizzes' in data)) { return { shape: 'quiz', quizzes: [[null, data]] } }
-  if (Array.isArray(data.quizzes)) { return { shape: 'hunt', quizzes: data.quizzes.map((quiz) => [null, quiz] as [null, PastedQuizRawT]) } }
-  return { shape: 'hunt', quizzes: Object.values(data.quizzes).flatMap((realm) => Object.entries(realm)) }
+  if (Object.hasOwn(raw, 'realms')) {
+    const parsed = PastedValidators.realmsHunt.safeParse(raw)
+    return parsed.success ? { shape: 'hunt', quizzes: parsed.data.realms.flatMap((realm) => realm.quizzes.map((quiz) => [null, quiz] as [null, PastedQuizRawT])) } : null
+  }
+  if (Array.isArray(raw.quizzes)) {
+    const parsed = PastedValidators.workspace.safeParse(raw)
+    return parsed.success ? { shape: 'hunt', quizzes: parsed.data.quizzes.map((quiz) => [null, quiz] as [null, PastedQuizRawT]) } : null
+  }
+  if (Object.hasOwn(raw, 'quizzes')) {
+    const parsed = PastedValidators.ball.safeParse(raw)
+    return parsed.success ? { shape: 'hunt', quizzes: Object.values(parsed.data.quizzes).flatMap((realm) => Object.entries(realm)) } : null
+  }
+  if (Object.hasOwn(raw, 'questions')) {
+    const parsed = PastedValidators.quiz.safeParse(raw)
+    return parsed.success ? { shape: 'quiz', quizzes: [[null, parsed.data]] } : null
+  }
+  return { shape: 'none', quizzes: [] }
 }
 
 /**
  * A pasted quiz as its own fields, its questions, widgetings and columns in order, what its
- * widgetings for the whole quiz came to, and the label it answered to: an older export's override, the label it carries, or the key it sat under. An empty
+ * widgetings for the whole quiz came to (under `widgeteds`, and whatever sits `beside` its fields), and the label it answered to: an older export's override, the label it carries, or the key it sat under. An empty
  * list of columns, as exports made before columns were exported hold, says nothing of the grid.
  */
 function pastedQuizOf(quiz: PastedQuizRawT, key: string | null): PastedQuizT {
   const columns = quiz.columns === undefined ? [] : listedOf(quiz.columns)
+  const beside = EST.omit(quiz, Object.keys(PastedValidators.quiz.shape))
   return {
     label:      quiz.forced_label ?? quiz.label ?? key,
     title:      quiz.title ?? null,
@@ -336,6 +343,7 @@ function pastedQuizOf(quiz: PastedQuizRawT, key: string | null): PastedQuizT {
     widgetings: listedOf(quiz.widgetings),
     columns:    columns.length === 0 ? null : columns,
     ...(EST.isPlainObject(quiz.widgeteds) && { widgeteds: quiz.widgeteds }),
+    ...(Object.keys(beside).length > 0 && { beside }),
   }
 }
 

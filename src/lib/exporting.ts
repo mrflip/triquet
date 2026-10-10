@@ -299,7 +299,7 @@ export function workedBalls(library: readonly WidgetT[], quizzes: readonly Pick<
  * @example quizCopyOf(quiz, run, library).pub.widgets.dumdum.formulary  // => 'aibot'
  */
 export function quizCopyOf(quiz: QuizT, run: Runner.QuizRun, library: readonly WidgetT[]): Jsonball.JsonballT {
-  const body = _.omit(quizBodyOf(quiz, run), ['locked'])
+  const body = _.omit(quizBodyOf(quiz, run), ['label', 'locked'])
   return Jsonball.merged([body, ...workedBalls(library, [quiz]).map(({ ball }) => ball)])
 }
 

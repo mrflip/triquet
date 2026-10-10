@@ -553,7 +553,7 @@ describe('quizCopyOf', () => {
   it("is the quiz's body with the widgets it works beside it, and says nothing of whether it is locked", () => {
     const quiz = { ...chainedQuiz(), locked: true }
     const { pub, ...rest } = copyOf(quiz)
-    expect(rest).to.deep.eq(_.omit(bodyOf(quiz), ['locked']))
+    expect(rest).to.deep.eq(_.omit(bodyOf(quiz), ['label', 'locked']))
     const worked = _.uniq(quiz.widgetings.map((widgeting) => widgeting.widget_label))
     expect(Object.keys(pub.widgets)).to.have.members(worked)
   })
@@ -576,9 +576,9 @@ describe('quizCopyOf', () => {
     expect(Jsonball.widgetsIn(copy)?.map((widget) => (widget as { label: string }).label)).to.include.members(['dumdum', 'remark'])
   })
 
-  it("holds what the quiz's own entries hold, under widgeteds", () => {
+  it("holds what the quiz's own entries hold, beside its fields under their widgetings' labels", () => {
     const quiz = withQuizEntry(chainedQuiz(), 'Ada and Grace')
-    expect(copyOf(quiz).widgeteds).to.deep.eq({ playtesters: { status: 'ok', value: 'Ada and Grace' } })
+    expect(copyOf(quiz).playtesters).to.deep.eq({ status: 'ok', value: 'Ada and Grace' })
   })
 })
 
@@ -659,7 +659,7 @@ describe("a quiz's export, imported", () => {
 
   it("skips a quiz entry whose value will not do, naming why, and carries the rest", () => {
     const quiz = withQuizEntry(chainedQuiz(), 'Ada and Grace')
-    const pasted = { ...copyOf(quiz), widgeteds: { playtesters: { status: 'errored', value: null } } }
+    const pasted = { ...copyOf(quiz), playtesters: { status: 'errored', value: null } }
     const outcome = Importing.importInto(quiz, JSON.stringify(pasted), EntryLibrary)
     expect(outcome.ok).to.be.false
     expect(outcome.quizEntryLog).to.deep.eq([{ label: 'playtesters', outcome: 'skipped', reason: 'An entry is typed, so it cannot be "errored"' }])
@@ -668,7 +668,18 @@ describe("a quiz's export, imported", () => {
 
   it("carries nothing a formula for the whole quiz came to, which is worked out again", () => {
     const quiz = { ...chainedQuiz(), widgetings: [...chainedQuiz().widgetings, Widgeting.fill({ widget_label: 'answer_reversed', label: 'backward', tier: 'quiz' })] }
-    const pasted = { ...copyOf(quiz), widgeteds: { backward: { status: 'ok', value: 'drawkcab' } } }
+    const pasted = { ...copyOf(quiz), backward: { status: 'ok', value: 'drawkcab' } }
     expect(Importing.importInto(quiz, JSON.stringify(pasted), EntryLibrary).quizEntryLog).to.deep.eq([])
+  })
+
+  it("still reads what an older export held under widgeteds, and prefers what sits beside the fields", () => {
+    const quiz = withQuizEntry(chainedQuiz(), 'Ada and Grace')
+    const empty = { ...Quiz.blank('Elsewhere', 'elsewhere'), questions: [], widgetings: [], columns: [] }
+    const { playtesters, ...rest } = copyOf(quiz)
+    const older = { ...rest, widgeteds: { playtesters } }
+    expect(Importing.importInto(empty, JSON.stringify(older), EntryLibrary).quizEntryLog).to.deep.eq([{ label: 'playtesters', outcome: 'carried', reason: null }])
+    const both = { ...rest, playtesters: { status: 'ok', value: 'Barbara' }, widgeteds: { playtesters } }
+    const entered = Importing.importInto(empty, JSON.stringify(both), EntryLibrary).actions.find((action) => action.kind === 'enter_quiz_widgeted')
+    expect(entered).to.deep.eq({ kind: 'enter_quiz_widgeted', entered: { widgeting_label: 'playtesters', value: 'Barbara' } })
   })
 })
