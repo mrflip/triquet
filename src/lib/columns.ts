@@ -3,6 +3,7 @@ import { clockNow } from './clock'
 import * as Templating from './templating'
 import { JsonataFormulary } from './formulary/jsonata'
 import { ColumnAlignVals, refOf, sortkeyOf, type BagWord, type ColumnAlign, type ColumnReadout, type ColumnT, type QuestionField, type QuestionKey, type QuestionView } from '../models/column'
+import { Bagged } from '../models/quiz-bag'
 import { Widgeted, type JsonT, type WidgetedT } from '../models/widgeted'
 import type { WidgetingT } from '../models/widgeting'
 import type { WidgetT } from '../models/widget'
@@ -311,7 +312,7 @@ export function shownOf(spec: Pick<ColumnSpec, 'source' | 'formula'>, run: Runne
     const { label, tier } = source.widgeting
     return tier === 'quiz' ? Runner.quizWidgetedOf(run, label) : Runner.widgetedOf(run, label, question_id)
   }
-  return Widgeted.ok(thingOf(source, run.qnsAfter, run, run.frame.question_ids.indexOf(question_id)) as JsonT)
+  return Widgeted.ok(thingOf(source, run.questionsAfter, run, run.frame.question_ids.indexOf(question_id)) as JsonT)
 }
 
 /** What a column draws for one question, before the readout draws it */
@@ -407,9 +408,10 @@ function isTyped(source: Resolved, run: Runner.QuizRun): boolean {
 /**
  * What `formula` works out of what `source` picks for every question of the run, by the
  * question's id, made once per run. The thing is read from the finished bag: the questions as
- * the last widgeting left them, their templateable sources filled in (`Templating.finishedQnsOf`).
- * A widgeted is worked on only when `ok` (or carrying parts worked out from nothing, `isWorkable`):
- * `missing` and `errored` pass through, so the dash and the badge still show. What the formula comes to reads as a `jsonata` widgeted does
+ * the last widgeting left them, their templateable sources filled in
+ * (`Templating.finishedQuestionsOf`). A widgeted is worked on only when `ok` (or carrying parts
+ * worked out from nothing, `isWorkable`): `missing` and `errored` pass through as the run has
+ * them, failure and all, so the dash and the badge still show. What the formula comes to reads as a `jsonata` widgeted does
  * (`JsonataFormulary.worked`); a formula that will not stop is stopped once, and every later
  * question reads the same failure rather than waiting on it again. The column has `Runner.RunMs`
  * for all its questions, a loose bound, as a run has for all its columns.
@@ -420,14 +422,14 @@ function workedOf(source: Resolved, formula: string, run: Runner.QuizRun, templa
   const key = [keyOf(source), formula, ...templateable].join('\n')
   const held = known.get(key)
   if (held !== undefined) { return held }
-  const qns = Templating.finishedQnsOf(run, templateable)
+  const questions = Templating.finishedQuestionsOf(run, templateable)
   const worked = new Map<string, WidgetedT>()
   const deadline = clockNow() + Runner.RunMs
   let stopped: WidgetedT | null = null
   for (const [idx, question_id] of run.frame.question_ids.entries()) {
-    const thing = thingOf(source, qns, run, idx)
+    const thing = thingOf(source, questions, run, idx)
     if (source.kind === 'widgeting' && ! isWorkable(thing)) {
-      worked.set(question_id, passedThrough(thing))
+      worked.set(question_id, shownOf({ source, formula: null }, run, templateable, question_id))
     } else if (stopped === null) {
       const outcome = JsonataFormulary.worked(formula, thing, deadline)
       if (outcome.stops) { stopped = outcome.widgeted }
@@ -452,32 +454,33 @@ function keyOf(source: Resolved): string {
 }
 
 /**
- * The thing `source` picks for the question at `idx` of `qns`, as the bag holds it: a field or key
- * of the question, the hint of the question it chains to for the view `butnot`, a widgeting's
- * whole widgeted (a category-estimate entry's parts beside its status and value), or a word at the
- * bag's top level, `qns` being every question.
+ * The thing `source` picks for the question at `idx` of `questions` (every question, in the quiz's
+ * order), as the bag holds it: a field or key of the question, the hint of the question it chains
+ * to for the view `butnot`, a widgeting's widgeted as its status and value (a category-estimate
+ * entry's parts beside them), or a word at the bag's top level, `questions` being every question
+ * under its label.
  */
-function thingOf(source: Resolved, qns: readonly Record<string, unknown>[], run: Runner.QuizRun, idx: number): unknown {
-  const qn = qns[idx] ?? {}
+function thingOf(source: Resolved, questions: readonly Record<string, unknown>[], run: Runner.QuizRun, idx: number): unknown {
+  const question = questions[idx] ?? {}
   switch (source.kind) {
-  case 'field': { return qn[source.field] ?? null }
-  case 'key':   { return qn[source.key] ?? null }
+  case 'field': { return question[source.field] ?? null }
+  case 'key':   { return question[source.key] ?? null }
   case 'view': {
-    const target = qn.chains_to === null ? undefined : qns.find((each) => each.label === qn.chains_to)
-    return target?.hint ?? ''
+    const { chains_to } = question
+    return (typeof chains_to === 'string' ? Bagged.keyed(questions)[chains_to]?.hint : undefined) ?? ''
   }
   case 'widgeting': {
     const { label, tier } = source.widgeting
-    return (tier === 'quiz' ? run.frame.quiz[label] : qn[label]) ?? Widgeted.missing
+    return (tier === 'quiz' ? run.frame.quiz[label] : question[label]) ?? Bagged.widgeted(Widgeted.missing)
   }
   case 'word': {
-    return source.word === 'qns' ? qns : run.frame[source.word]
+    return source.word === 'questions' ? Bagged.keyed(questions) : run.frame[source.word]
   }
   }
 }
 
 /** What a widgeted holds of its own, beside which the bag may carry its parts */
-const WidgetedKeys: ReadonlySet<string> = new Set(['status', 'value', 'err'])
+const WidgetedKeys: ReadonlySet<string> = new Set(['status', 'value'])
 
 /**
  * Whether a formula works on `thing`, a widgeted as the bag holds one: when it is `ok`; or when it
@@ -491,8 +494,3 @@ function isWorkable(thing: unknown): boolean {
   return status === 'missing' && Object.keys(thing as object).some((key) => ! WidgetedKeys.has(key))
 }
 
-/** A widgeted that is not `ok`, as it passes a formula by: its status, value and failure, without what rides beside them */
-function passedThrough(thing: unknown): WidgetedT {
-  const { status = 'missing', value = null, err = null } = (thing ?? {}) as Partial<WidgetedT>
-  return { status, value, err } as WidgetedT
-}

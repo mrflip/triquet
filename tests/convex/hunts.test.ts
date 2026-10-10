@@ -1981,18 +1981,20 @@ describe("a quiz's export, imported into an empty quiz", () => {
     const stamps = openOf(await target.read()).questions.flatMap((question) => [question.created_at, question.updated_at])
     expect(stamps.every((stamp) => stamp !== null && stamp > Date.parse('2001-01-02'))).to.be.true
 
+    // The quiz it lands on keeps its own label.
     const [want, got] = [bodyOfOpen(exported), bodyOfOpen(await target.read())]
-    expect(got).to.deep.eq(want)
-    expect(_.omit(got, ['questions', 'widgetings', 'columns', 'created_at', 'updated_at'])).to.deep.eq({
+    expect([want.label, got.label]).to.deep.eq([quiz.label, 'empty_one'])
+    expect(_.omit(got, ['label'])).to.deep.eq(_.omit(want, ['label']))
+    expect(_.omit(got, ['label', 'questions', 'widgetings', 'columns', 'created_at', 'updated_at'])).to.deep.eq({
       title: 'Quiz one', smiths_note: 'Kings and lions.', q1_preamble: 'Read the note first.', recap_head: 'Thanks, playtesters!', recap_tail: 'Until next time.',
       recap_template: '{{#played}}{{number}}. {{title}}{{/played}}', templateable: ['recap', 'remark'], locked: false, last_sortkey: 'column:title',
     })
-    expect(got.columns.remark).to.deep.eq({ position: 1, title: 'Remark', source: 'remark', width_px: 140, align: 'center' })
+    expect(got.columns.remark).to.deep.eq({ position: 1, label: 'remark', title: 'Remark', source: 'remark', width_px: 140, align: 'center' })
     expect(got.columns.qnum).to.deep.include({ width_px: 44, align: 'right' })
-    const labelOf = (question_id: string) => present(quiz.questions.find((qn) => qn._id === question_id)).label
+    const labelOf = (question_id: string) => present(quiz.questions.find((question) => question._id === question_id)).label
     const [leonLabel, nantesLabel] = [labelOf(present(leon)), labelOf(present(nantes))]
     expect(got.questions[leonLabel]).to.deep.include({ clueing: 'Which region?', recap: 'Leon is a kingdom.', chains_to: nantesLabel, remark: { status: 'ok', value: 'Ask Flip.' }, dumdum: { status: 'ok', value: { guess: 'León', explanation: '' } } })
-    expect(Object.values(got.questions).toSorted((aa, bb) => aa.position - bb.position).map((qn) => qn.title)).to.deep.eq(['c', 'b', 'a'])
+    expect(Object.values(got.questions).toSorted((aa, bb) => aa.position - bb.position).map((question) => question.title)).to.deep.eq(['c', 'b', 'a'])
     await expectSound(tt)
   })
 

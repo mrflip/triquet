@@ -32,9 +32,9 @@ export class JsonataFormulary {
   static readonly config = WidgetValidators.jsonataConfig
   /**
    * No bound on a whole column of its own: each formula has its own timebox (`Formulas.TimeboxMs`),
-   * and the first that runs past it stops the column. A formula reading every question for each
-   * (`qns[label = $$.qn.chains_to]`) takes about a quarter second over 300 questions, so a column's
-   * bound would stop honest columns; the run's bound (`Runner.RunMs`) holds them all.
+   * and the first that runs past it stops the column. A formula searching every question for each
+   * (`questions.*[label = $$.question.chains_to]`) takes about a quarter second over 300 questions,
+   * so a column's bound would stop honest columns; the run's bound (`Runner.RunMs`) holds them all.
    */
   static readonly columnMs = null
 
@@ -72,7 +72,7 @@ export class JsonataFormulary {
    * @param deadline - A `clockNow()` reading by which it must be worked out, as its column's or its run's budget says; none but the formula's own timebox when absent.
    * @returns What it came to; a timeout `stops` the rest of its column.
    *
-   * @example JsonataFormulary.input({ input_formula: 'qn.title' }, bag)  // => { status: 'ok', input: 'Leon' }
+   * @example JsonataFormulary.input({ input_formula: 'question.title' }, bag)  // => { status: 'ok', input: 'Leon' }
    */
   static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag, deadline?: number): InputOutcome {
     const outcome = Formulas.evaluate(widget.input_formula, bag, deadline)
@@ -110,7 +110,7 @@ export class JsonataFormulary {
    * @param deadline - A `clockNow()` reading by which it must be worked out; none but the formula's own timebox when absent.
    * @returns The widgeted, and whether the formula would not stop, so the rest of its column should read the same failure rather than wait on it again.
    *
-   * @example JsonataFormulary.worked('$.masie', { status: 'ok', value: [], err: null, masie: 0.5 }).widgeted  // => { status: 'ok', value: 0.5, err: null }
+   * @example JsonataFormulary.worked('$.masie', { status: 'ok', value: [], masie: 0.5 }).widgeted  // => { status: 'ok', value: 0.5, err: null }
    */
   static worked(formula: string, input: unknown, deadline?: number): LiveRun {
     const outcome = Formulas.evaluate(formula, input, deadline)
@@ -127,11 +127,11 @@ export class JsonataFormulary {
    * @returns Plain text, ready to copy.
    */
   static advice(widget: Pick<WidgetT, 'label' | 'description' | 'formula'>, widgeting: AdviceSubject | null, sample: QuizBag | null): string {
-    return advicePrompt(adviceSpec(sample?.qn ?? null), widget, widgeting)
+    return advicePrompt(adviceSpec(sample?.question ?? null), widget, widgeting)
   }
 }
 
-/** What a formula's advice prompt says of formulas, with one real question's `qn` when there is one */
+/** What a formula's advice prompt says of formulas, with one real `question` when there is one */
 function adviceSpec(sample: Record<string, unknown> | null): AdviceSpec {
   return {
     preamble:    'I use a small quiz-editing tool. In it, a column can be computed for every question of a quiz by a formula written in JSONata (the JavaScript reference implementation, version 1.8 -- synchronous, no async). The formula is run once per question and comes to one value, which the tool shows in that column. I would like your help with the formula for one such column.',
@@ -140,23 +140,24 @@ function adviceSpec(sample: Record<string, unknown> | null): AdviceSpec {
     comesTo:     comesToSection(),
     constraints: [
       `At most ${String(Formulas.FormulaMax)} characters. Newlines are welcome, for laying a formula out to be read.`,
-      'Inside a predicate such as `qns[label = ...]` the context is each item, so reach the question being worked out with `$$.qn`.',
+      'To find a question by its label, look it up rather than searching: `question.chains_to ? $lookup(questions, question.chains_to)` is the question this one chains to (`$lookup` refuses a null label).',
+      'Inside a predicate such as `questions.*[archived = false]` the context is each item, so reach the question being worked out with `$$.question`.',
       "JSONata's `$round` rounds halves to even; use `$floor(x + 0.5)` if halves should go up.",
       'Prefer plain, readable JSONata over cleverness.',
     ],
   }
 }
 
-/** What a formula reads: the bag's schema, and one real `qn` when there is one */
+/** What a formula reads: the bag's schema, and one real `question` when there is one */
 function readsSection(sample: Record<string, unknown> | null): string {
   return [
     '## What the formula reads',
-    'The formula is evaluated against one JSON document, so its top-level keys are the names it can use directly, e.g. `qn.clueing`. `qn` is the question the value is being worked out for and `qns` holds every question of the quiz, including `qn` and the archived ones (each says whether it is `archived`, and whether it is an alternate, `secondary`); `quiz`, `realm` and `hunt` are the quiz itself and where it sits, and `categories` the subject categories of its hunt. Every column worked out before this one sits on each question under its label, as `{ status, value, err }`: read its `value` only when its `status` is `ok`, as in `qn.numnum_clueing.value.items`. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
+    'The formula is evaluated against one JSON document, shaped as the quiz\'s export is, so its top-level keys are the names it can use directly, e.g. `question.clueing`. `question` is the question the value is being worked out for, and `questions` holds every question of the quiz under its label, in the quiz\'s order, including `question` and the archived ones (each says whether it is `archived`, and whether it is an alternate, `secondary`; `questions.*` lists them); `quiz`, `realm` and `hunt` are the quiz itself and where it sits, and `categories` the subject categories of its hunt, by label. Every column worked out before this one sits on each question under its label, as `{ status, value }`: read its `value` only when its `status` is `ok`, as in `question.numnum_clueing.value.items`. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
     '',
     '```json',
     UU.jsonify(inputSchema(), { pretty: true }),
     '```',
-    ...(sample === null ? [] : ['', 'For example, `qn` for one real question is:', '', '```json', UU.jsonify(sample, { pretty: true }), '```']),
+    ...(sample === null ? [] : ['', 'For example, `question` for one real question is:', '', '```json', UU.jsonify(sample, { pretty: true }), '```']),
   ].join('\n')
 }
 

@@ -166,15 +166,15 @@ describe('shorthandFor', () => {
 })
 
 describe('widgetChanges', () => {
-  const dumdum = Widget.fill({ label: 'dumdum', formulary: 'jsonata', formula: 'qn.title' })
-  const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
+  const dumdum = Widget.fill({ label: 'dumdum', formulary: 'jsonata', formula: 'question.title' })
+  const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' })
 
   it("is one change per widget the quiz now works that it did not, filed under widgets", () => {
     expect(Changes.widgetChanges([], [dumdum])).to.deep.eq([{ scope: 'widgets', fieldkey: 'dumdum', changekind: 'added' }])
   })
 
   it("is one change per widget revised", () => {
-    expect(Changes.widgetChanges([dumdum, shout], [dumdum, { ...shout, formula: '$lowercase(qn.title)' }])).to.deep.eq([
+    expect(Changes.widgetChanges([dumdum, shout], [dumdum, { ...shout, formula: '$lowercase(question.title)' }])).to.deep.eq([
       { scope: 'widgets', fieldkey: 'shout', changekind: 'revised' },
     ])
   })

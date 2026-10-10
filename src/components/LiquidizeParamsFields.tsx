@@ -24,7 +24,7 @@ export const TemplateSourceWords: Readonly<Record<TemplateSourcekind, string>> =
 /**
  * Where params say a widgeting's template comes from.
  *
- * @example templateSourceOf({ template: '{{ qn.hint }}' })        // => 'own'
+ * @example templateSourceOf({ template: '{{ question.hint }}' })        // => 'own'
  * @example templateSourceOf({ template_from: { ref: 'dumdum' } })  // => 'bag'
  * @example templateSourceOf({})                                    // => 'widget'
  */

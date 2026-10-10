@@ -33,7 +33,7 @@ describe('refChoicesOf', () => {
 
   it("lists every word of the bag a ref may name, the question's own first and the words the same in every row last", () => {
     expect(sources.slice(0, 2)).to.deep.eq(['title', 'clueing'])
-    expect(sources.slice(-5)).to.deep.eq(['quiz', 'hunt', 'realm', 'categories', 'qns'])
+    expect(sources.slice(-5)).to.deep.eq(['quiz', 'hunt', 'realm', 'categories', 'questions'])
     expect(sources).to.include.members(['butnot', 'label', 'rank', 'archived', 'secondary'])
   })
 
@@ -61,15 +61,15 @@ describe('presetsFor and subjectOf', () => {
 
   it('offers the field names of a word whose schema is known: the quiz, the hunt, the realm, each category, each question', () => {
     expect(formulasFor('quiz')).to.include.members(['$.label', '$.title', '$.smiths_note'])
-    expect(formulasFor('hunt')).to.deep.eq(['$.label', '$.title'])
+    expect(formulasFor('hunt')).to.deep.eq(['$.branch', '$.label', '$.title', '$.created_at', '$.updated_at'])
     expect(formulasFor('realm')).to.deep.eq(['$.label', '$.title'])
-    expect(formulasFor('categories')).to.deep.eq(['$.label', '$.title'])
-    expect(formulasFor('qns')).to.include.members(['$.title', '$.clueing', '$.rank', '$.archived'])
+    expect(formulasFor('categories')).to.deep.eq(['$.*.label', '$.*.title', '$.*.position'])
+    expect(formulasFor('questions')).to.include.members(['$.*.title', '$.*.clueing', '$.*.rank', '$.*.archived', '$.*.position', '$.*.viz'])
   })
 
   it("titles a field name by whose it is", () => {
     const [first] = ColumnMenu.presetsFor(ColumnMenu.subjectOf({ kind: 'word', word: 'categories' }, []))
-    expect(first).to.deep.eq({ formula: '$.label', title: "Each category's label" })
+    expect(first).to.deep.eq({ formula: '$.*.label', title: "Each category's label" })
   })
 
   it("offers nothing where no schema is known: a field's text, a formula's result, a widget the library lacks", () => {

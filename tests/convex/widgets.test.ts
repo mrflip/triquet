@@ -13,7 +13,7 @@ function nobodyIsAdmin(): void {
 
 afterEach(() => { vi.restoreAllMocks() })
 
-const Shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
+const Shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' })
 
 /** One action on the library of each kind */
 const LibraryActions = [
@@ -48,7 +48,7 @@ describe("widgets.library", () => {
   it("follows the library as it is revised: a widget added, and one moved", async () => {
     const tt = openTester()
     const { actOnLibrary, smith } = await seedHunt(tt, classicHunt())
-    await actOnLibrary({ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } })
+    await actOnLibrary({ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' } })
     await actOnLibrary({ kind: 'move_widget', label: 'answer_reversed', onto_idx: 0 })
     const library = await smith.as.query(api.widgets.library, {})
     const labels = library.map((widget) => widget.label)

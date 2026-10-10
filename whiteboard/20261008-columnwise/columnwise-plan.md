@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **YOLO** from 2026-10-09 (normal before). Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode"; switched to YOLO on 2026-10-09 ("make good decisions, we'll fix them up later").
-**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b, 9, 3c landed (#197-#202, #206, #209); the full e2e run done (3c's); 10 and 11 underway; then the sprint-end full e2e run.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: done (2026-10-09).** #191-#202, #206 and #209 are merged; #211 and #215 are open. **#209's production deploy failed**: see `human/20261009-sprint_columnwise_done.md`. `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -494,6 +494,18 @@ and in the sprint-end `human/` entry.
     notes, imports, deletions, moves of columns or widgetings, the library.
   - Entered values are not held to params in the update.
   - The git history may record an in-flight edit a moment early.
+* **10, by its worker** (decisions 1-13 in its thread file), among them:
+  - `questions` sits at the bag's top level, not under `quiz`.
+  - `rank`, `archived`, `secondary` and an estimate's parts stay out of the ball.
+  - Quiz-tier widgeteds sit flat in the ball.
+  - The template bag's `questions` includes archived ones; old loops are rewritten to reject them.
+  - `hunt_label` and `realm_label` are added at the top.
+  - `Hunt`, `Realm` and `Quiz.exposed` are removed.
+  - `notes/examples/20261008-but_not_recap.json` is left alone: it is gitignored, and the importer
+    rewrites it.
+* **10's review, by the orchestrator:** a column or `template_from` whose ref was `qns` or
+  `categories` gets its formula's bare `$` rewritten to `$.*` (it reads the keyed object as the
+  list it was). That covers the menu's own old presets.
 
 ## For the Coach
 

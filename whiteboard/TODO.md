@@ -340,6 +340,50 @@ and in the gear (*Run order*, lines to drag); one question's row previewed above
   `ref` and `source`; `'question'` written as a literal in `ReservedWidgetingLabels`.
 * Should `categories` and `category` become global reserved words, after a grep of production?
 
+## From columnwise sprint, thread 11: optimistic updates' review leftovers
+
+* **#210 against #211:** #210 (`20261009-convex_reads`) sends `questions.open`'s cells keyed by
+  widgeting id. Whichever of #210 and #211 lands second must re-key `enteredInto` and the relabel
+  in `src/state/optimistic-quiz.ts`; `tests/state/optimistic-quiz.test.ts` fails until then.
+* The hunt feed can commit an optimistic reading into the quiz's git history (accepted: the
+  history is not a source of truth).
+* `chainOf` searches every watched `questions.open`, not only this quiz's (nothing reachable
+  sends a cross-quiz id).
+* `enter_widgeted`'s update doesn't check the widgeting's tier or formulary (the cells send only
+  entries).
+* `updated_at` isn't bumped early.
+* `showMoved` scans the store once per question, and a widgeting relabel rewrites every
+  question's reading: small costs.
+* A throwing update is reported again on each replay, and can leave the screen half-patched until
+  the server answers (only on a bug).
+* Chain resolution, the sort's exactness check and the column relabel are restated from
+  `convex/writing/` rather than shared.
+
+## From columnwise sprint, thread 10: one bag shape
+
+Built: the bag in the export's shape (`Bagged`, record section 12), the rewrite of the old words
+(`src/models/before-october.ts`), the `bagshape` backfills. Left:
+
+* **Retire the `bagshape` backfills** from `Backfills` once production's deploy has said they
+  finished (no tightening will). Keep the ledger row.
+* **A column's ref cannot name every key the bag's question holds**: `position`, `viz` and the
+  stamps are in the bag now, but `QuestionKeyVals` lists only `label`, `rank`, `archived` and
+  `secondary`. The regularity rule says to add them (and their `RefTitles`).
+* **The Coach's "simplify the data on a uniform structure"**: now there is one. Candidates seen on
+  the way: `archived`/`secondary` beside `viz` (two yes-or-nos read off one field), the realm with
+  no ball of its own, a question's `rank` beside `qnum`.
+* **butnot and the ishes as expressions** (the Coach): the seeded sums still look up the chained
+  question as widgets; a column preset could do it once the expression can read another question.
+
+## From columnwise sprint, the e2e runs: `preparedExport` under load
+
+* The most frequent flake of the sprint's later runs fails in one place: `preparedExport`
+  (`e2e/support.ts`), where the Raw Export box never appears after *Prepare export* under load.
+  It hit entries "an entry rides the export", importing's partial paste and title specs, and two
+  panels specs, and passes alone every time. A change landing after the box is prepared withdraws
+  it. Thread 10's worker suspects a race with an optimistic update settling (#211). Look at
+  whether the box should survive a settle that changes nothing the export reads.
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and

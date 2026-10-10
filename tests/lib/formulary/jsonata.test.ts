@@ -56,11 +56,11 @@ describe('JsonataFormulary', () => {
     })
 
     it('runs the formula over its input, not over the bag', () => {
-      expect(runOn('$uppercase($)', 'qn.title').widgeted).to.deep.eq(Widgeted.ok('LEON'))
+      expect(runOn('$uppercase($)', 'question.title').widgeted).to.deep.eq(Widgeted.ok('LEON'))
     })
 
     it('reads an input of nothing as missing, and does not run the formula', () => {
-      expect(runOn('42', 'qn.nothing').widgeted).to.deep.eq(Widgeted.missing)
+      expect(runOn('42', 'question.nothing').widgeted).to.deep.eq(Widgeted.missing)
     })
 
     it('reports a formula, or an input formula, that does not parse as a failure that does not stop the rest', () => {
@@ -95,14 +95,14 @@ describe('JsonataFormulary', () => {
     })
 
     it('is what the input formula comes to, or missing for nothing', () => {
-      expect(JsonataFormulary.input({ input_formula: 'qn.title' }, bag)).to.deep.eq({ status: 'ok', input: 'Leon' })
-      expect(JsonataFormulary.input({ input_formula: 'qn.nothing' }, bag)).to.deep.eq({ status: 'missing' })
+      expect(JsonataFormulary.input({ input_formula: 'question.title' }, bag)).to.deep.eq({ status: 'ok', input: 'Leon' })
+      expect(JsonataFormulary.input({ input_formula: 'question.nothing' }, bag)).to.deep.eq({ status: 'missing' })
     })
   })
 
   describe('check', () => {
     it('passes a formula and an input formula that both read', () => {
-      expect(JsonataFormulary.check({ formula: '$sum(qn.items)', input_formula: '$' })).to.be.null
+      expect(JsonataFormulary.check({ formula: '$sum(question.items)', input_formula: '$' })).to.be.null
     })
 
     it('names the problem with either, saying which', () => {
@@ -113,18 +113,19 @@ describe('JsonataFormulary', () => {
 
   describe('advice', () => {
     it('asks for the formula, telling of the widget, the widgeting and a real question', () => {
-      const text = JsonataFormulary.advice({ label: 'shout', description: 'Loudly.', formula: '$uppercase(qn.title)' }, { label: 'loud', description: 'For the meta.', title: 'Loud' }, bag)
+      const text = JsonataFormulary.advice({ label: 'shout', description: 'Loudly.', formula: '$uppercase(question.title)' }, { label: 'loud', description: 'For the meta.', title: 'Loud' }, bag)
       expect(text).to.include('- The column\'s title: Loud')
       expect(text).to.include('- What the widgeting is for in this quiz: For the meta.')
       expect(text).to.include('- What the widget works out: Loudly.')
-      expect(text).to.include('$uppercase(qn.title)')
+      expect(text).to.include('$uppercase(question.title)')
       expect(text).to.include('"full_answer": "Leon"')
     })
 
     it('always carries the input schema and the output schema', () => {
       const text = JsonataFormulary.advice({ label: '', description: '', formula: '' }, null, null)
-      expect(text).to.include('"qns"')
-      expect(text).to.include('$$.qn')
+      expect(text).to.include('"questions"')
+      expect(text).to.include('$lookup(questions, question.chains_to)')
+      expect(text).to.include('$$.question')
       expect(text).to.include('"widgeting_label"')
       expect(text).to.include('JSON Schema')
       expect(text).to.include('## What the formula returns')
@@ -133,13 +134,13 @@ describe('JsonataFormulary', () => {
 
     it('tells how to read a widgeted from an earlier column, and no longer how to mark a value stale', () => {
       const text = JsonataFormulary.advice({ label: '', description: '', formula: '' }, null, null)
-      expect(text).to.include('`{ status, value, err }`')
-      expect(text).to.include('qn.numnum_clueing.value.items')
+      expect(text).to.include('`{ status, value }`')
+      expect(text).to.include('question.numnum_clueing.value.items')
       expect(text).to.not.include('stale')
     })
 
     it('shows no real input without a question', () => {
-      expect(JsonataFormulary.advice({ label: 'shout', description: '', formula: '1' }, null, null)).to.not.include('For example, `qn` for one real question')
+      expect(JsonataFormulary.advice({ label: 'shout', description: '', formula: '1' }, null, null)).to.not.include('For example, `question` for one real question')
     })
 
     it('states the length limit the tool enforces, and asks for the formula alone', () => {

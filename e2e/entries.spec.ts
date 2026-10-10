@@ -296,15 +296,15 @@ test('a templated clueing shows what an entry holds, filled in before its markdo
   await entryBox(page, 0, 'Author').fill('**Ada** <b>x</b>')
   await leaveBox(page)
   const clueing = cellOf(page, 0, 'Clueing').getByRole('textbox', { name: 'Clueing', exact: true })
-  await clueing.fill('By {{qn.author}}')
+  await clueing.fill('By {{question.author}}')
   await leaveBox(page)
   // Filled in first, so the entry's markdown is bold, and the HTML it holds is shown as typed.
   const face = faceOf(cellOf(page, 0, 'Clueing'))
   await expect(face).toHaveText('By Ada <b>x</b>')
   await expect(face.getByText('Ada', { exact: true })).toBeVisible()
-  await expect(clueing).toHaveValue('By {{qn.author}}')
+  await expect(clueing).toHaveValue('By {{question.author}}')
 
-  await clueing.fill('By {{qn.author')
+  await clueing.fill('By {{question.author')
   await leaveBox(page)
   await expect(face).toContainText('not closed')
   await expect(clueing).toHaveAttribute('aria-invalid', 'true')

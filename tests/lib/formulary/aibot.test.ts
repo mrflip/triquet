@@ -16,7 +16,7 @@ const run = runOf({ ...Quiz.blank(), questions: [question] })
 const bag = present(Runner.bagsAt(run, { label: 'dumdum', params: {} }).get(question._id))
 
 /** A seeded-shaped widget, under `label`, put the clueing */
-const widgetOf = (label: string, input_formula = "$trim(qn.clueing) != '' ? { 'clueing': $trim(qn.clueing) }"): AibotWidgetT => ({
+const widgetOf = (label: string, input_formula = "$trim(question.clueing) != '' ? { 'clueing': $trim(question.clueing) }"): AibotWidgetT => ({
   scope:     'pub', formulary: 'aibot', label, title: 'Dumdum', description: '', formula: 'Question: {{clueing}}', input_formula,
   config:    { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 },
 })
@@ -26,7 +26,7 @@ describe('AibotFormulary', () => {
   beforeEach(() => { vi.mocked(askModel).mockReset() })
 
   it('reports the facts of a prompt asked from the cell', () => {
-    expect([AibotFormulary.kind, AibotFormulary.defaultInput, AibotFormulary.refresh, AibotFormulary.store]).to.deep.eq(['aibot', "{ 'clueing': qn.clueing }", 'click', 'append'])
+    expect([AibotFormulary.kind, AibotFormulary.defaultInput, AibotFormulary.refresh, AibotFormulary.store]).to.deep.eq(['aibot', "{ 'clueing': question.clueing }", 'click', 'append'])
     expect(AibotFormulary.config.safeParse({ servicelabel: 'claude', model_tier: 'careful', max_tokens: 4000 }).success).to.be.true
     expect(AibotFormulary.config.safeParse({ servicelabel: 'claude', model_tier: 'careful', max_tokens: 9000 }).success).to.be.false
   })
@@ -37,11 +37,11 @@ describe('AibotFormulary', () => {
     })
 
     it('is missing for a blank text, so nothing is asked', () => {
-      expect(AibotFormulary.input(widgetOf('numnum_hint', "$trim(qn.hint) != '' ? { 'hint': $trim(qn.hint) }"), bag)).to.deep.eq({ status: 'missing' })
+      expect(AibotFormulary.input(widgetOf('numnum_hint', "$trim(question.hint) != '' ? { 'hint': $trim(question.hint) }"), bag)).to.deep.eq({ status: 'missing' })
     })
 
     it('refuses an input that is not an object', () => {
-      expect(AibotFormulary.input(widgetOf('dumdum', 'qn.clueing'), bag).status).to.eq('errored')
+      expect(AibotFormulary.input(widgetOf('dumdum', 'question.clueing'), bag).status).to.eq('errored')
     })
 
     it("refuses an input that is a function, which JSONata hands back as a marked object", () => {
@@ -64,11 +64,11 @@ describe('AibotFormulary', () => {
     })
 
     it('is missing for an input of nothing', () => {
-      expect(AibotFormulary.prompt(widgetOf('dumdum', 'qn.nothing'), bag)).to.deep.eq({ status: 'missing' })
+      expect(AibotFormulary.prompt(widgetOf('dumdum', 'question.nothing'), bag)).to.deep.eq({ status: 'missing' })
     })
 
     it('fails, with no input to show, for an input that fails', () => {
-      expect(AibotFormulary.prompt(widgetOf('dumdum', 'qn.clueing'), bag)).to.deep.include({ status: 'errored', input: null })
+      expect(AibotFormulary.prompt(widgetOf('dumdum', 'question.clueing'), bag)).to.deep.include({ status: 'errored', input: null })
     })
 
     it('fails, with its input, for a template that does not parse', () => {
@@ -105,13 +105,13 @@ describe('AibotFormulary', () => {
     })
 
     it('asks nothing for an input of nothing', async () => {
-      const asked = await AibotFormulary.run(widgetOf('dumdum', 'qn.nothing'), widgeting, bag)
+      const asked = await AibotFormulary.run(widgetOf('dumdum', 'question.nothing'), widgeting, bag)
       expect(asked).to.be.null
       expect(vi.mocked(askModel).mock.calls).to.have.lengthOf(0)
     })
 
     it('asks nothing for an input that fails', async () => {
-      expect(await AibotFormulary.run(widgetOf('dumdum', 'qn.clueing'), widgeting, bag)).to.be.null
+      expect(await AibotFormulary.run(widgetOf('dumdum', 'question.clueing'), widgeting, bag)).to.be.null
       expect(vi.mocked(askModel).mock.calls).to.have.lengthOf(0)
     })
 
@@ -134,7 +134,7 @@ describe('AibotFormulary', () => {
     it('says in words that the prompt must name the object it wants, and where a later column reads it', () => {
       const text = AibotFormulary.advice(widgetOf('dumdum'), { label: 'dumdum', description: '' }, null)
       expect(text).to.include('the prompt itself has to say in words which object it wants')
-      expect(text).to.include('`qn.dumdum.value`')
+      expect(text).to.include('`question.dumdum.value`')
       expect(text).to.include('send the prompt alone')
     })
 

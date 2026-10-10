@@ -111,7 +111,7 @@ describe("planWidgetingEdit, making a new widgeting", () => {
   })
 
   it("works a widget written a moment ago, which the caller hands it beside the library", () => {
-    const fresh = Widget.fill({ label: 'title_length', formulary: 'jsonata', formula: '$length(qn.title)' })
+    const fresh = Widget.fill({ label: 'title_length', formulary: 'jsonata', formula: '$length(question.title)' })
     const actions = actionsOf(ofHeld('title_length'), quiz, [...library, fresh])
     expect(actions.map((action) => action.kind)).to.deep.eq(['add_widgeting', 'add_column'])
   })

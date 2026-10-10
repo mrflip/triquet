@@ -50,12 +50,6 @@ export class Realm implements RealmT {
   declare quizzes: QuizT[]
 
   /**
-   * The fields a realm shows the outside world, alphabetically: its label and its title (as
-   * shown, so never blank). Not the id, and not its quizzes.
-   */
-  static readonly exposed = ['label', 'title'] as const
-
-  /**
    * Validated realm, with a blank title populated from its label, titleized.
    *
    * @param dna - An id and at least one quiz.

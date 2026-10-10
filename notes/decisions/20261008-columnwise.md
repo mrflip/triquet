@@ -121,7 +121,7 @@ A `jsonata` widget's twin with Liquid. `src/lib/formulary/liquidize.ts`, `Liquid
   rebuilt internally as a `liquidize` is the worker's call; it is not a row change.
 * Arms in the runner, the advice, the widget editor and the Widgets panel, beside `jsonata` and
   `aibot`; a seeded `liquidize` widget.
-* Later, not now: the recap template as a quiz-tier `liquidize` over `qns` (to
+* Later, not now: the recap template as a quiz-tier `liquidize` over `questions` (to
   `whiteboard/TODO.md`).
 
 ## 4. The column: a short pipeline (threads 3a, 3b)
@@ -133,12 +133,12 @@ is optional and absent by default; a column of a ref alone shows what columns sh
 ### The ref: one plain key (3a)
 
 `source` keeps its field name and holds a **ref**: one plain key, in the bag's own words,
-resolved against `qn` first and then the bag's top level.
+resolved against `question` first and then the bag's top level (`qn` until thread 10, §12).
 
-* Against `qn`: a question's field (`title`, `clueing`, `rank`, `archived`, any key a question has
+* Against `question`: a question's field (`title`, `clueing`, `rank`, `archived`, any key a question has
   in the bag), the question's view `butnot` (worked out as now; not in the bag, and reserved
   from widgeting labels as a field is), or a `question` widgeting's label.
-* At the top level: `quiz`, `hunt`, `realm`, `categories`, `qns`. A value the same in every row is
+* At the top level: `quiz`, `hunt`, `realm`, `categories`, `questions` (`qns` until §12). A value the same in every row is
   still worth a column when the formula pulls an answer out of it.
 * **The one dotted form is `quiz.<label>`**, a `quiz` widgeting's widgeted.
 * Nothing else. A column never names a column: the ref space is the bag's, and the column label
@@ -160,7 +160,7 @@ a thing and a formula over it, in the same language, through the same evaluator 
 only ever JSONata.
 
 **Its input is the thing as the bag holds it**: a field is the field; a widgeting is the whole
-widgeted, `{ status, value, err }`, with an estimates entry's parts beside them. So `$.masie` is
+widgeted, `{ status, value }` (its failure not in the bag since §12), with an estimates entry's parts beside them. So `$.masie` is
 a persona's chance and `$.value.guess` is dumdum's guess. **Identity is the field's absence**,
 which shows a field itself and a widgeted's `value`, as today; an emptied formula box removes the
 field. `$` is not identity for a widgeting: it reads the whole widgeted.
@@ -218,7 +218,7 @@ carries the order, every question's id, and the server checks it holds exactly t
 ### The source menu (3b)
 
 One menu for every column: every question field and view, every `question` widgeting's output,
-`quiz`, each `quiz.<label>`, `hunt`, `realm`, `categories`, `qns`; the formula beside it.
+`quiz`, each `quiz.<label>`, `hunt`, `realm`, `categories`, `questions`; the formula beside it.
 
 * **Field-name lists where the thing's schema is known**: a question, the quiz, an estimates
   entry's parts. A `jsonata`, `aibot` or `liquidize` source has no result schema, and stays
@@ -355,7 +355,7 @@ the model that will own it, and the thread that adds the fields holds them to it
 
 | group | words | derived from |
 |---|---|---|
-| bag's top level | `hunt`, `realm`, `categories`, `quiz`, `qns`, `qn`, `qn_label`, `quiz_label`, `params`, `widgeting_label`; and `category`, one of the `categories` (3c, a call made in YOLO) | the quiz bag's keys. `src/models/quiz-bag.ts` imports `quiz.ts`, which imports `widgeting.ts`, so the list sits beneath `widgeting.ts` and a test holds `QuizBagValidators.quizBag`'s shape to it |
+| bag's top level | `hunt`, `realm`, `categories`, `quiz`, `questions`, `question`, `hunt_label`, `realm_label`, `quiz_label`, `question_label`, `params`, `widgeting_label` (since §12; `qns`, `qn` and `qn_label` before); and `category`, one of the `categories` (3c, a call made in YOLO) | the quiz bag's keys. `src/models/quiz-bag.ts` imports `quiz.ts`, which imports `widgeting.ts`, so the list sits beneath `widgeting.ts` and a test holds `QuizBagValidators.quizBag`'s shape to it |
 | recap bag | `number` | the recap's place-from-1 (`Templating.inOrder`) |
 | import | `forced_label` | the key an older export's question carries (`src/lib/jsonball.ts`) |
 | widgeted's keys | `status`, `value`, `err`, `message`, `result_meta`, `digest`, `stale` | `WidgetedT`, the widgeted row, and the deferred staleness pair |
@@ -384,7 +384,7 @@ word: a hunt, quiz, question or column may still be labelled either.
   `formularies`, `regex`.
 * **`aggregates`**: `average`, `avg`, `mean`, `median`, `stdev`, `sum`, `total`, `count`, `min`,
   `max`. A widgeting wanting one says of what: `clueing_sum`.
-* **`jsonata`**: `and`, `or`, `in`, `function`. A path cannot say them: `qn.and` will not parse.
+* **`jsonata`**: `and`, `or`, `in`, `function`. A path cannot say them: `question.and` will not parse.
 * **`status`**: `result`, `results`, `error`, `errors`, `ok`, `stale`, `missing`, `current`,
   `blank`, `default`, `defaults`.
 * **`grid`**: `row`, `rows`, `col`, `cols`, `cell`, `cells`, `header`, `headers`, `index`, `idx`,
@@ -474,6 +474,85 @@ sheet and the sorts*), so the bounds on a run are the browser's, and loose.
   cell a second at each draw. And a JSONata range of millions (`[1..10000000]`) allocates in one
   step before any timebox is asked (in a mutation, past its 64 MB; no mutation runs one now). Both
   in `whiteboard/TODO.md`.
+
+## 12. One bag shape (thread 10)
+
+*The Coach:* "make a clean break and have expressions widgets and templates accept a bag of the same
+shape as the export", converging the formula bag, the template bag and the jsonball (git and Raw
+Export), with `qn` become `question` and `qns` become `questions`, the `*_label` fields at the
+bag's top, and the jsonball given `label`, `viz` and the stamps.
+
+**One shape, made in one place.** `Bagged` (`src/models/quiz-bag.ts`) makes each piece, and the
+runner (`Runner.baseBagOf`, the one place a bag is made) and the exporter (`Exporting.quizBodyOf`)
+both use it:
+
+* **A question**: its `position` in the quiz's order, its `label`, its own fields (`qnum`,
+  `clueing`, `hint`, `title`, `alt_text`, `notes`, `full_answer`, `recap`), its `viz`, its
+  `chains_to` by label, its stamps as ISO text; and what each widgeting came to, under the
+  widgeting's label, as `{ status, value }`.
+* **The quiz's own fields**: `label`, `title`, `smiths_note`, `q1_preamble`, the recap's head, tail
+  and template (null for the default), `templateable`, `locked`, `last_sortkey`, the stamps; and
+  each widgeting run once for the whole quiz, under its label, flat beside them. `Quiz.bagKeys`
+  holds every one of those names, and the ball's `questions`, `widgetings` and `columns`, so no
+  quiz-tier widgeting takes one (the ball's `widgeteds` key is gone).
+* **The hunt**: `label`, `title`, `branch`, the stamps. **The categories**: keyed by label, in
+  the wheel's total order, each `{ label, title, position }`, the slot or null for the pool.
+* **A failure is in neither.** The cell, the badge and the run keep it; a `liquidize`
+  `template_from` reading a failed widgeting says only whose it was.
+* **Every member of an ordered collection carries its `label` beside its `position`** in the
+  ball: questions, widgetings, columns, categories, and the library's widgets.
+
+**The bag's top level**: `hunt`, `realm`, `categories`, `quiz`, `questions` (every question by
+its label, in the quiz's order, the archived among them), `question`, `hunt_label`,
+`realm_label`, `quiz_label`, `question_label`, and the running widgeting's `params` and
+`widgeting_label`. A template's bag is the same less the last two.
+
+**Where the bag departs from the export, and why.** Each is allowed by the Coach's "efficiency of
+widgeting execution and elegance of widgeting formulae", or is what only drawing needs.
+
+| What | The bag | The ball | Why |
+|---|---|---|---|
+| The questions | at the top, `questions`, beside `question` | under the quiz, `quiz.questions` | Elegance: what a formula reads most, beside the one it is worked out for. Efficiency: they change at each step of the run, the quiz's fields do not; one keyed object a step, shared by every bag of it (`Bagged.keyed`) |
+| What is worked out | a question's `rank`, `archived` and `secondary`; an estimate's parts on its widgeted | none | Worked out from what the ball holds (`qnum`, `viz`, the value and the wheel). A rank renumbers every question when one moves: in the ball it would rewrite every git file at each sort |
+| Where it sits | `hunt_label`, `realm_label`, `quiz_label`, `question_label` | the keys of its path | The Coach's ruling: denormalized to the top for formulas |
+| The running widgeting | `params`, `widgeting_label` | none | The widgeting's, not the quiz's |
+| The realm | `realm`, its label and title | a key of the path | A ball has no place for a realm's title without a ball of its own; a formula reads nothing else of it |
+| The layout | none | `widgetings`, `columns` | How the quiz is worked and drawn, not what it holds |
+| Results so far | the widgetings before the running one | every one | The run order |
+| The hunt beyond the quiz | none | members, the library, shared reviews | Not the quiz's |
+| Drawing only (the template bag) | templateable texts filled in; images in a computed value made links; the recap's `number` (`in_order`) | as typed | Rendering, per the Coach |
+
+**Keyed collections, read.** JSONata: `questions.*` lists them; `$lookup(questions, label)` finds
+one, and since `$lookup` refuses a null key, the question chained to is `question.chains_to ?
+$lookup(questions, question.chains_to)` (the seeded `butnot` and ish sums, which no longer search
+the list: O(1) where it was O(n)). Liquid: `{{ questions[question.chains_to].hint }}` finds one;
+`{% assign list = questions | values %}{% for each in list %}` loops, since a `for` tag takes no
+filter (`{% for x in questions | values %}` loops over nothing) and a bare `for` over a keyed
+object hands each turn a `[label, question]` pair; `in_order` takes the keyed questions as they
+are; `.size` counts them. Both are pinned by tests (`tests/lib/templating.test.ts`).
+
+**A template's questions changed meaning.** `qns` held the questions a screen shows and
+`quiz.questions` every one; now `questions` holds every one, each saying whether it is `archived`.
+A template that skipped the archived says so: `questions | values | reject: "archived"`. The recap
+(`in_order`) skips them as before.
+
+**The rewrite** (`src/models/before-october.ts`, `beforeOctoberFormula`, `beforeOctoberTemplate`,
+`beforeOctoberRef` and the per-row helpers): a heuristic, written once, idempotent, read by the
+importer for good (as the grammar before October 2026 is) and by the `bagshape` backfills
+(`convex/migrations.ts`) over production's stored texts. A formula's words outside its strings
+and comments; a template's inside its tags and outputs only, so a templateable field's prose is
+never touched; a formula or template reading an input of its own (an `aibot` prompt, a widget
+whose input formula is not `$`) is left, and so is a column's formula, or a `template_from`'s (it
+reads what its ref picks), but where that ref picked a list now keyed (`qns`, `categories`): there
+its bare `$` reads the values, `$.*` (`beforeOctoberPicked`), so `$count($)` and the menu's old
+presets read as they did.
+`qn` and `qns` stay reserved from every label, so text naming them can mean nothing else. The
+seeds' texts before and after are pinned (`fixtures/seeds-2026-10-09.json`): the rewrite of the
+old is exactly the new. What it cannot rewrite: `human/20261009-cw_bag.md`.
+
+**No schema change**: the backfills rewrite text, so nothing widens or tightens. Their pull request
+is a Serial Deploy (`bagshape`), since it adds backfills; any later one may retire them once
+production's deploy has said they finished.
 
 ## Superseded in `2026-10-widgets.md`
 

@@ -113,7 +113,7 @@ Tags to append or use directly:
 * `ckey`           -- `string|number` collection key: string for a map, index number for an array
 * `idx`            -- array index, when it's known to be an integer array index
 * `val`            -- any-typed, truly generic value. `vv`/`kk` are secondary choices in a lambda when `key` or `val` is in-scope
-* `qn`             -- a question, when a shorthand is called for: an object satisfying `QuestionT`, and nothing else; `qns` for several. The same words a formula's bag uses, so they mean one thing everywhere. Never `qq`, so a stray one is easy to spot, and never a query builder (`cvx`).
+* `qn`             -- a question, when a shorthand is called for: an object satisfying `QuestionT`, or a question as the bag holds it, and nothing else; `qns` for several. Code only: the bag a formula reads spells them out (`question`, `questions`), and `qn` and `qns` are reserved from every label. Never `qq`, so a stray one is easy to spot, and never a query builder (`cvx`).
 * `kind`, `flavor` -- legible **enumerated** strong identifier: picking from a menu or taxononmy. Use `label` or `handle` for legible freeform strong identifier (eg a slugged title)
   - all of these, and tag, should apply strict identifier validation: `\w` only, starts with a letter, ends with a letter or number, two or more characters; usually also lowercase-only
 * `props` and `propnames` for structured objects; `fieldnames` and `fields` for their definitions (i.e. the fields of the class are the props of the instance)

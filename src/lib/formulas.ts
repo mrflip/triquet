@@ -36,7 +36,7 @@ const Compiled = new Map<string, Compilation>()
  * @param formula - JSONata source.
  * @returns A sentence, or null for a formula that can be run.
  *
- * @example check('$sum(qn.numnum_clueing.value.items.value)')  // => null
+ * @example check('$sum(question.numnum_clueing.value.items.value)')  // => null
  * @example check('$sum(')  // => a sentence naming the problem
  */
 export function check(formula: string): string | null {

@@ -9,7 +9,7 @@ const Spec: AdviceSpec = {
   constraints: ['At most 99 steps.', 'No raw eggs.'],
 }
 const widgeting = { label: 'letters', title: 'Letters', description: 'For the anagram round.' }
-const widget = { label: 'answer_letter_count', description: 'How many letters the answer has.', formula: '$length(qn.full_answer)' }
+const widget = { label: 'answer_letter_count', description: 'How many letters the answer has.', formula: '$length(question.full_answer)' }
 
 describe('advicePrompt', () => {
   it("says what the formulary says, in order: preamble, what it reads, what it comes to, its constraints", () => {
@@ -29,7 +29,7 @@ describe('advicePrompt', () => {
   it('offers a formula that is present as what there is now, not as a demand, and does not ask for one', () => {
     const prompt = advicePrompt(Spec, widget, widgeting)
     expect(prompt).to.include('Here is what we have now')
-    expect(prompt).to.include('$length(qn.full_answer)')
+    expect(prompt).to.include('$length(question.full_answer)')
     expect(prompt).to.not.include('There is no recipe yet')
   })
 

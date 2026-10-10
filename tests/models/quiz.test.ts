@@ -166,8 +166,8 @@ describe('Quiz.fill', () => {
     expect(outcome.error?.issues[0]?.path).to.deep.eq(['widgetings', 1, 'label'])
   })
 
-  it("exposes its label, the smith's note and its title, and none of its housekeeping", () => {
-    expect(Quiz.exposed).to.deep.eq(['label', 'smiths_note', 'title'])
+  it('answers in a bag to its label, its own fields, its stamps, and what its ball holds beside them', () => {
+    expect(Quiz.bagKeys).to.deep.eq(['label', 'title', 'smiths_note', 'q1_preamble', 'recap_head', 'recap_tail', 'templateable', 'locked', 'last_sortkey', 'recap_template', 'created_at', 'updated_at', 'questions', 'widgetings', 'columns'])
   })
 
   it('rejects a title past 200 characters', () => {

@@ -78,12 +78,6 @@ export class Hunt implements HuntT {
   declare realms: RealmT[]
 
   /**
-   * The fields a hunt shows the outside world, alphabetically: its label and
-   * its title (as shown, so never blank). Not the id or the realms, and not who is on it.
-   */
-  static readonly exposed = ['label', 'title'] as const
-
-  /**
    * Validated hunt, with a blank title populated from its label, titleized, and each realm's the
    * same way.
    *

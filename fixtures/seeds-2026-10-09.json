@@ -1,0 +1,93 @@
+{
+  "about": "The seeded widgets' formulas and the default recap template as they read the bag before it took the export's shape (2026-10-09, before the columnwise sprint's thread 10): what the `bagshape` backfill rewrites in a library seeded before then. An aibot widget's prompt reads its input, not the bag, so it is left out.",
+  "widgets": {
+    "dumdum": {
+      "formulary": "aibot",
+      "input_formula": "$trim(qn.clueing) != '' ? { 'clueing': $trim(qn.clueing) }"
+    },
+    "numnum_clueing": {
+      "formulary": "aibot",
+      "input_formula": "$trim(qn.clueing) != '' ? { 'clueing': $trim(qn.clueing) }"
+    },
+    "numnum_hint": {
+      "formulary": "aibot",
+      "input_formula": "$trim(qn.hint) != '' ? { 'hint': $trim(qn.hint) }"
+    },
+    "butnot_ishes": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "(qns[label = $$.qn.chains_to]).numnum_hint.value"
+    },
+    "clueing_full": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "qn.numnum_clueing.status = 'ok' ? $floor($sum($append([0], qn.numnum_clueing.value.items.value)) + 0.5)"
+    },
+    "clueing_numeral": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "qn.numnum_clueing.status = 'ok' ? $floor($sum($append([0], qn.numnum_clueing.value.items[kind = 'numeral'].value)) + 0.5)"
+    },
+    "hint_full": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "qn.numnum_hint.status = 'ok' ? $floor($sum($append([0], qn.numnum_hint.value.items.value)) + 0.5)"
+    },
+    "hint_numeral": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "qn.numnum_hint.status = 'ok' ? $floor($sum($append([0], qn.numnum_hint.value.items[kind = 'numeral'].value)) + 0.5)"
+    },
+    "butnot_full": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "(\n  $hint := (qns[label = $$.qn.chains_to]).numnum_hint;\n  $hint.status = 'ok' ? $floor($sum($append([0], $hint.value.items.value)) + 0.5)\n)"
+    },
+    "butnot_numeral": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "(\n  $hint := (qns[label = $$.qn.chains_to]).numnum_hint;\n  $hint.status = 'ok' ? $floor($sum($append([0], $hint.value.items[kind = 'numeral'].value)) + 0.5)\n)"
+    },
+    "clueing_plus_rank": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "qn.numnum_clueing.status = 'ok' and $type(qn.rank) = 'number' ? $floor($sum($append([0], qn.numnum_clueing.value.items.value)) + 0.5) + qn.rank"
+    },
+    "clueing_plus_butnot_full": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "(\n  $clueing := qn.numnum_clueing;\n  $hint := (qns[label = $$.qn.chains_to]).numnum_hint;\n  $clueing.status = 'ok' and $hint.status = 'ok' ? $floor($sum($append([0], $clueing.value.items.value)) + 0.5) + $floor($sum($append([0], $hint.value.items.value)) + 0.5)\n)"
+    },
+    "clueing_word_count": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "$count($split($trim(qn.clueing), /\\s+/)[$ != ''])"
+    },
+    "clueing_with_butnot": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "(\n  $hint := $trim((qns[label = $$.qn.chains_to]).hint);\n  $exists($hint) and $hint != '' ?\n    qn.clueing & ($contains($hint, /^but not\\b/i) ? ' ... ' : ' ... BUT NOT ... ') & $hint :\n    qn.clueing\n)"
+    },
+    "answer_letter_count": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "$length($replace(qn.full_answer, /[^a-z]/i, ''))"
+    },
+    "answer_reversed": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "$join($reverse($split(qn.full_answer, '')))"
+    },
+    "answer_alphabetized": {
+      "formulary": "jsonata",
+      "input_formula": "$",
+      "formula": "$join($sort($split($lowercase($replace(qn.full_answer, /[^a-z]/i, '')), '')))"
+    },
+    "blurb": {
+      "formulary": "liquidize",
+      "input_formula": "$",
+      "formula": "**{{ qn.title }}**{% if qn.full_answer %}: {{ qn.full_answer | oneline }}{% endif %}"
+    }
+  },
+  "recap_template": "{%- assign played = qns | in_order -%}\n{%- if recap_head %}\n{{ recap_head }}\n{%- if played.size > 0 %}\n{%- comment %} A rule under the head. Not ---, which would make the line above a heading. {% endcomment %}\n***\n{%- endif %}\n{% endif %}\n{%- for qn in played %}\n\n> {AS: Q{{ qn.number }}}{{ qn.number }}. {{ qn.clueing | quote }}\n{%- if qn.hint %}\n>\n> ...OR ELSE...\n>\n> {{ qn.hint | quote }}\n{%- endif %}\n\nAnswer: {% if qn.full_answer %}~~**{{ qn.full_answer | oneline }}**~~{% endif %}\nCorrect Answer %: {{ qn.correct_pct }}\n{{ qn.recap | apart }}\n{%- endfor %}\n\n{{ recap_tail }}"
+}

@@ -185,7 +185,7 @@ function stopIfOverdue(budget: Budget): void {
 /**
  * A render's context whose every read of a value checks the render's clock: a filter working
  * through a list reads each item (`where`, `map`, `sort` by a property, `has`), so a long list, or
- * a long path read from each item (`qns | where: "a.b.c..."`), is stopped inside the filter's one
+ * a long path read from each item (`list | where: "a.b.c..."`), is stopped inside the filter's one
  * call rather than at its end. Every context a filter spawns for an item is one too.
  */
 class ClockedContext extends Context {

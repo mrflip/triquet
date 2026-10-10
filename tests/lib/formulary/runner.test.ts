@@ -6,6 +6,7 @@ import { Widget, type WidgetT } from '../../../src/models/widget'
 import { classicLayout } from '../../support/layouts'
 import { Question, type QuestionT } from '../../../src/models/question'
 import { Quiz, type QuizT } from '../../../src/models/quiz'
+import { Bagged } from '../../../src/models/quiz-bag'
 import { SeedWidgets } from '../../../src/models/seeds'
 import { Widgeted, type JsonT, type StoredWidgetedT, type WidgetedHistoryT, type WidgetedT } from '../../../src/models/widgeted'
 import { Widgeting, type WidgetingT } from '../../../src/models/widgeting'
@@ -17,6 +18,8 @@ import { runOf } from '../../support/runs'
 const numeral = (text: string, value: number): IshItemT => ({ text, value, kind: 'numeral' })
 const wordish = (text: string, value: number): IshItemT => ({ text, value, kind: 'wordish' })
 const failed = (message: string): WidgetedT => Widgeted.errored({ message, at: null, response: null })
+/** A widgeted as the bag holds it: its status and value, never its failure */
+const bagged = (widgeted: WidgetedT) => Bagged.widgeted(widgeted)
 const byText = (aa: string, bb: string) => aa.localeCompare(bb)
 
 /** A stored row, recorded half a millisecond after `at` */
@@ -228,9 +231,9 @@ describe('runQuiz', () => {
   describe('in run order', () => {
     const question = loneQuestion({ full_answer: 'Leon' })
     const library = [
-      jsonataWidget('shout', '$uppercase(qn.full_answer)'),
-      jsonataWidget('echo',  "qn.first.status = 'ok' ? qn.first.value & '!'"),
-      jsonataWidget('peek',  "qn.first.status & '/' & $string($exists(qn.second)) & '/' & $string($exists(qn.third))"),
+      jsonataWidget('shout', '$uppercase(question.full_answer)'),
+      jsonataWidget('echo',  "question.first.status = 'ok' ? question.first.value & '!'"),
+      jsonataWidget('peek',  "question.first.status & '/' & $string($exists(question.second)) & '/' & $string($exists(question.third))"),
       ...SeedWidgets,
     ]
 
@@ -243,7 +246,7 @@ describe('runQuiz', () => {
       const quiz = { ...Quiz.blank('Order'), questions: [question], widgetings: widgetingsOf(['second', 'echo'], ['first', 'shout']) }
       const run = runOf(quiz, library)
       expect(Runner.widgetedOf(run, 'second', question._id)).to.deep.eq(Widgeted.missing)
-      expect(present(Runner.bagsAt(run, { label: 'second', params: {} }).get(question._id)).qn).to.not.have.any.keys('first', 'second')
+      expect(present(Runner.bagsAt(run, { label: 'second', params: {} }).get(question._id)).question).to.not.have.any.keys('first', 'second')
     })
 
     it('shows every earlier widgeting on every question, as missing at the least, and none from itself on', () => {
@@ -251,23 +254,23 @@ describe('runQuiz', () => {
       const quiz = { ...Quiz.blank('Order'), questions: [question, other], widgetings: widgetingsOf(['first', 'dumdum'], ['second', 'peek'], ['third', 'shout']) }
       const run = runOf(quiz, library)
       const bags = Runner.bagsAt(run, { label: 'second', params: {} })
-      expect(bags.values().map((bag) => bag.qn.first).toArray()).to.deep.eq([Widgeted.missing, Widgeted.missing])
-      expect(bags.values().flatMap((bag) => bag.qns).map((qn) => Object.hasOwn(qn, 'first')).toArray()).to.deep.eq([true, true, true, true])
+      expect(bags.values().map((bag) => bag.question.first).toArray()).to.deep.eq([bagged(Widgeted.missing), bagged(Widgeted.missing)])
+      expect(bags.values().flatMap((bag) => Object.values(bag.questions)).map((qn) => Object.hasOwn(qn, 'first')).toArray()).to.deep.eq([true, true, true, true])
       expect(Runner.widgetedOf(run, 'second', question._id)).to.deep.eq(Widgeted.ok('missing/false/false'))
     })
 
-    it('puts every earlier widgeted on every question of `qns`, and on `qn`, the very object found there', () => {
+    it('puts every earlier widgeted on every question of `questions`, and on `question`, the very object found there under its label', () => {
       const other = loneQuestion({ full_answer: 'Lyon' })
       const quiz = { ...Quiz.blank('Order'), questions: [question, other], widgetings: widgetingsOf(['first', 'shout'], ['second', 'echo']) }
       const bag = present(Runner.bagsAt(runOf(quiz, library), { label: 'second', params: {} }).get(question._id))
-      expect(bag.qns.map((qn) => qn.first)).to.deep.eq([Widgeted.ok('LEON'), Widgeted.ok('LYON')])
-      expect(bag.qn).to.eq(bag.qns[0])
+      expect(Object.values(bag.questions).map((qn) => qn.first)).to.deep.eq([bagged(Widgeted.ok('LEON')), bagged(Widgeted.ok('LYON'))])
+      expect(bag.question).to.eq(bag.questions[question.label])
     })
 
     it("hands a widgeting the run hasn't put to work every widgeting's widgeted", () => {
       const quiz = { ...Quiz.blank('Order'), questions: [question], widgetings: widgetingsOf(['first', 'shout'], ['second', 'echo']) }
       const bag = present(Runner.bagsAt(runOf(quiz, library), { label: 'later', params: {} }).get(question._id))
-      expect([bag.qn.first, bag.qn.second]).to.deep.eq([Widgeted.ok('LEON'), Widgeted.ok('LEON!')])
+      expect([bag.question.first, bag.question.second]).to.deep.eq([bagged(Widgeted.ok('LEON')), bagged(Widgeted.ok('LEON!'))])
     })
 
     it("relies on a widgeting's label never being one a question's own keys answer to", () => {
@@ -319,7 +322,7 @@ describe('the typed widgetings', () => {
   const typed = loneQuestion({ clueing: 'Who?', stored: { remark: answered('Ask Flip.') } })
   const blank = loneQuestion({})
   const quiz = { ...Quiz.blank('Typed'), questions: [typed, blank], widgetings: widgetingsOf(['remark', 'remarks'], ['shout', 'loud']) }
-  const library = [Widget.fill({ label: 'remarks', formulary: 'entry', config: { entry_kind: 'text' } }), jsonataWidget('loud', "qn.remark.status = 'ok' ? $uppercase(qn.remark.value)")]
+  const library = [Widget.fill({ label: 'remarks', formulary: 'entry', config: { entry_kind: 'text' } }), jsonataWidget('loud', "question.remark.status = 'ok' ? $uppercase(question.remark.value)")]
   const run = runOf(quiz, library)
 
   it('are projected from the one value typed, and missing where nothing was', () => {
@@ -345,8 +348,8 @@ describe('the widgetings run once for the whole quiz', () => {
     Widget.fill({ label: 'name_list', formulary: 'entry', config: { entry_kind: 'text' } }),
     Widget.fill({ label: 'remarks', formulary: 'entry', config: { entry_kind: 'text' } }),
     jsonataWidget('thanked', "quiz.playtesters.status = 'ok' ? 'Thanks, ' & quiz.playtesters.value"),
-    jsonataWidget('remark_count', "$count(qns[remark.status = 'ok'])"),
-    jsonataWidget('early_count', "$count(qns[remark.status = 'ok'])"),
+    jsonataWidget('remark_count', "$count(questions.*[remark.status = 'ok'])"),
+    jsonataWidget('early_count', "$count(questions.*[remark.status = 'ok'])"),
   ]
   // In position order: early_count and playtesters for the quiz, remark and thanked for each question, remark_count for the quiz;
   // in run order, the two entries (playtesters, remark) first.
@@ -374,7 +377,7 @@ describe('the widgetings run once for the whole quiz', () => {
   })
 
   it('read no question widgeting placed after them, but for the entries, and every one placed before', () => {
-    const counting = runOf({ ...quiz, widgetings: [tiered('thanked_count', 'thanked_count'), ...quiz.widgetings] }, [...library, jsonataWidget('thanked_count', "$count(qns[thanked.status = 'ok'])")])
+    const counting = runOf({ ...quiz, widgetings: [tiered('thanked_count', 'thanked_count'), ...quiz.widgetings] }, [...library, jsonataWidget('thanked_count', "$count(questions.*[thanked.status = 'ok'])")])
     expect(Runner.quizWidgetedOf(counting, 'thanked_count')).to.deep.eq(Widgeted.ok(0))
     expect(Runner.quizWidgetedOf(counting, 'remark_count')).to.deep.eq(Widgeted.ok(1))
   })
@@ -383,7 +386,7 @@ describe('the widgetings run once for the whole quiz', () => {
     const mixedLibrary = [
       ...library,
       jsonataWidget('so_far', "'Remarked so far: ' & quiz.mid_count.value"),
-      jsonataWidget('so_far_count', "$count(qns[so_far.status = 'ok'])"),
+      jsonataWidget('so_far_count', "$count(questions.*[so_far.status = 'ok'])"),
     ]
     const mixed: QuizT = {
       ...quiz,
@@ -392,7 +395,7 @@ describe('the widgetings run once for the whole quiz', () => {
     const mixedRun = runOf(mixed, mixedLibrary)
     expect(mixedRun.steps.map((step) => step.widgeting.label)).to.deep.eq(['remark', 'mid_count', 'so_far', 'so_far_count'])
     expect(Runner.quizWidgetedOf(mixedRun, 'mid_count')).to.deep.eq(Widgeted.ok(1))
-    expect(Runner.quizBagAt(mixedRun, { label: 'mid_count', params: {} }).qns[0]).to.not.have.property('so_far')
+    expect(Runner.quizBagAt(mixedRun, { label: 'mid_count', params: {} }).questions[first.label]).to.not.have.property('so_far')
     expect(Runner.widgetedOf(mixedRun, 'so_far', second._id)).to.deep.eq(Widgeted.ok('Remarked so far: 1'))
     expect(Runner.quizWidgetedOf(mixedRun, 'so_far_count')).to.deep.eq(Widgeted.ok(2))
   })
@@ -417,7 +420,7 @@ describe('the widgetings run once for the whole quiz', () => {
   })
 
   it("leave the frame's quiz as it stands once every widgeting has run, and each bag's quiz as it stood when that one ran", () => {
-    expect(run.frame.quiz).to.deep.include({ playtesters: Widgeted.ok('Ada and Grace'), remark_count: Widgeted.ok(1), early_count: Widgeted.ok(1) })
+    expect(run.frame.quiz).to.deep.include({ playtesters: bagged(Widgeted.ok('Ada and Grace')), remark_count: bagged(Widgeted.ok(1)), early_count: bagged(Widgeted.ok(1)) })
     expect(run.quizAt.get('playtesters')).to.not.have.property('playtesters')
     expect(run.quizAt.get('thanked')).to.have.property('playtesters')
   })
@@ -425,14 +428,14 @@ describe('the widgetings run once for the whole quiz', () => {
   it('hand a quiz widgeting one bag, for no question, whichever question it is asked for', () => {
     const bags = Runner.bagsAt(run, { label: 'remark_count', params: {} })
     expect(bags.get(first._id)).to.equal(bags.get(second._id))
-    expect(present(bags.get(first._id))).to.deep.include({ qn: {}, qn_label: '', widgeting_label: 'remark_count' })
-    expect(Runner.quizBagAt(run, { label: 'remark_count', params: {} }).qns[0]?.remark).to.deep.eq(Widgeted.ok('Ask Flip.'))
+    expect(present(bags.get(first._id))).to.deep.include({ question: {}, question_label: '', widgeting_label: 'remark_count' })
+    expect(Runner.quizBagAt(run, { label: 'remark_count', params: {} }).questions[first.label]?.remark).to.deep.eq(bagged(Widgeted.ok('Ask Flip.')))
   })
 
   it('give a widgeting the quiz does not run, read for the whole quiz, every widgeted there is', () => {
     const bag = Runner.quizBagAt(run, { label: 'not_yet', params: {} })
-    expect(bag.quiz).to.deep.include({ playtesters: Widgeted.ok('Ada and Grace') })
-    expect(bag.qns[1]?.thanked).to.deep.eq(Widgeted.ok('Thanks, Ada and Grace'))
+    expect(bag.quiz).to.deep.include({ playtesters: bagged(Widgeted.ok('Ada and Grace')) })
+    expect(bag.questions[second.label]?.thanked).to.deep.eq(bagged(Widgeted.ok('Thanks, Ada and Grace')))
   })
 })
 
@@ -442,7 +445,7 @@ describe('the category-estimate widgetings', () => {
   const quiz = { ...Quiz.blank('Estimated'), questions: [placed, blank], widgetings: widgetingsOf(['cats', 'categories'], ['loved', 'loved_by'], ['remark', 'remarks']) }
   const library = [
     Widget.fill({ label: 'categories', formulary: 'entry', config: { entry_kind: 'estimates' } }),
-    jsonataWidget('loved_by', "qn.cats.artie > qn.cats.masie ? 'Artie' : 'Masie'"),
+    jsonataWidget('loved_by', "question.cats.artie > question.cats.masie ? 'Artie' : 'Masie'"),
     Widget.fill({ label: 'remarks', formulary: 'entry', config: { entry_kind: 'text' } }),
   ]
   const run = runOf(quiz, library)
@@ -453,7 +456,7 @@ describe('the category-estimate widgetings', () => {
   })
 
   /** What the bag holds under `cats` for `question`, once every widgeting has run */
-  const catsOf = (question: { _id: string }, inRun = run) => Runner.bagsAt(inRun, { label: 'remark', params: {} }).get(question._id)?.qn.cats as Record<string, unknown> | undefined
+  const catsOf = (question: { _id: string }, inRun = run) => Runner.bagsAt(inRun, { label: 'remark', params: {} }).get(question._id)?.question.cats as Record<string, unknown> | undefined
 
   it("carry each persona's chance and their average as parts, read against the hunt's total order", () => {
     const parts = (['masie', 'artie', 'poppy', 'average'] as const).map((part) => catsOf(placed)?.[part])
@@ -467,13 +470,13 @@ describe('the category-estimate widgetings', () => {
 
   it('carry their parts in the bag beside status and value, so a later formula reads them', () => {
     expect(Runner.widgetedOf(run, 'loved', placed._id)).to.deep.eq(Widgeted.ok('Artie'))
-    const [bagged] = Runner.bagsAt(run, { label: 'remark', params: {} }).get(placed._id)?.qns ?? []
-    expect(bagged?.cats).to.deep.include({ status: 'ok', estimates: [{ category: 'art', difficulty: 'easy' }], artie: 0.9 })
+    const [first] = Object.values(Runner.bagsAt(run, { label: 'remark', params: {} }).get(placed._id)?.questions ?? {})
+    expect(first?.cats).to.deep.include({ status: 'ok', estimates: [{ category: 'art', difficulty: 'easy' }], artie: 0.9 })
   })
 
   it('have no parts for any other widgeting to give', () => {
     expect(Runner.widgetedOf(run, 'remark', placed._id)).to.deep.eq(Widgeted.missing)
-    expect(run.qnsAfter[0]?.loved).to.deep.eq(Widgeted.ok('Artie'))
+    expect(run.questionsAfter[0]?.loved).to.deep.eq(bagged(Widgeted.ok('Artie')))
   })
 
   it('follow the wheel: whoever sits beside a category knows it best', () => {
@@ -567,16 +570,18 @@ describe('bagsAt', () => {
   })
 
   it('names the question, the quiz and the widgeting by label, and carries its params', () => {
-    expect([bag.qn_label, bag.quiz_label, bag.widgeting_label]).to.deep.eq([question.label, 'my_quiz', 'tally'])
-    expect(present(bag.qns[1]).label).to.eq('the_film')
+    expect([bag.question_label, bag.quiz_label, bag.widgeting_label]).to.deep.eq([question.label, 'my_quiz', 'tally'])
+    expect([bag.hunt_label, bag.realm_label]).to.deep.eq(['deep_lake', 'home'])
+    expect(Object.keys(bag.questions)).to.deep.eq([question.label, 'the_film'])
+    expect(present(bag.questions.the_film).label).to.eq('the_film')
     expect(bag.params).to.deep.eq({ size: 3 })
   })
 
   it('strips ids everywhere, and names a chain by the target\'s label, or null', () => {
-    expect(bag.qn).to.not.have.property('_id')
+    expect(bag.question).to.not.have.property('_id')
     expect(bag.quiz).to.not.have.property('_id')
-    expect(bag.qn.chains_to).to.eq('the_film')
-    expect(present(bags.get(target._id)).qn.chains_to).to.be.null
+    expect(bag.question.chains_to).to.eq('the_film')
+    expect(present(bags.get(target._id)).question.chains_to).to.be.null
   })
 
   it('leaves the quiz\'s own questions, widgetings and columns out of `quiz`', () => {
@@ -584,17 +589,22 @@ describe('bagsAt', () => {
     expect(bag.quiz).to.include({ title: 'Bag', label: 'my_quiz' })
   })
 
+  it('places each question in the quiz\'s order, as its export does', () => {
+    expect(Object.values(bag.questions).map((each) => each.position)).to.deep.eq([0, 1])
+  })
+
   it('gives each question its rank, and null to one with no Q#', () => {
     const unranked = { ...Question.blank(), qnum: '' }
     const ranked = Runner.bagsAt(runOf({ ...quiz, questions: [target, question, unranked] }), { label: 'tally', params: {} })
-    expect(ranked.values().map((each) => each.qn.rank).toArray()).to.deep.eq([2, 1, null])
+    expect(ranked.values().map((each) => each.question.rank).toArray()).to.deep.eq([2, 1, null])
   })
 
   it("holds a number spotter's widgeted where a sum reads it", () => {
     const spotted = loneQuestion({ stored: { numnum_clueing: extracted([numeral('3', 3)]) } })
     const run = runOf(standardQuiz([spotted]))
     const seen = present(Runner.bagsAt(run, { label: 'clueing_full', params: {} }).get(spotted._id))
-    expect(seen.qn.numnum_clueing).to.deep.eq(Widgeted.ok({ items: [numeral('3', 3)] }))
+    const spotted3 = Widgeted.ok({ items: [numeral('3', 3)] })
+    expect(seen.question.numnum_clueing).to.deep.eq(bagged(spotted3))
   })
 })
 
@@ -604,60 +614,65 @@ describe('what a bag exposes of a question', () => {
     stored: { dumdum: { newest: storedRow('errored', 9), ok: storedRow('ok', 5, { guess: 'Lyon', explanation: '' }) } },
   }
   const quiz = { ...Quiz.blank('Bag'), label: 'my_quiz', locked: true, questions: [recorded], widgetings: widgetingsOf(['dumdum', 'dumdum']) }
-  const { qn, quiz: quizBag, hunt, realm } = present(Runner.bagsAt(runOf(quiz), { label: 'tally', params: {} }).get(recorded._id))
+  const { question, quiz: quizBag, hunt, realm } = present(Runner.bagsAt(runOf(quiz), { label: 'tally', params: {} }).get(recorded._id))
 
-  it('gives a question only its exposed fields, with the label in force, the rank and the viz flags, and each earlier widgeting under its label', () => {
-    expect(Object.keys(qn).toSorted(byText)).to.deep.eq([...Question.exposed, 'archived', 'dumdum', 'rank', 'secondary'].toSorted(byText))
+  it('gives a question the fields its export holds (its place, label, own fields, viz and stamps), the rank and the viz flags, and each earlier widgeting under its label', () => {
+    expect(Object.keys(question).toSorted(byText)).to.deep.eq([...Question.exposed, 'position', 'viz', 'created_at', 'updated_at', 'archived', 'dumdum', 'rank', 'secondary'].toSorted(byText))
   })
 
   it("says whether each question is archived, and whether it is an alternate, its viz secondary", () => {
     const archived = { ...Question.blank(), qnum: '2', viz: 'archived' as const }
     const alternate = { ...Question.blank(), qnum: '3', viz: 'secondary' as const }
     const bags = Runner.bagsAt(runOf({ ...quiz, questions: [recorded, archived, alternate] }), { label: 'tally', params: {} })
-    const flags = bags.values().map((bag) => [bag.qn.archived, bag.qn.secondary]).toArray()
+    const flags = bags.values().map((bag) => [bag.question.archived, bag.question.secondary]).toArray()
     expect(flags).to.deep.eq([[false, false], [true, false], [false, true]])
   })
 
-  it('keeps the archived questions in a formula\'s qns, so a chain to one still reads its hint', () => {
+  it('keeps the archived questions in a formula\'s questions, so a chain to one still reads its hint', () => {
     const archived = { ...Question.blank(), qnum: '2', viz: 'archived' as const }
     const bag = present(Runner.bagsAt(runOf({ ...quiz, questions: [recorded, archived] }), { label: 'tally', params: {} }).get(recorded._id))
-    expect(bag.qns.map((each) => each.archived)).to.deep.eq([false, true])
+    expect(Object.values(bag.questions).map((each) => each.archived)).to.deep.eq([false, true])
   })
 
-  it("gives every bag the hunt's categories, in its total order, each with the title its tile shows", () => {
+  it("gives every bag the hunt's categories by label, in its total order, each with the title its tile shows and its slot on the wheel", () => {
     const bag = present(Runner.bagsAt(runOf(quiz), { label: 'tally', params: {} }).get(recorded._id))
-    expect(bag.categories.map((category) => category.label)).to.deep.eq(Wheel.orderOf(Wheel.defaultWheel()))
-    expect(bag.categories[0]).to.deep.eq({ label: 'math_econ', title: 'Math & Econ' })
+    expect(Object.keys(bag.categories)).to.deep.eq(Wheel.orderOf(Wheel.defaultWheel()))
+    expect(bag.categories.math_econ).to.deep.eq({ label: 'math_econ', title: 'Math & Econ', position: 0 })
   })
 
-  it('shows an earlier widgeting as its widgeted whole: its status, its value, and a failure riding along', () => {
-    expect(qn.dumdum).to.deep.eq(Widgeted.ok({ guess: 'Lyon', explanation: '' }, { message: 'Too many requests.', at: 9, response: { ok: false } }))
+  it('shows an earlier widgeting as its status and its value, never the failure riding along', () => {
+    expect(question.dumdum).to.deep.eq({ status: 'ok', value: { guess: 'Lyon', explanation: '' } })
   })
 
-  it("gives the quiz only its label, smith's note and title, and the hunt and realm their labels and titles", () => {
-    expect(quizBag).to.deep.eq({ label: 'my_quiz', smiths_note: '', title: 'Bag' })
-    expect([hunt, realm]).to.deep.eq([{ label: 'deep_lake', title: 'Deep Lake' }, { label: 'home', title: 'Home' }])
+  it("gives the quiz its own fields as its export holds them, and the hunt and realm theirs", () => {
+    expect(quizBag).to.deep.eq({
+      label: 'my_quiz', title: 'Bag', smiths_note: '', q1_preamble: quiz.q1_preamble, recap_head: '', recap_tail: '', recap_template: null,
+      templateable: [], locked: true, last_sortkey: null, created_at: null, updated_at: null,
+    })
+    expect([hunt, realm]).to.deep.eq([{ label: 'deep_lake', title: 'Deep Lake', branch: 'main', created_at: null, updated_at: null }, { label: 'home', title: 'Home' }])
   })
 })
 
 describe('placeOf', () => {
   const DefaultOrder = Wheel.orderOf(Wheel.defaultWheel())
-  const Cases: [Parameters<typeof Runner.placeOf>, Omit<Runner.QuizPlace, 'order'>, string][] = [
+  const DefaultCategories = Bagged.categories(Wheel.defaultWheel())
+  const Unstamped = { branch: 'main', created_at: null, updated_at: null }
+  const Cases: [Parameters<typeof Runner.placeOf>, Pick<Runner.QuizPlace, 'hunt' | 'realm'>, string][] = [
     [[{ label: 'deep_lake', title: '' },          { label: 'home',   title: '' }],
-      { hunt: { label: 'deep_lake', title: 'Deep Lake' },  realm: { label: 'home',   title: 'Home' } },          'blank titles read as the labels titleized'],
-    [[{ label: 'tarn',      title: 'Lakeside' },  { label: 'finals', title: 'The Finals' }],
-      { hunt: { label: 'tarn',      title: 'Lakeside' },   realm: { label: 'finals', title: 'The Finals' } },    'titles of their own are kept as they are'],
+      { hunt: { label: 'deep_lake', title: 'Deep Lake', ...Unstamped },  realm: { label: 'home',   title: 'Home' } },          'blank titles read as the labels titleized'],
+    [[{ label: 'tarn',      title: 'Lakeside', branch: 'spring', created_at: 0, updated_at: 0 },  { label: 'finals', title: 'The Finals' }],
+      { hunt: { label: 'tarn', title: 'Lakeside', branch: 'spring', created_at: '1970-01-01T00:00:00.000Z', updated_at: '1970-01-01T00:00:00.000Z' }, realm: { label: 'finals', title: 'The Finals' } }, 'titles of their own, a branch and stamps are kept as the export keeps them'],
   ]
   for (const [[hunt, realm], expected, blurb] of Cases) {
     it(blurb, () => {
-      expect(Runner.placeOf(hunt, realm)).to.deep.eq({ ...expected, order: DefaultOrder })
+      expect(Runner.placeOf(hunt, realm)).to.deep.eq({ ...expected, categories: DefaultCategories, order: DefaultOrder })
     })
   }
 
-  it('leaves out everything a hunt or realm holds besides its exposed fields', () => {
+  it('leaves out everything a hunt or realm holds besides the fields its export holds', () => {
     const hunt = { _id: 'hunt_id', label: 'deep_lake', title: 'Deep Lake', realms: [] }
     const realm = { _id: 'realm_id', label: 'home', title: 'Home', quizzes: [] }
-    expect(Runner.placeOf(hunt, realm)).to.deep.eq({ hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' }, order: DefaultOrder })
+    expect(Runner.placeOf(hunt, realm)).to.deep.eq({ hunt: { label: 'deep_lake', title: 'Deep Lake', ...Unstamped }, realm: { label: 'home', title: 'Home' }, categories: DefaultCategories, order: DefaultOrder })
   })
 
   it("reads the hunt's categories in the total order of its wheel, holes filled from the pool", () => {
@@ -712,8 +727,8 @@ function ticking() {
 describe('a run as a whole, held to one budget of time', () => {
   const many: QuestionT[] = Array.from({ length: 300 }, (_unused, idx) => ({ ...Question.blank(), label: `q_${String(idx)}`, qnum: String(idx + 1), title: `T${String(idx)}` }))
   const library = [
-    Widget.fill({ label: 'looping', formulary: 'liquidize', formula: '{% for aa in (1..100) %}{% endfor %}{{ qn.title }}' }),
-    Widget.fill({ label: 'counting', formulary: 'jsonata', formula: '$count(qns)' }),
+    Widget.fill({ label: 'looping', formulary: 'liquidize', formula: '{% for aa in (1..100) %}{% endfor %}{{ question.title }}' }),
+    Widget.fill({ label: 'counting', formulary: 'jsonata', formula: '$count(questions.*)' }),
     Widget.fill({ label: 'asking', formulary: 'aibot', formula: 'Say {{ count }}', input_formula: "{ 'count': $count([1..100000].($ + 1)) }", config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 10 } }),
   ]
 
@@ -743,7 +758,7 @@ describe('a run as a whole, held to one budget of time', () => {
 
   it("says what each question would be asked of a widgeting begun once the run has spent its time, as a live column begun then does, never blaming its own input formula", () => {
     ticking()
-    const lightly = Widget.fill({ label: 'asking_lightly', formulary: 'aibot', formula: 'Say {{ title }}', input_formula: "{ 'title': qn.title }", config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 10 } })
+    const lightly = Widget.fill({ label: 'asking_lightly', formulary: 'aibot', formula: 'Say {{ title }}', input_formula: "{ 'title': question.title }", config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 10 } })
     const looped = loopedPastTheRun()
     const run = runOf({ ...Quiz.blank('Many'), questions: many, widgetings: [...looped, Widgeting.fill({ label: 'asked', widget_label: 'asking_lightly' })] }, [...library, lightly])
     const inputs = many.map((question) => Runner.inputOf(run, 'asked', question._id))

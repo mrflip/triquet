@@ -98,7 +98,7 @@ test('the Widgets panel lists the quiz\'s widgetings in run order, each with its
   const dumdum = widgetingPanel(page, 'dumdum')
   await unfoldBy(dumdum, 'Widgeting dumdum in full')
   await expect(dumdum.getByRole('textbox', { name: 'Prompt: dumdum' })).toHaveValue(/\{\{clueing\}\}/)
-  await expect(dumdum.getByRole('textbox', { name: 'Input formula: dumdum' })).toHaveValue(/qn\.clueing/)
+  await expect(dumdum.getByRole('textbox', { name: 'Input formula: dumdum' })).toHaveValue(/question\.clueing/)
   await expect(dumdum.getByRole('button', { name: 'Copy a prompt for a chatbot' })).toBeVisible()
 })
 
@@ -208,7 +208,7 @@ test('the library is handed out on its own, and a pasted library is merged into 
   // A label of this test's own: the library is every hunt's, and the specs share one database.
   const label = freshWidgetLabel('pasted')
   const pasted = JSON.stringify({ widgets: [
-    { label, formulary: 'jsonata', formula: '$uppercase(qn.title)' },
+    { label, formulary: 'jsonata', formula: '$uppercase(question.title)' },
     { label: 'numnum_hint', formulary: 'jsonata', formula: '1' },
   ] })
   await section.getByRole('textbox', { name: 'Import library' }).fill(pasted)

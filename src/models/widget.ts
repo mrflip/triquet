@@ -67,9 +67,9 @@ export const AibotTokensMax = 8000
 export const JsonataDefaultInput = '$'
 
 /** The input formula a new `aibot` widget starts with: the clueing, for a `{{clueing}}` in its prompt */
-export const AibotDefaultInput = "{ 'clueing': qn.clueing }"
+export const AibotDefaultInput = "{ 'clueing': question.clueing }"
 
-/** The input formula a new `liquidize` widget starts with: the whole bag, so its template reads `qn.title` as a formula would */
+/** The input formula a new `liquidize` widget starts with: the whole bag, so its template reads `question.title` as a formula would */
 export const LiquidizeDefaultInput = '$'
 
 export const WidgetValidators = Validator(({ obj, arr, oneof, lit, str, label, titleish, noteish, textish, formulaish, discrim, union, uint, num, bool, stamps }) => {
@@ -131,7 +131,7 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, str, label, t
   const liquidizeConfig = obj({}).strict()
     .describe('A `liquidize` widget\'s settings: none.')
   const liquidTemplate = textish.min(1)
-    .describe('A Liquid template, filled in over what the widget\'s input came to: `{{ qn.title }}`, `{% if qn.hint %}...{% endif %}`. Kept exactly as typed.')
+    .describe('A Liquid template, filled in over what the widget\'s input came to: `{{ question.title }}`, `{% if question.hint %}...{% endif %}`. Kept exactly as typed.')
   const templateFrom = obj({
     ref:     ColumnValidators.ref
       .describe('Where the template\'s text is read from, as a column\'s ref names it: a question\'s field (`notes`), a widgeting run before this one (`dumdum`), a word of the bag, or `quiz.<label>`.'),
@@ -375,7 +375,7 @@ export class Widget {
    * @param dna - At least a label and a formulary; a formula, but for an entry; and an `aibot` or `entry` widget's config.
    * @returns A complete widget, of the formulary `dna` names.
    *
-   * @example Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' }).input_formula  // => '$'
+   * @example Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' }).input_formula  // => '$'
    */
   static fill<DT extends WidgetDNA>(dna: DT): Extract<WidgetT, { formulary: DT['formulary'] }> {
     // The union is discriminated by `formulary`, so the arm it parses to is the one `dna` names.

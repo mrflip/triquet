@@ -3,10 +3,12 @@ import type * as Z from 'zod'
 import { Validator } from './validator'
 import type { IsoStampsT } from './stamps'
 import type { ColumnT } from '../models/column'
+import type { CategoryLabel } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import type { HuntRole } from '../models/hunting'
 import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
+import type { RealmT } from '../models/realm'
 import type { ReviewRowT } from '../models/review'
 import type { ReviewingRowT } from '../models/reviewing'
 import { WidgetScopeVals, type WidgetT } from '../models/widget'
@@ -21,8 +23,15 @@ import type { WidgetingT } from '../models/widgeting'
  * Every collection is an object keyed by label, never a list: a merge cannot tell that two lists'
  * members are the same thing, and tools disagree about how to merge lists, while a keyed object
  * merges one way in every tool. Where order matters (a quiz's questions, its widgetings and
- * columns, the wheel's slots, the library) each member carries its `position`. A list appears
- * only where a value is itself one, inside one ball.
+ * columns, the wheel's slots, the library) each member carries its `position`, and its `label`
+ * beside it, so a member read on its own still says what it is. A list appears only where a value
+ * is itself one, inside one ball.
+ *
+ * A ball holds a hunt in the shape a formula's or a template's bag does (`Bagged`, in
+ * `models/quiz-bag.ts`, makes the pieces of both): a question, the quiz's own fields, the hunt's
+ * and its categories are the same in each. The bag adds what is worked out (a question's rank, its
+ * viz as two yes-or-nos, an estimate's parts) and the ball the quiz's layout (`decisions/
+ * 20261008-columnwise.md`, section 12).
  *
  * This module owns the shapes: what each ball's body holds, how one is placed at its key path,
  * how balls merge, and how anything pasted (any ball, any merge of them, and every shape an
@@ -42,47 +51,63 @@ export const PositionField = 'position'
 /** What an export made while a label could be overridden carries as the override: the label a quiz or a question answered to then */
 export const ForcedLabelField = 'forced_label'
 
-/** The hunt's own fields, which sit at the root of the merged hunt: its title as shown, and its stamps as a person reads them */
+/** The hunt's own fields, which sit at the root of the merged hunt, and are the bag's `hunt`: its title as shown, and its stamps as a person reads them */
 export type HuntBodyT = Pick<HuntT, 'label' | 'title' | 'branch'> & IsoStampsT
 
-/** One subject category: the slot of the hunt's wheel it holds, or null for one in the pool */
-export type CategoryBodyT = { position: number | null }
+/** The realm a quiz sits in, as the bag holds it: its label, and its title as shown. A ball holds the realm only as a key of its path */
+export type RealmBodyT = Pick<RealmT, 'label' | 'title'>
+
+/** One subject category, by its label: its label, its title as its tile shows it, and the slot of the hunt's wheel it holds, or null for one in the pool */
+export type CategoryBodyT = { label: CategoryLabel, title: string, position: number | null }
 
 /** One ident on the hunt, by their label: what they are called, and their role */
 export type MemberBodyT = { title: string, role: HuntRole }
 
-/** What one widgeting came to for one question: its exposed fields */
+/** What one widgeting came to for one question, or for the quiz: its exposed fields, never its failure */
 export type WidgetedBodyT = Pick<WidgetedT, 'status' | 'value'>
 
+/** A question's own fields that its body holds as they are, beside its place, its label, its chain by label and its stamps */
+export const QuestionBodyFieldnames = ['qnum', 'clueing', 'hint', 'title', 'alt_text', 'notes', 'full_answer', 'recap', 'viz'] as const
+
 /**
- * One question, by its label: its place in the quiz, its own fields (how it is shown among them),
- * its chain by the label of the question it points at, its stamps as a person reads them, and beside them what each widgeting of
- * the quiz came to, under the widgeting's label.
+ * One question, by its label: its place in the quiz, its label, its own fields (how it is shown
+ * among them), its chain by the label of the question it points at, its stamps as a person reads
+ * them, and beside them what each widgeting of the quiz came to, under the widgeting's label. The
+ * bag holds a question so too (`Bagged.question`), with what it works out beside.
  */
-export type QuestionBodyT = Pick<QuestionT, 'qnum' | 'clueing' | 'hint' | 'title' | 'alt_text' | 'notes' | 'full_answer' | 'recap' | 'viz'> & IsoStampsT & {
+export type QuestionBodyT = Pick<QuestionT, typeof QuestionBodyFieldnames[number]> & IsoStampsT & {
   position:  number
+  label:     string
   chains_to: string | null
   [widgeting_label: string]: unknown
 }
 
-/** One widgeting, by its label: its place in the quiz's run order, and its fields, its tier among them */
-export type WidgetingBodyT = Omit<WidgetingT, 'label'> & { position: number }
+/** One widgeting, by its label: its place in the quiz's run order, its label, and its fields, its tier among them */
+export type WidgetingBodyT = WidgetingT & { position: number }
 
-/** One column, by its label: its place in the grid, and its fields */
-export type ColumnBodyT = Omit<ColumnT, 'label'> & { position: number }
+/** One column, by its label: its place in the grid, its label, and its fields */
+export type ColumnBodyT = ColumnT & { position: number }
+
+/** A quiz's own fields that its body holds as they are, beside its label, its recap template and its stamps */
+export const QuizBodyFieldnames = ['title', 'smiths_note', 'q1_preamble', 'recap_head', 'recap_tail', 'templateable', 'locked', 'last_sortkey'] as const
 
 /**
- * One quiz, by its label: its own fields (its recap's head, tail and template, what it nominates as templateable and
- * its sort memory among them), its stamps, and its questions, widgetings and columns, each keyed by label;
- * and, when it has any widgetings run once for the whole quiz, what each came to, by its label.
+ * One quiz's own fields, as its ball and the bag both hold them: its label, its fields (its recap's
+ * head, tail and template, what it nominates as templateable and its sort memory among them), its
+ * stamps, and what each widgeting run once for the whole quiz came to, under the widgeting's label.
  */
-export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'recap_head' | 'recap_tail' | 'templateable' | 'locked' | 'last_sortkey'> & IsoStampsT & {
+export type QuizOwnBodyT = Pick<QuizT, typeof QuizBodyFieldnames[number]> & IsoStampsT & {
+  label:          string
   /** Its recap template; null for a quiz that follows the default, so an import of it puts the quiz it lands on back on the default */
   recap_template: string | null
+  [widgeting_label: string]: unknown
+}
+
+/** One quiz, by its label: its own fields (`QuizOwnBodyT`), and its questions, widgetings and columns, each keyed by label */
+export type QuizBodyT = QuizOwnBodyT & {
   questions:  Record<string, QuestionBodyT>
   widgetings: Record<string, WidgetingBodyT>
   columns:    Record<string, ColumnBodyT>
-  widgeteds?: Record<string, WidgetedBodyT>
 }
 
 /** What a reviewing writes of its verdict: everything the reviewer said of the question, and not whether they peeked */
@@ -94,8 +119,8 @@ export type VerdictBodyT = Pick<ReviewingRowT, typeof VerdictFieldnames[number]>
 /** One shared review of one quiz, by the reviewer's label: what they made of it, its stamps, and their verdict on each question */
 export type ReviewBodyT = Pick<ReviewRowT, 'overall'> & IsoStampsT & { verdicts: Record<string, VerdictBodyT> }
 
-/** One widget of the library, by its scope and label: its place in the library, and its fields */
-export type WidgetBodyT = DistributiveOmit<WidgetT, 'scope' | 'label'> & { position: number }
+/** One widget of the library, by its scope and label: its place in the library, its label, and its fields */
+export type WidgetBodyT = DistributiveOmit<WidgetT, 'scope'> & { position: number }
 
 /** `Omit` taken across each member of a union, so the union survives it */
 type DistributiveOmit<TT, KT extends PropertyKey> = TT extends unknown ? Omit<TT, KT> : never
@@ -127,16 +152,19 @@ export function merged(balls: readonly JsonballT[]): JsonballT {
 }
 
 /**
- * `items` as a collection keyed by label, each body carrying its place in the list.
+ * `items` as a collection keyed by label, each body carrying its label and its place in the list.
  *
  * @param items - The members, in order.
  * @param labelOf - What each is keyed by.
- * @param bodyOf - What each holds beside its place.
+ * @param bodyOf - What each holds beside its label and its place.
  *
- * @example keyedOf([{ label: 'leon' }, { label: 'nantes' }], (qn) => qn.label, () => ({}))  // => { leon: { position: 0 }, nantes: { position: 1 } }
+ * @example keyedOf([{ label: 'leon' }, { label: 'nantes' }], (qn) => qn.label, () => ({}))  // => { leon: { label: 'leon', position: 0 }, nantes: { label: 'nantes', position: 1 } }
  */
-export function keyedOf<TT, BT extends JsonballT>(items: readonly TT[], labelOf: (item: TT) => string, bodyOf: (item: TT) => BT): Record<string, BT & { position: number }> {
-  return Object.fromEntries(items.map((item, ii) => [labelOf(item), { ...bodyOf(item), [PositionField]: ii }]))
+export function keyedOf<TT, BT extends JsonballT>(items: readonly TT[], labelOf: (item: TT) => string, bodyOf: (item: TT) => BT): Record<string, BT & { label: string, position: number }> {
+  return Object.fromEntries(items.map((item, ii) => {
+    const label = labelOf(item)
+    return [label, { ...bodyOf(item), label, [PositionField]: ii }]
+  }))
 }
 
 /**

@@ -12,7 +12,7 @@ security expert who knows what questions to ask.
   wherever a field template or the recap template names that column (`src/lib/templating.ts`).
 * 2026-10-08: an image in a formula's or a bot's column reaches a template as a link: `![` is
   written `&#33;[` in the template's bag (`Templating.bagOf`). An image whose `![` the template's
-  own text supplies (`![map]({{qn.col}})`, or a `!` typed just before a tag) takes its address from
+  own text supplies (`![map]({{question.col}})`, or a `!` typed just before a tag) takes its address from
   the column.
 * 2026-10-08 (columnwise sprint, thread 6): a smith writes regular expressions of their own (a
   `text` entry's `regex` param, or an admin a widget's default), run against every cell typed into

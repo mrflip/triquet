@@ -132,8 +132,8 @@ describe('tsvOf', () => {
   it("writes the categories as a row each, by label, with its slot or none", () => {
     const rows = rowsOf(tsvAt('categories.tqc.tsv'))
     expect(rows.map((row) => row.label)).to.deep.eq(CategoryLabelVals.toSorted((aa, bb) => aa.localeCompare(bb)))
-    expect(rows.find((row) => row.label === 'tv')).to.deep.eq({ label: 'tv', position: '' })
-    expect(rows.find((row) => row.label === 'math_econ')).to.deep.eq({ label: 'math_econ', position: '0' })
+    expect(rows.find((row) => row.label === 'tv')).to.deep.eq({ label: 'tv', position: '', title: 'TV' })
+    expect(rows.find((row) => row.label === 'math_econ')).to.deep.eq({ label: 'math_econ', position: '0', title: 'Math & Econ' })
   })
 
   it("writes the members as a row each, by label", () => {

@@ -319,8 +319,8 @@ const Matrix = {
   move_column:         [{ kind: 'move_column', label: 'qnum', onto_idx: 1 },                                                         Revisers],
   set_templateable:       [{ kind: 'set_templateable', templateable: ['recap'] },                                                    Revisers],
   // library, an admin's, of the actor alone (Alice, an admin here):
-  add_widget:          [{ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } },  Idents],
-  edit_widget:         [{ kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },                         Idents],
+  add_widget:          [{ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' } },  Idents],
+  edit_widget:         [{ kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(question.title)' } },                         Idents],
   delete_widget:       [{ kind: 'delete_widget', label: 'shout' },                                                                   Idents],
   move_widget:         [{ kind: 'move_widget', label: 'shout', onto_idx: 2 },                                                        Idents],
   import_widgets:      [{ kind: 'import_widgets', widgets: [] },                                                                     Idents],

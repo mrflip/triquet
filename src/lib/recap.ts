@@ -11,8 +11,8 @@ import type { QuizT } from '../models/quiz'
  * own, or `DefaultTemplate`) over the **recap bag**, which holds them; then `Bbjank.toBbjank`,
  * which writes only what it knows, is the last step.
  *
- * The default template reads only what every template reads -- `qns`, each question's own fields
- * and its columns by label -- and the app's filters (`Templating.Helpers`, `in_order`), so an
+ * The default template reads only what every template reads -- `questions`, each question's own
+ * fields and its columns by label -- and the app's filters (`Templating.Helpers`, `in_order`), so an
  * author can see where each line comes from and change any of it. What an author wrote, set into
  * a place where markdown's structure is fragile, can change that structure: a clueing's second
  * line can leave the quote its first line opened, a blank line in an answer breaks its spoiler.
@@ -22,7 +22,7 @@ import type { QuizT } from '../models/quiz'
 /**
  * The recap template every quiz follows until it is given one of its own, written with nothing
  * but what every template reads, Liquid, and the app's filters: the recap head, then, when a
- * question follows, a rule; then each question played (`qns | in_order`: those with a Q# in Q#
+ * question follows, a rule; then each question played (`questions | in_order`: those with a Q# in Q#
  * order, then any other holding a clueing; never an alternate or the archived), numbered by its
  * place there, its clueing quoted under its number, with its own hint after `...OR ELSE...` when it
  * has one; its answer behind a spoiler; the `correct_pct` column; its recap -- then the recap
@@ -32,7 +32,7 @@ import type { QuizT } from '../models/quiz'
  * heading. Blank lines the tags leave are the markdown's to swallow.
  */
 export const DefaultTemplate = `
-{%- assign played = qns | in_order -%}
+{%- assign played = questions | in_order -%}
 {%- if recap_head %}
 {{ recap_head }}
 {%- if played.size > 0 %}
@@ -40,19 +40,19 @@ export const DefaultTemplate = `
 ***
 {%- endif %}
 {% endif %}
-{%- for qn in played %}
+{%- for question in played %}
 
-> {AS: Q{{ qn.number }}}{{ qn.number }}. {{ qn.clueing | quote }}
-{%- if qn.hint %}
+> {AS: Q{{ question.number }}}{{ question.number }}. {{ question.clueing | quote }}
+{%- if question.hint %}
 >
 > ...OR ELSE...
 >
-> {{ qn.hint | quote }}
+> {{ question.hint | quote }}
 {%- endif %}
 
-Answer: {% if qn.full_answer %}~~**{{ qn.full_answer | oneline }}**~~{% endif %}
-Correct Answer %: {{ qn.correct_pct }}
-{{ qn.recap | apart }}
+Answer: {% if question.full_answer %}~~**{{ question.full_answer | oneline }}**~~{% endif %}
+Correct Answer %: {{ question.correct_pct }}
+{{ question.recap | apart }}
 {%- endfor %}
 
 {{ recap_tail }}
@@ -98,7 +98,7 @@ export function noteOf(quiz: QuizT, run: Runner.QuizRun): RecapNoteT {
 
 /**
  * What the recap template reads: the quiz's template bag, its questions' templated texts filled
- * in (`Templating.filledBagOf`), so `{{ qn.clueing }}` in a loop over `qns` is a templated clueing
+ * in (`Templating.filledBagOf`), so `{{ question.clueing }}` in a loop over `questions` is a templated clueing
  * filled in; and its recap head and tail, each filled in over that bag (as typed, when it cannot be).
  *
  * @example bagOf(quiz, run).recap_head  // => 'Thanks to Ada!'   (typed as 'Thanks to {{ quiz.playtesters }}!')

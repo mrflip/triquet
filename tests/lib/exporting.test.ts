@@ -59,15 +59,16 @@ describe('huntBall', () => {
 })
 
 describe('categoriesBall', () => {
-  it("is every category by label, with the slot of the wheel it holds", () => {
+  it("is every category by label, with its label, its title and the slot of the wheel it holds, as the bag holds them", () => {
     const categories = Exporting.categoriesBall(Place, Wheel.defaultWheel()).ball.categories as Record<string, Jsonball.CategoryBodyT>
-    expect(categories.math_econ).to.deep.eq({ position: 0 })
+    expect(categories.math_econ).to.deep.eq({ label: 'math_econ', title: 'Math & Econ', position: 0 })
+    expect(categories).to.deep.eq(Runner.placeOf({ label: 'spring_hunt', title: '' }, { label: 'home', title: '' }).categories)
     expect(CategoryLabelVals.map((label) => categories[label]?.position)).to.deep.eq(CategoryLabelVals.map((_label, ii) => ii))
   })
 
   it("holds a category in the pool at no slot", () => {
     const categories = Exporting.categoriesBall(Place, Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool')).ball.categories as Record<string, Jsonball.CategoryBodyT>
-    expect(categories.tv).to.deep.eq({ position: null })
+    expect(categories.tv).to.deep.eq({ label: 'tv', title: 'TV', position: null })
     expect(Object.keys(categories)).to.have.members([...CategoryLabelVals])
   })
 })
@@ -82,23 +83,51 @@ describe('membersBall', () => {
   })
 })
 
+describe('the export and the bag', () => {
+  const quiz = { ...chainedQuiz(), questions: chainedQuiz().questions.map((question, ii) => ({ ...question, viz: ii === 1 ? 'archived' as const : question.viz })) }
+  const run = runOf(quiz, EntryLibrary)
+  const body = Exporting.quizBodyOf(quiz, run)
+  // What a widgeting the quiz does not run reads: every question as the run left it, and the quiz too.
+  const bag = Runner.quizBagAt(run, { label: 'reader', params: {} })
+  const WorkedOut = ['rank', 'archived', 'secondary']
+
+  it("hold each question alike, in the same order, the bag adding only what it works out", () => {
+    expect(Object.keys(bag.questions)).to.deep.eq(Object.keys(body.questions))
+    for (const [label, held] of Object.entries(body.questions)) {
+      const bagged = present(bag.questions[label])
+      expect(_.difference(Object.keys(bagged), Object.keys(held)), label).to.have.members(WorkedOut)
+      // A widgeted the bag holds may carry an estimate's parts beside its status and value.
+      for (const [key, val] of Object.entries(held)) { expect(_.isPlainObject(val) ? _.pick(bagged[key], Object.keys(val as object)) : bagged[key], `${label}.${key}`).to.deep.eq(val) }
+    }
+  })
+
+  it("hold the quiz's own fields alike, and what each widgeting run once for the whole quiz came to", () => {
+    expect(bag.quiz).to.deep.eq(_.omit(body, ['questions', 'widgetings', 'columns']))
+  })
+
+  it("hold the hunt alike", () => {
+    const hunt = { label: 'deep_lake', title: 'Deep Lake', branch: 'main', created_at: 0, updated_at: 0 }
+    expect(Runner.placeOf(hunt, { label: 'home', title: 'Home' }).hunt).to.deep.eq(Exporting.huntBall(Place, hunt).body)
+  })
+})
+
 describe('quizBodyOf', () => {
   it("carries no id at any depth", () => {
     const body = bodyOf(chainedQuiz())
     expect(idPaths(body)).to.deep.eq([])
   })
 
-  it("keys its questions, widgetings and columns by label, each in order by its position, with no label inside", () => {
+  it("keys its questions, widgetings and columns by label, each in order by its position, with its label inside", () => {
     const quiz = chainedQuiz()
     const body = bodyOf(quiz)
     const inOrder = (keyed: Record<string, { position: number }>) => _.sortBy(Object.keys(keyed), (label) => keyed[label]?.position)
     expect(_.mapValues(body.questions, 'position')).to.deep.eq({ leon: 0, nantes: 1 })
     expect(inOrder(body.widgetings)).to.deep.eq(_.map(quiz.widgetings, 'label'))
     expect(inOrder(body.columns)).to.deep.eq(_.map(quiz.columns, 'label'))
-    expect([body.questions.leon, body.widgetings.remark, body.columns.title].map((each) => Object.hasOwn(present(each), 'label'))).to.deep.eq([false, false, false])
+    expect([body.questions.leon?.label, body.widgetings.remark?.label, body.columns.title?.label]).to.deep.eq(['leon', 'remark', 'title'])
   })
 
-  it("holds what each widgeting run once for the whole quiz came to under widgeteds, and never on a question", () => {
+  it("holds what each widgeting run once for the whole quiz came to beside the quiz's own fields, as the bag does, and never on a question", () => {
     const quiz = chainedQuiz()
     const quizWide = {
       ...quiz,
@@ -106,14 +135,16 @@ describe('quizBodyOf', () => {
       widgetings: [Widgeting.fill({ widget_label: 'remark', label: 'playtesters', tier: 'quiz' }), ...quiz.widgetings],
     }
     const body = bodyOf(quizWide)
-    expect(body.widgeteds).to.deep.eq({ playtesters: { status: 'ok', value: 'Ada and Grace' } })
+    expect(body.playtesters).to.deep.eq({ status: 'ok', value: 'Ada and Grace' })
+    expect(body).to.not.have.property('widgeteds')
     expect(body.widgetings.playtesters).to.deep.include({ tier: 'quiz' })
     expect(body.questions.leon).to.not.have.property('playtesters')
     expect(body.questions.leon).to.have.property('remark')
   })
 
-  it("says nothing of widgeteds for a quiz with no widgeting run once for the whole quiz", () => {
-    expect(bodyOf(chainedQuiz())).to.not.have.property('widgeteds')
+  it("holds no more than its own fields and its layout for a quiz with no widgeting run once for the whole quiz", () => {
+    const body = bodyOf(chainedQuiz())
+    expect(Object.keys(body)).to.have.members([...Quiz.bagKeys])
   })
 
   it("names a chain by the label of the question it points at", () => {
@@ -137,9 +168,9 @@ describe('quizBodyOf', () => {
     const recap = { recap_head: 'Thanks to our playtesters.', recap_tail: 'Until next season.', recap_template: '{{#played}}{{number}}. {{title}}{{/played}}', templateable: ['recap', 'remark'] }
     const quiz = { ...chained, columns, locked: true, smiths_note: 'Kings and lions.', ...recap, last_sortkey: 'column:title' as const }
     const body = bodyOf(quiz)
-    expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, ...recap, locked: true, last_sortkey: 'column:title', created_at: null, updated_at: null })
-    expect(body.widgetings.remark).to.deep.eq({ position: quiz.widgetings.length - 1, widget_label: 'remark', description: '', params: {}, tier: 'question' })
-    expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'title', width_px: 100, align: 'right' })
+    expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ label: 'princes', title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, ...recap, locked: true, last_sortkey: 'column:title', created_at: null, updated_at: null })
+    expect(body.widgetings.remark).to.deep.eq({ position: quiz.widgetings.length - 1, label: 'remark', widget_label: 'remark', description: '', params: {}, tier: 'question' })
+    expect(body.columns.title).to.deep.eq({ position: 0, label: 'title', title: 'Title', source: 'title', width_px: 100, align: 'right' })
   })
 
   it("writes each column as it is held, its formula beside it", () => {
@@ -186,9 +217,9 @@ describe('quizBodyOf', () => {
     }
   })
 
-  it("adds nothing beside a question's fields and its position for a quiz with no widgetings", () => {
+  it("adds nothing beside a question's fields, its label and its position for a quiz with no widgetings", () => {
     const nantes = present(bodyOf({ ...chainedQuiz(), widgetings: [], columns: [] }).questions.nantes)
-    expect(_.sortBy(Object.keys(nantes))).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'notes', 'position', 'qnum', 'recap', 'title', 'updated_at', 'viz'])
+    expect(_.sortBy(Object.keys(nantes))).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'label', 'notes', 'position', 'qnum', 'recap', 'title', 'updated_at', 'viz'])
   })
 
   it("writes the stamps of the quiz and each question as a person reads them: ISO-8601, in UTC", () => {
@@ -369,11 +400,11 @@ describe('workedBalls', () => {
 })
 
 describe('widgetBall', () => {
-  it("is the widget's fields and its place in the library, by scope and label", () => {
+  it("is the widget's fields, its label among them, and its place in the library, by scope and label", () => {
     const dumdum = present(SeedWidgets.find((widget) => widget.label === 'dumdum'))
     const placed = Exporting.widgetBall(dumdum, 0)
-    const { scope, label, ...fields } = Widget.exported(dumdum)
-    expect(placed.ball).to.deep.eq({ [scope]: { widgets: { [label]: { ...fields, position: 0 } } } })
+    const { scope, ...fields } = Widget.exported(dumdum)
+    expect(placed.ball).to.deep.eq({ [scope]: { widgets: { [fields.label]: { ...fields, position: 0 } } } })
     expect(placed.address).to.deep.eq({ kind: 'widget', scope: 'pub', widget: 'dumdum' })
   })
 })

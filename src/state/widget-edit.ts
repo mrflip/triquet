@@ -59,7 +59,7 @@ export type NewWidgetPlan =
  * A new widget of `formulary`, as it starts, keeping the label and description already typed: what
  * the editor holds once the author picks a formulary.
  *
- * @example blankDraftOf('aibot', { label: 'riddler', description: '' }).input_formula  // => "{ 'clueing': qn.clueing }"
+ * @example blankDraftOf('aibot', { label: 'riddler', description: '' }).input_formula  // => "{ 'clueing': question.clueing }"
  */
 export function blankDraftOf(formulary: Formularykind, kept: Pick<WidgetDraft, 'label' | 'description'>): WidgetDraft {
   return { ...BlankDrafts[formulary], label: kept.label, description: kept.description }
@@ -88,7 +88,7 @@ export function draftOf(widget: WidgetT): WidgetDraft {
  * @param library - The library's widgets.
  * @returns The plan.
  *
- * @example planNewWidget({ ...BlankJsonataDraft, label: 'Title Length', formula: '$length(qn.title)' }, library).actions  // => [{ kind: 'add_widget', widget: { label: 'title_length', ... } }]
+ * @example planNewWidget({ ...BlankJsonataDraft, label: 'Title Length', formula: '$length(question.title)' }, library).actions  // => [{ kind: 'add_widget', widget: { label: 'title_length', ... } }]
  */
 export function planNewWidget(draft: WidgetDraft, library: readonly WidgetT[]): NewWidgetPlan {
   const label = Labelmaker.normalize(draft.label)

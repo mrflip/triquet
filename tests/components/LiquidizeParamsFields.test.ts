@@ -4,7 +4,7 @@ import { Widgeting } from '../../src/models/widgeting'
 
 describe('templateSourceOf', () => {
   it("is where params say a template comes from", () => {
-    expect(templateSourceOf({ template: '{{ qn.hint }}' })).to.eq('own')
+    expect(templateSourceOf({ template: '{{ question.hint }}' })).to.eq('own')
     expect(templateSourceOf({ template_from: { ref: 'dumdum' } })).to.eq('bag')
     expect(templateSourceOf({})).to.eq('widget')
   })
@@ -22,7 +22,7 @@ describe('templateRefsOf', () => {
   it("offers the question's fields, view and keys, the quiz's other widgetings, and the bag's words", () => {
     const refs = templateRefsOf([dumdum, playtesters, blurb], 'blurb')
     expect(refs.slice(0, 2)).to.deep.eq(['title', 'clueing'])
-    expect(refs).to.include.members(['butnot', 'rank', 'dumdum', 'quiz.playtesters', 'quiz', 'qns'])
+    expect(refs).to.include.members(['butnot', 'rank', 'dumdum', 'quiz.playtesters', 'quiz', 'questions'])
     expect(refs).not.to.include('blurb')
   })
 

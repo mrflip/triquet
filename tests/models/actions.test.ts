@@ -15,7 +15,7 @@ const Answered = {
 }
 
 /** A widget of the library */
-const Shout = { label: 'shout', formulary: 'jsonata' as const, formula: '$uppercase(qn.title)' }
+const Shout = { label: 'shout', formulary: 'jsonata' as const, formula: '$uppercase(question.title)' }
 
 /** One of each action, as a view would say it */
 const Actions: HuntActionDNA[] = [
@@ -64,7 +64,7 @@ const Actions: HuntActionDNA[] = [
 /** One of each action on the library, as a view would say it */
 const LibraryActions: LibraryActionDNA[] = [
   { kind: 'add_widget', widget: Shout },
-  { kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },
+  { kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(question.title)' } },
   { kind: 'delete_widget', label: 'shout' },
   { kind: 'move_widget', label: 'shout', onto_idx: 2 },
   { kind: 'import_widgets', widgets: [Shout, { label: 'ask_it', formulary: 'aibot', formula: '{{clueing}}?', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 64 } }] },

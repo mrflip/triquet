@@ -14,13 +14,13 @@ import { EntryKindOncePerQuiz, EntryParamsOf, WidgetValidators, type WidgetT } f
 
 /**
  * The keys at the top of every bag a formula reads (`QuizBagValidators.quizBag`, which is held to
- * this list): where the quiz sits, its questions, the one being worked out, and the running
- * widgeting's own. Written here rather than read from the bag's validator, which is built on the
- * quiz's and so on the widgeting's.
+ * this list): where the quiz sits, its questions, the one being worked out, the labels of each,
+ * and the running widgeting's own. Written here rather than read from the bag's validator, which
+ * is built on the quiz's and so on the widgeting's.
  */
-export const QuizBagKeys = ['hunt', 'realm', 'categories', 'quiz', 'qns', 'qn', 'qn_label', 'quiz_label', 'params', 'widgeting_label'] as const
+export const QuizBagKeys = ['hunt', 'realm', 'categories', 'quiz', 'questions', 'question', 'hunt_label', 'realm_label', 'quiz_label', 'question_label', 'params', 'widgeting_label'] as const
 
-/** Every key a widgeted holds, as the bag has it under `qn.<label>` or as its row stores it, and the two it is to carry for its staleness */
+/** Every key a widgeted holds, as the bag has it under `question.<label>` or as its row stores it, and the two it is to carry for its staleness */
 const WidgetedKeys: readonly string[] = [
   ...WidgetedValidators.widgeted.options.flatMap((option) => Object.keys(option.shape)),
   ...Object.keys(WidgetedValidators.stored.shape).filter((key) => ! key.startsWith('_')),
@@ -37,13 +37,13 @@ const WidgetedKeys: readonly string[] = [
  * * **the bag's top level** (`QuizBagKeys`), so a column's ref, found on the question first and
  *   then there, never finds a widgeting where it means a word; and `category`, one of the
  *   `categories`, so no widgeting reads as one;
- * * **a widgeted's keys**, so `qn.status` never sits beside `qn.foo.status`;
+ * * **a widgeted's keys**, so `question.status` never sits beside `question.foo.status`;
  * * **a column's fields**, so an export's columns and a bag never read alike;
  * * **a category-estimate widgeted's keys** (`Estimates.PartVals`): each persona's chance, the
  *   list and their average.
  */
 export const ReservedWidgetingLabels: readonly string[] = _.uniq([
-  ...Question.exposed, RankField, ArchivedField, SecondaryField, PositionField, VizField, ...StampFieldnames, ...QuestionViewVals, 'question', PlaceField, ForcedLabelField,
+  ...Question.exposed, RankField, ArchivedField, SecondaryField, PositionField, VizField, ...StampFieldnames, ...QuestionViewVals, PlaceField, ForcedLabelField,
   ...QuizBagKeys, 'category',
   ...WidgetedKeys,
   ...Object.keys(ColumnValidators.column.shape), ...ColumnStageFieldnames,

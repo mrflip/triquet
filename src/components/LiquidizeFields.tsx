@@ -73,7 +73,7 @@ export function LiquidizeFields({ hunt, library, openQuiz, draft, onChange, labe
       <TextField
         size="small" multiline minRows={4} maxRows={16} label="Template" value={draft.formula}
         error={templateIssue !== null || templateLong !== null}
-        helperText={templateIssue ?? templateLong ?? 'Liquid, filled in once per question and shown as markdown: {{ qn.title }}, {% if qn.hint %}…{% endif %}. A widgeting may give one of its own.'}
+        helperText={templateIssue ?? templateLong ?? 'Liquid, filled in once per question and shown as markdown: {{ question.title }}, {% if question.hint %}…{% endif %}. A widgeting may give one of its own.'}
         slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
         onChange={(event) => { onChange({ formula: event.target.value }) }}
       />
@@ -90,8 +90,8 @@ export function LiquidizeFields({ hunt, library, openQuiz, draft, onChange, labe
         <div>
           <div className={styles.microcopy}>What the template reads for this question</div>
           <JsonFold label="quiz" val={bag.quiz} />
-          <JsonFold label={`qns (${String(bag.qns.length)})`} val={bag.qns} />
-          <JsonFold label="qn" val={bag.qn} />
+          <JsonFold label={`questions (${String(Object.keys(bag.questions).length)})`} val={bag.questions} />
+          <JsonFold label="question" val={bag.question} />
         </div>
       )}
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>

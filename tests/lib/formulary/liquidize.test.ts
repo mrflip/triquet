@@ -22,19 +22,19 @@ function answered(value: JsonT): WidgetedHistoryT {
 /** A cell whose only ask failed */
 const onlyFailed: WidgetedHistoryT = { newest: { status: 'errored', value: null, message: 'Too many requests.', result_meta: {}, _creationTime: 7.5 }, ok: null }
 
-const blurb = Widget.fill({ label: 'blurb', formulary: 'liquidize', formula: 'Q: {{ qn.title }}' })
-const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: "'Hi, {{ qn.full_answer }}'" })
+const blurb = Widget.fill({ label: 'blurb', formulary: 'liquidize', formula: 'Q: {{ question.title }}' })
+const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: "'Hi, {{ question.full_answer }}'" })
 const dumdum = present(SeedWidgets.find((widget) => widget.label === 'dumdum'))
 const library: WidgetT[] = [blurb, shout, dumdum]
 
-const leon: QuestionT = { ...Question.blank(), label: 'leon', qnum: '1', title: 'Leon', full_answer: 'Leon Trotsky', hint: 'Ice', notes: 'See {{ qn.hint }}', stored: { dumdum: answered({ guess: 'Leon', template: '*{{ qn.title }}*' }) } }
+const leon: QuestionT = { ...Question.blank(), label: 'leon', qnum: '1', title: 'Leon', full_answer: 'Leon Trotsky', hint: 'Ice', notes: 'See {{ question.hint }}', stored: { dumdum: answered({ guess: 'Leon', template: '*{{ question.title }}*' }) } }
 const ivan: QuestionT = { ...Question.blank(), label: 'ivan', qnum: '2', title: 'Ivan', chains_to: leon._id, stored: { dumdum: onlyFailed } }
 const widgetings: WidgetingT[] = [
   Widgeting.fill({ label: 'shout', widget_label: 'shout' }),
   Widgeting.fill({ label: 'dumdum', widget_label: 'dumdum' }),
   Widgeting.fill({ label: 'playtesters', widget_label: 'shout', tier: 'quiz' }),
 ]
-const quiz = { ...Quiz.blank('Princes'), smiths_note: 'Meta: {{ qn.title }} rules', questions: [leon, ivan], widgetings }
+const quiz = { ...Quiz.blank('Princes'), smiths_note: 'Meta: {{ question.title }} rules', questions: [leon, ivan], widgetings }
 const run = runOf(quiz, library)
 
 /** The bag a widgeting placed after every other reads, for one question */
@@ -56,11 +56,11 @@ describe('LiquidizeFormulary', () => {
     const Cases: [unknown, boolean, string][] = [
       // params                                                                    passes  blurb
       [{},                                                                          true,  'nothing: the widget\'s template'],
-      [{ template: '{{ qn.title }}!' },                                             true,  'a template of its own'],
+      [{ template: '{{ question.title }}!' },                                             true,  'a template of its own'],
       [{ template_from: { ref: 'dumdum', formula: '$.value.template' } },           true,  'a template read from a widgeting by a formula'],
       [{ template_from: { ref: 'notes' } },                                         true,  'a template read from a field'],
       [{ template_from: { ref: 'quiz.playtesters' } },                              true,  'a template read from a widgeting for the whole quiz'],
-      [{ template: '{% if qn.hint %}' },                                            false, 'a template that does not read as Liquid'],
+      [{ template: '{% if question.hint %}' },                                            false, 'a template that does not read as Liquid'],
       [{ template: '' },                                                            false, 'an empty template'],
       [{ template: 'x', template_from: { ref: 'notes' } },                          false, 'a template and a template from the bag both'],
       [{ template_from: { ref: 'question.notes' } },                                false, 'a ref in the grammar before October 2026'],
@@ -76,8 +76,8 @@ describe('LiquidizeFormulary', () => {
     }
 
     it("says Liquid's own sentence of the template it refuses, of the template", () => {
-      const checked = LiquidizeFormulary.paramsOf().safeParse({ template: '{% if qn.hint %}' })
-      expect(checked.error?.issues.map((issue) => [issue.path, issue.message])).to.deep.eq([[['template'], 'does not read as Liquid: tag {% if qn.hint %} not closed, line:1, col:1']])
+      const checked = LiquidizeFormulary.paramsOf().safeParse({ template: '{% if question.hint %}' })
+      expect(checked.error?.issues.map((issue) => [issue.path, issue.message])).to.deep.eq([[['template'], 'does not read as Liquid: tag {% if question.hint %} not closed, line:1, col:1']])
     })
 
     it('says of the formula what is wrong with it', () => {
@@ -88,8 +88,8 @@ describe('LiquidizeFormulary', () => {
 
   describe('check', () => {
     const Cases: [Pick<WidgetT, 'formula' | 'input_formula'>, string | null, string][] = [
-      [{ formula: '{{ qn.title }}', input_formula: '$' },             null,                                                          'a template that reads, over the bag'],
-      [{ formula: '{% if qn.hint %}', input_formula: '$' },           'The template: tag {% if qn.hint %} not closed, line:1, col:1', 'a template that does not read'],
+      [{ formula: '{{ question.title }}', input_formula: '$' },             null,                                                          'a template that reads, over the bag'],
+      [{ formula: '{% if question.hint %}', input_formula: '$' },           'The template: tag {% if question.hint %} not closed, line:1, col:1', 'a template that does not read'],
       [{ formula: ' '.repeat(3), input_formula: '$' },                'The template is empty',                                       'a template of blanks'],
     ]
     for (const [widget, expected, describes] of Cases) {
@@ -111,21 +111,21 @@ describe('LiquidizeFormulary', () => {
     })
 
     it('hands on an object a formula made, as plain JSON, without the functions it holds', () => {
-      expect(LiquidizeFormulary.input({ input_formula: "{ 'title': qn.title, 'shout': $uppercase }" }, bagFor(leon))).to.deep.eq({ status: 'ok', input: { title: 'Leon' } })
+      expect(LiquidizeFormulary.input({ input_formula: "{ 'title': question.title, 'shout': $uppercase }" }, bagFor(leon))).to.deep.eq({ status: 'ok', input: { title: 'Leon' } })
     })
 
     it('fails an input that is no object', () => {
-      expect(LiquidizeFormulary.input({ input_formula: 'qn.title' }, bagFor(leon))).to.deep.eq({ status: 'errored', message: 'The input formula has to come to an object, for the template to be filled in from', stops: false })
+      expect(LiquidizeFormulary.input({ input_formula: 'question.title' }, bagFor(leon))).to.deep.eq({ status: 'errored', message: 'The input formula has to come to an object, for the template to be filled in from', stops: false })
     })
 
     it('is nothing for an input of nothing', () => {
-      expect(LiquidizeFormulary.input({ input_formula: 'qn.nothing' }, bagFor(leon))).to.deep.eq({ status: 'missing' })
+      expect(LiquidizeFormulary.input({ input_formula: 'question.nothing' }, bagFor(leon))).to.deep.eq({ status: 'missing' })
     })
   })
 
   describe('ownOf', () => {
     it("is what a widgeting says of its template, and nothing for params that do not fit or no widgeting", () => {
-      expect(LiquidizeFormulary.ownOf({ params: { template: '{{ qn.hint }}' } })).to.deep.eq({ template: '{{ qn.hint }}' })
+      expect(LiquidizeFormulary.ownOf({ params: { template: '{{ question.hint }}' } })).to.deep.eq({ template: '{{ question.hint }}' })
       expect(LiquidizeFormulary.ownOf({ params: { template_from: { ref: 'dumdum' } } })).to.deep.eq({ template_from: { ref: 'dumdum' } })
       expect(LiquidizeFormulary.ownOf({ params: { loud: true } })).to.deep.eq({})
       expect(LiquidizeFormulary.ownOf(null)).to.deep.eq({})
@@ -135,22 +135,22 @@ describe('LiquidizeFormulary', () => {
   describe('templateOf', () => {
     const Cases: [Record<string, JsonT>, QuestionT, ReturnType<typeof LiquidizeFormulary.templateOf>, string][] = [
       // params                                                                  question  expected                                                       blurb
-      [{},                                                                        leon,     { status: 'ok', template: 'Q: {{ qn.title }}' },             "the widget's, when the widgeting says nothing"],
-      [{ template: '{{ qn.qnum }}.' },                                            leon,     { status: 'ok', template: '{{ qn.qnum }}.' },                "the widgeting's own"],
-      [{ template_from: { ref: 'notes' } },                                       leon,     { status: 'ok', template: 'See {{ qn.hint }}' },             'a field itself'],
+      [{},                                                                        leon,     { status: 'ok', template: 'Q: {{ question.title }}' },             "the widget's, when the widgeting says nothing"],
+      [{ template: '{{ question.qnum }}.' },                                            leon,     { status: 'ok', template: '{{ question.qnum }}.' },                "the widgeting's own"],
+      [{ template_from: { ref: 'notes' } },                                       leon,     { status: 'ok', template: 'See {{ question.hint }}' },             'a field itself'],
       [{ template_from: { ref: 'notes' } },                                       ivan,     { status: 'missing' },                                        'an empty field is nothing to fill in'],
-      [{ template_from: { ref: 'shout' } },                                       leon,     { status: 'ok', template: 'Hi, {{ qn.full_answer }}' },      "a widgeting's value, with no formula"],
-      [{ template_from: { ref: 'dumdum', formula: '$.value.template' } },         leon,     { status: 'ok', template: '*{{ qn.title }}*' },              "a bot's reply, by a formula"],
+      [{ template_from: { ref: 'shout' } },                                       leon,     { status: 'ok', template: 'Hi, {{ question.full_answer }}' },      "a widgeting's value, with no formula"],
+      [{ template_from: { ref: 'dumdum', formula: '$.value.template' } },         leon,     { status: 'ok', template: '*{{ question.title }}*' },              "a bot's reply, by a formula"],
       [{ template_from: { ref: 'dumdum' } },                                      leon,     { status: 'errored', message: 'The template read from «dumdum» comes to an object, not text', stops: false }, "a bot's whole reply, which is no text"],
-      [{ template_from: { ref: 'dumdum', formula: '$.value.template' } },         ivan,     { status: 'errored', message: "The template's source, «dumdum», failed: Too many requests.", stops: false }, 'a failed ask, which passes by the formula'],
+      [{ template_from: { ref: 'dumdum', formula: '$.value.template' } },         ivan,     { status: 'errored', message: "The template's source, «dumdum», failed: its own cell says why.", stops: false }, 'a failed ask, which passes by the formula'],
       [{ template_from: { ref: 'dumdum', formula: '$.value.nothing' } },          leon,     { status: 'missing' },                                        'a formula that comes to nothing'],
       [{ template_from: { ref: 'dumdum', formula: '$.value.guess + 1' } },        leon,     { status: 'errored', message: "The template's formula: The left side of the \"+\" operator must evaluate to a number (at 15)", stops: false }, 'a formula that fails'],
-      [{ template_from: { ref: 'quiz', formula: 'smiths_note' } },               leon,     { status: 'ok', template: 'Meta: {{ qn.title }} rules' },    'a word of the bag, by a formula'],
-      [{ template_from: { ref: 'quiz.playtesters' } },                            leon,     { status: 'ok', template: 'Hi, {{ qn.full_answer }}' },      'a widgeting for the whole quiz'],
+      [{ template_from: { ref: 'quiz', formula: 'smiths_note' } },               leon,     { status: 'ok', template: 'Meta: {{ question.title }} rules' },    'a word of the bag, by a formula'],
+      [{ template_from: { ref: 'quiz.playtesters' } },                            leon,     { status: 'ok', template: 'Hi, {{ question.full_answer }}' },      'a widgeting for the whole quiz'],
       [{ template_from: { ref: 'butnot' } },                                      ivan,     { status: 'ok', template: 'Ice' },                            "the view butnot: the hint of the question it chains to"],
       [{ template_from: { ref: 'rank' } },                                        leon,     { status: 'errored', message: 'The template read from «rank» comes to a number, not text', stops: false }, 'a key that is no text'],
       [{ template_from: { ref: 'later_one' } },                                   leon,     { status: 'missing' },                                        'a widgeting the bag does not hold'],
-      [{ template_from: { ref: 'notes' }, stray: true },                          leon,     { status: 'ok', template: 'Q: {{ qn.title }}' },             "params that do not fit, read as nothing of the widgeting's own"],
+      [{ template_from: { ref: 'notes' }, stray: true },                          leon,     { status: 'ok', template: 'Q: {{ question.title }}' },             "params that do not fit, read as nothing of the widgeting's own"],
     ]
     for (const [params, question, expected, describes] of Cases) {
       it(`reads ${describes}`, () => {
@@ -159,7 +159,7 @@ describe('LiquidizeFormulary', () => {
     }
 
     it("reads the widget's with no widgeting", () => {
-      expect(LiquidizeFormulary.templateOf(blurb, null, bagFor(leon))).to.deep.eq({ status: 'ok', template: 'Q: {{ qn.title }}' })
+      expect(LiquidizeFormulary.templateOf(blurb, null, bagFor(leon))).to.deep.eq({ status: 'ok', template: 'Q: {{ question.title }}' })
     })
   })
 
@@ -167,18 +167,18 @@ describe('LiquidizeFormulary', () => {
     const Cases: [Record<string, JsonT>, QuestionT, WidgetedT, string][] = [
       // params                                                            question  expected                                                   blurb
       [{},                                                                  leon,     Widgeted.ok('Q: Leon'),                                    "the widget's template, filled in"],
-      [{ template: '{{ qn.hint }}' },                                       ivan,     Widgeted.missing,                                          'a fill of nothing is missing'],
-      [{ template: '  {{ qn.hint }}\n' },                                   ivan,     Widgeted.missing,                                          'a fill of blanks is missing'],
-      [{ template: '{{ qn.shout }}' },                                      leon,     Widgeted.ok('Hi, {{ qn.full_answer }}'),                   "a widgeting before it, filled in as its value's text and not filled again"],
-      [{ template: '{{ qn.dumdum.value.guess }} by {{ hunt.title }}' },    leon,     Widgeted.ok('Leon by Deep Lake'),                          'a bot reply and the hunt'],
-      [{ template: '{{ qn.title | upcase }}{{ qns | size }}' },            leon,     Widgeted.ok('LEON2'),                                      "Liquid's own filters"],
-      [{ template: '{{ qn.notes | oneline }}' },                           leon,     Widgeted.ok('See {{ qn.hint }}'),                          "the app's own filters, and a field not filled again"],
+      [{ template: '{{ question.hint }}' },                                       ivan,     Widgeted.missing,                                          'a fill of nothing is missing'],
+      [{ template: '  {{ question.hint }}\n' },                                   ivan,     Widgeted.missing,                                          'a fill of blanks is missing'],
+      [{ template: '{{ question.shout }}' },                                      leon,     Widgeted.ok('Hi, {{ question.full_answer }}'),                   "a widgeting before it, filled in as its value's text and not filled again"],
+      [{ template: '{{ question.dumdum.value.guess }} by {{ hunt.title }}' },    leon,     Widgeted.ok('Leon by Deep Lake'),                          'a bot reply and the hunt'],
+      [{ template: '{{ question.title | upcase }}{{ questions | values | size }}' }, leon, Widgeted.ok('LEON2'),                                  "Liquid's own filters"],
+      [{ template: '{{ question.notes | oneline }}' },                           leon,     Widgeted.ok('See {{ question.hint }}'),                          "the app's own filters, and a field not filled again"],
       [{ template_from: { ref: 'shout' } },                                 leon,     Widgeted.ok('Hi, Leon Trotsky'),                           'a template a formula wrote, filled in here'],
       [{ template_from: { ref: 'dumdum', formula: '$.value.template' } },   leon,     Widgeted.ok('*Leon*'),                                     'a template a bot wrote, filled in here'],
       [{ template_from: { ref: 'notes' } },                                 leon,     Widgeted.ok('See Ice'),                                    'a template a field holds'],
       [{ template_from: { ref: 'notes' } },                                 ivan,     Widgeted.missing,                                          'a template read from nothing'],
       [{ template_from: { ref: 'dumdum' } },                                leon,     failed('The template read from «dumdum» comes to an object, not text'), 'a template read as no text'],
-      [{ template: '{% for qn in qns %}{% for x in qns %}{% for y in qns %}{% endfor %}{% endfor %}{% endfor %}' }, leon, Widgeted.missing, 'loops that write nothing'],
+      [{ template: '{% assign list = questions | values %}{% for question in list %}{% for x in list %}{% for y in list %}{% endfor %}{% endfor %}{% endfor %}' }, leon, Widgeted.missing, 'loops that write nothing'],
     ]
     for (const [params, question, expected, describes] of Cases) {
       it(`comes to ${describes}`, () => {
@@ -187,19 +187,19 @@ describe('LiquidizeFormulary', () => {
     }
 
     it("fails with Liquid's own sentence a template read from the bag that does not read", () => {
-      const notes = { ...leon, notes: '{% if qn.hint %}' }
+      const notes = { ...leon, notes: '{% if question.hint %}' }
       const brokenRun = runOf({ ...quiz, questions: [notes, ivan] }, library)
       const bag = present(Runner.bagsAt(brokenRun, { label: 'blurbing', params: {} }).get(notes._id))
-      expect(LiquidizeFormulary.run(blurb, blurbing({ template_from: { ref: 'notes' } }), bag).widgeted).to.deep.eq(failed('The template: tag {% if qn.hint %} not closed, line:1, col:1'))
+      expect(LiquidizeFormulary.run(blurb, blurbing({ template_from: { ref: 'notes' } }), bag).widgeted).to.deep.eq(failed('The template: tag {% if question.hint %} not closed, line:1, col:1'))
     })
 
     it('fails an input that fails, and is nothing for an input of nothing', () => {
-      expect(LiquidizeFormulary.run({ ...blurb, input_formula: 'qn.title' }, null, bagFor(leon)).widgeted).to.deep.eq(failed('The input formula has to come to an object, for the template to be filled in from'))
-      expect(LiquidizeFormulary.run({ ...blurb, input_formula: 'qn.nothing' }, null, bagFor(leon)).widgeted).to.deep.eq(Widgeted.missing)
+      expect(LiquidizeFormulary.run({ ...blurb, input_formula: 'question.title' }, null, bagFor(leon)).widgeted).to.deep.eq(failed('The input formula has to come to an object, for the template to be filled in from'))
+      expect(LiquidizeFormulary.run({ ...blurb, input_formula: 'question.nothing' }, null, bagFor(leon)).widgeted).to.deep.eq(Widgeted.missing)
     })
 
     it('fills the template over what the input came to', () => {
-      expect(LiquidizeFormulary.run({ formula: '{{ title }}?', input_formula: "{ 'title': qn.title }" }, null, bagFor(leon)).widgeted).to.deep.eq(Widgeted.ok('Leon?'))
+      expect(LiquidizeFormulary.run({ formula: '{{ title }}?', input_formula: "{ 'title': question.title }" }, null, bagFor(leon)).widgeted).to.deep.eq(Widgeted.ok('Leon?'))
     })
 
     it('stops a runaway template, and with it the rest of its column', () => {
@@ -220,11 +220,11 @@ describe('LiquidizeFormulary', () => {
     })
 
     it('does not stop its column for a template that does not read, which may differ question by question', () => {
-      expect(LiquidizeFormulary.run(blurb, blurbing({ template_from: { ref: 'shout' } }), { ...bagFor(leon), qn: { ...bagFor(leon).qn, shout: Widgeted.ok('{% if x %}') } }).stops).to.be.false
+      expect(LiquidizeFormulary.run(blurb, blurbing({ template_from: { ref: 'shout' } }), { ...bagFor(leon), question: { ...bagFor(leon).question, shout: Widgeted.ok('{% if x %}') } }).stops).to.be.false
     })
 
     it("stops its column for a template that does not read once the column's deadline has passed, as reading it takes time too", () => {
-      const bag = { ...bagFor(leon), qn: { ...bagFor(leon).qn, shout: Widgeted.ok('{% if x %}') } }
+      const bag = { ...bagFor(leon), question: { ...bagFor(leon).question, shout: Widgeted.ok('{% if x %}') } }
       expect(LiquidizeFormulary.run(blurb, blurbing({ template_from: { ref: 'shout' } }), bag, Templating.clockNow() - 1).stops).to.be.true
     })
   })
@@ -234,26 +234,26 @@ describe('LiquidizeFormulary', () => {
       const advice = LiquidizeFormulary.advice(blurb, { label: 'blurbing', description: 'A line for the board' }, bagFor(leon))
       expect(advice).to.include('Liquid')
       expect(advice).to.include('## The template')
-      expect(advice).to.include('Q: {{ qn.title }}')
+      expect(advice).to.include('Q: {{ question.title }}')
       expect(advice).to.include('"title": "Leon"')
       expect(advice).to.include('A line for the board')
     })
 
     it('says what an input formula of its own makes, in place of the bag', () => {
-      const advice = LiquidizeFormulary.advice({ ...blurb, input_formula: "{ 'title': qn.title }" }, null, null)
-      expect(advice).to.include("{ 'title': qn.title }")
+      const advice = LiquidizeFormulary.advice({ ...blurb, input_formula: "{ 'title': question.title }" }, null, null)
+      expect(advice).to.include("{ 'title': question.title }")
       expect(advice).not.to.include('JSON Schema')
     })
   })
 })
 
 describe('a quiz run with a liquidize widgeting', () => {
-  const later = Widget.fill({ label: 'measure', formulary: 'jsonata', formula: '$length(qn.blurbing.value)' })
+  const later = Widget.fill({ label: 'measure', formulary: 'jsonata', formula: '$length(question.blurbing.value)' })
   const steps: WidgetingT[] = [
-    blurbing({ template: '{{ qn.title }}: {{ qn.dumdum.value.guess }}' }),
+    blurbing({ template: '{{ question.title }}: {{ question.dumdum.value.guess }}' }),
     Widgeting.fill({ label: 'dumdum', widget_label: 'dumdum' }),
     Widgeting.fill({ label: 'measure', widget_label: 'measure' }),
-    Widgeting.fill({ label: 'roster', widget_label: 'blurb', tier: 'quiz', params: { template: '{% for qn in qns %}{{ qn.title }} {% endfor %}' } }),
+    Widgeting.fill({ label: 'roster', widget_label: 'blurb', tier: 'quiz', params: { template: '{% assign list = questions | values %}{% for question in list %}{{ question.title }} {% endfor %}' } }),
   ]
   const ran = runOf({ ...quiz, widgetings: steps }, [...library, later])
 
@@ -270,8 +270,8 @@ describe('a quiz run with a liquidize widgeting', () => {
   })
 
   it("keeps on past a question whose template read from the bag does not read", () => {
-    const broken = { ...leon, notes: '{% if qn.hint %}' }
-    const fine = { ...ivan, notes: '*{{ qn.title }}*' }
+    const broken = { ...leon, notes: '{% if question.hint %}' }
+    const fine = { ...ivan, notes: '*{{ question.title }}*' }
     const mixed = runOf({ ...quiz, questions: [broken, fine], widgetings: [blurbing({ template_from: { ref: 'notes' } })] }, library)
     expect(Runner.widgetedOf(mixed, 'blurbing', broken._id).status).to.eq('errored')
     expect(Runner.widgetedOf(mixed, 'blurbing', fine._id)).to.deep.eq(Widgeted.ok('*Ivan*'))
@@ -286,7 +286,7 @@ function ticking() {
 
 describe('a column of templates, held to one budget of time', () => {
   const many: QuestionT[] = Array.from({ length: 300 }, (_unused, idx) => ({ ...Question.blank(), label: `q_${String(idx)}`, qnum: String(idx + 1), title: `T${String(idx)}` }))
-  const looping = blurbing({ template: '{% for aa in (1..100) %}{% endfor %}{{ qn.title }}' })
+  const looping = blurbing({ template: '{% for aa in (1..100) %}{% endfor %}{{ question.title }}' })
 
   it("stops every question after the fill that ran out its column's time, each reading the same failure", () => {
     const clock = ticking()

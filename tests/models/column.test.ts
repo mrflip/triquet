@@ -18,8 +18,8 @@ describe('Column.fill', () => {
     ['label',                 true,  "a question's label"],
     ['quiz',                  true,  'the quiz, a word at the bag\'s top level'],
     ['categories',            true,  "the hunt's categories"],
-    ['qns',                   true,  'every question'],
-    ['qn',                    false, 'the question itself, which is no ref'],
+    ['questions',                   true,  'every question'],
+    ['question',                    false, 'the question itself, which is no ref'],
     ['quiz.playtesters',      true,  'a widgeting run once for the whole quiz'],
     ['quiz.Playtesters',      false, 'a widgeting for the whole quiz by a label that is not one'],
     ['quiz.playtesters.value', false, 'a field of a widgeting for the whole quiz'],
@@ -118,7 +118,7 @@ describe('ColumnValidators.ref', () => {
     ["butnot",            true,  'the view butnot'],
     ["rank",              true,  'a key a question has'],
     ["dumdum",            true,  'a widgeting\'s label'],
-    ["qns",               true,  'a word of the bag'],
+    ["questions",               true,  'a word of the bag'],
     ["quiz.playtesters",  true,  'a widgeting for the whole quiz'],
     ["question.clueing",  false, 'a field in the grammar before October 2026'],
     ["category_data.masie", false, 'a part in the grammar before October 2026'],
@@ -204,7 +204,7 @@ describe('namesFor', () => {
     ['alt_text',          { label: 'alt_text',            title: 'Alt Text' },     'the alt text, its header as the grid always had it'],
     ['butnot',            { label: 'butnot',              title: 'BUT NOT' },      'the view of the chained-to hint, in capitals as always'],
     ['rank',              { label: 'rank',                title: 'Rank' },         'a key of the question'],
-    ['qns',               { label: 'qns',                 title: 'Questions' },    'a word of the bag'],
+    ['questions',         { label: 'questions',           title: 'Questions' },    'a word of the bag'],
   ]
   for (const [source, expected, describes] of NamesCases) {
     it(`names ${describes}`, () => {

@@ -128,7 +128,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
       idents:      ident,
       identings:   IdentingValidators.row({ user_id, ident_id }),
       widgets:     WidgetValidators.row({
-        scope: 'pub', label: 'dumdum', title: 'Dumdum', description: '', formulary: 'aibot', formula: 'Answer this: {{clueing}}', input_formula: "{ 'clueing': qn.clueing }",
+        scope: 'pub', label: 'dumdum', title: 'Dumdum', description: '', formulary: 'aibot', formula: 'Answer this: {{clueing}}', input_formula: "{ 'clueing': question.clueing }",
         config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 }, position: 0,
       }),
       widgetings:  widgeting,

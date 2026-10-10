@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { AibotDefaultInput, AibotTokensMax, EntryFamilyOf, EntryFamilyVals, EntryKindVals, EntryParamsOf, EnumOptionsMax, FormularykindVals, JsonataDefaultInput, LiquidizeDefaultInput, OfferedEntryKindVals, Widget, WidgetValidators, entryParamsIssues, type EntryKind, type WidgetRowT } from '../../src/models/widget'
 
-const Shout = { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } as const
+const Shout = { label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' } as const
 const Guesser = {
   label:     'guesser',
   formulary: 'aibot',
@@ -10,7 +10,7 @@ const Guesser = {
   config:    { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 },
 } as const
 const Remark = { label: 'remark', formulary: 'entry', config: { entry_kind: 'text' } } as const
-const Blurb = { label: 'blurb', formulary: 'liquidize', formula: '**{{ qn.title }}**' } as const
+const Blurb = { label: 'blurb', formulary: 'liquidize', formula: '**{{ question.title }}**' } as const
 
 describe('FormularykindVals', () => {
   it("names the four formularies a library widget can be worked by", () => {
@@ -24,14 +24,14 @@ describe('Widget.fill', () => {
   })
 
   it("starts a jsonata widget's input as the whole bag, per the doc example", () => {
-    expect(Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' }).input_formula).to.eq(JsonataDefaultInput)
+    expect(Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' }).input_formula).to.eq(JsonataDefaultInput)
     expect(JsonataDefaultInput).to.eq('$')
   })
 
   it("starts an aibot widget's input as the clueing, for a {{clueing}} in its prompt", () => {
     const widget = Widget.fill(Guesser)
     expect(widget.input_formula).to.eq(AibotDefaultInput)
-    expect(AibotDefaultInput).to.eq("{ 'clueing': qn.clueing }")
+    expect(AibotDefaultInput).to.eq("{ 'clueing': question.clueing }")
     expect(widget.config).to.deep.eq(Guesser.config)
   })
 
@@ -100,7 +100,7 @@ describe('Widget.fill', () => {
     [{ ...Guesser, config: { ...Guesser.config, max_tokens: AibotTokensMax + 1 } }, 'more room than any widget may give'],
     [{ ...Guesser, config: { ...Guesser.config, max_tokens: 2.5 } },                'a fraction of a token'],
     // entry:
-    [{ ...Remark, formula: 'qn.notes' },                                            'an entry with a formula'],
+    [{ ...Remark, formula: 'question.notes' },                                            'an entry with a formula'],
     [{ ...Remark, input_formula: '$' },                                             'an entry with an input formula'],
     [{ ...Remark, config: undefined },                                              'an entry with no kind'],
     [{ ...Remark, config: { entry_kind: 'date' } },                                 'a kind of entry there is not'],
@@ -134,7 +134,7 @@ describe('WidgetValidators.widgetPatch', () => {
   })
 
   it("takes a liquidize widget's template and input formula", () => {
-    expect(WidgetValidators.widgetPatch({ formula: '{{ qn.title }}', input_formula: '$' })).to.deep.eq({ formula: '{{ qn.title }}', input_formula: '$' })
+    expect(WidgetValidators.widgetPatch({ formula: '{{ question.title }}', input_formula: '$' })).to.deep.eq({ formula: '{{ question.title }}', input_formula: '$' })
   })
 
   it("drops the scope, the label and the formulary, which are fixed once made", () => {
@@ -155,7 +155,7 @@ describe('WidgetValidators.widgetPatch', () => {
 
 describe('WidgetValidators.row', () => {
   const Base = { scope: 'pub', title: '', description: '', input_formula: '$', position: 0 } as const
-  const JsonataRow = { ...Base, label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)', config: {} } as const satisfies WidgetRowT
+  const JsonataRow = { ...Base, label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)', config: {} } as const satisfies WidgetRowT
   const AibotRow = { ...Base, ...Guesser, input_formula: AibotDefaultInput, position: 1 } as const satisfies WidgetRowT
   const EntryRow = { ...Base, ...Remark, formula: '', input_formula: '', position: 2 } as const satisfies WidgetRowT
   const LiquidizeRow = { ...Base, ...Blurb, config: {}, position: 3 } as const satisfies WidgetRowT
@@ -349,7 +349,7 @@ describe('EntryFamilyOf', () => {
 describe('WidgetValidators.liquidizeParams', () => {
   const Cases: [unknown, boolean, string][] = [
     [{},                                                              true,  'nothing, so the widget\'s template'],
-    [{ template: '{{ qn.hint }}' },                                   true,  'a template of its own'],
+    [{ template: '{{ question.hint }}' },                                   true,  'a template of its own'],
     [{ template_from: { ref: 'dumdum' } },                            true,  'a template read from a widgeting'],
     [{ template_from: { ref: 'quiz.playtesters', formula: '$' } },    true,  'a template read from a widgeting for the whole quiz, by a formula'],
     [{ template: 'x', template_from: { ref: 'dumdum' } },              false, 'both'],
