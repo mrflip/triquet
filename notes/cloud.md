@@ -59,3 +59,20 @@ and see it through CI and review.
 
 `human/` and `whiteboard/` entries are committed on the thread's branch: there is no sweep to
 carry them, and the PR is how they reach the Coach.
+
+## The harness and this repo
+
+Claude Code's own instructions to a cloud session differ from this repo's in a few places. Where
+they do, the repo's rule holds:
+
+* **Pull requests.** The harness opens a PR as a draft; mark it ready for review right after
+  (`notes/git_hygiene-cloud.md`, step 5). The Vercel preview is built when it goes ready.
+* **Merge conflicts.** The harness's recipe merges the base branch into the PR's head. Here, rebase
+  onto `origin/main`: CI rejects a merge commit.
+* **Nobody answers in chat here.** Where a note says to ask a Coach in chat (a hand-rolled helper
+  the library-first rule would hold up, an `eslint-disable` or `ts-expect-error`, a rebase that
+  takes judgment), do the smallest thing that works, say so in the PR's open questions and a
+  `human/` entry, and let review decide.
+* **Work the session might lose.** A `wip:` commit on the thread's own branch, pushed, is fine
+  when a long change is not at a milestone yet; squash it away (rebase, with a lease) before the PR
+  is ready.

@@ -1,3 +1,18 @@
+/**
+ * Everything a test of a Convex function calls: a deployment of our schema and functions in this
+ * process, a hunt seeded on it, and the sessions a test acts as.
+ *
+ * * `openTester()` -- a fresh, empty deployment; no test sees another's rows.
+ * * `huntHolding(quizzes)`, `seedHunt(tt, hunt, { openIdx, smith })` -- a hunt written with one
+ *   smith on it; the `Seeded` it hands back acts through `hunts.perform` as that smith (`act`),
+ *   through `widgets.perform` (`actOnLibrary`), puts another ident on the hunt (`join`), and reads
+ *   the hunt as its rows make it up (`read`). `openOf(seen)` is the quiz the test has open.
+ * * `wholeHunt`, `putOn` -- reads past authorization, and a role granted from outside.
+ * * `identified(tt, label)` -- a session holding the username `label`, on no hunt: a stranger;
+ *   `signedIn(tt)` -- a session that has asserted no username; the bare `tt` -- no session at
+ *   all. `callerOf` takes any of them.
+ * * `refusedAs`, `expectRefusal` -- what a refused call said, and the assertion on it.
+ */
 import { convexTest, type TestConvex } from 'convex-test'
 import { ConvexError } from 'convex/values'
 import { expect } from 'vitest'

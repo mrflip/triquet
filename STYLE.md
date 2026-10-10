@@ -9,10 +9,6 @@ For architecture and process -- the validation lifecycle, documentation policy, 
 mechanically enforceable; where it and this document disagree, the linter wins and this document
 is a bug.
 
-## Important Miscellany
-
-* For text files: end with a newline, no trailing spaces; these will cause a lint error
-
 ## Imports and Facility Namespacing
 
 The rules below are specific examples of three principles:
@@ -124,15 +120,8 @@ Tags to append or use directly:
   - (Also keep in mind we prefer functional programming -- eschew index-based iteration unless there's a reason neither `for (const foo in foos)` nor `_.map(foos, (foo, idx) => {})` is useable)
 * `count` or `ct`  -- reported quantity
 * `qty` or `nFoos` -- input quantity
-* `dotkey`         -- string with dotted segments to indicate a ckey path
 * `keypath`        -- array with string/number segments to indicate a ckey path
-* `anypath`        -- string|array that can be either a dotkey string or a ckey path array
-* `funcOrKey`      -- key|keypath|func iteratee value; referred to in text as an "iteratee"
-* `funcOrPath`     -- dotkey|keypath|func iteratee value with `_.get` semantics; referred to in text as an "iteratee"
 * `rule`           -- rule ("predicate" in lodash) accepting (val, ckey) and returning truthy/falsy; referred to in text as a "rule"
-* `ruleOrKey`      -- key|keypath|rule iteratee value, generating truthy/falsy; referred to in text as a "rule iteratee"
-* `reducer`        -- reducer function accepting (acc, val, ckey); referred to in text as a "reducer"
-* `comparator`     -- comparator function accepting (aa, bb) and returning positive/zero/negative
 * `bag`, `foos`, `foobag` -- generic key-value map (i.e. `Record<string, any>`); `foos` or `foobag` for a generic-key map of foo's; `barFoos` if you want to highlight that the keys are `bar`-like. `FooForBar` or `FooLookup` for a 1:1 or 1:N lookup table
 * `arr`, `foos`, `foolist` -- array names, as taste informs (is the foo-ness or the array-ness more salient?)
 * `xx` / `yy` / `zz` for **position** values within the contextually natural coordinate system. Tag with the frame when the frame is not obvious from context
@@ -148,15 +137,14 @@ Tags to append or use directly:
 ### Variables
 
 - `const` by default, `let` only where the value is actually reassigned -- which you should
-  rarely do. Never `var`: `eslint.config.mjs` forbids it outright.
+  rarely do.
 - functional programming is strongly preferred
 
 Mildly prefer to not camelcase within the name of a reified concept. Good: `lightbulb`,
 `religiousGroup` (too long to get away with it).
 
-## Indentation & Braces
+## Braces
 
-- **2 spaces** per indent level. No tabs.
 - Opening braces go at end of the line.
 - Always brace `if`/`else` and other blocks, even single-statement ones: `if (nope) { return }`
 - Cuddle `} else if (...) {` and `} catch (err) {`.
