@@ -80,6 +80,7 @@ export const test = base.extend<{ startAt: string | null, layout: LayoutT, frien
     await use(startAt === FreshHunt ? keptSession.storageState : storageState)
   },
   page: async ({ page, startAt, layout, keptSession }, use) => {
+    await laggedBy(page, Number(process.env.TQ_E2E_LAG_MS ?? 0))
     if (startAt === FreshHunt) {
       await enterFreshHunt(page, keptSession.label, layout)
     } else if (startAt !== null) {
@@ -101,6 +102,26 @@ export const test = base.extend<{ startAt: string | null, layout: LayoutT, frien
   },
 })
 export { expect } from '@playwright/test'
+
+/**
+ * Hand `page` what the Convex backend tells it as a loaded machine would, `lagMs` late and each
+ * message at least `lagMs` after the one before, in order: a mutation's result and the queries
+ * it changes reach the page late, and the moments between two writes' results (a widgeting
+ * made, its column not yet) last long enough to be acted in. What the page sends goes at once.
+ * Nothing at 0.
+ */
+async function laggedBy(page: Page, lagMs: number): Promise<void> {
+  if (lagMs <= 0) { return }
+  await page.routeWebSocket(/\/sync$/, (socket) => {
+    const server = socket.connectToServer()
+    let lastAt = 0
+    socket.onMessage((message) => { server.send(message) })
+    server.onMessage((message) => {
+      lastAt = Math.max(Date.now(), lastAt) + lagMs
+      setTimeout(() => { socket.send(message) }, lastAt - Date.now())
+    })
+  })
+}
 
 /** The browser contexts `otherVisitor` opened for this test, closed once it is done */
 const Others: BrowserContext[] = []

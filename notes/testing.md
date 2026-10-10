@@ -227,6 +227,14 @@ A change lands one round trip after the author makes it: the screen shows it onc
 has it. A spec whose next step needs the change (a lock before forcing past it, a clueing before
 asking about it, an export that holds the edit) waits for it with a retrying assertion first.
 
+**A slow server, on purpose.** `TQ_E2E_LAG_MS=300` holds back everything the Convex backend
+tells each page: every message that much late, and each at least that long after the one before,
+as on a loaded CI runner (`laggedBy` in support). A spec that passes here and fails on CI is
+usually acting within a round trip of a write, on the screen as it was; run it with the lag and
+the race shows every time, not one run in ten. Fix the app (the screen showing the change at once,
+or the server deciding against its own rows), or wait on what a person would see, never on a
+longer timeout.
+
 ## Validation Boundaries
 
 Remember which side of a validation boundary the code under test sits on (`notes/guidelines.md`).

@@ -117,3 +117,9 @@ Then start the next thread (step 1).
 The session watches every PR it opens. A red CI run, a merge conflict, or a review comment is
 yours to answer: fix and push, or say in one comment why not. More commits for a PR go on its own
 branch, pushed the same way. Never merge, and never enable auto-merge.
+
+**Vercel is not CI.** A preview is built only when the PR opens, reopens or is marked ready, and
+when someone adds the `preview` label (`.github/workflows/preview.yml`). It is never built by a
+push, so after one, the *Vercel Deployments* status can sit at pending and GitHub calls the PR
+"unstable". No ruleset requires it: leave it, add no label, and don't count it against a green
+PR. The Coach refreshes previews.

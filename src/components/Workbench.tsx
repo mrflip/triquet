@@ -114,10 +114,16 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
     if (viz === 'archived') { checklist.end() }
   }
 
+  // The grid shows the new order at once, and the arrow with it; a sort refused takes both back.
   const onSort = (sortkey: SortMark['sortkey']) => {
     const descending = sortMark?.sortkey === sortkey ? ! sortMark.descending : false
-    setSortMark({ sortkey, descending })
-    dispatch({ kind: 'sort_questions', sortkey, descending, question_ids: Sortings.sortedIdsOf(sortkey, quiz, run, descending) })
+    const mark = { sortkey, descending }
+    setSortMark(mark)
+    const sort = async () => {
+      const kept = await carryOut({ kind: 'sort_questions', sortkey, descending, question_ids: Sortings.sortedIdsOf(sortkey, quiz, run, descending) })
+      if (! kept) { setSortMark((now) => (now === mark ? sortMark : now)) }
+    }
+    void sort()
   }
 
   return (

@@ -214,7 +214,6 @@ test('as cards, below 640px, every question shows in full, and folds again when 
 
 test("a column's template draws its cells read-only, by its readout, until it is taken off, when they are typed into again", async ({ page }) => {
   await fillRows(page, [{ Title: 'Leon' }])
-  await waitUntilSaved(page)
   const titleCell = cellOf(page, 0, 'Title')
   await expect(titleCell.getByRole('textbox', { name: 'Title' })).toHaveCount(1)
 
@@ -281,7 +280,6 @@ test("a double-click on a column's head collapses it to its turned header, its c
 
 test("a double-click on a sortable head sorts once, not twice, as it collapses the column", async ({ page }) => {
   await fillRows(page, [{ 'Q#': '2' }, { 'Q#': '1' }])
-  await waitUntilSaved(page)
   const head = grid(page).getByRole('columnheader', { name: 'Q#', exact: true })
   await head.getByRole('button', { name: 'Q#' }).dblclick()
   await expect(head).toHaveAttribute('data-collapsed', 'true')

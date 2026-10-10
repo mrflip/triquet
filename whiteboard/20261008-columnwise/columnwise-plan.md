@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-08. Mode: **YOLO** from 2026-10-09 (normal before). Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `preplan.md`, beside this file, with the invocation "normal mode"; switched to YOLO on 2026-10-09 ("make good decisions, we'll fix them up later").
-**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b, 9 landed (#197-#202, #206); 3c underway (the replay conflict resolved, `human/20261009-sprint_columnwise_paused.md`); then a full e2e run; then 10 and 11.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 1, 4, 3a, 2 merged (#191-#193, #196); 3b, 6, 5a, 8, 7, 5b, 9, 3c landed (#197-#202, #206, #209); the full e2e run done (3c's); 10 and 11 underway; then the sprint-end full e2e run.** `columnwise-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 **The ask** (the preplan's words): adding a column a person can type into is nine clicks through
@@ -486,6 +486,14 @@ and in the sprint-end `human/` entry.
   - 3a's `shadowedBy` item is closed.
   - A part column is named by its menu preset, so `column.ts` knows nothing of parts.
   - The importer's old-grammar parts list is the live `Estimates.PartVals`.
+* **11, by its worker:**
+  - Params are not shown early, and `FoldedParams`' `pendingShown` is kept: the regex refusal's
+    sentence depends on it.
+  - `useReorderable`'s `sentTo` is kept: column and widgeting moves are not shown early.
+  - These are not shown early: `retitle_quiz`, `relabel_quiz`, `set_viz`, `set_templateable`,
+    notes, imports, deletions, moves of columns or widgetings, the library.
+  - Entered values are not held to params in the update.
+  - The git history may record an in-flight edit a moment early.
 
 ## For the Coach
 

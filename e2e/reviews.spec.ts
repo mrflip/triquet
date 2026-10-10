@@ -88,7 +88,9 @@ test.describe('a review', () => {
     const reviewer = await enterReview(page, friend, friendLabel)
     const shown = reviewer.getByRole('region', { name: 'Smith\'s note' })
     const fold = shown.getByRole('button', { name: 'Show the smith\'s note in full' })
-    const body = reviewer.locator(`[id="${await fold.getAttribute('aria-controls') ?? 'no id'}"]`)
+    // Found by what it says, never by the fold's `aria-controls`: a `useId` read once names nothing
+    // once the note's section is drawn afresh as the review opens.
+    const body = shown.getByText('Theme: princes.')
     const bodyHt = async () => await body.evaluate((para) => para.clientHeight)
     const oneLine = async () => await body.evaluate((para) => Number(getComputedStyle(para).lineHeight.replace(/px$/, '')))
 

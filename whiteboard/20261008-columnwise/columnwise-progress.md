@@ -19,11 +19,11 @@ The orchestrator's document: status, and what the threads have taught, newer tha
 | 5b | run order in both places, row preview | landed #202 |
 | 8 | seeds pass (optional) | landed #200 |
 | 9 | compute budgets (added) | landed #206 |
-| 3c | columns tighten (last of the chain) | landing (review fixed); full e2e |
-| 10 | one bag shape (added) | pending: after 3c and a full e2e run |
-| 11 | optimistic updates (added) | pending: after 3c and a full e2e run |
+| 3c | columns tighten (last of the chain) | landed #209 |
+| 10 | one bag shape (added) | building (lane 1) |
+| 11 | optimistic updates (added) | landing (review fixed); full e2e |
 
-Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). thread 9 (#206: full run, 279 passed, 7 flakes cleared alone). Next full runs: 3c's landing (then 10 and 11 start), and the sprint's end.
+Full e2e runs carried by: thread 4 (#192; its `--touched` reached the whole suite: 253 passed, 6 flakes cleared alone); thread 3a (#193: 256 passed, 5 flakes cleared alone, load 9 to 26); thread 2 (#196: full run, four flakes cleared alone; after a final rebase, `--touched` with five more); thread 3b (#197: `--touched` reached the whole suite, 272 passed, 3 flakes cleared alone). thread 6 (#198: full run, six flakes cleared alone). thread 5a (#199: `--touched` reached the whole suite, 3 flakes cleared alone); thread 8 (#200: full run on 802bf283, 272 passed, 10 flakes cleared alone). thread 7 (#201: `--touched` reached the whole suite, 276 passed, 7 flakes). thread 5b (#202: `--touched` reached the whole suite, 278 passed, 8 failed and each passed alone; one of them real, repaired in the spec, `0964306`). thread 9 (#206: full run, 279 passed, 7 flakes cleared alone). thread 3c (#209: full run on e15f0db2, 281 passed, 7 flakes cleared alone; the run the Coach asked for before 10 and 11). Next full runs: 10's and 11's landings, and the sprint's end.
 
 ## What the threads have taught
 
@@ -275,6 +275,15 @@ preplan, and take its numbered decisions as settled. Those that most shape later
   locks in TODO.
 * **For the Coach**: decisions 1-3 in `thread-5b-cw_runorder.md` (the menus at the panel's head;
   the run order as plain lines; the folded row's description snippet gone).
+
+### From thread 3c (columns tighten, #209)
+
+* Every item on 3a's checklist is done. The importer's old-grammar reading lives in
+  `src/models/before-october.ts`. The estimate parts live in `src/lib/estimates.ts`.
+  `categories` and `category` are reserved for widgeting labels.
+* **The schema push is not the gate:** a column's `source` is a plain string to Convex, so section 5
+  of `prd_checks.mts` (and `migrations:outstanding`) gates the merge. The ledger row says so.
+* *Review:* `fixed` (`2e7f12ae`, the ledger row); minor findings in `whiteboard/TODO.md`.
 
 ### From thread 9 (compute budgets, #206)
 

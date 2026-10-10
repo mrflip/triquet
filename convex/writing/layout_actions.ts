@@ -1,4 +1,5 @@
 import * as PA from '../../src/lib/vv/patterns'
+import * as Labelmaker from '../../src/lib/labelmaker'
 import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
 import { widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
@@ -103,7 +104,9 @@ async function paramsFor(db: Writer, held: Doc<'widgetings'>, params: WidgetingP
 /**
  * Revise a widgeting of the open quiz. A rename onto a label a sibling has is refused, and
  * carries the columns that show the widgeting with it, and its place among the sources the quiz
- * nominates as templateable; what it stored stays with it. New params are held to the
+ * nominates as templateable; what it stored stays with it. A column still headed after the old
+ * label, as a new one is, is headed after the new: decided here, against the columns as they
+ * stand, so a rename sent before the browser has seen the column arrive still carries it. New params are held to the
  * widget it works (`Formularies.paramsOf`): what its cells already hold is not, and a constraint
  * bites on the next edit of each.
  *
@@ -120,7 +123,9 @@ export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, 
     if (renamedOnto === label) { return }
     for (const column of rows.columns) {
       const ref = refOf(column.source)
-      if (ref.kind === 'widgeting' && ref.label === label) { await updateColumn(db, column, { source: widgetingSourceOf(renamedOnto, ref.tier) }) }
+      if (ref.kind !== 'widgeting' || ref.label !== label) { continue }
+      const headedAfter = column.title === Labelmaker.titleize(label)
+      await updateColumn(db, column, { source: widgetingSourceOf(renamedOnto, ref.tier), ...(headedAfter && { title: Labelmaker.titleize(renamedOnto) }) })
     }
     const { templateable } = rows.quiz
     if (templateable.includes(label)) {
