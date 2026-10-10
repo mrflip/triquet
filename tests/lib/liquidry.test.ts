@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { Liquid } from 'liquidjs'
 import * as Clock from '../../src/lib/clock'
 import * as Liquidry from '../../src/lib/liquidry'
 
@@ -158,5 +159,54 @@ describe('Liquidry.rendererFor', () => {
 
   it('calls a function it finds in its scope, which is why a scope holds only data', () => {
     expect(Renderer.render('{{ fn }}', { fn: () => 'called' }).text).to.eq('called')
+  })
+})
+
+/** A renderer of its own, so no other test has read its templates first */
+function freshRenderer(): Liquidry.RendererT {
+  return Liquidry.rendererFor({ fillingOf: (val) => (typeof val === 'string' || typeof val === 'number' ? String(val) : '') })
+}
+
+describe('Liquidry.rendererFor, reading each template once', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it("reads a template once however often it is rendered, checked or asked what it reads", () => {
+    const renderer = freshRenderer()
+    const parse = vi.spyOn(Liquid.prototype, 'parse')
+    const template = '{% for item in list %}{{ item }}{{ sep }}{% endfor %}'
+    expect(renderer.render(template, { list: [1, 2], sep: ',' }).text).to.eq('1,2,')
+    expect(renderer.render(template, { list: ['a'], sep: ';' }).text).to.eq('a;')
+    expect(renderer.issueOf(template)).to.be.null
+    expect(renderer.globalsOf(template)).to.deep.eq(['list', 'sep'])
+    expect(parse).to.have.been.calledOnce
+  })
+
+  it("remembers a template that does not read, and says why each time", () => {
+    const renderer = freshRenderer()
+    const parse = vi.spyOn(Liquid.prototype, 'parse')
+    const broken = '{% if name %}'
+    const issue = 'tag {% if name %} not closed, line:1, col:1'
+    expect(renderer.render(broken, { name: 'ada' })).to.deep.eq({ text: broken, issue, failkind: 'syntax' })
+    expect(renderer.render(broken, {})).to.deep.eq({ text: broken, issue, failkind: 'syntax' })
+    expect(renderer.issueOf(broken)).to.eq(issue)
+    expect(renderer.globalsOf(broken)).to.deep.eq([])
+    expect(parse).to.have.been.calledOnce
+  })
+
+  it("keeps nothing of one render for the next: a capture and an assignment start afresh", () => {
+    const renderer = freshRenderer()
+    const template = '{% capture held %}{{ held }}{{ name }}{% endcapture %}{% assign seen = seen | append: name %}{{ held }}/{{ seen }}'
+    expect(renderer.render(template, { name: 'ada' }).text).to.eq('ada/ada')
+    expect(renderer.render(template, { name: 'bo' }).text).to.eq('bo/bo')
+  })
+
+  it("reads a template again once it has been forgotten among more than it may remember", () => {
+    const renderer = freshRenderer()
+    const parse = vi.spyOn(Liquid.prototype, 'parse')
+    renderer.render('{{ first }}', {})
+    const others = Array.from({ length: 5000 }, (_unused, idx) => `{{ n${String(idx)} }}`)
+    for (const other of others) { renderer.render(other, {}) }
+    expect(renderer.render('{{ first }}', { first: 'again' }).text).to.eq('again')
+    expect(parse).to.have.callCount(5002)
   })
 })

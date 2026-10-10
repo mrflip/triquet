@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as Runner from '../../../src/lib/formulary/runner'
+import * as Formulas from '../../../src/lib/formulas'
 import * as Templating from '../../../src/lib/templating'
 import * as Wheel from '../../../src/lib/wheel'
 import { Widget, type WidgetT } from '../../../src/models/widget'
@@ -718,10 +719,13 @@ function loopedPastTheRun(): WidgetingT[] {
   return Array.from({ length: Math.ceil(Runner.RunMs / Templating.ColumnMs) + 2 }, (_unused, idx) => Widgeting.fill({ label: `looped_${String(idx)}`, widget_label: 'looping' }))
 }
 
-/** A clock that moves a hundredth of a millisecond each time it is read, so a run's time is how often it is asked */
-function ticking() {
+/**
+ * A clock that moves `tickMs` (a hundredth of a millisecond, unless told otherwise) each time it is
+ * read, so a run's time is how often it is asked
+ */
+function ticking(tickMs = 0.01) {
   let tick = 0
-  vi.spyOn(performance, 'now').mockImplementation(() => { tick += 0.01; return tick })
+  vi.spyOn(performance, 'now').mockImplementation(() => { tick += tickMs; return tick })
 }
 
 describe('a run as a whole, held to one budget of time', () => {
@@ -749,7 +753,8 @@ describe('a run as a whole, held to one budget of time', () => {
   })
 
   it("stops working out what each question would be asked once one input formula will not stop, every later one reading the same", () => {
-    ticking()
+    // A formula reads the clock once in so many steps: each reading stands for a hundredth of a millisecond a step.
+    ticking(0.01 * Formulas.StepsPerReading)
     const run = runOf({ ...Quiz.blank('Many'), questions: many, widgetings: [Widgeting.fill({ label: 'asked', widget_label: 'asking' })] }, library)
     const inputs = many.map((question) => Runner.inputOf(run, 'asked', question._id))
     expect(inputs[0]).to.deep.eq({ status: 'errored', message: 'The input formula: The formula took too long to finish', stops: true })

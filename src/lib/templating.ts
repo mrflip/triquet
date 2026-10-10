@@ -5,6 +5,7 @@ import * as Liquidry from './liquidry'
 import * as Shaping from './shaping'
 import { clockNow } from './clock'
 import * as Runner from './formulary/runner'
+import { Bagged } from '../models/quiz-bag'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
 import { TemplatableFieldVals, isTemplatableField, type QuizT } from '../models/quiz'
 import { ArchivedField, PlaceField, RankField, SecondaryField, type QuestionT } from '../models/question'
@@ -193,7 +194,9 @@ const Renderer = Liquidry.rendererFor({ fillingOf, shapers: Helpers, filters: { 
  * @example fill('{% for x in questions %}{% endfor %}', bag, clockNow()).failkind  // => 'limit'
  */
 export function fill(template: string, bag: TemplateBag | Readonly<Record<string, unknown>>, deadline?: number): FilledT {
-  const { text, issue, failkind } = Renderer.render(template, bag, deadline)
+  // Rendered over a copy: Liquid's increment and decrement write their counters into the scope's
+  // top, and the bag is the one every fill of its question shares (`bagOf`).
+  const { text, issue, failkind } = Renderer.render(template, { ...bag }, deadline)
   return { markdown: text, issue, failkind }
 }
 
@@ -212,11 +215,11 @@ export function issueOf(template: string): string | null {
 }
 
 /**
- * What a template reads for one question of a run, or for none (`question_id` null): the bag
- * (`Runner.baseBagOf`) over the questions as they stand once every widgeting has run, so a
- * template sees every column, every question in `questions` (the archived among them), and
- * `question` the question itself. An image in a formula's, a bot's or a template's column comes as
- * a link to it (`imagesLinkedOf`).
+ * What a template reads for one question of a run, or for none (`question_id` null), the very same
+ * bag each time it is asked of the same run (`bagOver`): the bag (`Runner.baseBagOf`) over the
+ * questions as they stand once every widgeting has run, so a template sees every column, every
+ * question in `questions` (the archived among them), and `question` the question itself. An image
+ * in a formula's, a bot's or a template's column comes as a link to it (`imagesLinkedOf`).
  *
  * @param run - The quiz, run.
  * @param question_id - The question the text is a field of; null for a text of the quiz's own.
@@ -296,11 +299,32 @@ export function finishedQuestionsOf(run: Runner.QuizRun, templateable: readonly 
   return finished
 }
 
-/** The template bag over `questions` (every question of the run, in its order) for `question_id`, or for none, its computed values' images made links */
+/** What every template bag over one run's questions holds in common: those questions and the quiz as the bag holds them, and the questions keyed */
+type SharedBagT = { quiz: Runner.QuizBag['quiz'], every: readonly Record<string, unknown>[], keyed: Runner.QuizBag['questions'] }
+
+/** The bags `bagOver` made, by the questions they were made over and then by the question (null for none), with what they share */
+const BagsOf = new WeakMap<readonly Record<string, unknown>[], SharedBagT & { byQuestion: Map<string | null, TemplateBag> }>()
+
+/**
+ * The template bag over `questions` (every question of the run, in its order) for `question_id`,
+ * or for none, its computed values' images made links: made once, and the very same bag handed to
+ * every cell that asks for it, so what is worked out from it can be remembered by it.
+ */
 function bagOver(run: Runner.QuizRun, questions: readonly Record<string, unknown>[], question_id: string | null): TemplateBag {
+  const known = BagsOf.get(questions) ?? { ...sharedBagOver(run, questions), byQuestion: new Map<string | null, TemplateBag>() }
+  BagsOf.set(questions, known)
+  const held = known.byQuestion.get(question_id)
+  if (held !== undefined) { return held }
   const idx = question_id === null ? -1 : run.frame.question_ids.indexOf(question_id)
+  const bag = Runner.baseBagOf(run.frame, known.quiz, known.every, idx, known.keyed)
+  known.byQuestion.set(question_id, bag)
+  return bag
+}
+
+/** What every template bag over `questions` holds in common, made once for them all */
+function sharedBagOver(run: Runner.QuizRun, questions: readonly Record<string, unknown>[]): SharedBagT {
   const { quiz, every } = imagesLinkedOf(run, questions)
-  return Runner.baseBagOf(run.frame, quiz, every, idx)
+  return { quiz, every, keyed: Bagged.keyed(every) }
 }
 
 /** The formularies whose columns are worked out, not typed: a formula's, a bot's and a template's */

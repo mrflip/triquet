@@ -55,8 +55,6 @@ export type HuntHandle = {
   claims:     Actor.QuizClaimsT | null
   /** Who could put this visitor on the hunt, or make them a smith of it; empty until the hunt has arrived */
   smiths:     readonly SmithT[]
-  /** Whether a change dispatched here is still being written */
-  unsaved:    boolean
   /** Why the last change could not be kept; null while all is well */
   saveNotice: string | null
   /** Carry out what the author did, on the quiz on screen; a change not kept raises an alarm */
@@ -177,9 +175,10 @@ const NoWidgets: readonly WidgetT[] = []
  *
  * There is no save button and no save queue: a change goes to the server as soon as it is
  * dispatched. The screen shows an edit to a question or a column, a widgeting relabelled, an
- * entry typed, a sort and a drag at once (`showPerformed`), anything else once the server has it. Leaving the
- * page before then asks first. A change the server refuses writes nothing, is taken back from the
- * screen, and says why in `saveNotice` and in an alarm (`useRaiseAlarm`), which the author sees
+ * entry typed, a sort and a drag at once (`showPerformed`), anything else once the server has it.
+ * Leaving the page before then asks first, and the screen says a change is still being written
+ * (`holdThePage`, `usePageWriting`). A change the server refuses writes nothing, is taken back from
+ * the screen, and says why in `saveNotice` and in an alarm (`useRaiseAlarm`), which the author sees
  * wherever they are on the page. One the policies refuse
  * of the browser's own claims (`denialOf`) is not sent at all, and is said the same way. For a smith, every
  * reading of the hunt, whoever changed it, goes into its history (`useHuntFeed`, `HuntMirror`).
@@ -195,7 +194,6 @@ export function useHunt(orglabel: string | null, labels: QuizLabels): HuntHandle
   const perform = useMemo(() => performBare.withOptimisticUpdate(showPerformed), [performBare])
   const raise = useRaiseAlarm()
   const [saveNotice, setSaveNotice] = useState<string | null>(null)
-  const [writing, setWriting] = useState(0)
 
   // A label that cannot be one names no hunt, and is not asked about.
   const askable = ValidatorKit.label.safeParse(labels.hunt).success
@@ -256,7 +254,6 @@ export function useHunt(orglabel: string | null, labels: QuizLabels): HuntHandle
       return false
     }
     const write = async (): Promise<boolean> => {
-      setWriting((was) => was + 1)
       holdThePage(true)
       try {
         // The client sends one browser's changes in the order they were made, and the server
@@ -271,7 +268,6 @@ export function useHunt(orglabel: string | null, labels: QuizLabels): HuntHandle
         if (! quietly) { raise(Alarms.of(AppNotices.changeNotKept, err)) }
         return false
       } finally {
-        setWriting((was) => was - 1)
         holdThePage(false)
       }
     }
@@ -282,5 +278,5 @@ export function useHunt(orglabel: string | null, labels: QuizLabels): HuntHandle
 
   const dispatch = useCallback((action: HuntActionDNA) => { void carryOut(action) }, [carryOut])
 
-  return { finding, hunt, ...found, library: library ?? NoWidgets, claims, smiths: smithsFor(opening), unsaved: writing > 0, saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
+  return { finding, hunt, ...found, library: library ?? NoWidgets, claims, smiths: smithsFor(opening), saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
 }

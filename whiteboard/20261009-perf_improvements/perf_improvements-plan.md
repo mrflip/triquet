@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-09. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip), in chat, after an analysis of where the time goes (summarized under
 *Background*, below).
-**Status: threads 1, 2, 3 underway.** `perf_improvements-progress.md`, beside this file, is newer than this plan
+**Status: paused for the Coach, 2026-10-09: five threads landed (#207, #208, #210, #213, #218); thread 2 and thread 4's tally wait. See `human/20261009-sprint_perf_improvements_paused.md`.** `perf_improvements-progress.md`, beside this file, is newer than this plan
 wherever the two disagree.
 
 **What the Coach wants by the end**, in priority order:

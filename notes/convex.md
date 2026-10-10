@@ -173,7 +173,11 @@ as the move to Convex settled it.
   silently drops a row. Two reads are not capped: a stored cell's history (`widgeteds`, one
   question and one widgeting), walked newest first and stopped at the first `ok` row (so it reads
   one row, plus one per failure since), and a question's or a widgeting's widgeteds when it is
-  deleted, iterated with `for await` as the guidelines ask.
+  deleted, iterated with `for await` as the guidelines ask. A question read alone
+  (`questions.open`) walks its cells so, one after another, from its own range of `widgeteds`
+  (`storedFor`), reading none of its quiz's widgetings, so that a write to the quiz's layout
+  reruns no question's watch; its cells are sent by widgeting id, and the browser puts each under
+  its label from the frame (`quizFromSeen`).
 * **Module names are underbar_case** under `convex/` and `tests/convex/`: Convex refuses a hyphen
   in a module path, which `unicorn/filename-case` otherwise demands. An eslint block
   (`triquet/convex-module-names`) allows it there only.

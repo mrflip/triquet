@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { faceOf, type FaceT } from './markdown'
 import type * as Templating from '../../lib/templating'
 
 /**
- * The face of a box holding `text`, as `faceOf` makes it, saying in the console what keeps its
- * template from filling in, if anything does (`useTemplateIssueReport`).
+ * The face of a box holding `text`, as `faceOf` makes it, made again only when the text or the bag
+ * changes, saying in the console what keeps its template from filling in, if anything does
+ * (`useTemplateIssueReport`).
  *
  * @param text - The box's text, as typed.
  * @param bag - What it is filled in over, when the quiz templates it; null when it does not.
@@ -16,7 +17,7 @@ import type * as Templating from '../../lib/templating'
  * @example const face = useFace(draft, bag, 'Clueing')
  */
 export function useFace(text: string, bag: Templating.TemplateBag | null, field: string): FaceT {
-  const face = faceOf(text, bag)
+  const face = useMemo(() => faceOf(text, bag), [text, bag])
   useTemplateIssueReport(face.issue, field, bag)
   return face
 }

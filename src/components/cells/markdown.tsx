@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext } from 'react'
+import { createContext, memo, useContext } from 'react'
 import { Box, Typography } from '@mui/material'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import clsx from 'clsx'
@@ -74,11 +74,12 @@ export type MarkdownTextProps = {
 /**
  * A field's text, rendered from its markdown, with nothing around it: the caller supplies the
  * box, and `styles.prose` (or a face) spaces what is inside. Images show, by `https` only
- * (`Markdown.Allowlist`), or with `imagesAsLinks` as links to them.
+ * (`Markdown.Allowlist`), or with `imagesAsLinks` as links to them. Its markdown is read again
+ * only when the text, or how it is drawn, changes.
  */
-export function MarkdownText({ text, cell = false, imagesAsLinks = false }: Readonly<MarkdownTextProps>) {
+export const MarkdownText = memo(function MarkdownText({ text, cell = false, imagesAsLinks = false }: Readonly<MarkdownTextProps>) {
   return <ReactMarkdown {...Markdown.RenderOptions} components={dressingOf(cell, imagesAsLinks)}>{Markdown.indentsQuoted(text)}</ReactMarkdown>
-}
+})
 
 /** What a text box's face shows: the text as typed, or, for a field the quiz templates, filled in */
 export type FaceT = {
@@ -142,9 +143,10 @@ export type MarkdownFaceProps = Partial<Omit<FaceT, 'text'>> & {
  * passed to the box. It is hidden from assistive technology, which reads the box. The box itself
  * wears `veiledIf(text)`, so its own text is out of sight beneath the face. A template that could
  * not be filled in says why above its text. Over one of the grid's boxes (not `inInput`), its
- * images are held small; with `imagesAsLinks`, each is a link to it.
+ * images are held small; with `imagesAsLinks`, each is a link to it. Drawn again only when what it
+ * is handed changes.
  */
-export function MarkdownFace({ text, issue = null, inInput = false, faceRef, imagesAsLinks = false }: Readonly<MarkdownFaceProps>) {
+export const MarkdownFace = memo(function MarkdownFace({ text, issue = null, inInput = false, faceRef, imagesAsLinks = false }: Readonly<MarkdownFaceProps>) {
   if (! faced(text)) { return null }
   return (
     <div ref={faceRef} aria-hidden data-face onClick={focusBox} className={clsx(styles.face, styles.prose, inInput && styles.faceInInput)}>
@@ -152,4 +154,4 @@ export function MarkdownFace({ text, issue = null, inInput = false, faceRef, ima
       <MarkdownText text={text} cell={! inInput} imagesAsLinks={imagesAsLinks} />
     </div>
   )
-}
+})

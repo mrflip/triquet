@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 import { ConfirmViz } from './ConfirmViz'
@@ -13,6 +13,7 @@ import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
 import { QuizManageModal } from './QuizManageModal'
 import { QuizSwitcher } from './QuizSwitcher'
+import { ScreenMain } from './ScreenMain'
 import { Toolbar } from './Toolbar'
 import { useChecklist } from './use-checklist'
 import { useFoldSet } from './use-folds'
@@ -28,13 +29,13 @@ import * as Rank from '../lib/rank'
 import * as Routes from '../lib/routes'
 import * as Sortings from '../lib/sortings'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
-import { Question, type QuestionViz } from '../models/question'
+import { Question, type QuestionPatch, type QuestionViz } from '../models/question'
 import type { QuizT } from '../models/quiz'
-import type { WidgetT } from '../models/widget'
+import type { EntryValueT, WidgetT } from '../models/widget'
 import type { HuntHandle } from '../state/use-hunt'
 import styles from './workbench.module.css'
 
-export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved' | 'saveNotice' | 'reviews'> & {
+export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'saveNotice' | 'reviews'> & {
   /** The hunt the address names, as a quiz's screen holds it */
   hunt:  ShallowHuntT
   /** The realm the address names, whose quizzes are the open quiz's siblings */
@@ -59,10 +60,14 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved
  *
  * The grid shows every question but the archived, which the gear lists; batch mode archives
  * questions, or shows them as alternates (secondary) or normal again.
+ *
+ * A change to one question draws the frame again, and that question's row: what the grid is
+ * handed keeps its identity while it holds the same, and whether a change is still being written
+ * (`ScreenMain`) and which cells are being asked (`useAsking`) are read only where they are shown.
  */
-export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatch, carryOut, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
+export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatch, carryOut, saveNotice }: Readonly<WorkbenchProps>) {
   const router = useRouter()
-  const { asking, ask } = useAsking(dispatch)
+  const { asks, ask } = useAsking(dispatch)
   const { unavailableNotice } = useBots()
   const librarian = useLibraryActions()
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
@@ -76,7 +81,8 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   const [editingLibrary, setEditingLibrary] = useState(false)
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
   // column is never out of step with what it reads.
-  const specs = useMemo(() => specsFor(quiz), [quiz])
+  const { columns, widgetings } = quiz
+  const specs = useMemo(() => specsFor({ columns, widgetings }), [columns, widgetings])
   const place = useMemo(() => Runner.placeOf(hunt, realm), [hunt, realm])
   const run = useMemo(() => Runner.runQuiz(Runner.sourceOf(quiz, library, place)), [quiz, library, place])
   const shown = useMemo(() => Question.unarchived(quiz.questions), [quiz])
@@ -94,16 +100,31 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
     router.push(pathFor(target.label))
   }
 
-  /** The widgeting labelled `label` and its widget, when it is asked from the cell */
-  const askedStepOf = (label: string): AskedStep | null => {
-    const step = Runner.stepOf(run, label)
-    return step?.widget?.formulary === 'aibot' ? { widgeting: step.widgeting, widget: step.widget } : null
-  }
-  /** Why the widgeting labelled `label` cannot be asked, when it cannot */
-  const unavailableFor = (label: string): string | null => {
-    const step = askedStepOf(label)
+  /** Why the widgeting labelled `label` cannot be asked, when it cannot: made again only with the run */
+  const unavailableFor = useCallback((label: string): string | null => {
+    const step = askedStepOf(run, label)
     return step ? unavailableNotice(step.widget) : null
-  }
+  }, [run, unavailableNotice])
+
+  // What the grid's handlers read when they run rather than when they were made, so they keep
+  // their identity from render to render and no row is drawn again for them.
+  const latest = useRef({ quiz, run, unavailableNotice })
+  useLayoutEffect(() => { latest.current = { quiz, run, unavailableNotice } })
+  const onAsk = useCallback((question_id: string, label: string) => {
+    const { run: now, unavailableNotice: noticeOf } = latest.current
+    const step = askedStepOf(now, label)
+    const bag = step && Runner.bagsAt(now, step.widgeting).get(question_id)
+    if (step && bag && noticeOf(step.widget) === null) { ask(question_id, step, bag) }
+  }, [ask])
+  const onMove = useCallback((question_id: string, onto_idx: number) => {
+    dispatch({ kind: 'move_question', question_id, onto_idx: Rank.ontoIdxAmong(latest.current.quiz.questions, question_id, onto_idx) })
+  }, [dispatch])
+  const onViz = useCallback((question_id: string) => { setVizzing({ ids: [question_id], offered: ['archived', 'secondary', 'normal'] }) }, [])
+  const onChain = useCallback((question_id: string, chains_to: string | null) => { dispatch({ kind: 'set_chain', question_id, chains_to }) }, [dispatch])
+  const onEdit = useCallback((question_id: string, patch: QuestionPatch) => { dispatch({ kind: 'edit_question', question_id, patch }) }, [dispatch])
+  const onEnter = useCallback((question_id: string, widgeting_label: string, value: EntryValueT | null) => {
+    dispatch({ kind: 'enter_widgeted', entered: { question_id, widgeting_label, value } })
+  }, [dispatch])
 
   const batching = checklist.checking && offers.reviseQuestions
   const vizzed = shown.filter((question) => vizzing?.ids.includes(question._id))
@@ -127,7 +148,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   }
 
   return (
-    <main className={clsx(styles.page, 'transitions')} data-unsaved={unsaved || librarian.unsaved}>
+    <ScreenMain className={clsx(styles.page, 'transitions')}>
       <QuizSwitcher
         quizzes={realm.quizzes}
         openQuiz={quiz}
@@ -237,22 +258,18 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         isChecked={checklist.isChecked}
         onCheck={checklist.toggle}
         onCheckAll={checklist.checkAll}
-        onViz={(question_id) => { setVizzing({ ids: [question_id], offered: ['archived', 'secondary', 'normal'] }) }}
+        onViz={onViz}
         lastSortkey={quiz.last_sortkey}
         sortMark={sortMark}
         onSort={onSort}
         onCollapse={offers.reviseLayout ? (label, collapsed) => { dispatch({ kind: 'edit_column', label, patch: { collapsed: collapsed || null } }) } : undefined}
-        onChain={(question_id, chains_to) => { dispatch({ kind: 'set_chain', question_id, chains_to }) }}
-        asking={asking}
+        onChain={onChain}
+        asks={asks}
         unavailableNotice={unavailableFor}
-        onAsk={(question_id, label) => {
-          const step = askedStepOf(label)
-          const bag = step && Runner.bagsAt(run, step.widgeting).get(question_id)
-          if (step && bag && unavailableNotice(step.widget) === null) { ask(question_id, step, bag) }
-        }}
-        onEdit={(question_id, patch) => { dispatch({ kind: 'edit_question', question_id, patch }) }}
-        onEnter={(question_id, widgeting_label, value) => { dispatch({ kind: 'enter_widgeted', entered: { question_id, widgeting_label, value } }) }}
-        onMove={(question_id, onto_idx) => { dispatch({ kind: 'move_question', question_id, onto_idx: Rank.ontoIdxAmong(quiz.questions, question_id, onto_idx) }) }}
+        onAsk={onAsk}
+        onEdit={onEdit}
+        onEnter={onEnter}
+        onMove={onMove}
       />
       <Toolbar
         locked={! offers.reviseQuestions}
@@ -313,6 +330,12 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         onRecapTemplate={(recap_template) => { dispatch({ kind: 'set_recap_template', recap_template }) }}
         onEnterQuiz={(widgeting_label, value) => { dispatch({ kind: 'enter_quiz_widgeted', entered: { widgeting_label, value } }) }}
       />
-    </main>
+    </ScreenMain>
   )
+}
+
+/** The widgeting labelled `label` in `run` and its widget, when it is asked from the cell */
+function askedStepOf(run: Runner.QuizRun, label: string): AskedStep | null {
+  const step = Runner.stepOf(run, label)
+  return step?.widget?.formulary === 'aibot' ? { widgeting: step.widgeting, widget: step.widget } : null
 }

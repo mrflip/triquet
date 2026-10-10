@@ -107,13 +107,13 @@ describe('quizFrom', () => {
   })
 
   it('holds what each question stored, under the widgeting\'s label, by the question\'s id', () => {
-    const [question] = quizFrom({ ...rows, stored: new Map([[question_id, new Map([['dumdum', FailedSince]])]]) }).questions
+    const [question] = quizFrom({ ...rows, stored: new Map([[question_id, new Map([[widgeting_id, FailedSince]])]]) }).questions
     expect(question?.stored).to.deep.eq({ dumdum: historyOf(FailedSince) })
     expect(quizFrom(rows).questions[0]?.stored).to.deep.eq({})
   })
 
   it('shows a cell\'s newest answer once run, with the failure since riding on it, in whole milliseconds', () => {
-    const quiz = quizFrom({ ...rows, stored: new Map([[question_id, new Map([['dumdum', FailedSince]])]]) })
+    const quiz = quizFrom({ ...rows, stored: new Map([[question_id, new Map([[widgeting_id, FailedSince]])]]) })
     expect(Runner.widgetedOf(runOf(quiz), 'dumdum', question_id)).to.deep.eq(Widgeted.ok({ guess: 'answered', explanation: '' }, { message: 'failed', at: 7, response: { ok: false } }))
   })
 })
@@ -121,11 +121,11 @@ describe('quizFrom', () => {
 describe('seenQuestionFor', () => {
   const Written = { ...QuestionRow, chains_to: 'lear', full_answer: 'Leontes', notes: 'Check the folio.', alt_text: 'A lion.', recap: 'Leontes is jealous.' }
 
-  it('is, for a smith, the question\'s id and every field, with each stored cell\'s history under its widgeting\'s label, its chain still the label it holds', () => {
-    const seen = seenQuestionFor(Written, new Map([['dumdum', FailedSince]]), Smith)
+  it('is, for a smith, the question\'s id and every field, with each stored cell\'s history under its widgeting\'s id, its chain still the label it holds', () => {
+    const seen = seenQuestionFor(Written, new Map([[widgeting_id, FailedSince]]), Smith)
     expect(seen).to.deep.eq({
       _id: question_id, label: 'leon', title: 'Leon', qnum: '1', clueing: 'Who?', hint: '', chains_to: 'lear',
-      full_answer: 'Leontes', alt_text: 'A lion.', notes: 'Check the folio.', recap: 'Leontes is jealous.', stored: { dumdum: historyOf(FailedSince) },
+      full_answer: 'Leontes', alt_text: 'A lion.', notes: 'Check the folio.', recap: 'Leontes is jealous.', stored: { [widgeting_id]: historyOf(FailedSince) },
       viz: 'normal', created_at: 2, updated_at: 2,
     })
   })
@@ -149,8 +149,8 @@ describe('seenQuestionFor', () => {
 
   it('reads the newest row\'s status where the doc block says', () => {
     const answered = widgetedRow('ok', 5, 'answered')
-    const seen = seenQuestionFor(QuestionRow, new Map([['dumdum', { newest: answered, ok: answered }]]), Smith)
-    expect('stored' in seen && seen.stored.dumdum?.newest.status).to.eq('ok')
+    const seen = seenQuestionFor(QuestionRow, new Map([[widgeting_id, { newest: answered, ok: answered }]]), Smith)
+    expect('stored' in seen && seen.stored[widgeting_id]?.newest.status).to.eq('ok')
   })
 
   it('stores nothing for a question with no stored cells', () => {
@@ -158,7 +158,7 @@ describe('seenQuestionFor', () => {
   })
 
   it('is, for a reviewer, what a review needs, the answer among it: not the notes, nor what was stored, whatever is handed in', () => {
-    const seen = seenQuestionFor(Written, new Map([['dumdum', FailedSince]]), Reviewer)
+    const seen = seenQuestionFor(Written, new Map([[widgeting_id, FailedSince]]), Reviewer)
     expect(seen).to.deep.eq({ _id: question_id, label: 'leon', title: 'Leon', qnum: '1', clueing: 'Who?', hint: '', chains_to: 'lear', full_answer: 'Leontes', viz: 'normal' })
   })
 
@@ -177,6 +177,13 @@ describe('frameOf', () => {
     expect(frame.row_ordering).to.deep.eq([question_id])
     expect(frame.widgetings.map((widgeting) => widgeting.label)).to.deep.eq(['dumdum'])
     expect(frame).to.not.have.any.keys('questions', 'realm_id', '_creationTime')
+  })
+
+  it("carries each widgeting's row id by its label, which the widgeting itself does not carry", () => {
+    const frame = frameOf(QuizRow, [WidgetingRow], [], new Map())
+    expect(frame.widgeting_ids.dumdum).to.eq(widgeting_id)
+    expect(frame.widgeting_ids).to.deep.eq({ dumdum: widgeting_id })
+    expect(frame.widgetings[0]).to.not.have.property('_id')
   })
 
   it('carries what its widgetings for the whole quiz stored, as a question carries its own', () => {
@@ -215,7 +222,29 @@ describe('quizFromSeen', () => {
   it('is the quiz its frame and questions make up, in the order given', () => {
     const quiz = quizFromSeen(frameOf(QuizRow, [], [], new Map()), [second, first])
     expect(quiz.questions.map((question) => question._id)).to.deep.eq([second._id, question_id])
-    expect(quiz).to.not.have.any.keys('row_ordering')
+    expect(quiz).to.not.have.any.keys('row_ordering', 'widgeting_ids')
+  })
+
+  it("puts what each question stored under the label of the frame's widgeting of that id, in run order", () => {
+    const later = { ...WidgetingRow, _id: idOf('widgetings', 'wg0'), label: 'second_guess', position: 1 }
+    const answered: CellRows = { newest: widgetedRow('ok', 9, 'again'), ok: widgetedRow('ok', 9, 'again') }
+    const seen = seenQuestionFor(QuestionRow, new Map([[later._id, answered], [widgeting_id, FailedSince]]), Smith)
+    const [question] = quizFromSeen(frameOf(QuizRow, [WidgetingRow, later], [], new Map()), [seen]).questions
+    expect(question?.stored).to.deep.eq({ dumdum: historyOf(FailedSince), second_guess: historyOf(answered) })
+    expect(Object.keys(question?.stored ?? {})).to.deep.eq(['dumdum', 'second_guess'])
+  })
+
+  it("leaves out a cell whose widgeting the frame does not hold, or runs once for the whole quiz", () => {
+    const quizwide = { ...WidgetingRow, _id: idOf('widgetings', 'wg2'), label: 'playtesters', tier: 'quiz' as const, position: 1 }
+    const seen = seenQuestionFor(QuestionRow, new Map([[widgeting_id, FailedSince], [quizwide._id, FailedSince], [idOf('widgetings', 'gone'), FailedSince]]), Smith)
+    const [question] = quizFromSeen(frameOf(QuizRow, [WidgetingRow, quizwide], [], new Map()), [seen]).questions
+    expect(question?.stored).to.deep.eq({ dumdum: historyOf(FailedSince) })
+  })
+
+  it("follows a widgeting relabelled: the same id, under its new label", () => {
+    const seen = seenQuestionFor(QuestionRow, new Map([[widgeting_id, FailedSince]]), Smith)
+    const [question] = quizFromSeen(frameOf(QuizRow, [{ ...WidgetingRow, label: 'hasty' }], [], new Map()), [seen]).questions
+    expect(question?.stored).to.deep.eq({ hasty: historyOf(FailedSince) })
   })
 
   it('reads each chain as the id of the sibling answering to its label; a chain to itself, or to no sibling, as none', () => {
@@ -226,11 +255,62 @@ describe('quizFromSeen', () => {
   it('reads a field a reviewer was not sent as blank, and chains their questions as a smith\'s', () => {
     const written = { ...QuestionRow, notes: 'Check the folio.', alt_text: 'A lion.', full_answer: 'Leontes' }
     const reviewed = [
-      { ...seenQuestionFor(written, new Map([['dumdum', FailedSince]]), Reviewer), chains_to: 'lear' },
+      { ...seenQuestionFor(written, new Map([[widgeting_id, FailedSince]]), Reviewer), chains_to: 'lear' },
       { ...seenQuestionFor(written, new Map(), Reviewer), _id: idOf('questions', 'qn2'), label: 'lear' },
     ]
     const [question] = quizFromSeen(frameOf(QuizRow, [], [], new Map()), reviewed).questions
     expect(question).to.deep.include({ full_answer: 'Leontes', notes: '', alt_text: '', stored: {}, chains_to: idOf('questions', 'qn2') })
+  })
+
+  describe('following the quiz it last came to', () => {
+    const frame = frameOf(QuizRow, [WidgetingRow], [], new Map())
+    const stored = seenQuestionFor(QuestionRow, new Map([[widgeting_id, FailedSince]]), Smith)
+    const was = quizFromSeen(frame, [stored, second], null)
+
+    it('is the very quiz it follows when nothing is new', () => {
+      expect(quizFromSeen(frame, [stored, second], was)).to.equal(was)
+    })
+
+    it('hands back each question whose reading is the very same, and makes afresh only the one that is new', () => {
+      const edited = { ...second, title: 'Lear, retitled' }
+      const quiz = quizFromSeen(frame, [stored, edited], was)
+      expect(quiz).to.not.equal(was)
+      expect(quiz.questions[0]).to.equal(was.questions[0])
+      expect(quiz.questions[1]).to.not.equal(was.questions[1])
+      expect(quiz.questions[1]?.title).to.eq('Lear, retitled')
+      expect(quiz.widgetings).to.equal(was.widgetings)
+    })
+
+    it('makes afresh a question whose reading is new but holds the same, the reading being what is followed', () => {
+      const quiz = quizFromSeen(frame, [{ ...stored }, second], was)
+      expect(quiz.questions[0]).to.not.equal(was.questions[0])
+      expect(quiz.questions[0]).to.deep.eq(was.questions[0])
+    })
+
+    it('makes every question afresh when a widgeting is relabelled, though their readings are the same', () => {
+      const relabelled = frameOf(QuizRow, [{ ...WidgetingRow, label: 'hasty' }], [], new Map())
+      const quiz = quizFromSeen(relabelled, [stored, second], was)
+      expect(quiz.questions[0]?.stored).to.deep.eq({ hasty: historyOf(FailedSince) })
+      expect(quiz.questions[0]).to.not.equal(was.questions[0])
+    })
+
+    it('makes a question afresh when the question its chain names answers to another label, though its reading is the same', () => {
+      const chained = { ...stored, chains_to: 'lear' }
+      const before = quizFromSeen(frame, [chained, second], null)
+      const quiz = quizFromSeen(frame, [chained, { ...second, label: 'king_lear' }], before)
+      expect(quiz.questions[0]?.chains_to).to.be.null
+      expect(quiz.questions[0]).to.not.equal(before.questions[0])
+    })
+
+    it("keeps the quiz's own parts the same while they hold the same, from a frame sent again", () => {
+      const resent = frameOf({ ...QuizRow, title: 'Retitled' }, [WidgetingRow], [], new Map())
+      const quiz = quizFromSeen(resent, [stored, second], was)
+      expect(quiz).to.not.equal(was)
+      expect(quiz.title).to.eq('Retitled')
+      expect(quiz.widgetings).to.equal(was.widgetings)
+      expect(quiz.questions).to.deep.eq(was.questions)
+      expect(quiz.questions[0]).to.equal(was.questions[0])
+    })
   })
 })
 
@@ -244,6 +324,11 @@ describe('assembledQuiz', () => {
 
   it('leaves out a question read as gone, and is the quiz once every question has been read', () => {
     expect(assembledQuiz(frame, (id) => (id === question_id ? seen : null))?.questions.length).to.eq(1)
+  })
+
+  it('hands back the quiz it last came to, given it, when nothing is new', () => {
+    const was = assembledQuiz(frame, (id) => (id === question_id ? seen : null)) ?? null
+    expect(assembledQuiz(frame, (id) => (id === question_id ? seen : null), was)).to.equal(was)
   })
 })
 

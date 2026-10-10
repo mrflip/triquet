@@ -6,10 +6,13 @@ import ChecklistIcon from '@mui/icons-material/Checklist'
 import clsx from 'clsx'
 import { GutterWidthPx, gridWidthPx, type ColumnSpec, type Headkind } from '../lib/columns'
 import { FoldButton } from './FoldButton'
+import { ChainChoices } from './cells/chain'
 import { QuestionRow, alignClassOf } from './QuestionRow'
+import { rowRunOf } from './row-runs'
 import { useFolds } from './use-folds'
 import { useSettledResize } from './use-settled-resize'
 import type { QuizRun } from '../lib/formulary/runner'
+import type { AsksT } from '../state/use-asking'
 import { Question, type QuestionPatch, type QuestionT } from '../models/question'
 import type { EntryValueT } from '../models/widget'
 import type { Sortkey } from '../models/quiz'
@@ -24,7 +27,7 @@ export type QuestionTableProps = {
   /** The quiz's questions, in its order: the grid shows all but the archived, and a chain may point at any */
   questions:    QuestionT[]
   /** The quiz's columns, in the order they appear */
-  specs:        ColumnSpec[]
+  specs:        readonly ColumnSpec[]
   /** The quiz, run: what each widgeting came to for each question */
   run:          QuizRun
   /** The sources the quiz nominates as templateable: their boxes show them filled in */
@@ -50,9 +53,9 @@ export type QuestionTableProps = {
   /** Collapse one column to its turned header, or restore it, by a double-click on its head; absent where the columns may not be changed */
   onCollapse?:  (colkey: string, collapsed: boolean) => void
   onChain:      (question_id: string, chains_to: string | null) => void
-  /** Whether an ask for one question's cell of one widgeting is in flight */
-  asking:       (question_id: string, widgeting_label: string) => boolean
-  /** Why the widgeting labelled so cannot be asked at all, when it cannot; null when it can */
+  /** The asks in flight, each row reading its own (`useAskingIn`) */
+  asks:         AsksT
+  /** Why the widgeting labelled so cannot be asked at all, when it cannot; null when it can. Made again only with the run */
   unavailableNotice: (widgeting_label: string) => string | null
   /** Ask the widgeting labelled so about one question */
   onAsk:        (question_id: string, widgeting_label: string) => void
@@ -73,14 +76,20 @@ const CardLayoutQuery = '(max-width:640px)'
  * a text box opens that row alone. The questions there when it opens start folded, and one added
  * later starts open. It holds this as its own state, so its owner keys it by the quiz. As cards,
  * below 640px, every question shows in full: the corner is not there to unfold them.
+ *
+ * A row is drawn again only when what it shows changed (`QuestionRow`): each is handed its own
+ * part of the run (`rowRunOf`), and the functions it is handed take a question's id, so the
+ * owner hands the grid functions that keep their identity from render to render.
  */
-export function QuestionTable({ questions, specs, run, templateable, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onViz, lastSortkey, sortMark, onSort, onCollapse, onChain, asking, unavailableNotice, onAsk, onEdit, onEnter, onMove }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, run, templateable, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onViz, lastSortkey, sortMark, onSort, onCollapse, onChain, asks, unavailableNotice, onAsk, onEdit, onEnter, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   const shown = useMemo(() => Question.unarchived(questions), [questions])
   const checkedCount = shown.filter((question) => isChecked(question._id)).length
   const folds = useFolds(shown.map((question) => question._id))
   const carded = useMediaQuery(CardLayoutQuery)
   const bodyId = useId()
+  const rows = useMemo(() => shown.map((question) => ({ question, rowRun: rowRunOf(run, question, specs, templateable, unavailableNotice) })), [shown, run, specs, templateable, unavailableNotice])
+  const hintOf = useMemo(() => new Map(questions.map((question) => [question._id, question.hint])), [questions])
 
   return (
     <div className={styles.scroller}>
@@ -144,36 +153,34 @@ export function QuestionTable({ questions, specs, run, templateable, locked, gri
           </tr>
         </thead>
         <tbody id={bodyId}>
-          {shown.map((question, idx) => (
-            <QuestionRow
-              key={question._id}
-              question={question}
-              questions={questions}
-              locked={locked}
-              gripShown={gripShown}
-              checked={batching ? isChecked(question._id) : null}
-              onCheck={(on) => { onCheck(question._id, on) }}
-              onViz={() => { onViz(question._id) }}
-              resizeToken={resizeToken}
-              folded={! carded && folds.isFolded(question._id)}
-              onUnfold={() => { folds.unfold(question._id) }}
-              idx={idx}
-              count={shown.length}
-              onMove={onMove}
-              onChain={(chains_to) => { onChain(question._id, chains_to) }}
-              specs={specs}
-              run={run}
-              templateable={templateable}
-              asking={(widgeting_label) => asking(question._id, widgeting_label)}
-              unavailableNotice={unavailableNotice}
-              onAsk={(widgeting_label) => { onAsk(question._id, widgeting_label) }}
-              onAskTarget={(widgeting_label) => {
-                if (question.chains_to !== null) { onAsk(question.chains_to, widgeting_label) }
-              }}
-              onEdit={(patch) => { onEdit(question._id, patch) }}
-              onEnter={(widgeting_label, value) => { onEnter(question._id, widgeting_label, value) }}
-            />
-          ))}
+          <ChainChoices questions={questions}>
+            {rows.map(({ question, rowRun }, idx) => (
+              <QuestionRow
+                key={question._id}
+                question={question}
+                targetHint={question.chains_to === null ? null : hintOf.get(question.chains_to) ?? null}
+                locked={locked}
+                gripShown={gripShown}
+                checked={batching ? isChecked(question._id) : null}
+                onCheck={onCheck}
+                onViz={onViz}
+                resizeToken={resizeToken}
+                folded={! carded && folds.isFolded(question._id)}
+                onUnfold={folds.unfold}
+                idx={idx}
+                count={shown.length}
+                onMove={onMove}
+                onChain={onChain}
+                specs={specs}
+                rowRun={rowRun}
+                templateable={templateable}
+                asks={asks}
+                onAsk={onAsk}
+                onEdit={onEdit}
+                onEnter={onEnter}
+              />
+            ))}
+          </ChainChoices>
         </tbody>
       </table>
     </div>

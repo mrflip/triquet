@@ -11,6 +11,14 @@ export const TimeboxMs = 100
 /** How deeply one evaluation may nest before it is stopped */
 export const DepthMax = 500
 
+/**
+ * How many steps of an evaluation pass between readings of its clock. A step of an ordinary
+ * formula takes about a microsecond, so this many take about a quarter of a millisecond: a formula
+ * is stopped that soon after its time is up, and the clock is read once in this many steps rather
+ * than twice in every one. Its depth is checked at every step.
+ */
+export const StepsPerReading = 256
+
 /** How a formula failed: it does not parse, it errored while running, or it would not stop */
 export type FormulaFailkind = 'syntax' | 'runtime' | 'timeout'
 
@@ -98,18 +106,22 @@ class TimeboxStop extends Error {}
 const OverTime = 'The formula took too long to finish'
 
 /**
- * `expression` set to be stopped if it nests too deep, or runs past `TimeboxMs` from now or past
- * `deadline`, whichever is sooner, on a clock that moves inside a Convex mutation
+ * `expression` set to be stopped if it nests too deep, checked at every step, or runs past
+ * `TimeboxMs` from now or past `deadline`, whichever is sooner, on a clock that moves inside a
+ * Convex mutation, read every `StepsPerReading` steps
  */
 function boxed(expression: jsonata.Expression, deadline: number): void {
   const stopAt = Math.min(deadline, clockNow() + TimeboxMs)
-  let depth = 0
-  const stopIfRunaway = () => {
-    if (depth > DepthMax) { throw new TimeboxStop('The formula nests too deeply -- check for a recursion that never ends') }
+  const held = { depth: 0, stepsToReading: StepsPerReading }
+  expression.assign('__evaluate_entry', () => {
+    held.depth += 1
+    if (held.depth > DepthMax) { throw new TimeboxStop('The formula nests too deeply -- check for a recursion that never ends') }
+    held.stepsToReading -= 1
+    if (held.stepsToReading > 0) { return }
+    held.stepsToReading = StepsPerReading
     if (clockNow() > stopAt) { throw new TimeboxStop(OverTime) }
-  }
-  expression.assign('__evaluate_entry', () => { depth += 1; stopIfRunaway() })
-  expression.assign('__evaluate_exit', () => { depth -= 1; stopIfRunaway() })
+  })
+  expression.assign('__evaluate_exit', () => { held.depth -= 1 })
 }
 
 /** An error from the evaluator, as an outcome */

@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
 export type Folds = {
   /** Whether any item is showing in full; the fold-all triangle points down while one is */
   anyOpen:    boolean
   isFolded:   (itemkey: string) => boolean
-  /** Show one item in full */
+  /** Show one item in full: the same function from render to render */
   unfold:     (itemkey: string) => void
   /** Show every item in full, or fold every one */
   setAllOpen: (open: boolean) => void
@@ -24,10 +24,12 @@ export type Folds = {
  */
 export function useFolds(itemkeys: readonly string[]): Folds {
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set(itemkeys))
+  // The same function from render to render, so a row handed it need not be drawn again.
+  const unfold = useCallback((itemkey: string) => { setFolded((prev) => unfoldIn(prev, itemkey)) }, [])
   return {
     anyOpen:    anyOpenIn(folded, itemkeys),
     isFolded:   (itemkey) => folded.has(itemkey),
-    unfold:     (itemkey) => { setFolded((prev) => unfoldIn(prev, itemkey)) },
+    unfold,
     setAllOpen: (open) => { setFolded(new Set(open ? [] : itemkeys)) },
   }
 }

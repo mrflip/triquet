@@ -27,7 +27,9 @@ function readingOf(reading: QuestionReading): SeenQuestionT | null | undefined {
  *
  * A question the frame orders but whose reading is still on its way (one added a moment ago)
  * does not blank the screen: the quiz as last read whole stays until it arrives, so the grid never
- * shows a quiz half read.
+ * shows a quiz half read. What has not changed since the quiz was last read whole is handed back
+ * the very same (`quizFromSeen`): a change to one question makes that question new, and the quiz
+ * around it, and nothing else.
  *
  * @param affirms - What this browser affirms of itself on the quiz's hunt (`useAffirms`); null until known.
  * @param quiz_id - The quiz; null for none.
@@ -42,13 +44,14 @@ export function useQuiz(affirms: HuntAffirmsDNA | null, quiz_id: Id<'quizzes'> |
     [question_id, { query: api.questions.open, args: { question_id, affirms } }]
   ))) : {}), [orderKey, ready, affirms])
   const readings = useQueries(queries) as Record<string, QuestionReading>
-  const assembled = useMemo(() => frame && assembledQuiz(frame, (question_id) => readingOf(readings[question_id])), [frame, readings])
 
-  // The quiz last read whole, kept as React keeps state derived from a render.
+  // The quiz last read whole, kept as React keeps state derived from a render: what a question
+  // still on its way leaves on screen, and what the next assembly hands back unchanged parts of.
   const [held, setHeld] = useState<{ quiz_id: Id<'quizzes'>, quiz: QuizT } | null>(null)
-  if (quiz_id !== null && assembled && held?.quiz !== assembled) { setHeld({ quiz_id, quiz: assembled }) }
+  const was = held !== null && held.quiz_id === quiz_id ? held.quiz : null
+  const assembled = useMemo(() => frame && assembledQuiz(frame, (question_id) => readingOf(readings[question_id]), was), [frame, readings, was])
+  if (quiz_id !== null && assembled && was !== assembled) { setHeld({ quiz_id, quiz: assembled }) }
 
   if (! frame) { return frame }
-  const heldHere = held !== null && held.quiz_id === quiz_id
-  return assembled ?? (heldHere ? held.quiz : undefined)
+  return assembled ?? was ?? undefined
 }

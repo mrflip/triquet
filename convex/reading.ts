@@ -2,7 +2,7 @@ import type { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
 import { formularyFor } from '../src/lib/formulary/formularies'
 import * as PA from '../src/lib/vv/patterns'
-import { huntFrom, quizFrom, widgetingFrom, type CellRows, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type StoredRowT, type StoredRows, type WidgetUsageT } from '../src/lib/rows'
+import { huntFrom, quizFrom, widgetingFrom, type CellRows, type HuntRows, type LayoutRows, type MemberT, type QuestionStoredRows, type QuizRows, type RealmRows, type StoredRowT, type StoredRows, type WidgetUsageT } from '../src/lib/rows'
 import type { WidgetingTier } from '../src/models/widgeting'
 import type { HuntT } from '../src/models/hunt'
 import type { QuizT } from '../src/models/quiz'
@@ -11,7 +11,8 @@ import type { QuizT } from '../src/models/quiz'
 // that kind of child, which the writes refuse to pass: a read never silently drops a row. A
 // quiz's questions are read by id, in the order the quiz holds them, which the same cap bounds.
 // One read is not capped: a stored cell's history, walked newest first and stopped at the first
-// `ok` row, so it reads one row, plus one per failure since.
+// `ok` row, so it reads one row, plus one per failure since. A question's cells are walked so
+// one after another (`storedFor`), as many as its quiz's widgetings, which their cap bounds.
 //
 // A row carries copies of what policy needs from its parents (`notes/convex.md`, *Denormalized
 // fields*), so the hunt a row belongs to is on the row.
@@ -241,21 +242,64 @@ export async function quizCellRowsOf(db: Reader, quiz_id: Id<'quizzes'>, widgeti
     .order('desc'))
 }
 
-/** Each of `widgetings` that has a cell, by its label, with the cell `cellOf` reads for it */
-async function cellsByLabel(widgetings: readonly Doc<'widgetings'>[], cellOf: (widgeting: Doc<'widgetings'>) => Promise<CellRows | null>): Promise<StoredRows> {
+/** Each of `widgetings` that has a cell, by what `keyOf` says of it, with the cell `cellOf` reads for it */
+async function cellsBy<KT>(widgetings: readonly Doc<'widgetings'>[], keyOf: (widgeting: Doc<'widgetings'>) => KT, cellOf: (widgeting: Doc<'widgetings'>) => Promise<CellRows | null>): Promise<ReadonlyMap<KT, CellRows>> {
   const cells = await Promise.all(widgetings.map(async (widgeting) => await cellOf(widgeting)))
   return new Map(widgetings.flatMap((widgeting, idx) => {
     const cell = cells[idx]
-    return cell ? [[widgeting.label, cell] as const] : []
+    return cell ? [[keyOf(widgeting), cell] as const] : []
   }))
 }
 
 /**
- * What `question` stored for each of `widgetings` that runs for each question, by the
- * widgeting's label. A widgeting with nothing recorded for it (a `jsonata` one always) is absent.
+ * What `question_id` stored for each of `widgetings` that runs for each question, by the
+ * widgeting's row id: one index range each. A widgeting with nothing recorded for it (a `jsonata`
+ * one always) is absent. For a whole quiz's questions, whose widgetings are read once for them
+ * all; a question read alone is read by `storedFor`, which reads no widgeting.
  */
-export async function storedOf(db: Reader, question_id: Id<'questions'>, widgetings: readonly Doc<'widgetings'>[]): Promise<StoredRows> {
-  return await cellsByLabel(atTier(widgetings, 'question'), async (widgeting) => await cellRowsOf(db, question_id, widgeting._id))
+export async function storedOf(db: Reader, question_id: Id<'questions'>, widgetings: readonly Doc<'widgetings'>[]): Promise<QuestionStoredRows> {
+  return await cellsBy(atTier(widgetings, 'question'), (widgeting) => widgeting._id, async (widgeting) => await cellRowsOf(db, question_id, widgeting._id))
+}
+
+/** One cell of a question as its walk finds it: the widgeting's row id, and its history */
+type FoundCellT = readonly [Id<'widgetings'>, CellRows]
+
+/**
+ * What the question `question_id` stored, by the widgeting's row id: every widgeting that has
+ * recorded anything for it. Reads the question's own rows of `widgeteds` and nothing else, not even
+ * which widgetings its quiz has, so that no write but one to this question's cells (or to the
+ * question) reruns a watch of it; the quiz puts each cell under its label (`quizFromSeen`).
+ *
+ * The rows are walked newest first, a cell at a time (`cellsBelow`), each as far as its newest
+ * `ok` row, as `cellRowsOf` walks one; then the walk starts again below that cell, passing over
+ * its older history unread. So it reads what reading each cell alone would, in one index range
+ * per cell with an `ok` row, and one more to find the end.
+ *
+ * @example (await storedFor(db, question_id)).get(widgeting_id)?.ok?.value  // => { guess: 'Hamlet', explanation: 'A prince.' }
+ */
+export async function storedFor(db: Reader, question_id: Id<'questions'>): Promise<QuestionStoredRows> {
+  return new Map(await cellsBelow(db, question_id, null))
+}
+
+/**
+ * The cells of `question_id` whose widgeting's row id sorts below `below` (every cell, for null),
+ * from the highest down: the walk `storedFor` makes.
+ */
+async function cellsBelow(db: Reader, question_id: Id<'questions'>, below: Id<'widgetings'> | null): Promise<FoundCellT[]> {
+  const rows = db.query('widgeteds')
+    .withIndex('by_question_id_and_widgeting_id', (cvx) => (below === null ? cvx.eq('question_id', question_id) : cvx.eq('question_id', question_id).lt('widgeting_id', below)))
+    .order('desc')
+  const found: FoundCellT[] = []
+  let open: Doc<'widgeteds'> | null = null   // the newest row of the cell being walked
+  for await (const row of rows) {
+    if (open && row.widgeting_id !== open.widgeting_id) {
+      found.push([open.widgeting_id, { newest: open, ok: null }])
+      open = null
+    }
+    open ??= row
+    if (row.status === 'ok') { return [...found, [row.widgeting_id, { newest: open, ok: row }], ...await cellsBelow(db, question_id, row.widgeting_id)] }
+  }
+  return open ? [...found, [open.widgeting_id, { newest: open, ok: null }]] : found
 }
 
 /**
@@ -266,7 +310,7 @@ export async function storedOf(db: Reader, question_id: Id<'questions'>, widgeti
  */
 export async function quizStoredOf(db: Reader, quiz_id: Id<'quizzes'>, widgetings: readonly Doc<'widgetings'>[]): Promise<StoredRows> {
   const stores = await storingOf(db, atTier(widgetings, 'quiz'))
-  return await cellsByLabel(stores, async (widgeting) => await quizCellRowsOf(db, quiz_id, widgeting._id))
+  return await cellsBy(stores, (widgeting) => widgeting.label, async (widgeting) => await quizCellRowsOf(db, quiz_id, widgeting._id))
 }
 
 /** The widgetings of `widgetings` whose formulary stores (never a `jsonata` one), by the library */
@@ -318,14 +362,14 @@ export async function layoutOf(db: Reader, quiz: Doc<'quizzes'>): Promise<Layout
 }
 
 /**
- * What each of `questions` stored for each of `widgetings`, by the question's id. Only the
- * widgetings that run for each question and whose formulary stores are read (never a `jsonata`
- * one): one index range per question each, which a whole quiz must keep within a transaction's
- * bound.
+ * What each of `questions` stored for each of `widgetings`, by the question's id, and within it by
+ * the widgeting's row id. Only the widgetings that run for each question and whose formulary
+ * stores are read (never a `jsonata` one): one index range per question each, which a whole quiz
+ * must keep within a transaction's bound.
  *
- * @example (await allStoredOf(db, questions, widgetings)).get(question._id)?.get('dumdum')?.ok?.value
+ * @example (await allStoredOf(db, questions, widgetings)).get(question._id)?.get(widgeting._id)?.ok?.value
  */
-export async function allStoredOf(db: Reader, questions: readonly Doc<'questions'>[], widgetings: readonly Doc<'widgetings'>[]): Promise<Map<string, StoredRows>> {
+export async function allStoredOf(db: Reader, questions: readonly Doc<'questions'>[], widgetings: readonly Doc<'widgetings'>[]): Promise<Map<string, QuestionStoredRows>> {
   const stores = await storingOf(db, atTier(widgetings, 'question'))
   const stored = await Promise.all(questions.map(async (question) => await storedOf(db, question._id, stores)))
   return new Map(questions.map((question, idx) => [question._id, stored[idx] ?? new Map()]))

@@ -10,6 +10,7 @@ import { ButnotFull } from './cells/chain'
 import { NumberField } from './cells/fields'
 import { MarkdownFace, MarkdownText, veiledIf } from './cells/markdown'
 import { ReviewsPanel } from './panels/ReviewsPanel'
+import { ScreenMain } from './ScreenMain'
 import { AppNotices } from '../lib/notices'
 import * as Rank from '../lib/rank'
 import { reviewBy, type ReviewedT } from '../lib/rows'
@@ -27,7 +28,6 @@ export type ReviewScreenProps = {
   /** The reviews of this quiz this ident may read: its own, and the others' shared ones once its own is shared */
   reviews:    readonly ReviewedT[]
   dispatch:   (action: HuntActionDNA) => void
-  unsaved:    boolean
 }
 
 /**
@@ -42,7 +42,7 @@ export type ReviewScreenProps = {
  * Each question is what a reviewer is sent of it (`Question.sentTo`), the answer included: the
  * lock (`AnswerLock`) is a spoiler shield, not a security boundary.
  */
-export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved }: Readonly<ReviewScreenProps>) {
+export function ReviewScreen({ quiz, ident, reviews, dispatch }: Readonly<ReviewScreenProps>) {
   useEffect(() => {
     dispatch({ kind: 'open_review', quiz_id: quiz._id })
   }, [dispatch, quiz._id, ident._id])
@@ -57,7 +57,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved }: Readon
   const others = useMemo(() => reviews.filter((review) => review.ident_id !== ident._id), [reviews, ident._id])
 
   return (
-    <main className={styles.page} data-unsaved={unsaved}>
+    <ScreenMain className={styles.page}>
       <Box sx={{ maxWidth: { xs: 760, lg: 1440 }, mx: 'auto' }}>
         <Typography variant="h4" component="h1" gutterBottom>{quiz.title || AppNotices.untitledQuiz} — PLAYTESTING</Typography>
         {quiz.smiths_note === '' ? null : <SmithsNoteReading key={quiz._id} note={quiz.smiths_note} />}
@@ -107,7 +107,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved }: Readon
             : <p className={styles.microcopy}>{AppNotices.othersReviewsHidden}</p>}
         </Box>
       </Box>
-    </main>
+    </ScreenMain>
   )
 }
 

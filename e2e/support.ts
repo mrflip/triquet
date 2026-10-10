@@ -313,14 +313,19 @@ export async function foldBy(scope: Locator, foldname: string): Promise<void> {
 
 /**
  * Set a panel's triangle, named `foldname`, to `open`; folding, wait until what it folds away is
- * hidden, so nothing it held is still found while it closes.
+ * hidden, so nothing it held is still found while it closes; opening, wait until what it opens has
+ * finished growing (MUI's Collapse says so by its `entered` class): a click on something in a
+ * panel still growing can be lost, landing as the panel moves.
  */
 async function foldTo(scope: Locator, foldname: string, open: boolean): Promise<void> {
   const fold = scope.getByRole('button', { name: foldname, exact: true }).first()
   if (await fold.getAttribute('aria-expanded') !== String(open)) { await fold.click() }
   await expect(fold).toHaveAttribute('aria-expanded', String(open))
   const controls = await fold.getAttribute('aria-controls')
-  if (! open && controls !== null) { await expect(scope.page().locator(`[id="${controls}"]`)).toBeHidden() }
+  if (controls === null) { return }
+  const body = scope.page().locator(`[id="${controls}"]`)
+  // A body that is no Collapse has nothing to grow, and so none of this.
+  await (open ? expect(body.and(scope.page().locator('.MuiCollapse-root:not(.MuiCollapse-entered)'))).toHaveCount(0) : expect(body).toBeHidden())
 }
 
 /**
@@ -532,12 +537,13 @@ export async function waitUntilSaved(page: Page): Promise<void> {
 }
 
 /**
- * Bring the panel tab named `tabname` to the front: a hidden tab's contents cannot be found.
+ * Bring the Export / Import panel's tab named `tabname` to the front, opening the panel first: a
+ * folded panel holds no tabs until it is first opened, and a hidden tab's contents cannot be found.
  *
  * @returns The tab's section, now showing.
  */
 export async function showTab(page: Page, tabname: string): Promise<Locator> {
-  await unfold(page.getByRole('region').filter({ has: page.getByRole('tab', { name: tabname, exact: true, includeHidden: true }) }))
+  await openPanel(page, 'Export / Import')
   await page.getByRole('tab', { name: tabname, exact: true }).click()
   const section = page.getByRole('tabpanel', { name: tabname, exact: true })
   await expect(section).toBeVisible()

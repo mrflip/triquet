@@ -74,7 +74,10 @@ function showEarly(store: OptimisticLocalStore, { affirms, action }: PerformArgs
   case 'set_chain':           { showEdited(store, performed.question_id, { chains_to: performed.chains_to }); return }
   case 'enter_widgeted': {
     const { question_id, widgeting_label, value: entered } = performed.entered
-    reviseQuestions(store, [question_id], (seen) => ('stored' in seen ? { ...seen, stored: enteredInto(seen.stored, widgeting_label, entered) } : seen))
+    // A question's cells are sent by widgeting id; the frame, if watched, says which is this one's.
+    const widgeting_id = frameIn(store, quiz_id)?.widgeting_ids[widgeting_label]
+    if (widgeting_id === undefined) { return }
+    reviseQuestions(store, [question_id], (seen) => ('stored' in seen ? { ...seen, stored: enteredInto(seen.stored, widgeting_id, entered) } : seen))
     return
   }
   case 'enter_quiz_widgeted': {
@@ -133,15 +136,16 @@ function chainOf(store: OptimisticLocalStore, question_id: string, chains_to: st
 }
 
 /**
- * `stored` with what was typed into the cell of `widgeting_label`, as `upsertWidgeted` keeps it:
- * one `ok` row, or none for a cell emptied. The row a cell holds is replaced, which keeps when it
- * was made; a cell that held none is given one made now.
+ * `stored` with what was typed into the cell under `key` (a question's cells are keyed by widgeting
+ * id, the quiz's own by label), as `upsertWidgeted` keeps it: one `ok` row, or none for a cell
+ * emptied. The row a cell holds is replaced, which keeps when it was made; a cell that held none
+ * is given one made now.
  */
-function enteredInto(stored: Readonly<Record<string, WidgetedHistoryT>>, widgeting_label: string, entered: EntryValueT | null): Record<string, WidgetedHistoryT> {
-  if (entered === null) { return _.omit(stored, [widgeting_label]) }
-  const _creationTime = stored[widgeting_label]?.newest._creationTime ?? Date.now()
+function enteredInto(stored: Readonly<Record<string, WidgetedHistoryT>>, key: string, entered: EntryValueT | null): Record<string, WidgetedHistoryT> {
+  if (entered === null) { return _.omit(stored, [key]) }
+  const _creationTime = stored[key]?.newest._creationTime ?? Date.now()
   const row = { status: 'ok', value: entered, message: null, result_meta: {}, _creationTime } as const
-  return { ...stored, [widgeting_label]: { newest: row, ok: row } }
+  return { ...stored, [key]: { newest: row, ok: row } }
 }
 
 /** `frame` with its column `label` revised by `patch`, as `editColumn` writes it: a field of null taken off, and a rename carrying the sort memory */
@@ -154,8 +158,8 @@ function columnEdited(frame: QuizFrameT, label: string, patch: ColumnPatch): Qui
 
 /**
  * The widgeting `label` revised by `patch`, as `editWidgeting` writes it: a rename carrying with it
- * the columns showing it (and their headers, while still after the old label), its place among the templateable sources, and what it stored, for the
- * quiz and each question. New params are not shown early: the folded line shows what it sent
+ * the columns showing it (and their headers, while still after the old label), its place among the templateable sources, its id's place
+ * in the frame, and what it stored for the quiz. What a question stored is keyed by the widgeting's id, which a rename leaves be. New params are not shown early: the folded line shows what it sent
  * itself, and keeps showing params the server refuses beside the sentence saying why
  * (`FoldedParams`), which a rollback here would take away.
  */
@@ -164,10 +168,7 @@ function showWidgetingEdited(store: OptimisticLocalStore, quiz_id: string, label
   const held = frame?.widgetings.find((widgeting) => widgeting.label === label)
   const shown: WidgetingPatch = _.omitBy(_.omit(patch, ['params']), _.isUndefined)
   if (! frame || ! held || _.isEmpty(shown)) { return }
-  const renamedOnto = shown.label ?? label
   reviseFrames(store, quiz_id, (each) => widgetingEdited(each, held, shown))
-  if (renamedOnto === label) { return }
-  reviseQuestions(store, frame.row_ordering, (seen) => ('stored' in seen ? { ...seen, stored: rekeyed(seen.stored, label, renamedOnto) } : seen))
 }
 
 /** `frame` with the widgeting `held` revised by `patch`, a rename carried to its columns (a header still after the old label following it), its templateable place and what it stored for the quiz */
@@ -183,7 +184,7 @@ function widgetingEdited(frame: QuizFrameT, held: WidgetingT, patch: WidgetingPa
     return { ...column, source: widgetingSourceOf(renamedOnto, ref.tier), ...(headedAfter && { title: Labelmaker.titleize(renamedOnto) }) }
   })
   const templateable = frame.templateable.map((source) => (source === label ? renamedOnto : source))
-  return { ...frame, widgetings, columns, templateable, stored: rekeyed(frame.stored, label, renamedOnto) }
+  return { ...frame, widgetings, columns, templateable, widgeting_ids: rekeyed(frame.widgeting_ids, label, renamedOnto), stored: rekeyed(frame.stored, label, renamedOnto) }
 }
 
 /** `bag` with what it held under `from` held under `onto` instead */

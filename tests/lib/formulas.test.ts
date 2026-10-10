@@ -69,6 +69,22 @@ describe('Formulas.evaluate', () => {
     it('works a formula out as ever before a later deadline', () => {
       expect(Formulas.evaluate('a + 1', { a: 2 }, Clock.clockNow() + 60_000)).to.deep.eq({ ok: true, val: 3 })
     })
+
+    it('reads its clock once in many steps, not at every one', () => {
+      const now = vi.spyOn(performance, 'now')
+      // Each of the ten thousand items is a few steps; read at every one, the clock would be read tens of thousands of times.
+      expect(Formulas.evaluate('$count([1..10000].($ + 1))', {})).to.deep.eq({ ok: true, val: 10_000 })
+      expect(now.mock.calls.length).to.be.within(10_000 / Formulas.StepsPerReading, 10_000 / 10)
+    })
+
+    it('stops a formula of short steps at its first reading past its time', () => {
+      const now = vi.spyOn(performance, 'now')
+      // The time is read once as it begins, setting its deadline, and is past it from then on.
+      now.mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValue(Formulas.TimeboxMs + 1)
+      expect(Formulas.evaluate('$count([1..10000000].($ + 1))', {})).to.deep.eq({ ok: false, failkind: 'timeout', message: 'The formula took too long to finish' })
+      // Read as it began (twice), then after its first stretch of steps, where it was stopped.
+      expect(now).to.have.callCount(3)
+    })
   })
 
   it('stops a formula that recurses without end past the depth it allows', () => {

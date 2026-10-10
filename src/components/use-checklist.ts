@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 export type Checklist = {
   /** Whether the list is in batch mode, its rows showing checkboxes */
@@ -8,6 +8,7 @@ export type Checklist = {
   /** The checked items still in the list, in its order */
   checked:  readonly string[]
   isChecked: (itemkey: string) => boolean
+  /** Check one item, or uncheck it: the same function from render to render */
   toggle:   (itemkey: string, on: boolean) => void
   /** Check every item, or none */
   checkAll: (on: boolean) => void
@@ -39,9 +40,10 @@ export function useChecklist(scopekey: string | null, itemkeys: readonly string[
   }
   const checked = useMemo(() => itemkeys.filter((itemkey) => marked.has(itemkey)), [itemkeys, marked])
 
-  const toggle = (itemkey: string, on: boolean) => {
+  // The same function from render to render, so a row handed it need not be drawn again.
+  const toggle = useCallback((itemkey: string, on: boolean) => {
     setMarked((prev) => new Set(on ? [...prev, itemkey] : [...prev].filter((each) => each !== itemkey)))
-  }
+  }, [])
   const checkAll = (on: boolean) => { setMarked(new Set(on ? itemkeys : [])) }
   const begin = () => { setChecking(true) }
   const end = () => {

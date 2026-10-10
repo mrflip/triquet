@@ -393,16 +393,17 @@ function frameOf(quiz: QuizT, place: QuizPlace): BagFrame {
  * @param quiz - The quiz, as the bag holds it then.
  * @param questions - Every question, in the quiz's order, as the bag holds it then.
  * @param idx - The question being worked out among them, or -1 for none.
+ * @param keyed - `questions` keyed by label (`Bagged.keyed`), when the caller has made it already for the other bags of the run.
  *
  * @example baseBagOf(run.frame, run.frame.quiz, run.questionsAfter, 0).question_label  // => 'leon'
  */
-export function baseBagOf(frame: BagFrame, quiz: Record<string, unknown>, questions: readonly Record<string, unknown>[], idx: number): BaseBag {
+export function baseBagOf(frame: BagFrame, quiz: Record<string, unknown>, questions: readonly Record<string, unknown>[], idx: number, keyed = Bagged.keyed(questions)): BaseBag {
   return {
     hunt:           frame.hunt,
     realm:          frame.realm,
     categories:     frame.categories,
     quiz,
-    questions:      Bagged.keyed(questions),
+    questions:      keyed,
     question:       questions[idx] ?? {},
     hunt_label:     frame.hunt.label,
     realm_label:    frame.realm.label,
