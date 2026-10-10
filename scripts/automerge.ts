@@ -1,6 +1,6 @@
 /**
  * The Coach's merge loop, its trivial case: brings one pull request up to date with `main` and
- * sets GitHub to merge it once its required checks pass (`notes/git_hygiene.md`, *Merging*).
+ * sets GitHub to merge it once its required checks pass (`notes/git_hygiene-coach.md`, *Merging*).
  *
  *   pnpm automerge <PR#> [--dry-run]     (tsx scripts/automerge.ts)
  *
@@ -223,7 +223,7 @@ function surveyed(main: string, number: number, opts: { dryRun: boolean }): Surv
   if (holdups.length > 0) { throw new SpineStop(`${numbered(target)} is not the trivial case, so merge it by hand: ${holdups.join('; ')}.`) }
   const required = requiredChecksOf(gh(main, 'api', 'repos/{owner}/{repo}/rules/branches/main'))
   if (required.length === 0 && ! opts.dryRun) {
-    throw new SpineStop('main requires no status checks, so auto-merge would merge before CI has run. Require the CI jobs in main\'s ruleset first (notes/git_hygiene.md, *Merging*).')
+    throw new SpineStop('main requires no status checks, so auto-merge would merge before CI has run. Require the CI jobs in main\'s ruleset first (notes/git_hygiene-coach.md, *Merging*).')
   }
   return { target, line, merging, required }
 }
