@@ -19,12 +19,10 @@ Two runners, and the assertion style follows the runner:
   `await expect(promise).rejects.toThrow(...)` and `toMatchSnapshot()`. Never `toBe`, `toEqual`
   or `toHaveLength` in `tests/`; one you find there is a bug, not a precedent. `true`, `false`,
   `null` and `undefined` are asserted in chai's property form, `to.be.null`, never `to.eq(null)`.
-  The lint for it is chai's own: `vitest/valid-expect` cannot tell a property assertion from a
-  matcher left uncalled, so it is off in `tests/`, and `eslint-plugin-chai-expect` catches a bare
-  `expect(x)` and a method left uncalled in its place. That rule knows only the methods named in
-  `ChaiMethods` (`eslint.config.mjs`), so a new one goes on that list. Never a property after
-  `resolves` or `rejects`: a getter cannot hand back the promise, so `await
-  expect(promise).resolves.to.eq(true)` is the one place the method form stays.
+  `eslint-plugin-chai-expect` catches a bare `expect(x)` or a method left uncalled; it knows only
+  the methods in `ChaiMethods` (`eslint.config.mjs`), so a new one goes on that list. Never a
+  property after `resolves` or `rejects`: `await expect(promise).resolves.to.eq(true)` is the one
+  place the method form stays.
 * **Playwright** for everything in `e2e/`, with its web-first assertions on locators:
   `notes/e2e.md` has the suite's conventions, and loads itself there.
 

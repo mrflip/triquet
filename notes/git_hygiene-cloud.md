@@ -54,7 +54,7 @@ undo, a schema or migration, something the Coach said to be careful with.
   unit test, about four minutes here. Run it before the PR when the change is broad; otherwise
   leave the full unit suite to CI, which runs it too.
 * **e2e, the corner**: `pnpm e2e --touched` when the branch reaches app code, as long as the corner
-  it prints is small. When it says the whole suite (anything under `convex/` or `src/models/`,
+  it prints is small: about five spec files or fewer, a few minutes. When it says the whole suite (anything under `convex/` or `src/models/`,
   the dependencies, a new file the map does not know), run `pnpm e2e:smoke` instead (one test per spec
   file, about three minutes here) and let CI run the rest.
 * **No e2e** when e2e could not notice the change: `notes/git_hygiene.md`, *When e2e is not

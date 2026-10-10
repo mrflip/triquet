@@ -1,8 +1,9 @@
 # Application Style Guide
 
 Conventions for `.ts` files in this project. The audience is a human or an AI coding session
-working in this codebase. Read this before naming anything or writing a doc block -- the naming
-vocabulary below is specific and not guessable from general TypeScript habit.
+working in this codebase. CLAUDE.md's *Conventions At A Glance* covers a small edit; read this when
+naming something new or writing a doc block -- the naming vocabulary below is specific and not
+guessable from general TypeScript habit.
 
 For architecture and process -- the validation lifecycle, documentation policy, testing -- see
 `notes/guidelines.md`. `eslint.config.mjs` is the ultimate and best source of truth for anything
@@ -140,8 +141,6 @@ Tags to append or use directly:
   rarely do.
 - functional programming is strongly preferred
 
-Mildly prefer to not camelcase within the name of a reified concept. Good: `lightbulb`,
-`religiousGroup` (too long to get away with it).
 
 ## Braces
 
@@ -178,7 +177,7 @@ them:
 ## Anonymous / Lambda / Dagger Functions
 
 Params are always parenthesized, even a single one: `(val) => val[fieldname]`.
-Use dagger functions for inline-lambdas.
+Use arrow functions for inline lambdas.
 
 ## Comments
 
@@ -269,7 +268,8 @@ Do not casually disable the type checker: not with a bang (`no-non-null-assertio
 not with a whimper (`no-explicit-any`), not with a temper tantrum (`ban-ts-comment`)
 That said: without the ability to deplot these so that we can investigate why a problem exists, there's a danger that the coder will thrash trying to make the linter happy when the problem is elsewhere. Also, if we ban them outright we don't get information about whether they are necessary; if we allow them, and they're not used or used with care, then we will switch them on.
 
-Use these when needed, but ALWAYS discuss in chat.
+Use these when needed, but always report it: in chat, or in the PR's open questions from a cloud
+session (CLAUDE.md, *Non-Negotiables*).
 
 **Allowed in deliberate situations**
 

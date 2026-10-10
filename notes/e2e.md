@@ -20,22 +20,18 @@ app already carries (`td[data-colname]`) second; CSS or XPath only for structure
 name for, and then in one helper in `e2e/support.ts`, not inline in a spec. Never assert on a
 CSS-module class name: give the element an aria or data attribute and assert that.
 
-**Assert with a retry.** A change lands a moment after the author makes it. Every assertion
-about the page is `await expect(locator).toX(...)`, which retries until it holds or the expect
-timeout runs out. A read that returns a value -- `page.url()`, `count()`, `allTextContents()`,
-`inputValue()`, `evaluate()` -- is a snapshot of one instant, and `expect(await read()).toBe(x)`
-fails on the instant before the change lands.
+**Assert with a retry.** A change lands a moment after the author makes it, so every assertion
+about the page is `await expect(locator).toX(...)`, which retries until it holds. Lint refuses the
+one-shot reads (`page.url()`, `count()`, `inputValue()`, `waitForSelector`, `waitForTimeout`);
+what it cannot see:
 
-* `expect(page).toHaveURL(...)`, never `expect(page.url())`. `toHaveCount`, never `count()`.
-  `toHaveText([...])`, never `allTextContents()`. `toHaveValue`, never `inputValue()`.
 * When no locator matcher fits (the values of a column of textboxes, a count from IndexedDB,
   the paths in a downloaded zip), wrap the read: `await expect.poll(() => read()).toEqual(...)`.
   `valuesOf(locator)` in support is for the first of those.
 * A one-shot `expect(await read())` is allowed only to say "not yet", after a retrying
   assertion has established the state, and a comment says which it is.
-* Never `waitForSelector`, `waitForTimeout` or `waitForLoadState('networkidle')`. Actions wait
-  for their target on their own; a state the next step needs is an `expect` on it. Wait with
-  `waitUntilSaved` before a reload.
+* Never `waitForLoadState('networkidle')`. A state the next step needs is an `expect` on it.
+  Wait with `waitUntilSaved` before a reload.
 * A timer of the app's (a debounce, a scheduler) is tested with `page.clock`, not by waiting
   it out.
 
@@ -69,7 +65,10 @@ the click.
 one read. Give it a bounded window (`page.clock`, or `waitForRequest` with a timeout) and say
 in a comment what the window is and why it is long enough.
 
-The suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
+Three spellings run the suite, at three layers: `pnpm e2e` (and `e2e:smoke`, `--touched`) is
+`scripts/spine.ts`, which picks the specs and logs the proof; it calls `pnpm test:e2e`, the
+`package.json` script that sets the role; CI calls `playwright test` itself with the role's
+environment already set. The suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
 directory and Convex backend, emptied as the suite starts); Playwright refuses to start locally
 otherwise. `pnpm test:e2e:agent` is the same on a port and backend of an agent's own. In a
 worktree every role's port and backend are its lane's (`scripts/lanes.ts`), and the guard wants
