@@ -60,12 +60,13 @@ The top three values while writing code are **empathy, safety and readability**.
   settles (it also says when an unlisted one may simply be installed), and only then our own code,
   with a Coach's yes. Views are TSX composed from MUI components; `notes/views.md` has the
   tripwires and the styling rules, and loads itself when work touches a view.
-* Every new piece of code gets a proportional doc block and test suite.
+* Every new piece of code gets a proportional doc block and test suite: at least one test per use
+  case, and one per `@example` (`notes/guidelines.md` has the rest).
 * Validate at module entrypoints; write confident, paranoia-free code past that boundary.
 * Progress notes, development caveats and open questions go in `human/` or `/whiteboard` --
   never in doc blocks or code comments.
 * `eslint.config.mjs` is the final authority on formatting. Run the linter; however, if it conflicts with the higher guidelines of
-  legibility and productivity, you are approved for `@eslint-disable-line` (`no-param-reassign`, `no-explicit-any`) or `@ts-expect-error` if they are the correct compromise -- apply them but **report it in chat**.
+  legibility and productivity, you are approved for `@eslint-disable-line` (`no-param-reassign`, `no-explicit-any`) or `@ts-expect-error` if they are the correct compromise -- apply them but **report it** (in chat, or in the PR's open questions from a cloud session).
 * To help keep your context clean, we've drawn curtains over a couple areas of the file tree
   - ignore **everything in /aside/**/**, **everything with the word `secret` or `secrets` unless it also says `template`**.
     (also do not design anything that needs such a file. Use doppler.)
@@ -124,7 +125,8 @@ a promise to an adopter that their work leaves with them. Nothing reads app stat
 
 ## Notable files and directories:
 
-Unless marked *(auto-loads)*, these are not loaded for you. Read them when the work touches them.
+A file marked *(loads itself)* arrives when work touches the paths its header names; the rest are
+not loaded for you. Read them when the work touches them.
 
 * `/human/` -- **from agents, to Coaches.** A conversational scratchpad, not a record of
   decisions: write to it, don't read it as input. One file per entry,
@@ -143,16 +145,17 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
   - `notes/queries_hooks_and_subscriptions.md` -- the words for reading from Convex (query
     function, watch, fetch, facet, screen hook) and where to draw the lines between them. **Read
     before adding a query function, a state hook, or a `useQuery`.**
-  - `notes/stack.md` *(auto-loads)* -- what we build with. Consult it when
+  - `notes/stack.md` *(loads itself on `package.json`)* -- what we build with. Consult it when
     adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
   - `notes/deploy.md` -- agents never deploy to production, but look here if humans request your guidance.
   - `notes/housekeeping.md` -- stray branches, stale worktrees, and finding the session that owns a
     branch. **Read before deleting any branch, tag or worktree, or cleaning up the container.**
     Stray branches are retired with `scripts/git-attic`, never `git branch -d` or `-D`.
   - `notes/security.md` -- decisions a security reviewer should look at. Add one when you make such a decision.
-  - `notes/testing.md` *(auto-loads)* -- test conventions; `notes/e2e.md` *(auto-loads)* -- the e2e suite's.
-  - `notes/convex.md` *(auto-loads)* -- how we use Convex, where we depart from its guidelines, and which Convex skill to name when.
-  - `notes/views.md` *(auto-loads)* -- how a view is built: MUI first, the tripwires, and which MUI skill to name when.
+  - `notes/testing.md` *(loads itself on a test)* -- test conventions; `notes/e2e.md` *(loads itself
+    on `e2e/`)* -- the e2e suite's.
+  - `notes/convex.md` *(loads itself on `convex/`)* -- how we use Convex, where we depart from its guidelines, and which Convex skill to name when.
+  - `notes/views.md` *(loads itself on a view)* -- how a view is built: MUI first, the tripwires, and which MUI skill to name when.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
   formatting question. Where it and a prose document disagree, it is a bug -- flag it.
 * `/notes/relics.md` -- consult **only** when explicitly told we will work in the relics lagoon.

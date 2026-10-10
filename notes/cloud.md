@@ -20,17 +20,10 @@ apply here.
   making the Coach wait between prompts. Prove locally what a quick run can tell you, and leave
   the full gate to CI: `notes/git_hygiene-cloud.md`, *Prove the thread, cheaply*.
 
-## What the session hook did
-
-1. Pointed `/workspace/triquet` at the clone.
-2. Installed the packages from the lockfile.
-3. Installed the Doppler CLI, if the environment holds a `DOPPLER_TOKEN_*` for it.
-4. Set, for the session: `TQ_IS_SANDBOXED=true`, and `TQ_CHROMIUM_PATH`, the container's own
-   Chromium, when Playwright's pinned build is missing (you may not run `playwright install`
-   here).
-
-If a command below fails for want of one of those, run the hook yourself:
-`CLAUDE_CODE_REMOTE=true .claude/hooks/session-start.sh`.
+The session hook installed the packages, pointed `/workspace/triquet` at the clone, installed
+the Doppler CLI when the environment holds a token for it, and set `TQ_IS_SANDBOXED` and
+`TQ_CHROMIUM_PATH` (you may not run `playwright install` here). If a command below fails for want
+of one of those, run it yourself: `CLAUDE_CODE_REMOTE=true .claude/hooks/session-start.sh`.
 
 ## What works, and what doesn't
 

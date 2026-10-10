@@ -157,8 +157,8 @@ whenever that seems more suitable.
 Write documentation in proportion to how much the code will be used, and how much there is to
 say. Always supply at least one fragment on the very first line of the comment, since it will
 still appear even if "folded" in the IDE:
-`/** Description, continuing on following lines, but line-break'ed so the essentials are` --
-IUCWIDT. See `STYLE.md` for doc block styling and ordering.
+`/** Description, continuing on following lines, but line-break'ed so the essentials are`
+visible. See `STYLE.md` for doc block styling and ordering.
 
 Code documentation must focus on serving the *caller* of that code. Code cleanliness and strong
 tests are sufficient to serve current and future authors.

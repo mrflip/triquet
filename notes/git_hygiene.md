@@ -51,13 +51,10 @@ before filing, rather than filing and hoping.
 
 ## When e2e is not worth running
 
-Going without a run is cheap to get wrong: CI runs the whole suite on the PR, and a red e2e there
-brings the Coach back to the session that landed it, to ask for help. The call is yours, then, and
-it is a call, not a ritual either way. What to run instead of a skip, and how much, is the
-place's own file's to say.
-
-The question is whether any spec could behave differently because of this branch. A spec drives the
-running app in a browser, so the branch has to reach the app, or what starts the app, to be noticed.
+CI runs the whole suite on every PR, so a wrong skip costs a red CI and a Coach's visit, not a
+shipped bug. The question is whether any spec could behave differently because of this branch: a
+spec drives the running app in a browser, so the branch has to reach the app, or what starts the
+app, to be noticed. What to run instead of a skip is the place's own file's to say.
 
 **The usual skips**, where the answer is plainly no:
 
@@ -82,10 +79,8 @@ those exceptions:
 * **Tests that stand in for a spec**: a branch that deletes or loosens a spec's coverage, or changes
   what a shared test fixture gives the e2e run, is a change to e2e.
 
-**And distrust the feeling.** Confidence that a change is silly to test is how wrong skips happen:
-the writer has just seen exactly what the change does, and not what else reads it. Before you
-skip, read the exceptions again, and name in one sentence why no spec could behave differently.
-If the sentence will not come, or comes out as "it's only a script", run e2e.
+Before you skip, name in one sentence why no spec could behave differently. If the sentence
+will not come, or comes out as "it's only a script", run e2e.
 
 Say the reason in the PR's **Tests:** line (`e2e skipped: <why>`), where the Coach looks when CI
 is red. From there CI is the next test: it runs justify, a production build and the whole e2e
@@ -146,7 +141,34 @@ Every commit in a PR survives into `main` individually, so it's highly desirable
 
 ### Commit messages
 
-Match the existing log style: a `feat:` / `fix:` / `docs:` / `style:` / `perf:` prefix, then a plain-language summary.
+One prefix, lowercase, then a colon, a space and a plain-language sentence saying what changed.
+The prefix names the part of the product or the codebase the commit is about, never the kind of
+change (no `feat:`, `fix:` or `chore:`), and never two prefixes or a parenthesised scope.
+
+| Prefix | What it covers |
+| --- | --- |
+| `secure` | auth, identity, sessions, authorization, and anything that would have you writing in `notes/security.md`. Takes precedence over every other prefix. |
+| `model` | `src/models/`, the schema, migrations and backfills, the URL structure. Beats `db` whenever `convex/schema.ts` or `convex/migrations.ts` changes, so a Serial Deploy shows in the one-line log. |
+| `db` | `convex/` functions, reads and writes, compute budgets, optimistic updates, change signals, the history mirror |
+| `widget` | widgets, widgetings, the library, formularies, bots and asking, columns, entries, jsonballs |
+| `qedit` | quiz editing and the grid: the basic functionality that is not about widgets |
+| `qmeta` | hunts, realms, orgs, members, and the other things above a quiz |
+| `qbase` | assessment: categories, estimates, personas, difficulty, playtesting |
+| `ui` | a change that is dominantly about the views: layout, styling, wording, where any change to core code is cosmetic or minor |
+| `export` | import and export, the tab-separated tables, the LL export |
+| `tools` | `scripts/`, CI workflows, Vercel and preview config, eslint and tsconfig, the session hook, Doppler |
+| `agent` | `.claude/`, `CLAUDE.md` and the other directives to agents |
+| `docs` | durable notes: `notes/`, `STYLE.md`, READMEs, vocabulary, decisions |
+| `plan` | whiteboard plans, sprint and thread files, handoffs, `human/` entries |
+| `tests` | `tests/` and fixtures, when the tests themselves are the work |
+| `e2e` | `e2e/` specs and support, when they are the work |
+| `gen` | anything generated: `convex/_generated/`, a lockfile-only bump |
+
+Tests, fixtures and notes that ride along with a product change take the product's prefix; a
+commit is `tests`, `e2e` or `docs` only when nothing else moved. When two product areas change in
+one commit, that is a sign to split it; when it cannot be split, take the one the sentence is
+about. A small change is usually one commit for the whole PR: don't split a twelve-line fix into
+three commits to look diligent.
 
 ## Stray branches
 
