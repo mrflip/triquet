@@ -7,6 +7,7 @@ import { ConfirmRemove } from './ConfirmRemove'
 import { EntryParamsFields } from './EntryParamsFields'
 import { ExplicitField } from './ExplicitField'
 import { FoldButton } from './FoldButton'
+import { Explained } from './InfoTip'
 import { LiquidizeParamsFields, LiquidizeTemplateLine, templateRefsOf } from './LiquidizeParamsFields'
 import { WidgetEditor } from './WidgetEditor'
 import { LayoutFoldkeys } from './layout-folds'
@@ -126,7 +127,7 @@ export function WidgetingPanel({ widgeting, foldkeyOf, handle = null, tierMark =
         <Stack spacing={1.5} sx={{ pl: 4, pt: 1, pb: 1 }}>
           <ExplicitField
             label="Widgeting label" committed={widgeting.label} act="Relabel" actLabel={`Relabel widgeting ${widgeting.label}`} disabled={locked} tidy={Labelmaker.normalize}
-            helperText="Names it within this quiz: its columns, and what later widgets and templates read it as." onCommit={relabel}
+            about="Names it within this quiz: its columns, and what later widgets and templates read it as." onCommit={relabel}
           />
           <DescriptionField widgeting={widgeting} locked={locked} revise={revise} />
           {widget?.formulary === 'liquidize' && (
@@ -190,11 +191,12 @@ function FoldedLine({ widget, widgeting, locked, revise }: Readonly<FoldedLinePr
   }
   case 'formula': {
     return (
-      <TextField
-        size="small" fullWidth label="Formula" value={widget.formula.replaceAll(/\s+/g, ' ')}
-        helperText="The widget's: edited behind its door, for every quiz that works it."
-        slotProps={{ htmlInput: { readOnly: true, sx: { fontFamily: 'monospace', fontSize: 13 } } }}
-      />
+      <Explained topic="the formula" about="The widget's: edited behind its door, for every quiz that works it.">
+        <TextField
+          size="small" fullWidth label="Formula" value={widget.formula.replaceAll(/\s+/g, ' ')}
+          slotProps={{ htmlInput: { readOnly: true, sx: { fontFamily: 'monospace', fontSize: 13 } } }}
+        />
+      </Explained>
     )
   }
   case null: {
@@ -263,11 +265,13 @@ function DescriptionField({ widgeting, locked, revise }: Readonly<DescriptionFie
   const [issue, setIssue] = useState<string | null>(null)
   const { draft, onChange, onBlur } = useDraft(widgeting.description, (description) => { setIssue(revise({ description })) })
   return (
-    <TextField
-      size="small" label="Widgeting description" value={draft} disabled={locked}
-      error={issue !== null} helperText={issue ?? 'What this widgeting is for in this quiz.'}
-      onChange={(event) => { onChange(event.target.value) }} onBlur={onBlur}
-    />
+    <Explained topic="the widgeting description" about="What this widgeting is for in this quiz.">
+      <TextField
+        size="small" fullWidth label="Widgeting description" value={draft} disabled={locked}
+        error={issue !== null} helperText={issue}
+        onChange={(event) => { onChange(event.target.value) }} onBlur={onBlur}
+      />
+    </Explained>
   )
 }
 
