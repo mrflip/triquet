@@ -5,6 +5,7 @@ import { Autocomplete, Box, FormControlLabel, ListSubheader, MenuItem, Stack, Sw
 import { ConfirmRemove } from './ConfirmRemove'
 import { ExplicitField } from './ExplicitField'
 import { FormulaField } from './FormulaField'
+import { Explained } from './InfoTip'
 import { TemplateField } from './TemplateField'
 import { NumberField } from './cells/fields'
 import { useDraft } from './use-draft'
@@ -62,10 +63,20 @@ export function ColumnRefField({ source, choices, locked, onPick, sx }: Readonly
     >
       {groups.flatMap((group) => [
         <ListSubheader key={`group:${group}`}>{group}</ListSubheader>,
-        ...listed.filter((each) => each.group === group).map((each) => <MenuItem key={each.source} value={each.source}>{`${each.source} — ${each.group}`}</MenuItem>),
+        ...listed.filter((each) => each.group === group).map((each) => <MenuItem key={choiceKeyOf(each)} value={each.source}>{`${each.source} — ${each.group}`}</MenuItem>),
       ])}
     </TextField>
   )
+}
+
+/**
+ * A choice's key in the source menu, scoped by the group it is listed under, so a ref offered under
+ * two groups is still two items.
+ *
+ * @example choiceKeyOf({ source: 'categories', group: 'The same in every row' })  // => 'The same in every row/categories'
+ */
+export function choiceKeyOf(choice: ColumnMenu.RefChoice): string {
+  return `${choice.group}/${choice.source}`
 }
 
 export type RefPickerProps = {
@@ -83,43 +94,49 @@ export type RefPickerProps = {
  */
 export function RefPicker({ choices, label, onPick }: Readonly<RefPickerProps>) {
   return (
-    <Autocomplete
-      options={choices}
-      value={null}
-      autoHighlight
-      openOnFocus
-      groupBy={(each) => each.group}
-      getOptionLabel={(each) => each.source}
-      isOptionEqualToValue={(each, picked) => each.source === picked.source}
-      onChange={(_event, picked) => { if (picked) { onPick(picked.source) } }}
-      renderOption={({ key, ...props }, each) => <Box component="li" key={key} {...props}>{`${each.source} — ${each.group}`}</Box>}
-      renderInput={(params) => <TextField {...params} autoFocus size="small" label={label} helperText="Pick what it shows: it is made at once, its title and label after it." />}
-      sx={{ flex: 1, maxWidth: 420 }}
-    />
+    <Box sx={{ flex: 1, maxWidth: 452 }}>
+      <Explained topic="picking what it shows" about="Pick what it shows: it is made at once, its title and label after it.">
+        <Autocomplete
+          options={choices}
+          value={null}
+          autoHighlight
+          openOnFocus
+          groupBy={(each) => each.group}
+          getOptionLabel={(each) => each.source}
+          getOptionKey={choiceKeyOf}
+          isOptionEqualToValue={(each, picked) => each.source === picked.source}
+          onChange={(_event, picked) => { if (picked) { onPick(picked.source) } }}
+          renderOption={({ key, ...props }, each) => <Box component="li" key={key} {...props}>{`${each.source} — ${each.group}`}</Box>}
+          renderInput={(params) => <TextField {...params} autoFocus size="small" label={label} />}
+        />
+      </Explained>
+    </Box>
   )
 }
 
 /** A column's formula: a field name or part offered where what it shows has a known shape, else typed */
 export function ColumnFormulaField({ column, presets, locked, onCommit }: Readonly<ColumnFieldProps & { presets: readonly ColumnMenu.FormulaPreset[] }>) {
   return (
-    <FormulaField
-      label="Formula" committed={column.formula ?? null} presets={presets} locked={locked}
-      placeholder="The thing itself"
-      helperText={presets.length > 0 ? 'Pick what to show of it, or work something out of it ($) in JSONata.' : 'JSONata over what it shows ($). Blank shows it as it is.'}
-      onCommit={(formula) => { onCommit({ formula }) }}
-    />
+    <Explained topic="the formula" about={presets.length > 0 ? 'Pick what to show of it, or work something out of it ($) in JSONata.' : 'JSONata over what it shows ($). Blank shows it as it is.'}>
+      <FormulaField
+        label="Formula" committed={column.formula ?? null} presets={presets} locked={locked}
+        placeholder="The thing itself"
+        onCommit={(formula) => { onCommit({ formula }) }}
+      />
+    </Explained>
   )
 }
 
 /** A column's template: Liquid making text of what the formula came to */
 export function ColumnTemplateField({ column, locked, onCommit }: Readonly<ColumnFieldProps>) {
   return (
-    <TemplateField
-      label="Template" committed={column.template ?? null} locked={locked}
-      placeholder="{{ value }}"
-      helperText="Liquid over the question's template bag, what the formula came to as {{ value }}. Blank draws the value as it is."
-      onCommit={(template) => { onCommit({ template }) }}
-    />
+    <Explained topic="the template" about="Liquid over the question's template bag, what the formula came to as {{ value }}. Blank draws the value as it is.">
+      <TemplateField
+        label="Template" committed={column.template ?? null} locked={locked}
+        placeholder="{{ value }}"
+        onCommit={(template) => { onCommit({ template }) }}
+      />
+    </Explained>
   )
 }
 
@@ -278,7 +295,7 @@ export function ColumnMoreFields({ column, quiz, library, sources, locked, besid
       </Stack>
       <ExplicitField
         label="Column label" committed={column.label} act="Relabel" actLabel={`Relabel column ${columnName}`} disabled={locked} tidy={Labelmaker.normalize}
-        helperText="Names it in exports and in the quiz's sort memory." onCommit={relabel}
+        about="Names it in exports and in the quiz's sort memory." onCommit={relabel}
       />
       <ColumnStagesFields column={column} quiz={quiz} library={library} locked={locked} onCommit={onCommit} />
       {locked ? null : <Box><ConfirmRemove noun="column" question="Remove this column from the quiz? What it showed is kept." onConfirm={onRemove} /></Box>}

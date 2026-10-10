@@ -267,6 +267,21 @@ export async function actDangerously(page: Page, actname: string, label: string)
   await confirming.getByRole('button', { name: actname }).click()
 }
 
+/**
+ * Answer the question a remove button (`ConfirmRemove`) asks once it is pressed: its yes, *Keep it*,
+ * or Escape, which keeps the thing as *Keep it* does; and wait until the question is gone.
+ */
+export async function answerRemoval(page: Page, answer: 'Yes, remove' | 'Yes, delete' | 'Keep it' | 'Escape'): Promise<void> {
+  const asking = page.getByRole('alertdialog')
+  if (answer === 'Escape') {
+    await expect(asking).toBeVisible()
+    await page.keyboard.press('Escape')
+  } else {
+    await asking.getByRole('button', { name: answer }).click()
+  }
+  await expect(asking).toHaveCount(0)
+}
+
 /** Close the gear's dialog, whose every change is kept as it is made */
 export async function closeManage(page: Page): Promise<void> {
   await manageDialog(page).getByRole('button', { name: 'Done' }).click()

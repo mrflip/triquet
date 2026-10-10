@@ -65,7 +65,9 @@ test('deleting is the gear\'s, asks for the quiz\'s label, and the neighbouring 
 
 test('a hunt goes only with its last quiz', async ({ page }) => {
   await openManage(page)
-  await expect(manageDialog(page).getByText('To delete a hunt, please delete its quizzes.')).toBeVisible()
+  // Said behind the Hunt section's (i).
+  await manageDialog(page).getByRole('button', { name: 'About the hunt' }).hover()
+  await expect(page.getByRole('tooltip')).toContainText('To delete a hunt, please delete its quizzes.')
   const zone = manageDialog(page).getByRole('region', { name: 'Danger Zone' })
   await expect(zone.getByRole('button')).toHaveText(['Delete this quiz and its hunt'])
   await closeManage(page)

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Stack, TextField } from '@mui/material'
+import { Box, Button, Stack, TextField } from '@mui/material'
+import { InfoTip } from './InfoTip'
 
 export type ExplicitFieldProps = {
   /** What the field is called, on screen and to assistive technology */
@@ -13,7 +14,9 @@ export type ExplicitFieldProps = {
   /** The button's name to assistive technology, when its word alone would be ambiguous on the page */
   actLabel?:   string
   /** Said beneath the field while nothing is wrong and nothing is waiting */
-  helperText:  string
+  helperText?: string
+  /** What the field is for, behind an (i) at the row's end (`InfoTip`) rather than beneath it */
+  about?:      React.ReactNode
   disabled:    boolean
   /** How what is typed is tidied before it is compared or kept: a label normalized, a title trimmed */
   tidy?:       (typed: string) => string
@@ -41,11 +44,13 @@ export type ExplicitShown = { draft: string, unsaved: boolean }
  * and so waits for its own button, as a hunt's *Rename* and *Relabel* do, rather than being kept
  * as it is left. While what is typed differs from what is held and has not been sent, the field
  * says so, so that closing over it does not lose it unawares. What is held changing elsewhere
- * (another tab, the quiz's watch bringing back what was sent) takes the field over again.
+ * (another tab, the quiz's watch bringing back what was sent) takes the field over again. What the
+ * field is for goes behind an (i) at the row's end (`about`), or beneath it (`helperText`) while
+ * nothing else is said there.
  *
  * @example <ExplicitField label="Label" committed={quiz.label} act="Relabel" tidy={Labelmaker.normalize} onCommit={relabel} ... />
  */
-export function ExplicitField({ label, committed, act, actLabel, helperText, disabled, tidy = String, onCommit }: Readonly<ExplicitFieldProps>) {
+export function ExplicitField({ label, committed, act, actLabel, helperText, about, disabled, tidy = String, onCommit }: Readonly<ExplicitFieldProps>) {
   const [typed, setTyped] = useState<ExplicitTyped | null>(null)
   const [issue, setIssue] = useState<string | null>(null)
   // Once what is held moves off what the typing began over, what was typed is done with: what is held coming back round to it does not revive it.
@@ -66,6 +71,7 @@ export function ExplicitField({ label, committed, act, actLabel, helperText, dis
         onChange={(event) => { setTyped({ typed: event.target.value, base: committed, sent: false }); setIssue(null) }}
       />
       <Button variant="outlined" aria-label={actLabel} disabled={disabled || tidy(draft) === committed} onClick={onAct}>{act}</Button>
+      {about === undefined ? null : <Box sx={{ pt: 1 }}><InfoTip topic={label}>{about}</InfoTip></Box>}
     </Stack>
   )
 }
