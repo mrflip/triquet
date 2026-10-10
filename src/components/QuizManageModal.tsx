@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, IconButton, Link, List, ListItem, ListItemText, Stack, Tooltip, Typography } from '@mui/material'
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import UnarchiveOutlinedIcon from '@mui/icons-material/UnarchiveOutlined'
 import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
+import { ConfirmRemove } from './ConfirmRemove'
 import { DangerZone, type DangerousAct } from './DangerZone'
 import { ExplicitField } from './ExplicitField'
+import { InfoTip } from './InfoTip'
 import NextLink from './NextLink'
 import { RunOrderLine, RunOrderList } from './RunOrder'
 import { TemplateableEditor } from './TemplateableEditor'
@@ -53,7 +54,7 @@ export type QuizManageModalProps = {
   onDeleteQuiz:  () => void
   /** Delete this quiz, the hunt's last, with the hunt, and go back to the hunts list */
   onDeleteHunt:  () => void
-  /** Delete one question of this quiz, an archived one, at once */
+  /** Delete one question of this quiz, an archived one, once its delete button has asked */
   onDeleteQuestion: (question_id: string) => void
 }
 
@@ -138,17 +139,16 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
         <Stack spacing={3} sx={{ mt: 1 }}>
           <ExplicitField
             label="Label" committed={quizLabel} act="Relabel" actLabel="Relabel quiz" disabled={! offers.reviseQuiz} tidy={Labelmaker.normalize}
-            helperText="Used in this page's web address." onCommit={onRelabelQuiz}
+            about="Used in this page's web address." onCommit={onRelabelQuiz}
           />
 
           <section>
-            <Typography variant="h6" component="h3">Columns</Typography>
-            <p className={styles.microcopy}>
+            <SectionHeading title="Columns" topic="the columns">
               The grid&apos;s columns in the order they appear, with one question&apos;s row as the grid
               draws it from them. Drag a handle to move one; its triangle unfolds the rest of it. Beneath
               a column showing a widgeting, that widgeting&apos;s line, unfolding to the whole of it.
               Every change is kept as it is made; a label waits for its own <em>Relabel</em>.
-            </p>
+            </SectionHeading>
             <ColumnsEditor
               hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary}
               dispatch={dispatch} changeLibrary={changeLibrary} folds={folds} run={run}
@@ -156,8 +156,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
           </section>
 
           <section>
-            <Typography variant="h6" component="h3">Run order</Typography>
-            <p className={styles.microcopy}>
+            <SectionHeading title="Run order" topic="the run order">
               The widgets of the library this quiz puts to work, its widgetings, in the order they run:
               each one reads what those above it came to. Drag a handle to move one. One for
               <em> each question</em> runs for every question and a column shows it. One for the
@@ -166,7 +165,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
               and those below read it as <code>{'quiz.<label>'}</code>. Templates read them all. Each is
               put to work, and edited, in the <em>Widgets</em> panel below the grid, or beneath a column
               showing it.
-            </p>
+            </SectionHeading>
             {quiz.widgetings.length === 0 && <p className={styles.microcopy}>This quiz puts no widgets to work yet.</p>}
             <RunOrderList
               quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch}
@@ -175,22 +174,20 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
           </section>
 
           <section>
-            <Typography variant="h6" component="h3">Templates</Typography>
-            <p className={styles.microcopy}>
+            <SectionHeading title="Templates" topic="templates">
               A ticked field is filled in as a template on the grid and in the LL Export; you edit it
               as typed. <code>{'{{question.photo}}'}</code> puts in what the question&apos;s <code>photo</code> widgeting
               holds; <code>{'{{ question.rank }}'}</code>, <code>{'{{ quiz.title }}'}</code> and <code>{'{% assign list = questions | values %}{% for each in list %}...{% endfor %}'}</code> work
               too: it is Liquid. Markdown only, never HTML; an image only from an <code>https</code> address.
-            </p>
+            </SectionHeading>
             <TemplateableEditor quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch} />
           </section>
 
           <section>
-            <Typography variant="h6" component="h3">History</Typography>
-            <p className={styles.microcopy}>
+            <SectionHeading title="History" topic="the history">
               Every change to this quiz is committed as it happens. Marking a milestone tags this
               moment so you can come back to it; downloading hands you the whole thing as a git repository.
-            </p>
+            </SectionHeading>
             <Stack direction="row" spacing={1}>
               <Button onClick={() => { void onMilestone() }} size="small" variant="outlined">Mark a milestone</Button>
               <Button onClick={() => { void onDownload() }} size="small" variant="outlined">Download as git</Button>
@@ -199,20 +196,23 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
           </section>
 
           <section>
-            <Typography variant="h6" component="h3">Hunt</Typography>
+            <SectionHeading title="Hunt" topic="the hunt">
+              The hunt this quiz is one of, with every other quiz of its realms: its name and label are
+              theirs too. {AppNotices.deletingHunt}
+            </SectionHeading>
             <Stack spacing={2} sx={{ mt: 1 }}>
               <ExplicitField
                 label="Hunt name" committed={hunt.title} act="Rename" disabled={false} tidy={(typed) => typed.trim()}
-                helperText="What the hunt is called on screen. Its web address stays as it is." onCommit={onRenameHunt}
+                about="What the hunt is called on screen. Its web address stays as it is." onCommit={onRenameHunt}
               />
               <ExplicitField
                 label="Hunt label" committed={huntLabel} act="Relabel" actLabel="Relabel hunt" disabled={false} tidy={Labelmaker.normalize}
-                helperText="Used in the web address of every quiz in this hunt; links to the old one stop working." onCommit={onRelabelHuntClick}
+                about="Used in the web address of every quiz in this hunt; links to the old one stop working." onCommit={onRelabelHuntClick}
               />
             </Stack>
             <p className={styles.microcopy}>
               <Link component={NextLink} href={Routes.categoriesPath({ org: hunt.org, hunt: huntLabel })}>Arrange the hunt&apos;s categories</Link>
-              {' '}round its wheel. {AppNotices.deletingHunt}
+              {' '}round its wheel.
             </p>
           </section>
 
@@ -262,17 +262,15 @@ type ArchivedQuestionsProps = {
 
 /**
  * The quiz's archived questions, which no other screen shows: each by its title and the start of
- * its clueing, with a button to bring it back to the grid and one to delete it, which asks nothing
- * first.
+ * its clueing, with a button to bring it back to the grid and one to delete it, which asks first.
  */
 function ArchivedQuestions({ questions, revisable, onUnarchive, onDelete }: Readonly<ArchivedQuestionsProps>) {
   return (
     <section>
-      <Typography variant="h6" component="h3">Archived questions</Typography>
-      <p className={styles.microcopy}>
+      <SectionHeading title="Archived questions" topic="archived questions">
         Put away from the grid, the playtest and the exports, but kept with the quiz. Un-archive one
-        to bring it back to the grid; deleting one is at once, and for good.
-      </p>
+        to bring it back to the grid; deleting one is for good.
+      </SectionHeading>
       {questions.length === 0 ? <p className={styles.microcopy}>{AppNotices.noArchivedQuestions}</p> : (
         <List dense disablePadding aria-label="Archived questions">
           {questions.map((question) => {
@@ -285,18 +283,16 @@ function ArchivedQuestions({ questions, revisable, onUnarchive, onDelete }: Read
                   <Stack direction="row">
                     <Tooltip title="Un-archive: back to the grid">
                       <span>
-                        <IconButton aria-label={`Un-archive ${named}`} disabled={! revisable} onClick={() => { onUnarchive(question._id) }}>
+                        <IconButton size="small" aria-label={`Un-archive ${named}`} disabled={! revisable} onClick={() => { onUnarchive(question._id) }}>
                           <UnarchiveOutlinedIcon fontSize="small" />
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title="Delete, at once and for good">
-                      <span>
-                        <IconButton aria-label={`Delete ${named}`} color="error" disabled={! revisable} onClick={() => { onDelete(question._id) }}>
-                          <DeleteOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
+                    <ConfirmRemove
+                      form="icon" act="Delete" noun={named} disabled={! revisable}
+                      question={`Delete “${named}” for good? It cannot be brought back.`}
+                      onConfirm={() => { onDelete(question._id) }}
+                    />
                   </Stack>
                 )}
                 sx={{ pr: 10 }}
@@ -308,5 +304,23 @@ function ArchivedQuestions({ questions, revisable, onUnarchive, onDelete }: Read
         </List>
       )}
     </section>
+  )
+}
+
+type SectionHeadingProps = {
+  title:    string
+  /** What its tip explains (`InfoTip`'s `topic`) */
+  topic:    string
+  /** What the section is and does, behind its tip */
+  children: React.ReactNode
+}
+
+/** A section's heading, with the (i) beside it that explains the section */
+function SectionHeading({ title, topic, children }: Readonly<SectionHeadingProps>) {
+  return (
+    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+      <Typography variant="h6" component="h3">{title}</Typography>
+      <InfoTip topic={topic}>{children}</InfoTip>
+    </Stack>
   )
 }

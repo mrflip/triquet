@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
 test('the export and import tabs come in order, Spreadsheet first and showing', async ({ page }) => {
   await openPanel(page, 'Export / Import')
   const tabs = page.getByRole('tablist', { name: 'Export / Import' }).getByRole('tab')
-  await expect(tabs).toHaveText(['Spreadsheet', 'Raw Export', 'Import', 'Library', 'Full History', 'LL Export'])
+  await expect(tabs).toHaveText(['Spreadsheet', 'Raw Export', 'Import', 'Widgets', 'Full History', 'LL Export'])
   await page.reload()
   await openPanel(page, 'Export / Import')
   await expect(page.getByRole('tab', { name: 'Spreadsheet' })).toHaveAttribute('aria-selected', 'true')
@@ -203,7 +203,7 @@ test('Download Full History hands over the hunt\'s history as a zip, from its ow
 })
 
 test('the library is handed out on its own, and a pasted library is merged into it by label', { tag: '@smoke' }, async ({ page }) => {
-  const section = await showTab(page, 'Library')
+  const section = await showTab(page, 'Widgets')
   await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(/"numnum_hint":\{/)
   // A label of this test's own: the library is every hunt's, and the specs share one database.
   const label = freshWidgetLabel('pasted')
@@ -252,4 +252,32 @@ test('a panel under the quiz starts folded to its title bar, opens, and folds ag
   await expect.poll(widthOf).toBe(restingWidth)
   // A panel the whole row wide already has no arrow to widen it.
   await expect(page.getByRole('region', { name: 'Widgets' }).getByRole('button', { name: 'Widen this panel to the whole row' })).toHaveCount(0)
+})
+
+test('a double-click on a panel\'s title turns it folded, open, big and folded again, and its arrows make a folded one big and open at once', async ({ page }) => {
+  const panel = page.getByRole('region', { name: 'Members' })
+  const title = panel.getByRole('heading', { name: 'Members' })
+  const fold = panel.getByRole('button', { name: 'Show this panel' })
+  const arrow = panel.getByRole('button', { name: 'Widen this panel to the whole row' })
+  const turned = async (expanded: string, pressed: string) => {
+    await expect(fold).toHaveAttribute('aria-expanded', expanded)
+    await expect(arrow).toHaveAttribute('aria-pressed', pressed)
+  }
+  await turned('false', 'false')
+  await title.dblclick()
+  await turned('true', 'false')
+  await title.dblclick()
+  await turned('true', 'true')
+  await title.dblclick()
+  await turned('false', 'false')
+
+  // No big but folded: the arrows open a folded panel as they widen it, and shrink it back to open.
+  await arrow.click()
+  await turned('true', 'true')
+  await arrow.click()
+  await turned('true', 'false')
+  // The fold button folds a big panel outright.
+  await arrow.click()
+  await fold.click()
+  await turned('false', 'false')
 })

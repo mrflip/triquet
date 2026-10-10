@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Box, IconButton, Select, TextField, Tooltip } from '@mui/material'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import { Box, Select, TextField } from '@mui/material'
+import { InfoTip } from '../InfoTip'
 import { ReadonlyBox } from './ReadonlyBox'
 import { useDraft } from '../use-draft'
 import * as LLBBCode from '../../lib/ll-bbcode'
@@ -57,11 +57,7 @@ export function LeagueExport({ quiz, revisable, onQ1Preamble }: Readonly<LeagueE
         >
           {LLSmithExport.ExportModes.map((each) => <option key={each} value={each}>{ModeTitles[each]}</option>)}
         </Select>
-        <Tooltip title={ModesExplained}>
-          <IconButton size="small" aria-label="About the LL Export modes">
-            <InfoOutlinedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <InfoTip topic="the LL Export modes">{ModesExplained}</InfoTip>
         {mode === 'go_live'
           ? (
             <TextField
@@ -76,9 +72,9 @@ export function LeagueExport({ quiz, revisable, onQ1Preamble }: Readonly<LeagueE
           )
           : null}
       </Box>
-      <ReadonlyBox label="LL Export" text={LLSmithExport.recordsOf(quiz, mode)} rows={6} dense />
+      <ReadonlyBox label="LL Export" text={LLSmithExport.recordsOf(quiz, mode)} rows={6} dense resizable />
       <p className={styles.microcopy}>The smith&apos;s note, with its bold and italics written the same way, and a [br] ending each of its lines.</p>
-      <ReadonlyBox label="LL Smith's note" text={LLBBCode.translateKeepingLines(quiz.smiths_note)} rows={3} dense />
+      <ReadonlyBox label="LL Smith's note" text={LLBBCode.translateKeepingLines(quiz.smiths_note)} rows={3} dense resizable />
     </>
   )
 }

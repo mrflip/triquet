@@ -233,3 +233,27 @@ test.describe("what a bot replied", () => {
     await expect(guessCell(page, 0)).not.toContainText('Pasted over')
   })
 })
+
+test.describe("a quiz copied", () => {
+  test.use({ layout: { widgetings: ['answer_reversed'], columns: ['alt_text'] } })
+
+  test("this quiz's own export, pasted into a new quiz's Import, brings its questions, columns and widgetings along", async ({ page }) => {
+    const section = await showTab(page, 'Raw Export')
+    await section.getByRole('button', { name: 'This quiz' }).click()
+    const copyBox = section.getByRole('textbox', { name: 'Quiz export' })
+    await expect(copyBox).toHaveValue(/"Which region\?"/)
+    const copied = await copyBox.inputValue()
+    expect(copied).not.toMatch(/"label":/)
+
+    await newQuiz(page)
+    await expect(grid(page).getByRole('columnheader', { name: 'Alt Text', exact: true })).toBeHidden()
+    await fillImport(page, copied)
+    await page.getByRole('button', { name: 'Import', exact: true }).click()
+    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
+    await expect(fieldAt(page, 'Clueing', 0)).toHaveValue('Which region?')
+    await expect(fieldAt(page, 'Notes', 0)).toHaveValue('keep me')
+    await expect(grid(page).getByRole('columnheader', { name: 'Alt Text', exact: true })).toBeVisible()
+    const widgets = await openPanel(page, 'Widgets')
+    await expect(widgets.getByRole('group', { name: 'Widgeting answer_reversed', exact: true })).toBeVisible()
+  })
+})

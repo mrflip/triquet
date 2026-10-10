@@ -240,10 +240,10 @@ const CategoryDataDNA: WidgetDNA = {
 }
 
 /**
- * One entry per family the cells offer: what an author picks to type into a column of their own,
- * its constraints said by the widgeting (a number's bounds, a text's pattern, a choice's options).
- * Each label is a word an author might use, and none of the families' own names, which every
- * label is kept from.
+ * One entry per family the cells offer, and a percent beside the number: what an author picks to
+ * type into a column of their own, its constraints said by the widgeting (a number's bounds, a
+ * text's pattern, a choice's options). Each label is a word an author might use, and none of the
+ * families' own names, which every label is kept from.
  */
 const FamilySeedDNAs: readonly WidgetDNA[] = [
   {
@@ -259,6 +259,13 @@ const FamilySeedDNAs: readonly WidgetDNA[] = [
     description: 'A number typed into each cell, between bounds and whole if the widgeting says so.',
     formulary:   'entry',
     config:      { entry_kind: 'number' },
+  },
+  {
+    label:       'percentage',
+    title:       'Percent',
+    description: 'A percent typed into each cell: a number from 0 to 100, shown with %, between other bounds and whole if the widgeting says so.',
+    formulary:   'entry',
+    config:      { entry_kind: 'percent' },
   },
   {
     label:       'yes_no',
@@ -290,8 +297,8 @@ const BlurbDNA: WidgetDNA = {
 
 /**
  * The library's seeds: the three prompts, the eight sums, five small text calculations, the
- * BUT NOT ishes, the category-estimate entry, an entry of each other family, and a template.
- * Twenty-three, in the order the library lists them.
+ * BUT NOT ishes, the category-estimate entry, an entry of each other family and a percent, and a
+ * template. Twenty-four, in the order the library lists them.
  *
  * @example SeedWidgets.find((widget) => widget.label === 'numnum_hint')?.formulary  // => 'aibot'
  */

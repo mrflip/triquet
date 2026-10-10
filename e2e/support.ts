@@ -267,6 +267,21 @@ export async function actDangerously(page: Page, actname: string, label: string)
   await confirming.getByRole('button', { name: actname }).click()
 }
 
+/**
+ * Answer the question a remove button (`ConfirmRemove`) asks once it is pressed: its yes, *Keep it*,
+ * or Escape, which keeps the thing as *Keep it* does; and wait until the question is gone.
+ */
+export async function answerRemoval(page: Page, answer: 'Yes, remove' | 'Yes, delete' | 'Keep it' | 'Escape'): Promise<void> {
+  const asking = page.getByRole('alertdialog')
+  if (answer === 'Escape') {
+    await expect(asking).toBeVisible()
+    await page.keyboard.press('Escape')
+  } else {
+    await asking.getByRole('button', { name: answer }).click()
+  }
+  await expect(asking).toHaveCount(0)
+}
+
 /** Close the gear's dialog, whose every change is kept as it is made */
 export async function closeManage(page: Page): Promise<void> {
   await manageDialog(page).getByRole('button', { name: 'Done' }).click()
@@ -617,17 +632,38 @@ export function exportedQuizzes(exported: string): ExportedQuizT[] {
 export async function newQuiz(page: Page): Promise<void> {
   const before = new URL(page.url()).pathname
   const title = await page.getByLabel('Quiz name').inputValue()
-  await page.getByRole('button', { name: '+ New quiz' }).click()
+  await page.getByRole('banner').getByRole('button', { name: 'New quiz', exact: true }).click()
   await expect.poll(() => new URL(page.url()).pathname).not.toBe(before)
   // The address moves a moment before the screen does; a fresh quiz's generated title never
   // matches the one it was made from.
   await expect(page.getByLabel('Quiz name')).not.toHaveValue(title)
 }
 
+/** The header's account menu, opened: who you are, then links to your hunts, to being someone else, and to About */
+export async function openAccount(page: Page): Promise<Locator> {
+  await page.getByRole('banner').getByRole('button', { name: 'Account' }).click()
+  return page.getByRole('dialog', { name: 'Account' })
+}
+
+/**
+ * The quizzes the header's switcher lists, each a menu item named by its title, a locked one
+ * marked: the switcher opened to list them. Close it with Escape, or pick one.
+ */
+export async function switcherQuizzes(page: Page): Promise<Locator> {
+  const menu = page.getByRole('menu', { name: 'Open quiz' })
+  // Opened again if the switcher was drawn afresh under the click, as it is when the address moves to another quiz.
+  await expect(async () => {
+    if (! await menu.isVisible()) { await page.getByRole('navigation', { name: 'Where you are' }).locator('[aria-haspopup="menu"]').click() }
+    await expect(menu).toBeVisible({ timeout: 1000 })
+  }).toPass()
+  return menu.getByRole('menuitem')
+}
+
 /** Switch to the quiz titled `title` from the switcher, and wait until the browser is there */
 export async function openQuiz(page: Page, title: string): Promise<void> {
   const before = new URL(page.url()).pathname
-  await page.getByLabel('Open quiz').selectOption({ label: title })
+  await switcherQuizzes(page)
+  await page.getByRole('menu', { name: 'Open quiz' }).getByRole('menuitem', { name: title, exact: true }).click()
   await expect.poll(() => new URL(page.url()).pathname).not.toBe(before)
   await expect(page.getByLabel('Quiz name')).toHaveValue(title)
 }

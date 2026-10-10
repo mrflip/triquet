@@ -153,7 +153,7 @@ interface CornerRule {
  * `e2e/support.ts`, the configuration, the harness scripts, and anything new) reaches the whole
  * suite, as do a few files every screen leans on (`use-draft`, `use-session`, `offers.ts`,
  * `postmortem`, `cells/fields` and `cells/markdown`) and those every quiz screen opens through (the
- * synced layout, the quiz's pages, `QuizRoute`, `SiteHeader`, `shown-hunt`, `use-address`,
+ * synced layout, the quiz's pages, `QuizRoute`, `SiteHeader`, `shown`, `use-address`,
  * `use-ident` and `routes.ts`, and the quiz history mirror `use-hunt` feeds and tracks every write
  * through: `hunt-mirror`, `hunt-feed`, `hunt-fetching`, `hunt-commits`, `commit-scheduler`,
  * `huntfiles` and `huntgit`, with the history download and its help, `FullHistoryDownload` and

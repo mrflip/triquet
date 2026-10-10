@@ -27,6 +27,12 @@ behind the screen and not kept, a navigation that did not happen -- raises an **
 dismissed. Raise one rather than adding a line of muted text a scrolled page hides, or a second
 Snackbar.
 
+Prose that explains a section or a field sits behind an (i), `InfoTip` (beside a heading) or
+`Explained` (at a field's end, as `ExplicitField`'s `about` does), not in a paragraph or a helper
+text: a field's helper text is for what is wrong with it, or what is waiting on it. Every remove
+that asks first is `ConfirmRemove`, a text button or a bin, which turns into its own question in
+place; `DangerZone`'s type-to-confirm is the one other gesture, kept for deleting a quiz or hunt.
+
 ## What a view offers
 
 A view offers the author what the server would accept of them, and decides it with the same
