@@ -8,6 +8,8 @@ run, and lives beside this file:
   `$CLAUDE_CODE_REMOTE`): the spine, worktrees and lanes, `pnpm land`, sprints.
 - **`notes/git_hygiene-cloud.md`**, in a cloud session (`$CLAUDE_CODE_REMOTE` is `true`): one
   branch and one PR per thread, pushed as it goes.
+- **`notes/git_hygiene-coach.md`**, what only the Coach does: merging, and reading the graph.
+  Agents need none of it.
 
 Where this file and those differ on how to do something, the place's own file is right.
 
@@ -22,31 +24,11 @@ The rules that hold everywhere:
 
 ## The shape we keep
 
-History on `main` is **semi-linear**. Every PR branch is rebased onto the current tip of `main`, then lands as one `--no-ff` merge commit. The graph is a ladder:
-
-```
-*   Merge pull request #23 …        <- main
-|\
-| * fix: …
-| * feat: …
-|/
-*   Merge pull request #22 …
-|\
-| * docs: …
-|/
-*   …
-```
-
-The main-side edge of every bubble is empty. There are never braids, never "Merge branch 'main' into …" commits, and never a branch forked from the middle of another branch's bubble.
-
-Why this shape:
-
-- The graph is readable, and a dead head sticks out.
-- `git log --first-parent --oneline main` gives one line per PR, like a changelog.
-- `git revert -m 1 <merge>` backs out a whole PR at once.
-- Merge commits keep the branch's SHAs. Stacked branches and anything that cites a SHA stay valid after a merge. Squash-merge and GitHub's rebase-merge rewrite every SHA, which forces a restack after each merge.
-
-Enforcement: the `lint-typecheck` CI check rejects any PR branch that contains a merge commit. The main ruleset requires branches to be up to date with `main` before merging and allows the "merge commit" method only.
+Every PR branch is rebased onto the tip of `main` and lands as one `--no-ff` merge commit, so
+`git log --first-parent --oneline main` reads one line per PR and `git revert -m 1 <merge>` backs
+a PR out whole. Never a "Merge branch 'main' into …" commit, and never a branch forked from the
+middle of another branch's commits. The `lint-typecheck` CI check rejects a PR branch holding a
+merge commit, and the main ruleset allows the merge-commit method only.
 
 ## Filing the PR
 
@@ -153,19 +135,10 @@ Delete the tag once the PR merges.
   taken from a stale remote-tracking ref: `git fetch --prune origin`, then look again.
 - Whose branches you may push, and rewrite, is the place's own file's to say.
 
-## Merging (Coach only)
+## Merging
 
-Agents don't merge PRs. The only way into `main` is a merge commit on an up-to-date branch that passes CI. Agents never enable auto-merge either.
-
-The Coach's trivial case is `pnpm automerge <PR#>` (`scripts/automerge.ts`). It replays the PR's line onto `origin/main`: the open PRs beneath it and above it, by `restack` when they are the spine. It pushes them with leases, then sets the PR to merge once main's required checks pass. Run it again for the next PR once one merges. It stops, pushing nothing, on anything a person should look at:
-
-- a conflict;
-- a schema change, a new backfill, a `(Serial Deploy …)` title, or a description that says "before merging";
-- a draft, a fork, or a base other than `main`;
-- two stacks on one PR, or a line partly on the spine;
-- a `main` whose ruleset requires no checks, where auto-merge would merge before CI ran.
-
-`--dry-run` says what it would do.
+Agents don't merge PRs, and never enable auto-merge. The only way into `main` is a merge commit on
+an up-to-date branch that passes CI, and the Coach makes it (`notes/git_hygiene-coach.md`).
 
 ## Commits
 
@@ -175,28 +148,17 @@ Every commit in a PR survives into `main` individually, so it's highly desirable
 
 Match the existing log style: a `feat:` / `fix:` / `docs:` / `style:` / `perf:` prefix, then a plain-language summary.
 
-## Looking at the graph
+## Stray branches
 
-```
-git log --graph --oneline --decorate origin/main -30   # the ladder
-git log --first-parent --oneline origin/main           # one line per PR
-git branch --merged origin/main                        # local branches whose own commits reached main
-git branch -r --merged origin/main                     # the same, for remote-tracking refs
-```
-
-`--merged` misses a branch whose PR merged after a rebase, or whose work landed reworded, so it is
-not the list of what to delete: stray local branches are retired with `scripts/git-attic`
-(`notes/housekeeping.md`, *Retiring stray branches*).
-
-GitHub deletes head branches automatically on merge. `fetch.prune` is unset in the containers, so
-a bare `git fetch` keeps their remote-tracking refs, stale; `git fetch --prune origin` drops them.
+GitHub deletes head branches on merge, but `fetch.prune` is unset in the containers, so their
+remote-tracking refs stay until `git fetch --prune origin`. `git branch --merged origin/main` misses
+a branch whose PR merged after a rebase, so it is not the list of what to delete: stray local
+branches are retired with `scripts/git-attic` (`notes/housekeeping.md`, *Retiring stray branches*),
+never `git branch -d` or `-D`.
 
 ## Before discarding anything
 
-Committed work survives almost anything: the reflog, or a tag, brings it back. Uncommitted work
-does not. Before a command that throws changes away (`reset --hard`, `restore`, `checkout -- .`,
-`clean`, `branch -D`), make everything it would discard reachable first: commit it, stash it, or
-put a branch on it. If you can't tell what it would discard, stop and ask. To clear away
-branches and worktrees, use `notes/housekeeping.md`, which keeps every branch it retires as a tag.
-
-Anything that touches `main` directly: stop and ask Coach.
+Before a command that throws changes away (`reset --hard`, `restore`, `checkout -- .`, `clean`,
+`branch -D`), make everything it would discard reachable first: commit it, stash it, or put a
+branch on it. If you can't tell what it would discard, stop and ask. Anything that touches `main`
+directly: stop and ask Coach.

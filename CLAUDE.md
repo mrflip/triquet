@@ -55,14 +55,11 @@ The top three values while writing code are **empathy, safety and readability**.
 
 ## Non-Negotiables
 
-* **Library first. Hand-rolling is a decision, not a default.** Before writing any mechanism a library could own (drag and drop, focus handling, keyboard navigation, popovers, tables, form state, virtualization, date math, parsing), look in this order:
-  1. A Material UI component or an existing dependency.
-  2. A new library. `notes/stack.md` says whether it is settled (**Use**), needs a Coach (**Discuss**), or is unlisted (propose it in chat).
-     An unlisted one that is widely used, solves the problem (and then some) without dragging in machinery, and ideally is recommended by the neighbouring library: install it, list it in `notes/stack.md`, and tell the Coach afterwards, rather than writing our own. The worked example is `react-number-format` for number fields, which MUI's own docs pair with `TextField`.
-  3. Only then hand-roll -- and only after a Coach says yes in chat. Record the decision and its reason in `notes/stack.md` under *Hand-rolled on purpose*.
-
-  Views are TSX composed from MUI components; raw HTML elements are for semantics MUI lacks. (Markdown is for documents and content, not UI.)
-  `notes/views.md` has the tripwires that mean "stop and ask", the styling rules, and the skills to reach for; it loads itself when work touches a view.
+* **Library first. Hand-rolling is a decision, not a default.** For any mechanism a library could
+  own, look for a Material UI component or an existing dependency, then a library `notes/stack.md`
+  settles (it also says when an unlisted one may simply be installed), and only then our own code,
+  with a Coach's yes. Views are TSX composed from MUI components; `notes/views.md` has the
+  tripwires and the styling rules, and loads itself when work touches a view.
 * Every new piece of code gets a proportional doc block and test suite.
 * Validate at module entrypoints; write confident, paranoia-free code past that boundary.
 * Progress notes, development caveats and open questions go in `human/` or `/whiteboard` --
@@ -153,7 +150,7 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
     branch. **Read before deleting any branch, tag or worktree, or cleaning up the container.**
     Stray branches are retired with `scripts/git-attic`, never `git branch -d` or `-D`.
   - `notes/security.md` -- decisions a security reviewer should look at. Add one when you make such a decision.
-  - `notes/testing.md` *(auto-loads)* -- test conventions.
+  - `notes/testing.md` *(auto-loads)* -- test conventions; `notes/e2e.md` *(auto-loads)* -- the e2e suite's.
   - `notes/convex.md` *(auto-loads)* -- how we use Convex, where we depart from its guidelines, and which Convex skill to name when.
   - `notes/views.md` *(auto-loads)* -- how a view is built: MUI first, the tripwires, and which MUI skill to name when.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
@@ -197,15 +194,3 @@ near your change pass). Not mid-refactor, not on a timer.
 - File the PR against `main`, unless *significant* questions hang: then ask in chat first. Add
   smaller open questions in the description -- and also in the proper place (`human/`,
   whiteboard, chat) as usual.
-
-<!-- convex-ai-start -->
-This project uses [Convex](https://convex.dev) as its backend.
-
-When working on Convex code, **always read `convex/_generated/ai/guidelines.md` and `notes/convex.md` first**: they show Convex APIs and patterns, and may override what you may have learned about Convex from training data.
-
-Convex agent skills for common tasks can be found in .agents/skills/convex* -- notes/convex.md has an overview of them.
-
-<!-- convex-ai-end -->
-
-Where Convex's guidelines and this project's rules differ, this project wins: `notes/convex.md`
-lists every departure.

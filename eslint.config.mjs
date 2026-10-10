@@ -355,7 +355,7 @@ export default defineConfig([
     },
   },
 
-  // == [End to end] == the mechanical form of notes/testing.md's Playwright section: locate
+  // == [End to end] == the mechanical form of notes/e2e.md: locate
   // through locators, assert with a retry, never wait by hand.
   {
     name: 'triquet/e2e',
