@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { addColumns, addWidgeting, addWidgetings, cellOf, closeManage, closePanel, columnAdded, columnPanel, dragOnto, expect, freshWidgetLabel, grid, manageDialog, openManage, openPanel, pickWidget, relabelWidgeting, reloadOnceSaved, stepBy, test, foldBy, unfoldBy, valuesOf, waitUntilSaved, widgetingPanel, widgetsPanel } from './support'
+import { addColumns, addWidgeting, answerRemoval, addWidgetings, cellOf, closeManage, closePanel, columnAdded, columnPanel, dragOnto, expect, freshWidgetLabel, grid, manageDialog, openManage, openPanel, pickWidget, relabelWidgeting, reloadOnceSaved, stepBy, test, foldBy, unfoldBy, valuesOf, waitUntilSaved, widgetingPanel, widgetsPanel } from './support'
 
 /** The widget editor writing a new widget, open over whichever dialog opened it */
 function newWidgetDialog(page: Page) {
@@ -54,7 +54,7 @@ async function removeColumn(page: Page, title: string) {
   const panel = columnPanel(page, title)
   await unfoldBy(panel, `Column ${title} in full`)
   await panel.getByRole('button', { name: 'Remove column' }).click()
-  await panel.getByRole('button', { name: 'Yes, remove' }).click()
+  await answerRemoval(page, 'Yes, remove')
   await expect(columnPanel(page, title)).toHaveCount(0)
 }
 
@@ -282,19 +282,19 @@ test('a widget nobody works asks first, and is removed', async ({ page }) => {
   const widgeting = widgetingPanel(page, 'spare')
   await unfoldBy(widgeting, 'Widgeting spare in full')
   await widgeting.getByRole('button', { name: 'Remove widgeting' }).click()
-  await widgeting.getByRole('button', { name: 'Yes, remove' }).click()
+  await answerRemoval(page, 'Yes, remove')
   await expect(widgeting).toHaveCount(0)
 
   await openWidget(page, widget_label)
   const spare = page.getByRole('dialog', { name: `Widget: ${widget_label}` })
   await expect(spare.getByRole('status', { name: 'Usage' })).toContainText('No widgeting works it, in any hunt.')
   await spare.getByRole('button', { name: 'Remove widget' }).click()
-  await spare.getByRole('button', { name: 'Keep it' }).click()
+  await answerRemoval(page, 'Keep it')
   await spare.getByRole('button', { name: 'Cancel' }).click()
   await expect(page.getByRole('group', { name: `Widget ${widget_label}` })).toBeVisible()
   await page.getByRole('button', { name: `Edit widget ${widget_label}` }).click()
   await spare.getByRole('button', { name: 'Remove widget' }).click()
-  await spare.getByRole('button', { name: 'Yes, remove' }).click()
+  await answerRemoval(page, 'Yes, remove')
   await expect(page.getByRole('group', { name: `Widget ${widget_label}` })).toHaveCount(0)
 })
 
@@ -332,7 +332,7 @@ test('a widget written in the library itself chooses its formulary first', async
   await editor.getByRole('textbox', { name: 'Prompt', exact: true }).fill('Riddle me {{clueing}}. Reply as {"answer": string}.')
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toHaveCount(0)
-  await expect(page.getByRole('group', { name: `Widget ${widget_label}` })).toContainText('prompt')
+  await expect(page.getByRole('group', { name: `Widget ${widget_label}` }).getByRole('img', { name: 'prompt', exact: true })).toBeVisible()
 })
 
 test("the library is copied out and pasted back from its own dialog, a widget it lacks added", async ({ page }) => {
@@ -366,7 +366,7 @@ test('a template written in the library is previewed over a real question as it 
   await template.fill('Q: {{ question.title }}')
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toHaveCount(0)
-  await expect(page.getByRole('group', { name: `Widget ${widget_label}` })).toContainText('template')
+  await expect(page.getByRole('group', { name: `Widget ${widget_label}` }).getByRole('img', { name: 'template', exact: true })).toBeVisible()
 })
 
 test('a column is retitled in place, and the rest of it unfolds beneath its row', async ({ page }) => {
@@ -414,10 +414,14 @@ test('removing a column asks first, and leaves the widgeting it showed', async (
   const panel = columnPanel(page, 'Hint Numeral')
   await unfoldBy(panel, 'Column Hint Numeral in full')
   await panel.getByRole('button', { name: 'Remove column' }).click()
-  await panel.getByRole('button', { name: 'Keep it' }).click()
+  await answerRemoval(page, 'Keep it')
   await expect(panel.getByRole('button', { name: 'Remove column' })).toBeVisible()
+  // Escape keeps it too, and leaves the gear's dialog open.
   await panel.getByRole('button', { name: 'Remove column' }).click()
-  await panel.getByRole('button', { name: 'Yes, remove' }).click()
+  await answerRemoval(page, 'Escape')
+  await expect(manageDialog(page)).toBeVisible()
+  await panel.getByRole('button', { name: 'Remove column' }).click()
+  await answerRemoval(page, 'Yes, remove')
   await expect(columnPanel(page, 'Hint Numeral')).toHaveCount(0)
   await expect(manageDialog(page).getByRole('list', { name: 'Widgetings' }).getByRole('group', { name: 'Widgeting hint_numeral' })).toBeVisible()
   await closeManage(page)
@@ -435,12 +439,12 @@ test('removing a widgeting waits until no column shows it, saying which does, an
   // The column is removed from the widgeting's own list of the columns showing it.
   await unfoldBy(panel, 'Shown by column Hint Numeral')
   await panel.getByRole('button', { name: 'Remove column' }).click()
-  await panel.getByRole('button', { name: 'Yes, remove' }).click()
+  await answerRemoval(page, 'Yes, remove')
   await expect(page.getByRole('columnheader', { name: 'Hint Numeral' })).toHaveCount(0)
   await panel.getByRole('button', { name: 'Remove widgeting' }).click()
-  await panel.getByRole('button', { name: 'Keep it' }).click()
+  await answerRemoval(page, 'Keep it')
   await panel.getByRole('button', { name: 'Remove widgeting' }).click()
-  await panel.getByRole('button', { name: 'Yes, remove' }).click()
+  await answerRemoval(page, 'Yes, remove')
   await expect(panel).toHaveCount(0)
 })
 

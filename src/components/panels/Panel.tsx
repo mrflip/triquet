@@ -1,11 +1,13 @@
 'use client'
 
-import { createContext, useContext, useId, useState, type ReactNode } from 'react'
+import { createContext, useContext, useId, type ReactNode } from 'react'
 import { Box, Collapse, IconButton, Stack } from '@mui/material'
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import clsx from 'clsx'
 import { FoldButton } from '../FoldButton'
+import { InfoTip } from '../InfoTip'
+import { isShowing, useFold, type FoldT } from '../use-fold'
 import styles from '../workbench.module.css'
 
 /** Whether a panel sits in a row of panels (`PanelsRow`), where widening it to the whole row means something */
@@ -13,56 +15,68 @@ const InPanelsRow = createContext(false)
 
 export type PanelProps = {
   title:     string
-  blurb:     string
+  /** What the panel says up front, shown as it opens: a page's message (no such quiz, not on the hunt) */
+  blurb?:    string
+  /** What the panel is and does, behind the (i) beside its heading (`InfoTip`) */
+  about?:    ReactNode
   /** Spans the whole row of panels at rest, for content too broad for one column of them */
   wide?:     boolean
   /** Takes two columns of the row, where the row has room for two */
   double?:   boolean
-  /** Whether it is widened to the whole row, for a view whose content grows with it; the panel keeps this itself when not given */
-  widened?:  boolean
-  /** Called with the width asked for, always `! widened`; given with `widened` */
-  onWidenedChange?: (widened: boolean) => void
+  /** How far it is turned (`FoldT`), for a view whose content grows with it when big; the panel keeps this itself when not given */
+  fold?:     FoldT
+  /** Called with the fold asked for; given with `fold` */
+  onFoldChange?: (fold: FoldT) => void
   children:  ReactNode
 }
 
 /**
- * One titled section with its explanatory microcopy; `wide` spans the whole row of panels, for
+ * One titled section, explained behind the (i) beside its heading (`about`), or saying its message
+ * up front (`blurb`) where what it says is news rather than explanation; `wide` spans the whole row of panels, for
  * content too broad for one column of them, and `double` two columns of it, where the row has
  * room for two.
  *
- * Every panel folds to its title bar, and opens again, by the triangle before its heading; one in
- * the row of panels under the quiz (`PanelsRow`) starts folded, and one that is a page's own
- * content (the login gate, the hunt page) starts open. What it holds stays mounted while folded, so a draft typed in it survives. One in a row of
- * panels (`PanelsRow`) that is not already the whole row wide also has an arrow at the end of its
- * title bar, widening it to the whole row and narrowing it back. A panel keeps which way each is
- * turned itself, unless the view using it holds the width (`widened`), to grow its content with it.
+ * Every panel is folded to its title bar, open, or -- one in a row of panels (`PanelsRow`) that
+ * is not already the whole row wide -- big, widened to the whole row (`FoldT`). The triangle
+ * before its heading opens and folds it; the arrows at the end of its title bar make it big
+ * from folded or open alike, and shrink it back to open; a double-click on its title turns it
+ * folded, open, big, and folded again (folded and open alone, where it cannot be big). One in
+ * the row of panels under the quiz starts folded, and one that is a page's own content (the
+ * login gate, the hunt page) starts open. What it holds stays mounted while folded, so a draft
+ * typed in it survives. A panel keeps its fold itself, unless the view using it holds it
+ * (`fold`), to grow its content when big.
  *
  * Named by its own heading, so it is a landmark someone can jump straight to rather than an
- * anonymous box they have to arrow through the grid to reach.
+ * anonymous box they have to arrow through the grid to reach. Its ids are React's (`useId`),
+ * drawn from its place in the tree, so two panels of one title never share one.
  */
-export function Panel({ title, blurb, wide = false, double = false, widened: widenedHeld, onWidenedChange, children }: Readonly<PanelProps>) {
+export function Panel({ title, blurb, about, wide = false, double = false, fold: foldHeld, onFoldChange, children }: Readonly<PanelProps>) {
   const inRow = useContext(InPanelsRow)
-  const [open, setOpen] = useState(! inRow)
-  const [widenedOwn, setWidenedOwn] = useState(false)
-  const widened = widenedHeld ?? widenedOwn
-  const setWidened = onWidenedChange ?? setWidenedOwn
-  const bodyId = useId()
-  const headingId = `panel-${title.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`
-  const spansRow = wide || widened
-  const WidenFace = widened ? CloseFullscreenIcon : OpenInFullIcon
+  const bigOffered = inRow && ! wide
+  const held = foldHeld === undefined || onFoldChange === undefined ? undefined : { fold: foldHeld, setFold: onFoldChange }
+  const { fold, cycle, toggle, embiggen } = useFold(inRow ? 'folded' : 'open', { bigOffered, held })
+  const baseId = useId()
+  const bodyId = `${baseId}-body`
+  const headingId = `${baseId}-heading`
+  const big = fold === 'big'
+  const spansRow = wide || big
+  const WidenFace = big ? CloseFullscreenIcon : OpenInFullIcon
   return (
     <section className={clsx(styles.panel, spansRow && styles.panelWide, double && ! spansRow && styles.panelDouble)} aria-labelledby={headingId}>
       <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-        <FoldButton open={open} onOpenChange={setOpen} label="Show this panel" controls={bodyId} />
-        <Box component="h2" className={styles.panelHeading} id={headingId} sx={{ flex: '1 1 auto' }}>{title}</Box>
-        {inRow && ! wide && (
-          <IconButton size="small" aria-label="Widen this panel to the whole row" aria-pressed={widened} onClick={() => { setWidened(! widened) }} sx={{ p: 0.25, color: 'text.secondary' }}>
+        <FoldButton open={isShowing(fold)} onOpenChange={toggle} label="Show this panel" controls={bodyId} />
+        {/* A double-click turns the fold on; the buttons beside it are the keyboard's way to the same */}
+        <Box component="h2" className={styles.panelHeading} id={headingId} onDoubleClick={cycle} sx={{ flex: '0 1 auto', userSelect: 'none' }}>{title}</Box>
+        {about === undefined ? null : <InfoTip topic={title}>{about}</InfoTip>}
+        <Box sx={{ flex: '1 1 auto' }} />
+        {bigOffered && (
+          <IconButton size="small" aria-label="Widen this panel to the whole row" aria-pressed={big} onClick={embiggen} sx={{ p: 0.25, color: 'text.secondary' }}>
             <WidenFace fontSize="small" />
           </IconButton>
         )}
       </Stack>
-      <Collapse in={open} id={bodyId}>
-        <p className={styles.microcopy}>{blurb}</p>
+      <Collapse in={isShowing(fold)} id={bodyId}>
+        {blurb === undefined ? null : <p className={styles.microcopy}>{blurb}</p>}
         {children}
       </Collapse>
     </section>

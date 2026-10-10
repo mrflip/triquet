@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Autocomplete, Box, FormControlLabel, ListSubheader, MenuItem, Stack, Switch, TextField, type SxProps, type Theme } from '@mui/material'
+import { Autocomplete, Box, Checkbox, FormControlLabel, ListSubheader, MenuItem, Stack, Switch, TextField, type SxProps, type Theme } from '@mui/material'
 import { ConfirmRemove } from './ConfirmRemove'
 import { ExplicitField } from './ExplicitField'
 import { FormulaField } from './FormulaField'
+import { Explained } from './InfoTip'
 import { TemplateField } from './TemplateField'
 import { NumberField } from './cells/fields'
 import { useDraft } from './use-draft'
 import * as ColumnMenu from '../lib/column-menu'
 import * as Labelmaker from '../lib/labelmaker'
-import { isDrawnByEditor, resolve } from '../lib/columns'
+import * as Templating from '../lib/templating'
+import { isDrawnByEditor, resolve, templatableOf } from '../lib/columns'
 import { ColumnReadoutVals, ColumnValidators, WidthPxMax, retitledPatch, type ColumnNamer, type ColumnPatch, type ColumnReadout, type ColumnT } from '../models/column'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
@@ -62,10 +64,20 @@ export function ColumnRefField({ source, choices, locked, onPick, sx }: Readonly
     >
       {groups.flatMap((group) => [
         <ListSubheader key={`group:${group}`}>{group}</ListSubheader>,
-        ...listed.filter((each) => each.group === group).map((each) => <MenuItem key={each.source} value={each.source}>{`${each.source} — ${each.group}`}</MenuItem>),
+        ...listed.filter((each) => each.group === group).map((each) => <MenuItem key={choiceKeyOf(each)} value={each.source}>{`${each.source} — ${each.group}`}</MenuItem>),
       ])}
     </TextField>
   )
+}
+
+/**
+ * A choice's key in the source menu, scoped by the group it is listed under, so a ref offered under
+ * two groups is still two items.
+ *
+ * @example choiceKeyOf({ source: 'categories', group: 'The same in every row' })  // => 'The same in every row/categories'
+ */
+export function choiceKeyOf(choice: ColumnMenu.RefChoice): string {
+  return `${choice.group}/${choice.source}`
 }
 
 export type RefPickerProps = {
@@ -83,43 +95,49 @@ export type RefPickerProps = {
  */
 export function RefPicker({ choices, label, onPick }: Readonly<RefPickerProps>) {
   return (
-    <Autocomplete
-      options={choices}
-      value={null}
-      autoHighlight
-      openOnFocus
-      groupBy={(each) => each.group}
-      getOptionLabel={(each) => each.source}
-      isOptionEqualToValue={(each, picked) => each.source === picked.source}
-      onChange={(_event, picked) => { if (picked) { onPick(picked.source) } }}
-      renderOption={({ key, ...props }, each) => <Box component="li" key={key} {...props}>{`${each.source} — ${each.group}`}</Box>}
-      renderInput={(params) => <TextField {...params} autoFocus size="small" label={label} helperText="Pick what it shows: it is made at once, its title and label after it." />}
-      sx={{ flex: 1, maxWidth: 420 }}
-    />
+    <Box sx={{ flex: 1, maxWidth: 452 }}>
+      <Explained topic="picking what it shows" about="Pick what it shows: it is made at once, its title and label after it.">
+        <Autocomplete
+          options={choices}
+          value={null}
+          autoHighlight
+          openOnFocus
+          groupBy={(each) => each.group}
+          getOptionLabel={(each) => each.source}
+          getOptionKey={choiceKeyOf}
+          isOptionEqualToValue={(each, picked) => each.source === picked.source}
+          onChange={(_event, picked) => { if (picked) { onPick(picked.source) } }}
+          renderOption={({ key, ...props }, each) => <Box component="li" key={key} {...props}>{`${each.source} — ${each.group}`}</Box>}
+          renderInput={(params) => <TextField {...params} autoFocus size="small" label={label} />}
+        />
+      </Explained>
+    </Box>
   )
 }
 
 /** A column's formula: a field name or part offered where what it shows has a known shape, else typed */
 export function ColumnFormulaField({ column, presets, locked, onCommit }: Readonly<ColumnFieldProps & { presets: readonly ColumnMenu.FormulaPreset[] }>) {
   return (
-    <FormulaField
-      label="Formula" committed={column.formula ?? null} presets={presets} locked={locked}
-      placeholder="The thing itself"
-      helperText={presets.length > 0 ? 'Pick what to show of it, or work something out of it ($) in JSONata.' : 'JSONata over what it shows ($). Blank shows it as it is.'}
-      onCommit={(formula) => { onCommit({ formula }) }}
-    />
+    <Explained topic="the formula" about={presets.length > 0 ? 'Pick what to show of it, or work something out of it ($) in JSONata.' : 'JSONata over what it shows ($). Blank shows it as it is.'}>
+      <FormulaField
+        label="Formula" committed={column.formula ?? null} presets={presets} locked={locked}
+        placeholder="The thing itself"
+        onCommit={(formula) => { onCommit({ formula }) }}
+      />
+    </Explained>
   )
 }
 
 /** A column's template: Liquid making text of what the formula came to */
 export function ColumnTemplateField({ column, locked, onCommit }: Readonly<ColumnFieldProps>) {
   return (
-    <TemplateField
-      label="Template" committed={column.template ?? null} locked={locked}
-      placeholder="{{ value }}"
-      helperText="Liquid over the question's template bag, what the formula came to as {{ value }}. Blank draws the value as it is."
-      onCommit={(template) => { onCommit({ template }) }}
-    />
+    <Explained topic="the template" about="Liquid over the question's template bag, what the formula came to as {{ value }}. Blank draws the value as it is.">
+      <TemplateField
+        label="Template" committed={column.template ?? null} locked={locked}
+        placeholder="{{ value }}"
+        onCommit={(template) => { onCommit({ template }) }}
+      />
+    </Explained>
   )
 }
 
@@ -168,29 +186,99 @@ export function ColumnCollapsedField({ column, locked, onCommit }: Readonly<Colu
   )
 }
 
+/**
+ * Whether what a column shows is templated, its own text filled in as a Liquid template wherever
+ * it is read: the quiz's nomination of the column's source (`quiz.templateable`), the same one the
+ * gear's *Templates* section ticks, so the two are one state.
+ */
+export type ColumnTemplating = {
+  /** Whether the quiz nominates the column's source now */
+  templated:    boolean
+  /** Ticks it on or off, sending the quiz's whole list of nominations (`set_templateable`) */
+  onTemplated:  (templated: boolean) => void
+}
+
+/**
+ * A column's templating, or null when what it shows cannot be templated (`templatableOf`): what
+ * its *Templated* controls, in its row and in its fold, read and send.
+ *
+ * @param column - The column.
+ * @param quiz - The quiz: its widgetings, and what it nominates now.
+ * @param library - The library's widgets, which say which widgetings are typed into as text.
+ * @param dispatch - Carries out the nomination.
+ * @returns The templating, or null.
+ */
+export function columnTemplatingOf(column: ColumnT, quiz: Pick<QuizT, 'widgetings' | 'templateable'>, library: readonly WidgetT[], dispatch: (action: HuntActionDNA) => void): ColumnTemplating | null {
+  const source = templatableOf(column.source, quiz, library)
+  if (source === null) { return null }
+  return {
+    templated:   Templating.templates(quiz, source),
+    onTemplated: (templated) => { dispatch({ kind: 'set_templateable', templateable: Templating.nominationsWith(quiz, library, source, templated) }) },
+  }
+}
+
+/** Whether what a column shows is templated, as a checkbox in its fold */
+export function ColumnTemplatedField({ templating, locked }: Readonly<{ templating: ColumnTemplating, locked: boolean }>) {
+  return (
+    <FormControlLabel
+      label="Templated" disabled={locked}
+      control={<Checkbox size="small" checked={templating.templated} onChange={(event) => { templating.onTemplated(event.target.checked) }} />}
+    />
+  )
+}
+
+/** What a column's stages are offered, by what it shows: the formulas beside it, and how its readout is decided */
+export type ColumnStagesT = {
+  /** The formulas offered for what it shows */
+  presets:       readonly ColumnMenu.FormulaPreset[]
+  /** Whether its cells are drawn by their editor, whatever readout it names (`isDrawnByEditor`) */
+  drawnByEditor: boolean
+  /** Whether what it shows is a template's, which writes markdown */
+  liquidized:    boolean
+}
+
+/**
+ * What a column's stages are offered, by what it shows (`ColumnStagesT`): for its fold's fields and
+ * for its row's readout button alike.
+ *
+ * @param column - The column.
+ * @param quiz - The quiz's widgetings, which the column may show.
+ * @param library - The library, which says what a widgeting shown is.
+ * @returns What its stages are offered.
+ */
+export function columnStagesOf(column: ColumnT, quiz: Pick<QuizT, 'widgetings'>, library: readonly WidgetT[]): ColumnStagesT {
+  const shown = resolve(column.source, quiz.widgetings)
+  const subject = shown === null ? null : ColumnMenu.subjectOf(shown, library)
+  return {
+    presets:       subject === null ? [] : ColumnMenu.presetsFor(subject),
+    drawnByEditor: subject !== null && isDrawnByEditor({ source: subject.shown, formula: column.formula ?? null, template: column.template ?? null }, subject.widget),
+    liquidized:    subject?.widget?.formulary === 'liquidize',
+  }
+}
+
 export type ColumnStagesFieldsProps = ColumnFieldProps & {
-  quiz:    Pick<QuizT, 'widgetings'>
+  quiz:       Pick<QuizT, 'widgetings'>
   /** The library, which says what a widgeting shown is, for the formulas offered beside it */
-  library: readonly WidgetT[]
+  library:    readonly WidgetT[]
+  /** Whether what it shows is templated; null where it cannot be */
+  templating: ColumnTemplating | null
 }
 
 /**
  * What a column does with what it shows, each stage committing on its own: the formula working a
- * value out of it, the template making text of the value, the readout drawing the text, and
- * whether it is collapsed.
+ * value out of it, the template making text of the value, the readout drawing the text, whether
+ * it is collapsed, and, where what it shows can be, whether that is templated.
  */
-export function ColumnStagesFields({ column, quiz, library, locked, onCommit }: Readonly<ColumnStagesFieldsProps>) {
-  const shown = resolve(column.source, quiz.widgetings)
-  const subject = shown === null ? null : ColumnMenu.subjectOf(shown, library)
-  const presets = subject === null ? [] : ColumnMenu.presetsFor(subject)
-  const drawnByEditor = subject !== null && isDrawnByEditor({ source: subject.shown, formula: column.formula ?? null, template: column.template ?? null }, subject.widget)
+export function ColumnStagesFields({ column, quiz, library, templating, locked, onCommit }: Readonly<ColumnStagesFieldsProps>) {
+  const { presets, drawnByEditor, liquidized } = columnStagesOf(column, quiz, library)
   return (
     <Stack spacing={1.5}>
       <ColumnFormulaField column={column} presets={presets} locked={locked} onCommit={onCommit} />
       <ColumnTemplateField column={column} locked={locked} onCommit={onCommit} />
-      <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
-        <ColumnReadoutField column={column} drawnByEditor={drawnByEditor} liquidized={subject?.widget?.formulary === 'liquidize'} locked={locked} onCommit={onCommit} />
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', flexWrap: 'wrap', rowGap: 1 }}>
+        <ColumnReadoutField column={column} drawnByEditor={drawnByEditor} liquidized={liquidized} locked={locked} onCommit={onCommit} />
         <ColumnCollapsedField column={column} locked={locked} onCommit={onCommit} />
+        {templating && <ColumnTemplatedField templating={templating} locked={locked} />}
       </Stack>
     </Stack>
   )
@@ -229,11 +317,13 @@ export function useColumnCommit(column: ColumnT, dispatch: (action: HuntActionDN
 type Room = `@${string}`
 
 export type ColumnMoreFieldsProps = ColumnFieldProps & {
-  quiz:     Pick<QuizT, 'columns' | 'widgetings'>
+  quiz:       Pick<QuizT, 'columns' | 'widgetings'>
   /** The library, which says what a widgeting shown is, for the formulas offered beside it */
-  library:  readonly WidgetT[]
+  library:    readonly WidgetT[]
   /** What the column could show instead */
-  sources:  readonly ColumnMenu.RefChoice[]
+  sources:    readonly ColumnMenu.RefChoice[]
+  /** Whether what it shows is templated; null where it cannot be */
+  templating: ColumnTemplating | null
   /**
    * Where the fields sit beneath the column's own row, how wide that row must be to show what it
    * shows and its width, so that these show them only while the row does not; absent, the fields
@@ -252,7 +342,7 @@ export type ColumnMoreFieldsProps = ColumnFieldProps & {
  * lists the columns showing it, the title, what it shows and its width come first; beneath the
  * row, those of them the row has no room for. Every field commits as it is made.
  */
-export function ColumnMoreFields({ column, quiz, library, sources, locked, beside, onCommit, onRelabel, onRemove }: Readonly<ColumnMoreFieldsProps>) {
+export function ColumnMoreFields({ column, quiz, library, sources, templating, locked, beside, onCommit, onRelabel, onRemove }: Readonly<ColumnMoreFieldsProps>) {
   const columnName = column.title || column.label
   const siblings = new Set(quiz.columns.filter((other) => other.label !== column.label).map((other) => other.label))
   const relabel = (label: string): string | null => {
@@ -278,9 +368,9 @@ export function ColumnMoreFields({ column, quiz, library, sources, locked, besid
       </Stack>
       <ExplicitField
         label="Column label" committed={column.label} act="Relabel" actLabel={`Relabel column ${columnName}`} disabled={locked} tidy={Labelmaker.normalize}
-        helperText="Names it in exports and in the quiz's sort memory." onCommit={relabel}
+        about="Names it in exports and in the quiz's sort memory." onCommit={relabel}
       />
-      <ColumnStagesFields column={column} quiz={quiz} library={library} locked={locked} onCommit={onCommit} />
+      <ColumnStagesFields column={column} quiz={quiz} library={library} templating={templating} locked={locked} onCommit={onCommit} />
       {locked ? null : <Box><ConfirmRemove noun="column" question="Remove this column from the quiz? What it showed is kept." onConfirm={onRemove} /></Box>}
     </Stack>
   )

@@ -416,6 +416,26 @@ export function templatableSources(quiz: Pick<QuizT, 'widgetings' | 'templateabl
 }
 
 /**
+ * What a quiz nominates as templateable once `source` is ticked on or off: every source offered
+ * (`templatableSources`), in the order offered, that it nominates now or is the one ticked on; the
+ * whole list `set_templateable` sends, whichever control ticked it.
+ *
+ * @param quiz - The quiz: its widgetings, and what it nominates now.
+ * @param library - The library's widgets, which say what each widgeting is.
+ * @param source - The source ticked.
+ * @param on - Whether it is ticked on.
+ * @returns The nominations to send.
+ *
+ * @example nominationsWith({ ...quiz, templateable: ['notes'] }, library, 'clueing', true)  // => ['clueing', 'notes']
+ * @example nominationsWith({ ...quiz, templateable: ['notes'] }, library, 'notes', false)   // => []
+ */
+export function nominationsWith(quiz: Pick<QuizT, 'widgetings' | 'templateable'>, library: readonly WidgetT[], source: string, on: boolean): string[] {
+  return templatableSources(quiz, library)
+    .map((each) => each.source)
+    .filter((each) => (each === source ? on : templates(quiz, each)))
+}
+
+/**
  * `quiz` with each of its questions' templateable fields filled in over its run, for an export to
  * read as it reads any quiz: as the finished bag holds them (`finishedQuestionsOf`), each field a column
  * of fills with `ColumnMs` for them all. A field that cannot be filled keeps its text as typed.

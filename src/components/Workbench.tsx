@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 import { ConfirmViz } from './ConfirmViz'
@@ -12,7 +12,6 @@ import { Panels } from './panels/Panels'
 import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
 import { QuizManageModal } from './QuizManageModal'
-import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
 import { useChecklist } from './use-checklist'
 import { useFoldSet } from './use-folds'
@@ -32,6 +31,7 @@ import { Question, type QuestionViz } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { HuntHandle } from '../state/use-hunt'
+import { useShowQuizActs } from '../state/shown'
 import styles from './workbench.module.css'
 
 export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved' | 'saveNotice' | 'reviews'> & {
@@ -51,8 +51,10 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved
  * The whole tool, as a smith works it: one quiz on screen, saved the moment anything changes.
  *
  * The address decides which quiz that is, and nothing decides the address in return. Anything
- * that changes which quiz is open -- the switcher, a new quiz, a deletion, a relabel -- says so
- * by navigating, and every editing action lands on the quiz the address names.
+ * that changes which quiz is open -- the header's switcher, a new quiz, a deletion, a relabel --
+ * says so by navigating, and every editing action lands on the quiz the address names. Making
+ * another quiz and locking this one are the header's buttons, which this screen tells what to do
+ * (`useShowQuizActs`).
  *
  * What it offers is what the server would accept of whoever is working (`workbenchOffers`): a
  * locked quiz is read, copied and exported, and its questions and layout are left as they are.
@@ -87,7 +89,24 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   const [vizzing, setVizzing] = useState<{ ids: readonly string[], offered: readonly QuestionViz[] } | null>(null)
 
   /** Where the quiz of this realm labelled `label` is worked on */
-  const pathFor = (label: string) => Routes.quizPath({ org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: label }, 'edit')
+  const pathFor = useCallback((label: string) => Routes.quizPath({ org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: label }, 'edit'), [hunt.org, hunt.label, realm.label])
+
+  // What the header's buttons do to the quiz and its realm, held still while neither changes.
+  const quiz_id = quiz._id
+  const { quizzes } = realm
+  useShowQuizActs(useMemo(() => ({
+    onNew: () => {
+      // The label is settled here rather than in the action, because the address this is about
+      // to go to has to name it. Gone to once it has been made, and not at all when it was
+      // refused: until then the address would name no quiz.
+      const fresh = Labelmaker.freshLabelFor(quizzes)
+      const make = async () => {
+        if (await carryOut({ kind: 'new_quiz', label: fresh })) { router.push(pathFor(fresh)) }
+      }
+      void make()
+    },
+    onSetLock: (locked: boolean) => { dispatch({ kind: 'set_lock', quiz_id, locked }) },
+  }), [quizzes, quiz_id, carryOut, dispatch, router, pathFor]))
 
   /** Go to `target`: with the address deciding what is on screen, that is what opening a quiz is */
   const goTo = (target: Labelmaker.Labelled) => {
@@ -128,26 +147,6 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
 
   return (
     <main className={clsx(styles.page, 'transitions')} data-unsaved={unsaved || librarian.unsaved}>
-      <QuizSwitcher
-        quizzes={realm.quizzes}
-        openQuiz={quiz}
-        onOpen={(quiz_id) => {
-          const target = realm.quizzes.find((each) => each._id === quiz_id)
-          if (target) { goTo(target) }
-        }}
-        onNew={() => {
-          // The label is settled here rather than in the action, because the address this is
-          // about to go to has to name it.
-          // Gone to once it has been made, and not at all when it was refused: until then the
-          // address would name no quiz.
-          const fresh = Labelmaker.freshLabelFor(realm.quizzes)
-          const make = async () => {
-            if (await carryOut({ kind: 'new_quiz', label: fresh })) { router.push(pathFor(fresh)) }
-          }
-          void make()
-        }}
-        onSetLock={(locked) => { dispatch({ kind: 'set_lock', quiz_id: quiz._id, locked }) }}
-      />
       {/* Keyed by the quiz, so another quiz's header starts afresh: its note folded, its drafts its own. */}
       <QuizHeader
         key={quiz._id}

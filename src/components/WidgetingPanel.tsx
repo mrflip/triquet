@@ -2,16 +2,20 @@
 
 import { useId, useState } from 'react'
 import { Box, Button, Chip, Collapse, Stack, TextField } from '@mui/material'
-import { ColumnIssue, ColumnMoreFields, useColumnCommit } from './ColumnFields'
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined'
+import { ColumnIssue, ColumnMoreFields, columnTemplatingOf, useColumnCommit } from './ColumnFields'
 import { ConfirmRemove } from './ConfirmRemove'
 import { EntryParamsFields } from './EntryParamsFields'
 import { ExplicitField } from './ExplicitField'
+import { FormularyMark } from './FormularyMark'
 import { FoldButton } from './FoldButton'
+import { Explained } from './InfoTip'
 import { LiquidizeParamsFields, LiquidizeTemplateLine, templateRefsOf } from './LiquidizeParamsFields'
 import { WidgetEditor } from './WidgetEditor'
 import { LayoutFoldkeys } from './layout-folds'
 import { useDraft } from './use-draft'
 import type { FoldSet } from './use-folds'
+import { RowSlots } from './room'
 import { FormularyWords } from './widget-words'
 import * as Labelmaker from '../lib/labelmaker'
 import * as UU from '../lib/useful'
@@ -59,7 +63,7 @@ export type WidgetingPanelProps = WidgetingPanelContext & {
   widgeting: WidgetingT
   /** Its fold's key, given the widgeting's label: one per place the panel is drawn (`LayoutFoldkeys`) */
   foldkeyOf: (widgetingLabel: string) => string
-  /** The handle to drag it by in the run order, or a blank in its place for an entry; nothing beneath a column */
+  /** The handle to drag it by in the run order; a blank as wide is left in its place when there is none */
   handle?:   React.ReactNode
   /** Whether its first row marks its tier, as the run order's rows do */
   tierMark?: boolean
@@ -72,12 +76,15 @@ export type WidgetingPanelProps = WidgetingPanelContext & {
 }
 
 /**
- * One widgeting of the quiz, as a panel: folded, one row -- its label, what it works, and its
- * folded line, the few fields its formulary folds to (`formularyFor(widget).folded`: an entry's
- * params, a formula's formula, a template's template, nothing for a prompt); open, the same row with
- * more beneath it: its label, which waits on its own *Relabel* button since columns and formulas
- * name it; its description; where a template's template comes from; the widget it works, behind its door for whoever may change the library; the
- * columns showing it, each to unfold; and its removal, refused while a column shows it.
+ * One widgeting of the quiz, as a panel: folded, one row -- its title block (`WidgetingTitle`: the
+ * mark of what it is, its label, and beneath, the widget it works), a double-click on which turns
+ * its fold, and its folded line, the few fields its formulary folds to (`formularyFor(widget).folded`:
+ * an entry's params, a formula's formula, a template's template, nothing for a prompt), each part
+ * in a slot as wide on every row (`RowSlots`), so that rows line up. Open, the same row with more
+ * beneath it, lined up under its title: its label, which waits on its own *Relabel* button since
+ * columns and formulas name it; its description; where a template's template comes from; the
+ * widget it works, behind its door for whoever may change the library; the columns showing it,
+ * each to unfold; and its removal, refused while a column shows it.
  *
  * Every field commits as it is made. The widget itself is the library's, and an edit to it
  * changes every quiz that works it, so it is never edited here: the door opens the widget editor.
@@ -109,24 +116,22 @@ export function WidgetingPanel({ widgeting, foldkeyOf, handle = null, tierMark =
   return (
     <Stack spacing={1} role="group" aria-label={`Widgeting ${widgeting.label}`}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start', flexWrap: 'wrap', rowGap: 1 }}>
-        {handle === null ? null : <Box sx={{ pt: 1 }}>{handle}</Box>}
-        <Box sx={{ pt: 0.5 }}>
+        <Box sx={RowSlots.grip}>{handle}</Box>
+        <Box sx={RowSlots.fold}>
           <FoldButton open={open} onOpenChange={(next) => { folds.setOpen(foldkey, next) }} label={`Widgeting ${widgeting.label} in full`} controls={restId} />
         </Box>
-        <Box sx={{ pt: 1, width: 220, flexShrink: 0, overflowWrap: 'anywhere' }}>
-          <strong>{widgeting.label}</strong> <span className={styles.microcopy}>{widgetingNote(widgeting, widget)}</span>
-        </Box>
-        {tierMark && <TierChip tier={widgeting.tier} />}
+        <WidgetingTitle widgeting={widgeting} widget={widget} onDoubleClick={() => { folds.setOpen(foldkey, ! open) }} />
+        {tierMark && <Box sx={RowSlots.tier}><TierChip tier={widgeting.tier} /></Box>}
         {aside}
         <Box sx={{ flex: '1 1 320px', minWidth: 0 }}>
           {widget && <FoldedLine widget={widget} widgeting={widgeting} locked={locked} revise={revise} />}
         </Box>
       </Stack>
       <Collapse in={open} unmountOnExit id={restId}>
-        <Stack spacing={1.5} sx={{ pl: 4, pt: 1, pb: 1 }}>
+        <Stack spacing={1.5} sx={{ pl: 7, pt: 1, pb: 1 }}>
           <ExplicitField
             label="Widgeting label" committed={widgeting.label} act="Relabel" actLabel={`Relabel widgeting ${widgeting.label}`} disabled={locked} tidy={Labelmaker.normalize}
-            helperText="Names it within this quiz: its columns, and what later widgets and templates read it as." onCommit={relabel}
+            about="Names it within this quiz: its columns, and what later widgets and templates read it as." onCommit={relabel}
           />
           <DescriptionField widgeting={widgeting} locked={locked} revise={revise} />
           {widget?.formulary === 'liquidize' && (
@@ -160,9 +165,35 @@ export function WidgetingPanel({ widgeting, foldkeyOf, handle = null, tierMark =
   )
 }
 
+export type WidgetingTitleProps = {
+  widgeting:      WidgetingT
+  /** The widget it works; null when the library no longer holds it */
+  widget:         WidgetT | null
+  /** Told of a double-click on the block, which turns its panel's fold; absent where nothing folds */
+  onDoubleClick?: () => void
+}
+
+/**
+ * A widgeting's title block, as wide on every row as a column's title (`RowSlots.title`), so rows
+ * line up whatever their labels: the mark of its widget's formulary (`FormularyMark`); its label;
+ * and on a line of its own beneath,
+ * the widget it works, or that the library no longer holds it.
+ */
+export function WidgetingTitle({ widgeting, widget, onDoubleClick }: Readonly<WidgetingTitleProps>) {
+  return (
+    <Stack direction="row" spacing={0.75} onDoubleClick={onDoubleClick} sx={{ ...RowSlots.title, pt: 0.75, userSelect: onDoubleClick ? 'none' : 'auto' }}>
+      {widget ? <FormularyMark formulary={widget.formulary} /> : <ReportProblemOutlinedIcon fontSize="small" titleAccess="missing widget" sx={{ color: 'warning.main' }} />}
+      <Box sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+        <Box component="strong" sx={{ display: 'block' }}>{widgeting.label}</Box>
+        <Box className={styles.microcopy}>{widgetingNote(widgeting, widget)}</Box>
+      </Box>
+    </Stack>
+  )
+}
+
 /** A widgeting's tier, marked on its row in the run order */
 export function TierChip({ tier }: Readonly<{ tier: WidgetingTier }>) {
-  return <Chip size="small" variant="outlined" label={TierMarks[tier]} sx={{ mt: 1 }} />
+  return <Chip size="small" variant="outlined" label={TierMarks[tier]} sx={{ mt: 0.75 }} />
 }
 
 type FoldedLineProps = {
@@ -190,11 +221,12 @@ function FoldedLine({ widget, widgeting, locked, revise }: Readonly<FoldedLinePr
   }
   case 'formula': {
     return (
-      <TextField
-        size="small" fullWidth label="Formula" value={widget.formula.replaceAll(/\s+/g, ' ')}
-        helperText="The widget's: edited behind its door, for every quiz that works it."
-        slotProps={{ htmlInput: { readOnly: true, sx: { fontFamily: 'monospace', fontSize: 13 } } }}
-      />
+      <Explained topic="the formula" about="The widget's: edited behind its door, for every quiz that works it.">
+        <TextField
+          size="small" fullWidth label="Formula" value={widget.formula.replaceAll(/\s+/g, ' ')}
+          slotProps={{ htmlInput: { readOnly: true, sx: { fontFamily: 'monospace', fontSize: 13 } } }}
+        />
+      </Explained>
     )
   }
   case null: {
@@ -263,11 +295,13 @@ function DescriptionField({ widgeting, locked, revise }: Readonly<DescriptionFie
   const [issue, setIssue] = useState<string | null>(null)
   const { draft, onChange, onBlur } = useDraft(widgeting.description, (description) => { setIssue(revise({ description })) })
   return (
-    <TextField
-      size="small" label="Widgeting description" value={draft} disabled={locked}
-      error={issue !== null} helperText={issue ?? 'What this widgeting is for in this quiz.'}
-      onChange={(event) => { onChange(event.target.value) }} onBlur={onBlur}
-    />
+    <Explained topic="the widgeting description" about="What this widgeting is for in this quiz.">
+      <TextField
+        size="small" fullWidth label="Widgeting description" value={draft} disabled={locked}
+        error={issue !== null} helperText={issue}
+        onChange={(event) => { onChange(event.target.value) }} onBlur={onBlur}
+      />
+    </Explained>
   )
 }
 
@@ -330,7 +364,7 @@ function ColumnFold({ widgeting, column, quiz, library, sources, revisable, disp
       <Collapse in={folds.isOpen(foldkey)} unmountOnExit id={fieldsId}>
         <Box sx={{ pl: 4, pt: 1, pb: 1 }}>
           <ColumnMoreFields
-            column={column} quiz={quiz} library={library} sources={sources} locked={! revisable} onCommit={commit}
+            column={column} quiz={quiz} library={library} sources={sources} templating={columnTemplatingOf(column, quiz, library, dispatch)} locked={! revisable} onCommit={commit}
             onRelabel={(label) => { folds.setOpen(LayoutFoldkeys.listed(widgeting.label, label), true) }}
             onRemove={() => { dispatch({ kind: 'delete_column', label: column.label }) }}
           />
@@ -341,10 +375,10 @@ function ColumnFold({ widgeting, column, quiz, library, sources, revisable, disp
   )
 }
 
-/** What the widgeting works, in a few words */
+/** The widget a widgeting works, as its title block's second line says it: its label, or that the library no longer holds it */
 export function widgetingNote(widgeting: WidgetingT, widget: WidgetT | null): string {
   if (! widget) { return `works ${widgeting.widget_label}, which the library no longer holds` }
-  return `${FormularyWords[widget.formulary].noun} ${widget.label}`
+  return widget.label
 }
 
 /** What removing a widgeting asks first: what it takes with it, by how its widget keeps its values */

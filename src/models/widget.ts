@@ -13,28 +13,29 @@ export const FormularykindVals = ['jsonata', 'aibot', 'entry', 'liquidize'] as c
 export type Formularykind = typeof FormularykindVals[number]
 
 /**
- * What an `entry` widget's cells take (its **kind**): prose, a number, a yes or no, one of a
- * list of options, a label, a one-line title, or a question's category estimates. Fixed once the
- * widget is made, since the values typed hang on it.
+ * What an `entry` widget's cells take (its **kind**): prose, a number, a percent, a yes or no, one
+ * of a list of options, a label, a one-line title, or a question's category estimates. Fixed once
+ * the widget is made, since the values typed hang on it.
  */
-export const EntryKindVals = ['text', 'number', 'boolean', 'enum', 'labelish', 'titleish', 'estimates'] as const
+export const EntryKindVals = ['text', 'number', 'percent', 'boolean', 'enum', 'labelish', 'titleish', 'estimates'] as const
 export type EntryKind = typeof EntryKindVals[number]
 
 /**
  * The **families** of entry: each a cell editor and the type of value it keeps, constrained by
  * its widgeting's params. A kind is its own family, but for `labelish` and `titleish`, which are
- * presets of `text` (`EntryPresets`).
+ * presets of `text`, and `percent`, a preset of `number` (`EntryPresets`).
  */
 export const EntryFamilyVals = ['text', 'number', 'boolean', 'enum', 'estimates'] as const
 export type EntryFamily = typeof EntryFamilyVals[number]
 
-/** The kinds a new entry widget may be made of: one per family, the presets of `text` left to the widgets that already hold them */
-export const OfferedEntryKindVals: readonly EntryKind[] = EntryFamilyVals
+/** The kinds a new entry widget may be made of: one per family, and a percent beside the number; the presets of `text` left to the widgets that already hold them */
+export const OfferedEntryKindVals: readonly EntryKind[] = ['text', 'number', 'percent', 'boolean', 'enum', 'estimates']
 
 /** The family each kind of entry belongs to */
 export const EntryFamilyOf: Readonly<Record<EntryKind, EntryFamily>> = {
   text:      'text',
   number:    'number',
+  percent:   'number',
   boolean:   'boolean',
   enum:      'enum',
   labelish:  'text',
@@ -156,13 +157,14 @@ export const WidgetValidators = Validator(({ obj, arr, oneof, lit, str, label, t
   const entryConfig = discrim('entry_kind', [
     entryConfigOf('text', textParams),
     entryConfigOf('number', numberParams),
+    entryConfigOf('percent', numberParams),
     entryConfigOf('boolean', noParams),
     entryConfigOf('enum', enumParams),
     entryConfigOf('labelish', noParams),
     entryConfigOf('titleish', noParams),
     entryConfigOf('estimates', noParams),
   ])
-    .describe('An `entry` widget\'s settings: what kind of value is typed into its cells (`entry_kind`: `text`, `number`, `boolean`, `enum`, `estimates`, or the older `labelish` and `titleish`), fixed once made since the values typed hang on it; and the params its widgetings start from, which each may overlay.')
+    .describe('An `entry` widget\'s settings: what kind of value is typed into its cells (`entry_kind`: `text`, `number`, `percent` (a number from 0 to 100 unless its params say otherwise, shown with `%`), `boolean`, `enum`, `estimates`, or the older `labelish` and `titleish`), fixed once made since the values typed hang on it; and the params its widgetings start from, which each may overlay.')
 
   // Each field is named once, bare, and given a default in the widget and none in its row.
   const scope = oneof(WidgetScopeVals)
@@ -310,6 +312,7 @@ export type EntryParamsFor = {
 export const EntryParamsOf: Readonly<Record<EntryKind, Z.ZodObject>> = {
   text:      WidgetValidators.textParams,
   number:    WidgetValidators.numberParams,
+  percent:   WidgetValidators.numberParams,
   boolean:   WidgetValidators.noParams,
   enum:      WidgetValidators.enumParams,
   labelish:  WidgetValidators.noParams,
@@ -318,15 +321,29 @@ export const EntryParamsOf: Readonly<Record<EntryKind, Z.ZodObject>> = {
 }
 
 /** What each preset of `text` holds its cells to, beneath whatever its widget and widgeting say */
-export const EntryPresets: Readonly<Partial<Record<EntryKind, TextParamsT>>> = {
+export const TextPresets: Readonly<Partial<Record<EntryKind, TextParamsT>>> = {
   labelish: { pattern: 'label', lines: 'one' },
   titleish: { pattern: 'oneline', lines: 'one', max_length: PA.Titleish.max },
+}
+
+/** What each preset of `number` holds its cells to, beneath whatever its widget and widgeting say */
+export const NumberPresets: Readonly<Partial<Record<EntryKind, NumberParamsT>>> = {
+  percent: { min: 0, max: 100 },
+}
+
+/** What each preset kind of entry holds its cells to, beneath whatever its widget and widgeting say: a preset of `text` or of `number` */
+export const EntryPresets: Readonly<Partial<Record<EntryKind, TextParamsT | NumberParamsT>>> = { ...TextPresets, ...NumberPresets }
+
+/** What a kind of entry shows after the number in its box: a percent's `%` */
+export const EntrySuffixes: Readonly<Partial<Record<EntryKind, string>>> = {
+  percent: '%',
 }
 
 /** Whether an entry of each kind holds one value the quiz as a whole can have: every kind but a question's category estimates */
 export const EntryKindOncePerQuiz: Readonly<Record<EntryKind, boolean>> = {
   text:      true,
   number:    true,
+  percent:   true,
   boolean:   true,
   enum:      true,
   labelish:  true,
@@ -341,15 +358,18 @@ type ParamsIssue = { path: string[], input: unknown, message: string }
  * What is wrong with an entry's params taken together, rather than one by one: a `number`'s
  * least above its most, or a `text` held to a pattern yet given many lines. Said of the params in
  * force, a widget's defaults overlaid by a widgeting's own, so a widgeting is told when its own
- * fit its widget's no longer.
+ * fit its widget's no longer; and its kind's preset beneath them both (`EntryPresets`), so a
+ * percent's least above a hundred wants a most of its own.
  *
  * @param entry_kind - The entry's kind, which says which params it takes.
- * @param params - The params in force, or a widget's defaults.
+ * @param said - The params in force, or a widget's defaults.
  * @returns Each issue, said of the param the author would change; empty when they agree.
  *
  * @example entryParamsIssues('number', { min: 10, max: 1 })  // => [{ path: ['max'], input: 1, message: 'should be no less than the least, «10»' }]
+ * @example entryParamsIssues('percent', { min: 120 })        // => [{ path: ['max'], input: 100, message: 'should be no less than the least, «120»' }]
  */
-export function entryParamsIssues(entry_kind: EntryKind, params: Record<string, unknown>): ParamsIssue[] {
+export function entryParamsIssues(entry_kind: EntryKind, said: Record<string, unknown>): ParamsIssue[] {
+  const params: Record<string, unknown> = { ...EntryPresets[entry_kind], ...said }
   switch (EntryFamilyOf[entry_kind]) {
   case 'number': {
     const { min, max } = params
@@ -431,4 +451,4 @@ export class Widget {
 }
 
 /** How each kind of entry is named in a sentence */
-const EntryKindNames: Readonly<Record<EntryKind, string>> = { text: 'text', number: 'number', boolean: 'yes-or-no', enum: 'choice', labelish: 'label', titleish: 'title', estimates: 'category estimate' }
+const EntryKindNames: Readonly<Record<EntryKind, string>> = { text: 'text', number: 'number', percent: 'percent', boolean: 'yes-or-no', enum: 'choice', labelish: 'label', titleish: 'title', estimates: 'category estimate' }

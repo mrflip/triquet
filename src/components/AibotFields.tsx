@@ -1,6 +1,7 @@
 'use client'
 
 import { Box, MenuItem, Stack, TextField } from '@mui/material'
+import { Explained } from './InfoTip'
 import { NumericFormat } from 'react-number-format'
 import { CopyButton } from './CopyButton'
 import { JsonFold } from './JsonFold'
@@ -70,32 +71,41 @@ export function AibotFields({ hunt, library, openQuiz, draft, onChange, labelEdi
     <Stack spacing={1.5}>
       {labelEditable
         ? (
-          <TextField
-            size="small" label="Widget label" value={draft.label} sx={{ maxWidth: 320 }}
-            error={labelIssue !== null} helperText={labelIssue ?? 'What the widget is called in the library, for choosing it again. It cannot be changed afterward.'}
-            onChange={(event) => { onChange({ label: event.target.value }) }}
-          />
+          <Box sx={{ maxWidth: 320 }}>
+            <Explained topic="the widget label" about="What the widget is called in the library, for choosing it again. It cannot be changed afterward.">
+              <TextField
+                size="small" label="Widget label" value={draft.label}
+                error={labelIssue !== null} helperText={labelIssue}
+                onChange={(event) => { onChange({ label: event.target.value }) }}
+              />
+            </Explained>
+          </Box>
         )
         : <div><strong>{draft.label}</strong> <span className={styles.microcopy}>widget</span></div>}
-      <TextField
-        size="small" label="Widget description" value={draft.description}
-        helperText="What it asks for, for whoever is choosing between widgets."
-        onChange={(event) => { onChange({ description: event.target.value }) }}
-      />
-      <TextField
-        size="small" multiline minRows={6} maxRows={20} label="Prompt" value={draft.formula}
-        error={promptIssue !== null || promptLong !== null}
-        helperText={promptIssue ?? promptLong ?? 'Each {{name}} is filled in from that key of the input. Say in words what JSON object you want back.'}
-        slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
-        onChange={(event) => { onChange({ formula: event.target.value }) }}
-      />
-      <TextField
-        size="small" multiline maxRows={6} label="Input formula" value={draft.input_formula}
-        error={inputIssue !== null}
-        helperText={inputIssue ?? 'A JSONata expression coming to the object the prompt is filled in from. Nothing means the question is not asked.'}
-        slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
-        onChange={(event) => { onChange({ input_formula: event.target.value }) }}
-      />
+      <Explained topic="the widget description" about="What it asks for, for whoever is choosing between widgets.">
+        <TextField
+          size="small" label="Widget description" value={draft.description}
+          onChange={(event) => { onChange({ description: event.target.value }) }}
+        />
+      </Explained>
+      <Explained topic="the prompt" about={"Each {{name}} is filled in from that key of the input. Say in words what JSON object you want back."}>
+        <TextField
+          size="small" multiline minRows={6} maxRows={20} label="Prompt" value={draft.formula}
+          error={promptIssue !== null || promptLong !== null}
+          helperText={promptIssue ?? promptLong}
+          slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
+          onChange={(event) => { onChange({ formula: event.target.value }) }}
+        />
+      </Explained>
+      <Explained topic="the input formula" about="A JSONata expression coming to the object the prompt is filled in from. Nothing means the question is not asked.">
+        <TextField
+          size="small" multiline maxRows={6} label="Input formula" value={draft.input_formula}
+          error={inputIssue !== null}
+          helperText={inputIssue}
+          slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
+          onChange={(event) => { onChange({ input_formula: event.target.value }) }}
+        />
+      </Explained>
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1.5 }}>
         <TextField
           select size="small" label="Service" value={draft.config.servicelabel} sx={{ minWidth: 140 }}

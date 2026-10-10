@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Button, MenuItem, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@mui/material'
+import { ConfirmRemove } from '../ConfirmRemove'
 import { CopyButton } from '../CopyButton'
 import { Panel } from './Panel'
 import * as Actor from '../../lib/actor'
@@ -31,7 +32,7 @@ export type MembersPanelProps = Pick<HuntHandle, 'carryOut' | 'saveNotice'> & {
  */
 export function MembersPanel({ members, claims, labels, carryOut, saveNotice }: Readonly<MembersPanelProps>) {
   return (
-    <Panel title="Members" blurb="Who is on this hunt. Smiths work on its quizzes and say who else is on it; reviewers playtest them. Put someone on by the ident label they chose; putting them on again changes their role.">
+    <Panel title="Members" about="Who is on this hunt. Smiths work on its quizzes and say who else is on it; reviewers playtest them. Put someone on by the ident label they chose; putting them on again changes their role.">
       <TableContainer>
         <Table size="small" aria-label="Members of this hunt" sx={{ '& th, & td': { px: 1 } }}>
           <TableHead>
@@ -65,17 +66,19 @@ export function MembersPanel({ members, claims, labels, carryOut, saveNotice }: 
 }
 
 /**
- * What a member's row offers whoever is looking: a button to take them off the hunt, where the
- * policy allows it; their own row says it is theirs.
+ * What a member's row offers whoever is looking: a button to take them off the hunt, which asks
+ * first, where the policy allows it; their own row says it is theirs.
  */
 function MemberDoor({ member, claims, carryOut }: Readonly<Pick<MembersPanelProps, 'claims' | 'carryOut'> & { member: MemberT }>) {
   const removal = { kind: 'remove_hunting', ident_id: member.ident_id } as const
   if (Actor.isOneself(claims, member)) { return <span className={styles.microcopy}>you</span> }
   if (! Approve.may(removal.kind, claims, removal)) { return null }
   return (
-    <Button size="small" aria-label={`Remove ${member.label}`} onClick={() => { void carryOut(removal) }}>
-      Remove
-    </Button>
+    <ConfirmRemove
+      form="icon" noun={member.label}
+      question={`Take ${member.label} off the hunt? They can be put back on, in any role.`}
+      onConfirm={() => { void carryOut(removal) }}
+    />
   )
 }
 

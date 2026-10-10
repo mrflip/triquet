@@ -1,14 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Box, IconButton, Select, TextField, Tooltip } from '@mui/material'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import { Box, Select, TextField } from '@mui/material'
+import { Explained, InfoTip } from '../InfoTip'
 import { ReadonlyBox } from './ReadonlyBox'
 import { useDraft } from '../use-draft'
 import * as LLBBCode from '../../lib/ll-bbcode'
 import * as LLSmithExport from '../../lib/ll-smith-export'
 import type { QuizT } from '../../models/quiz'
-import styles from '../workbench.module.css'
 
 /** What each mode is called in the pulldown */
 const ModeTitles: Record<LLSmithExport.ExportMode, string> = {
@@ -57,11 +56,7 @@ export function LeagueExport({ quiz, revisable, onQ1Preamble }: Readonly<LeagueE
         >
           {LLSmithExport.ExportModes.map((each) => <option key={each} value={each}>{ModeTitles[each]}</option>)}
         </Select>
-        <Tooltip title={ModesExplained}>
-          <IconButton size="small" aria-label="About the LL Export modes">
-            <InfoOutlinedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <InfoTip topic="the LL Export modes">{ModesExplained}</InfoTip>
         {mode === 'go_live'
           ? (
             <TextField
@@ -76,9 +71,10 @@ export function LeagueExport({ quiz, revisable, onQ1Preamble }: Readonly<LeagueE
           )
           : null}
       </Box>
-      <ReadonlyBox label="LL Export" text={LLSmithExport.recordsOf(quiz, mode)} rows={6} dense />
-      <p className={styles.microcopy}>The smith&apos;s note, with its bold and italics written the same way, and a [br] ending each of its lines.</p>
-      <ReadonlyBox label="LL Smith's note" text={LLBBCode.translateKeepingLines(quiz.smiths_note)} rows={3} dense />
+      <ReadonlyBox label="LL Export" text={LLSmithExport.recordsOf(quiz, mode)} rows={6} dense resizable />
+      <Explained topic="the LL smith's note" about="The smith's note, with its bold and italics written the same way, and a [br] ending each of its lines.">
+        <ReadonlyBox label="LL Smith's note" text={LLBBCode.translateKeepingLines(quiz.smiths_note)} rows={3} dense resizable />
+      </Explained>
     </>
   )
 }

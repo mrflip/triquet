@@ -16,7 +16,7 @@ export type WorkbenchOffersT = {
   importQuestions: boolean
   /** Add, edit, move and remove its columns and widgetings (the gear) */
   reviseLayout:    boolean
-  /** Write to the library every hunt shares (the library editor, and the Library tab's import) */
+  /** Write to the library every hunt shares (the library editor, and the Widgets tab's import) */
   changeLibrary:   boolean
   /** Read the hunt whole, for the Raw Export */
   exportHunt:      boolean

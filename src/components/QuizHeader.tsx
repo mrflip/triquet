@@ -44,7 +44,6 @@ export function QuizHeader({ title, smithsNote, locked, revisable, onRetitle, on
   return (
     <Box component="header" sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap', mt: 0.5, mb: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', maxWidth: '100%' }}>
-        <span className={clsx(styles.pill, styles.pillQuiet)}>Quiz</span>
         <InputBase
           value={draft}
           placeholder={AppNotices.untitledQuiz}

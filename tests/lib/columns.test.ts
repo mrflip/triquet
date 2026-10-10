@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CollapsedWidthPx, GutterWidthPx, alignAfter, alignOf, columnsShowing, drawnOf, gridWidthPx, headAlignOf, isDrawnByEditor, isTypedInto, qnumSortkeyOf, readoutOf, resolve, shownOf, specFor, specsFor, templatedTextOf, widgetingRemovalRefusal } from '../../src/lib/columns'
+import { CollapsedWidthPx, GutterWidthPx, alignAfter, alignOf, columnsShowing, drawnOf, gridWidthPx, headAlignOf, isDrawnByEditor, isTypedInto, qnumSortkeyOf, readoutAfter, readoutOf, resolve, shownOf, specFor, specsFor, templatableOf, templatedTextOf, widgetingRemovalRefusal } from '../../src/lib/columns'
 import { Column, type ColumnAlign } from '../../src/models/column'
 import { classicLayout } from '../support/layouts'
 import { Widgeting } from '../../src/models/widgeting'
@@ -185,6 +185,39 @@ describe('alignOf and headAlignOf', () => {
 describe('alignAfter', () => {
   it('steps left, center, right, and round to left again', () => {
     expect(['left', 'center', 'right'].map((align) => alignAfter(align as ColumnAlign))).to.deep.eq(['center', 'right', 'left'])
+  })
+})
+
+describe('readoutAfter', () => {
+  it('steps from none named to plain, markdown, code, label, and round to none again', () => {
+    const stepped = [undefined, 'plain', 'markdown', 'code', 'label'] as const
+    expect(stepped.map((readout) => readoutAfter(readout))).to.deep.eq(['plain', 'markdown', 'code', 'label', null])
+  })
+})
+
+describe('templatableOf', () => {
+  const library = [
+    Widget.fill({ label: 'authors', formulary: 'entry', config: { entry_kind: 'text' } }),
+    Widget.fill({ label: 'sizer', formulary: 'jsonata', formula: '$length(qn.clueing)' }),
+  ]
+  const quiz = {
+    widgetings:   [Widgeting.fill({ label: 'author', widget_label: 'authors' }), Widgeting.fill({ label: 'size', widget_label: 'sizer' })],
+    templateable: [],
+  }
+
+  it("is a question's markdown field, or a text entry for each question, per the doc examples", () => {
+    expect(templatableOf('clueing', quiz, library)).to.eq('clueing')
+    expect(templatableOf('author', quiz, library)).to.eq('author')
+  })
+
+  it('is null for what cannot be templated: a field not written in markdown, a formula, a ref to nothing', () => {
+    expect(templatableOf('qnum', quiz, library)).to.be.null
+    expect(templatableOf('size', quiz, library)).to.be.null
+    expect(templatableOf('nowhere', quiz, library)).to.be.null
+  })
+
+  it('is a widgeting of another kind the quiz templates already, so its column can let it go', () => {
+    expect(templatableOf('size', { ...quiz, templateable: ['size'] }, library)).to.eq('size')
   })
 })
 

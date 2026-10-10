@@ -522,6 +522,16 @@ describe("templatableSources", () => {
   })
 })
 
+describe("nominationsWith", () => {
+  it("adds the source ticked on, in the order offered, keeping the rest", () => {
+    expect(Templating.nominationsWith({ ...TwoQuiz, templateable: ['author'] }, Library, 'notes', true)).to.deep.eq(['notes', 'author'])
+  })
+
+  it("drops the source ticked off, and any nomination no longer offered", () => {
+    expect(Templating.nominationsWith({ ...TwoQuiz, templateable: ['clueing', 'author', 'gone'] }, Library, 'clueing', false)).to.deep.eq(['author'])
+  })
+})
+
 describe("valuedBagOf", () => {
   it("is the question's template bag, with the value beside the bag's own words", () => {
     const valued = Templating.valuedBagOf(run, [], first._id, 53)

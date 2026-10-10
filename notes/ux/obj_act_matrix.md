@@ -25,7 +25,8 @@ concerns.
 | hunt page | `/~org/hunt`, `HuntRoute` (`screen="hunt"`) |
 | quizzes page | `/~org/hunt/quizzes`, `HuntRoute` (`screen="quizzes"`) |
 | wheel | `/~org/hunt/categories`, `CategoriesRoute` |
-| workbench | `/…/quiz/!edit`, `Workbench`: header, switcher, toolbar, grid, panels |
+| top bar | `SiteHeader`, on every page: the crumbs (logo, ~org, hunt, realm, the quiz's switcher), on the workbench *New quiz* and *Lock quiz*, and the account menu (`AccountMenu`) |
+| workbench | `/…/quiz/!edit`, `Workbench`: header, toolbar, grid, panels, beneath the top bar |
 | playtest | `/…/quiz/!playtest`, `ReviewScreen` |
 | gear | `QuizManageModal`, from the header's gear |
 | gear › X | one section of the gear: Label, Columns, Widgetings, Templates, History, Hunt, All quizzes, Archived, Danger |
@@ -45,14 +46,14 @@ such verb, by decision or by omission (the Notes column says which).
 
 | Noun | Read, list | Create | Edit | Relabel | Reorder | Delete, archive | Bulk in, out | Home today | Policy | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| ident | header byline | gate (`assume_ident`) | hunts: name, in place (`retitle_ident`) | none | | none | | hunts | own | `/~org` is the ident's address and holds no editor. *Be someone else* at hunts. |
+| ident | top bar's account menu; hunts | gate (`assume_ident`) | name, in place: hunts, and the account menu (`retitle_ident`, one component, `IdentTitle`) | none | | none | | hunts | own | `/~org` is the ident's address and holds no editor. *Be someone else* at hunts and in the account menu. |
 | hunt | hunts; hunt page; breadcrumb | hunts *+ New hunt* | title: hunt gear (explicit Save) **and** gear › Hunt (explicit Rename) | hunt gear **and** gear › Hunt | | gear › Danger, only as its last quiz goes (`delete_hunt`) | Raw Export (whole hunt, from a quiz); Full History | hunt page | `mayChangeHunt` | Its own page edits nothing of it but the branch. Two editors of one field, by different mechanisms. |
 | branch | hunt page › Branch | | hunt page, explicit Switch (`rebranch_hunt`) | | | | | hunt page | `mayChangeHunt` | Not shown in the gear's History. |
 | categories (wheel) | wheel; panels › Spread (as a chart) | | wheel, drag and double-click (`arrange_categories`) | | | | in the hunt's balls | wheel | `mayChangeHunt` | Linked from hunts, hunt page, gear › Hunt. Not from the Spread panel, which draws it. |
 | members (hunting) | hunt page › Members (read-only); panels › Members | panels › Members *Add* (`add_hunting`) | role: none as a verb | | | panels › Members *Remove* (`remove_hunting`) | `members.tqm.json` | `/members` is addressed, unserved | `mayChangeMembership` | The hunt page's copy says "from a quiz's Members panel" instead of being one. The policy's doc promises "change their role"; no action does. |
 | history (mirror) | hunt page › History; gear › History; panels › Export/Import › Full History | gear › History *Mark a milestone* | | | | | download, in all three places | three places | | Three doors, no home. |
-| realm | in the address | none | none | none | none | none | | | | One realm, `home`, by decision (`urls.md`). |
-| quiz | switcher; hunt page; quizzes page; hunts | switcher *+ New quiz* (`new_quiz`) | title, smith's note: header, in place; lock: switcher (`set_lock`) | gear › Label, explicit (`relabel_quiz`) | none | gear › Danger, typed confirmation (`delete_quiz`) | Export/Import: Spreadsheet, Raw Export, Import, LL Export | workbench | `mayReviseQuiz`; lock by `mayChangeHunt` | A quiz is made only from inside another quiz. Lock is toggled only in the switcher. |
+| realm | in the address; top bar's crumb, which links to the quizzes page | none | none | none | none | none | | | | One realm, `home`, by decision (`urls.md`). |
+| quiz | top bar's switcher (a menu of the realm's quizzes, on the workbench and playtest); hunt page; quizzes page; hunts | top bar *New quiz*, on the workbench (`new_quiz`) | title, smith's note: header, in place; lock: top bar, on the workbench (`set_lock`) | gear › Label, explicit (`relabel_quiz`) | none | gear › Danger, typed confirmation (`delete_quiz`) | Export/Import: Spreadsheet, Raw Export, Import, LL Export | workbench | `mayReviseQuiz`; lock by `mayChangeHunt` | A quiz is made only from inside another quiz. Lock is toggled only in the top bar. |
 | Q1 preamble | Export/Import › LL Export | | there, in place (`set_q1_preamble`) | | | | | LL Export tab | `mayReviseQuiz` | Lives where it is used. |
 | recap head, tail, template | panels › Recap | | there, in place (`set_recap_*`) | | | | | Recap panel | `mayReviseQuiz` | |
 | templateable sources | gear › Templates | | checkboxes, in place (`set_templateable`) | | | | | gear › Templates | `mayReviseQuiz` | |

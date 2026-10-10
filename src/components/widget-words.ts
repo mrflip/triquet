@@ -1,4 +1,9 @@
 import _ from 'es-toolkit/compat'
+import type { SvgIcon } from '@mui/material'
+import DataObjectIcon from '@mui/icons-material/DataObject'
+import FunctionsIcon from '@mui/icons-material/Functions'
+import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined'
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import type { EntryInForceT } from '../lib/formulary/entry'
 import * as Regexes from '../lib/regexes'
 import type { StatusCounts } from '../lib/formulary/runner'
@@ -14,10 +19,23 @@ export const FormularyWords: Readonly<Record<Formularykind, { noun: string, grou
   liquidize: { noun: 'template', group: 'Templates', gist: 'A template: Liquid filled in for every question as it changes, coming to markdown' },
 }
 
+/**
+ * The mark of each formulary, at the head of a widgeting's row and wherever its widgets are
+ * listed, its noun in the mark's tooltip (`FormularyWords`): a sigma for a formula, a robot for a
+ * prompt, a keyboard for an entry typed by hand, and braces for a template's Liquid.
+ */
+export const FormularyIcons: Readonly<Record<Formularykind, typeof SvgIcon>> = {
+  jsonata:   FunctionsIcon,
+  aibot:     SmartToyOutlinedIcon,
+  entry:     KeyboardOutlinedIcon,
+  liquidize: DataObjectIcon,
+}
+
 /** How each kind of entry is spoken of on screen: what its cells take */
 export const EntryKindWords: Readonly<Record<EntryKind, string>> = {
   text:      'Text: a note, markdown welcome, or one line held to a pattern',
   number:    'A number, between bounds if you like',
+  percent:   'A percent: a number from 0 to 100, shown with %',
   boolean:   'Yes or no: a checkbox',
   enum:      'A choice: one of a list of options',
   labelish:  'A label: lowercase letters, digits and single underscores',

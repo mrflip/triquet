@@ -43,7 +43,7 @@ export function QuizNotFound({ org, labels, hunt }: Readonly<QuizNotFoundProps>)
         <Link component={NextLink} href={Routes.huntsPath()}>Your hunts</Link>
       </Panel>
       {hunt && (
-        <Panel title={`Quizzes of ${hunt.title}`} blurb="Every quiz this hunt holds.">
+        <Panel title={`Quizzes of ${hunt.title}`} about="Every quiz this hunt holds.">
           <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
             {hunt.realms.flatMap((realm) => realm.quizzes).map((quiz) => (
               <Button key={quiz._id} size="small" variant="outlined" component={NextLink} href={addressOf(hunt, quiz)}>
@@ -66,7 +66,7 @@ function RepoList() {
   const repos = useHuntRepos()
   const hunts = useHuntsList()
   return (
-    <Panel title="History repositories" blurb="Each hunt's history is kept in a git repository in this browser, a deleted quiz's files among it. A hunt you are on links to its page; the rest are of hunts deleted, or that you are not on.">
+    <Panel title="History repositories" about="Each hunt's history is kept in a git repository in this browser, a deleted quiz's files among it. A hunt you are on links to its page; the rest are of hunts deleted, or that you are not on.">
       {repos === null && <p className={styles.microcopy}>Looking&hellip;</p>}
       {repos?.length === 0 && <p className={styles.microcopy}>{AppNotices.noRepositories}</p>}
       {repos && repos.length > 0 && <HuntRepoList repos={repos} hunts={hunts ?? []} naming="History repositories" />}
