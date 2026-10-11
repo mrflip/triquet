@@ -134,9 +134,10 @@ migrations table, runs `migrations:runAll`, waits (up to five minutes) for
 backfilled. No downtime, and nothing to think about while no merge tightens.
 
 With a tightening in play, **merge in order and let each Serial Deploy's build finish** before
-merging what is stacked above it: Vercel builds only the newest commit of a push, and skips
-queued builds of the same branch in favour of the newest (`github.autoJobCancelation`), so a
-widening and its tightening merged minutes apart build the tightening alone. Its push is refused
+merging what is stacked above it: Vercel builds only the newest commit of a push, so a widening
+and its tightening merged in one push build the tightening alone (`vercel.json` turns off
+`github.autoJobCancelation`, so merges in separate pushes build in sequence rather than the
+newest alone). A tightening built before its widening's backfill has run is refused
 (the rows lack the field), production keeps serving the previous step, whole, and the build log
 names the row. That is not a lockout: it is the cue for yeet mode. A backfill that stops, or is
 still running at the limit, fails the build the same way; the functions already serve, so what
@@ -167,7 +168,12 @@ where it stood. A head already pushed whose backfills never finished (serial mod
 in the wait) is finished and recorded, not re-walked. Flags: `--to <ref>` for a head other than
 `origin/main`; `--from <sha>` for the step the rows stand at when the table is empty or names a
 commit not in this history (the first run on production: `/stats` names the commit it serves);
-`--wait <seconds>` for the backfill limit (300). With `TRIQUET_DEPLOY_HOOK_URL` set, it ends by
+`--wait <seconds>` for the backfill limit (300); `--verify <role>` to check the table's word
+before anything is pushed: the step it names is pushed to that local role (emptied if its rows
+refuse it) and the role's function spec (`convex function-spec`, as `scripts/convex_healthcheck`
+compares it) must equal the target's, or the run stops naming the functions that differ. It
+checks the functions, which is what the CLI exposes, not the tables themselves; name a disposable
+role (`e2e`). With `TRIQUET_DEPLOY_HOOK_URL` set, it ends by
 posting to it: Vercel's deploy hook, so the pages are built once the functions they talk to are
 in. Without it, redeploy `main` from Vercel, whose own push is then a no-op and whose backfill run
 finds nothing.

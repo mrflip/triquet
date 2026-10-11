@@ -223,7 +223,11 @@ anything about production changes.
   hand clearings kept under *History*; `notes/git_hygiene.md`, `notes/git_hygiene-coach.md`,
   `notes/convex.md` and `CLAUDE.md` point at it.
 
-Not done, and for you: `vercel.json`'s `github.autoJobCancelation` is untouched (serial mode still
-wants one build per merge for a stack with a tightening; yeet mode does not care); the deploy hook
-URL (`TRIQUET_DEPLOY_HOOK_URL`) is read when set and otherwise nothing is posted; and production's
-first `pnpm deploy` needs `--from <the commit /stats names>`, after which the table says.
+Added on your questions: `vercel.json` now turns `github.autoJobCancelation` off, so merges in
+separate pushes build in sequence; and `pnpm deploy --verify <role>` checks that the target holds
+the functions of the step its table names before anything is pushed (the step pushed to a local
+role, `convex function-spec` of both compared with `isDeepStrictEqual`; the CLI exposes functions,
+not tables, so a schema-only drift with no function change would pass). For you: the deploy hook
+URL (`TRIQUET_DEPLOY_HOOK_URL`) is read when set and otherwise nothing is posted, so without it you
+redeploy `main` from Vercel after a yeet; and production's first `pnpm deploy` needs `--from <the
+commit /stats names>`, after which the table says.
