@@ -3,7 +3,7 @@ import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import * as Routes from '../src/lib/routes'
 import { putOnHunt } from './admin'
-import { addMember, answerRemoval, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openAccount, openManage, openPanel, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
+import { addMember, answerRemoval, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openUserMenu, openPanel, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
 
 // The tests about the front door, the hunts list, or making a hunt go in by themselves
 // (`startAt: null`); the rest begin at the fixture's fresh hunt, with the fixture's friend for a
@@ -130,20 +130,20 @@ test.describe('the front door', () => {
     await expect(page.getByText(`(@${other})`)).toBeVisible()
   })
 
-  test("names the visitor in the header's account menu, which retitles them and lets them become someone else", async ({ page }) => {
+  test("names the visitor in the header's user menu, which retitles them and lets them become someone else", async ({ page }) => {
     const label = await assumeIdent(page)
-    let account = await openAccount(page)
-    await expect(account).toContainText(`@${label}`)
-    await account.getByRole('textbox', { name: 'Your name' }).fill('Menu Named')
-    await account.getByRole('textbox', { name: 'Your name' }).blur()
+    let menu = await openUserMenu(page)
+    await expect(menu).toContainText(`@${label}`)
+    await menu.getByRole('textbox', { name: 'Your name' }).fill('Menu Named')
+    await menu.getByRole('textbox', { name: 'Your name' }).blur()
     // Said to the menu itself: the blur leaves focus on the page's body, which the menu does not hear.
-    await account.press('Escape')
-    await expect(account).toBeHidden()
+    await menu.press('Escape')
+    await expect(menu).toBeHidden()
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('Menu Named')
-    await expect(page.getByRole('banner').getByRole('button', { name: 'Account' })).toHaveText('M')
+    await expect(page.getByRole('banner').getByRole('button', { name: 'You', exact: true })).toHaveText('M')
 
-    account = await openAccount(page)
-    await account.getByRole('menuitem', { name: 'Be someone else' }).click()
+    menu = await openUserMenu(page)
+    await menu.getByRole('menuitem', { name: 'Be someone else' }).click()
     await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
   })
 
@@ -314,8 +314,8 @@ test.describe('a hunt', () => {
     await expect(page.getByRole('table', { name: 'Your hunts' }).getByRole('rowheader', { name: huntTitle })).toBeVisible()
 
     // A page about no hunt names none.
-    const account = await openAccount(page)
-    await account.getByRole('menuitem', { name: 'About' }).click()
+    const menu = await openUserMenu(page)
+    await menu.getByRole('menuitem', { name: 'About' }).click()
     await expect(page).toHaveURL('/about')
     await expect(whereYouAre(page).getByRole('link')).toHaveCount(1)
   })
