@@ -16,6 +16,22 @@ decision, why, and what is left: `notes/security.md` (the entry on login CSRF); 
 lines: `notes/stack.md`, *Authentication*. After the fix: justify green, convex-test 775/775 (the
 attack tests among them), the Google spec 5/5; no full e2e since.
 
+**Second review, the Coach's option 1 (bound the verifier), built.** The exchange hands the
+starting session on only from a verifier made within `SIGN_IN_START_MAX_AGE_MS` (15 minutes, in
+the patch) and refuses it whole otherwise; a verifier dies with its code (wrong verifier, expired,
+replaced); `returnUrlFor` (`convex/auth.ts`, the `redirect` callback, over `Routes.isSyncedPath`)
+sends a browser back only to a `(synced)` page, so the code is spent as it lands. The Coach's two
+conditions: the installed client **did** strand the anonymous user on a refused exchange (it
+cleared the stored tokens; a thrown one loaded for ever), so the patch now keeps the session in
+both (DOM-tested); a refused exchange changes no row of the browser's user (convex-tested for a
+stale verifier, a wrong one and an expired code, upgrade and merge). The tab then says so:
+`useGoogleSignInOutcome` (placed in `ShowUser`, one line, through the page's alarm) compares a
+SHA-256 of its token, noted in its own session storage as it left (never the token), with the one
+it came back on, and clears the verifier key Convex Auth left; the notice is
+`GoogleSignInUnfinished` / `googleSignInUnfinishedNotice` in `src/lib/notices.ts` (**wording a
+draft for the Coach**). No sweep of dead sign-ins: `whiteboard/TODO.md`. After it: justify green;
+the Google and routing specs 54/54; no full e2e since.
+
 * **Built**:
   - **The patch**: `patches/@convex-dev__auth@0.0.96.patch` (in `pnpm-workspace.yaml`, `dist/`
     only): the `authUserId` half of upstream's PR #306, handed on at the code's exchange rather
@@ -119,7 +135,8 @@ attack tests among them), the Google spec 5/5; no full e2e since.
     userlabel.
   - Clear the merged user's `userlabel` before the carrying user takes it (`by_userlabel` is
     read with `.first()`, and two holders at once would break the free check).
-  - The button reads `useGoogleSignIn()`; both doors call its `start`.
+  - The button reads `useGoogleSignIn()`; both doors call its `start`. The unfinished-sign-in notice is raised already (the page's
+    alarm, from `ShowUser`); move it to a view of its own if the doors want it nearer.
   - Nothing of the browser's user is decided until the `?code=` exchange: a door's view after the
     round trip reads the result from `users.current`, never anything the callback wrote.
   - The merged user's other unfinished sign-ins' `authVerifiers` stay (no index finds them by
