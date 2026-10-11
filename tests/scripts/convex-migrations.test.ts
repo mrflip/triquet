@@ -102,3 +102,18 @@ describe('awaitBackfills', () => {
     expect(looked()).to.equal(4)
   })
 })
+
+describe('failureIn', () => {
+  it("names what the function threw, after the CLI's first line, past the request id and the stack", () => {
+    const stderr = '✖ Failed to run function "adopt:plan":\nConvexError: [Request ID: 4b30] Server Error\nUncaught ConvexError: No user has the email pat@example.com.\n    at userFound (../convex/adopt.ts:111:13)\n'
+    expect(ConvexMigrations.failureIn(stderr)).to.eq('✖ Failed to run function "adopt:plan": Uncaught ConvexError: No user has the email pat@example.com.')
+  })
+
+  it('takes the first two lines when nothing names what was thrown', () => {
+    expect(ConvexMigrations.failureIn('✖ Could not reach the deployment\nIs it running?\nTried three times')).to.eq('✖ Could not reach the deployment Is it running?')
+  })
+
+  it('takes what there is of a short or empty stderr', () => {
+    expect([ConvexMigrations.failureIn('✖ Boom\n'), ConvexMigrations.failureIn('')]).to.deep.eq(['✖ Boom', ''])
+  })
+})

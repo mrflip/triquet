@@ -1,3 +1,4 @@
+import { ConvexError } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import { AdoptionValidators, type AdoptChangeT, type AdoptedT, type AdoptionT } from '../src/models/adoption'
 import { Huntship, type HuntRole } from '../src/models/huntship'
@@ -13,7 +14,8 @@ import type { Writer } from './writing/quiz_writing'
 // a holder of the deployment's admin key reaches it, and that key is what vouches for the command:
 // how the Coach takes back `mrflip`, and admin with it, once production's people are cleared
 // (`notes/deploy.md`, *Adopting a user*). `plan` says what `perform` would do and writes nothing;
-// `perform` does it, and running it again changes nothing more.
+// `perform` does it, and running it again changes nothing more. A refusal is a `ConvexError` whose
+// data is its reason, in words for the person at the command line, which `convex run` shows them.
 
 /** How many users an email that more than one holds is answered with, for the Coach to choose among */
 const EmailHoldersShown = 9
@@ -80,10 +82,10 @@ async function planFor(db: Reader, request: AdoptionT): Promise<PlanT> {
   const relabel = await relabelFor(db, user, request)
   const userlabel = relabel?.userlabel ?? user.userlabel
   const signedIn = ! User.isAnonymous(user)
-  if (! signedIn && request.admin === true) { throw new Error(`The user ${userline(user)} is anonymous: only a user signed in with Google is made an admin.`) }
+  if (! signedIn && request.admin === true) { throw new ConvexError(`The user ${userline(user)} is anonymous: only a user signed in with Google is made an admin.`) }
   if (request.grants.length > 0) {
-    if (! signedIn) { throw new Error(`The user ${userline(user)} is anonymous: only a user signed in with Google is put on a hunt.`) }
-    if (userlabel === undefined) { throw new Error(`The user ${userline(user)} holds no userlabel, so it cannot be put on a hunt: give it one too.`) }
+    if (! signedIn) { throw new ConvexError(`The user ${userline(user)} is anonymous: only a user signed in with Google is put on a hunt.`) }
+    if (userlabel === undefined) { throw new ConvexError(`The user ${userline(user)} holds no userlabel, so it cannot be put on a hunt: give it one too.`) }
   }
   const admin = request.admin === undefined || request.admin === (user.admin === true) ? null : request.admin
   const grants = await grantsFor(db, user._id, request.grants)
@@ -96,19 +98,19 @@ async function planFor(db: Reader, request: AdoptionT): Promise<PlanT> {
 async function userFound(db: Reader, find: AdoptionT['find']): Promise<Doc<'users'>> {
   if ('user_id' in find) {
     const user = await db.get('users', find.user_id)
-    if (! user) { throw new Error(`No user has the id ${find.user_id}.`) }
+    if (! user) { throw new ConvexError(`No user has the id ${find.user_id}.`) }
     return user
   }
   if ('userlabel' in find) {
     const user = await userForUserlabel(db, find.userlabel)
-    if (! user) { throw new Error(`No user holds the userlabel ${find.userlabel}.`) }
+    if (! user) { throw new ConvexError(`No user holds the userlabel ${find.userlabel}.`) }
     return user
   }
   const holders = await db.query('users').withIndex('email', (cvx) => cvx.eq('email', find.email)).take(EmailHoldersShown)
   const [user, ...others] = holders
-  if (! user) { throw new Error(`No user has the email ${find.email}. Has its owner signed in with Google?`) }
+  if (! user) { throw new ConvexError(`No user has the email ${find.email}. Has its owner signed in with Google?`) }
   if (others.length > 0) {
-    throw new Error(`More than one user has the email ${find.email}, so none is chosen: ${holders.map((holder) => userline(holder)).join(', ')}. Name one by its id.`)
+    throw new ConvexError(`More than one user has the email ${find.email}, so none is chosen: ${holders.map((holder) => userline(holder)).join(', ')}. Name one by its id.`)
   }
   return user
 }
@@ -121,13 +123,13 @@ async function userFound(db: Reader, find: AdoptionT['find']): Promise<Doc<'user
 async function relabelFor(db: Reader, user: Doc<'users'>, request: AdoptionT): Promise<PlanT['relabel']> {
   if (request.userlabel === undefined && request.title === undefined) { return null }
   const userlabel = request.userlabel ?? user.userlabel
-  if (userlabel === undefined) { throw new Error(`The user ${userline(user)} holds no userlabel to title: give it one too.`) }
+  if (userlabel === undefined) { throw new ConvexError(`The user ${userline(user)} holds no userlabel to title: give it one too.`) }
   const title = User.titleFor(userlabel, request.title ?? user.title ?? '')
   if (userlabel === user.userlabel && title === user.title) { return null }
   if (userlabel !== user.userlabel) {
     const holder = await holderOfUserlabel(db, userlabel)
-    if (holder === 'user')     { throw new Error(`Another user holds the userlabel ${userlabel}.`) }
-    if (holder === 'ghosting') { throw new Error(`The userlabel ${userlabel} is retired by a merge (a ghosting holds it).`) }
+    if (holder === 'user')     { throw new ConvexError(`Another user holds the userlabel ${userlabel}.`) }
+    if (holder === 'ghosting') { throw new ConvexError(`The userlabel ${userlabel} is retired by a merge (a ghosting holds it).`) }
   }
   const huntships = await huntshipsFor(db, user._id)
   const stale = huntships.filter((huntship) => huntship.userlabel !== userlabel || huntship.usertitle !== title)
@@ -159,7 +161,7 @@ async function grantsFor(db: Reader, user_id: Id<'users'>, grants: AdoptionT['gr
 async function huntsGranted(db: Reader, hunts: AdoptionT['grants'][number]['hunts']): Promise<Doc<'hunts'>[]> {
   if (hunts === 'every') { return await huntsOf(db) }
   const hunt = await huntInOrg(db, hunts.org, hunts.hunt)
-  if (! hunt) { throw new Error(`There is no hunt at ~${hunts.org}/${hunts.hunt}.`) }
+  if (! hunt) { throw new ConvexError(`There is no hunt at ~${hunts.org}/${hunts.hunt}.`) }
   return [hunt]
 }
 
@@ -170,7 +172,7 @@ async function carryOut(db: Writer, planned: PlanT): Promise<number> {
   if (admin !== null) { await db.patch('users', user._id, { admin: admin ? true : undefined }) } // absent for no
   if (grants.length === 0) { return huntships }
   const face = User.faceOf({ ...user, ...(relabel && { userlabel: relabel.userlabel, title: relabel.title }) })
-  if (! face) { throw new Error(`The user ${userline(user)} holds no userlabel, so it cannot be put on a hunt.`) }
+  if (! face) { throw new ConvexError(`The user ${userline(user)} holds no userlabel, so it cannot be put on a hunt.`) }
   for (const { hunt, role } of grants) { await grantHuntship(db, hunt._id, face, role) }
   return huntships
 }
