@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: 7 landed (#226); 1 and 2 landing; 8 underway (2026-10-11).**
+**Status: 7 and 2 landed (#226, #227); 1 landing; 8 underway (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -8,7 +8,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
 | 1 | `split_account`: free the words "account" and "username" | landing | `20261011-split_account` | |
-| 2 | `clear_people`: delete production's people, keep its hunts | landing | `20261011-clear_people` | |
+| 2 | `clear_people`: delete production's people, keep its hunts | landed #227 | `20261011-clear_people` | [#227](https://github.com/mrflip/triquet/pull/227) |
 | 3 | `converge`: users and huntships, everywhere | pending (1, 2) | | |
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | pending (3) | | |
 | 5 | `google_signin`: the provider, the patch, the merge | pending (3) | | |
@@ -28,6 +28,11 @@ Full e2e runs at landing: threads 3 and 5, and every fourth landing (none yet).
   Left, as wording for the Coach (`human/20261011-google_pages.md`, items 6 to 8): smiths visible
   through guessable hunt labels (thread 9 weighs it); images in questions load from other hosts;
   a deletion request naming a handle can't be verified. Full e2e 299/299, no flakes.
+* **Thread 2, #227**, stacked on #226. *Review: clean.* The guard acts only when `--deployment`
+  matches the deployment's own `cloudUrl` (read through `function-spec` with the same admin key
+  as the action); the mutation touches only the people's tables. Left, minor: the deployment is
+  checked once, and later `convex run`s pick it again from the environment (*Open, for threads 4
+  and 8* in its thread file). Full e2e 293/293, no flakes.
 
 ## What the threads have taught
 
