@@ -5,7 +5,7 @@ import { noticeOf } from '../../src/lib/refusals'
 import type { OuterHuntActionDNA } from '../../src/models/actions'
 import * as PA from '../../src/lib/vv/patterns'
 import { Hunt } from '../../src/models/hunt'
-import { callerOf, identified, openTester, seedHunt, type Session, type Tester } from '../support/convex'
+import { callerOf, googleUser, openTester, seedHunt, type Session, type Tester } from '../support/convex'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
 
@@ -117,7 +117,7 @@ describe('a hunt named before its words were reserved', () => {
 describe('a new hunt', () => {
   it('is refused a label the list keeps, and makes nothing', async () => {
     const tt = openTester()
-    const alice = await identified(tt, 'alice_smiths')
+    const alice = await googleUser(tt, 'alice_smiths')
     for (const label of ['privacy', 'google_docs', 'handle', 'smiths']) {
       expect(await noticeFor(performOuter(alice, { kind: 'new_hunt', label }))).to.include(PA.UnreservedToplevel.msg)
     }
