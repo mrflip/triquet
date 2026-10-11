@@ -74,6 +74,10 @@ come.
     the actor's kind another name or retire it.
   - "Handle" on screen meets the drag handles the screen also shows, and STYLE.md's `handle` tag.
     The front door's field is matched `exact: true` in e2e.
+  - **Deploy skew** (the reviewer's note): `idents:performAccount` is gone and the wire codes are
+    renamed, so a tab still running the old bundle gets "Could not find public function" for
+    logging in, retitling, making a hunt, renaming and rebranching until it reloads. A known effect
+    of deploying; no shim.
   - The repo has no `renderHook` tests; the awaited-actions hooks are covered by e2e, as their
     predecessor was.
 
