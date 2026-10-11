@@ -145,7 +145,9 @@ shield, not a security rule). A change to who is sent what is an edit to that li
 
 Convex Auth's tables (`users`, `authSessions`, `authAccounts` and the rest) are spread into
 `convex/schema.ts` as it ships them (`authTables`): they are its own, written only by it, and not
-derived from a row validator of ours. `tests/convex/schema.test.ts` leaves them out.
+derived from a row validator of ours. `tests/convex/schema.test.ts` leaves them out. The one
+exception is the OAuth sprint's clear of production's people (`convex/clear_people.ts`, run once
+by a Coach: `notes/deploy.md`, *Clearing production's people*), which deletes them all.
 
 ## Convex's own guidelines
 

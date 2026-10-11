@@ -227,6 +227,68 @@ since rebased) is refused; `--from <rev>` says where its rows really stand. A ro
 not worth keeping is simply emptied instead (`scripts/convex_reset <role>`, or
 `scripts/convex_dev <role> --reset`).
 
+## Commands run by hand on production
+
+A few one-off commands change production's rows from a terminal, under the janitor's config.
+Each stands behind one guard, `scripts/janitor.ts`, so none can be pointed at the wrong deployment
+by accident:
+
+* **A dry run by default.** Without `--deployment`, the command looks, says what it would do, and
+  changes nothing. It ends by naming the deployment it reached.
+* **It acts only with `--deployment <name>`**, and only when that name is the deployment the
+  environment's key actually reaches: the guard asks that deployment for its function spec
+  (`convex function-spec`, which reads and writes nothing) and takes the name from the address it
+  gives (`careful-otter-123` from `https://careful-otter-123.convex.cloud`; a local backend's host
+  and port, `127.0.0.1:3431`). A name typed on the command line never vouches for itself. Any other
+  name stops the command before it does anything.
+
+So the second run copies the name the first one printed, having seen it. Agents prove such a
+command against their own lane's backend (`./scripts/doppledo dev_claude scripts/convex_dev
+<role> scripts/<command>`) and in convex-test, and never run it under a production config, not
+even dry.
+
+### Clearing production's people (the OAuth sprint, October 2026)
+
+Production keeps its hunts and loses its people (the Coach, 2026-10-11): the sprint makes Convex
+Auth's `users` row the person-facing record, and there is nothing worth carrying across.
+`scripts/clear_people` deletes every row of `users`, `authAccounts`, `authSessions`,
+`authRefreshTokens`, `authVerifiers`, `authVerificationCodes`, `authRateLimits`, `idents`,
+`identings`, `huntings`, `reviews` and `reviewings`, through `clear_people:clearBatch`, a batch a
+run, until a run deletes nothing. Hunts, realms, quizzes, questions, widgetings, columns,
+widgeteds, signals and the library stay, at their addresses; a quiz whose shared reviews go has
+its change signal moved, as any write to its reviews moves it. Every browser is signed out.
+
+**Why a command, and not a backfill.** A table is usually emptied by a backfill (*Schema pushes*,
+above), which runs by itself when its pull request merges. This clear must happen at a moment
+the Coach chooses: after production has been exported, and just before the push that drops
+the tables, so that nobody's visit in between leaves a row the new schema refuses. A backfill would
+run at the first merge, while the old app still serves and makes new people. A command also gives
+a dry run that shows the counts first, and can simply be run again. And it reaches Convex Auth's
+tables, which are not ours to backfill.
+
+The Coach's steps, in order:
+
+1. **Export production**, and keep the file outside the repo:
+   `./scripts/doppledo prd_janitor npx convex export --path ~/prd-exports/<date>.zip`.
+2. **Merge the sprint's first two threads** (`split_account` and `clear_people`), and let them
+   deploy. Nothing changes for visitors; the clear's functions are now on production.
+3. **Clear, then deploy at once.**
+   - `./scripts/doppledo prd_janitor scripts/clear_people`: a dry run, counting each table's rows
+     and naming the deployment it reached. Check that the name is production's.
+   - `./scripts/doppledo prd_janitor scripts/clear_people --deployment <that name>`: the clear. It
+     says what each run deleted, and counts again; anything left was written while it ran (exit 1),
+     and a second run takes it.
+   - Then merge the sprint's remaining threads straight away, and let them deploy. A visit in
+     between leaves a row the new schema refuses, and the push stops, naming it: clear again and
+     redeploy.
+4. **Sign in with Google**, with any handle or none (`mrflip` is held by hunts' addresses, so it
+   cannot be claimed in the app).
+5. **Adopt**: the orchestrator runs the sprint's adopt command, on the Coach's word at the time,
+   giving that user `mrflip`, admin, and smith of every hunt.
+
+The `converge` thread deletes `scripts/clear_people` and `convex/clear_people.ts` with the tables
+they empty, and keeps the guard.
+
 ## History
 
 What was done by hand before deploys took their own steps: the table clearings of September and

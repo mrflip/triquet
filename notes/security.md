@@ -73,3 +73,12 @@ security expert who knows what questions to ask.
   site (`*OAuthstate`, `*OAuthpkce`, `*OAuthnonce`, `*RedirectTo`, fifteen minutes each); and that
   nothing goes to a bot unasked. Code that changes any of these
   changes the policy, and its date, in the same PR.
+* 2026-10-11 (oauth sprint, thread 2): `clear_people:clearBatch` (`convex/clear_people.ts`), an
+  internal mutation, deletes every row of Convex Auth's tables (`users`, `authAccounts`,
+  `authSessions`, `authRefreshTokens`, `authVerifiers`, `authVerificationCodes`,
+  `authRateLimits`) and of `idents`, `identings`, `huntings`, `reviews` and `reviewings`, with no
+  argument and no environment check: the one place our code writes Convex Auth's tables. It is
+  run on production once, by a Coach, through `scripts/clear_people` under `prd_janitor`; the
+  `converge` thread deletes it. The script's guard (`scripts/janitor.ts`, kept for later janitor
+  commands) acts only when `--deployment` names the deployment the CLI's environment reaches, as
+  that deployment's `convex function-spec` gives its address; a dry run is the default.
