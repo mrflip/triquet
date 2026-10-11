@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: resumed (2026-10-11): thread 5 building the Coach's option 1. 7, 2, 1, 8, 3 and 4 landed (#226-#231).**
+**Status: thread 5 landing on the Coach's word (2026-10-11). 7, 2, 1, 8, 3 and 4 landed (#226-#231).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -11,7 +11,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 2 | `clear_people`: delete production's people, keep its hunts | landed #227 | `20261011-clear_people` | [#227](https://github.com/mrflip/triquet/pull/227) |
 | 3 | `converge`: users and huntships, everywhere | landed #230 | `20261011-converge` | [#230](https://github.com/mrflip/triquet/pull/230) |
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | landed #231 | `20261011-adopt_script` | [#231](https://github.com/mrflip/triquet/pull/231) |
-| 5 | `google_signin`: the provider, the patch, the merge | fixing (the Coach's option 1); to the Coach before landing | `20261011-google_signin` | |
+| 5 | `google_signin`: the provider, the patch, the merge | landing (full e2e), on the Coach's word | `20261011-google_signin` | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
@@ -238,7 +238,18 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
     orphaned verifiers are never swept. **The Coach decided: option 1** (plan, *The Coach's
     guidance*): bound the verifier, delete it wherever its code dies, a redirect limited to
     synced pages; a refused exchange leaves the person on their old anonymous session, with no
-    confusing state.
+    confusing state. **Built** (`4c5351d4`): `SIGN_IN_START_MAX_AGE_MS` (15 minutes) in the
+    patched `verifyCodeAndSignIn.js`; a verifier deleted wherever its code dies; `returnUrlFor`
+    (`convex/auth.ts`, through `Routes.isSyncedPath`) allows only relative synced pages. **The
+    installed client did strand the anonymous user** (a refused exchange cleared the stored
+    session; one that threw left `isLoading` true for ever); the patch, now four parts beyond #306
+    across three `dist/` files including `client.js`, keeps the stored session in both.
+    **For thread 6:** `useGoogleSignInOutcome` (compares a fingerprint of the session token, kept
+    in session storage, with the token on return) raises the notice "Google sign-in didn't
+    finish / You're still `<handle>`, as before. Try again." and clears a leftover verifier;
+    placed by one line in `ShowUser`, for thread 6 to move. No sweep (TODO). A test reached
+    Google's public discovery document over the network before `fetch` was stubbed.
+    **The Coach approved it and the wording ("wording is perfect"), and said land.**
   - **A near miss with the ground rule:** the first draft of the e2e spec followed the 302 to
     Google's real sign-in page (Playwright's `page.route` does not catch a server redirect).
     Nothing signed in; the spec now reads the 302 without following it. Reported to the Coach.

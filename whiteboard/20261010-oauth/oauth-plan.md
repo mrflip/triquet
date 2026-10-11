@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-11. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `/sprint oath YOLO`, "plan and execute the sprint described in
 whiteboard/20261010-oauth", which is `20261011-oauth_preplan.md` beside this file.
-**Status: resumed (2026-10-11) on the Coach's decision for thread 5 (option 1: bound the verifier). Threads 1, 2, 3, 4, 7, 8 landed (#226-#231); 5 fixing, to the Coach before it lands; 6 and 9 not started.** `oauth-progress.md`, beside this file, is newer
+**Status: threads 1, 2, 3, 4, 7, 8 landed (#226-#231); 5 landing on the Coach's word (2026-10-11); 6 and 9 next.** `oauth-progress.md`, beside this file, is newer
 than this plan wherever the two disagree.
 
 The earlier plan in this file (three threads, an app-made hand-off, 2026-10-10) is superseded and
@@ -140,6 +140,8 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
   behaviour on a failed exchange is checked first. Also a `callbacks.redirect` limited to synced
   pages (closing the guess window). No sweep (no crons); noted in TODO. The result goes to the
   Coach before it lands.
+* **2026-10-11: thread 5 approved to land,** and the notice wording ("Google sign-in didn't
+  finish" / "You're still `<handle>`, as before. Try again.") approved as it stands.
 
 * **2026-10-11: an anonymous (sealed) user may not delete a hunt.** "No new hunt, no delete hunt
   for anonymous seems easier to reason about." `deleteHunt` takes a hunt holding up to one quiz
