@@ -18,6 +18,16 @@ one-file change. Each claim was checked against the code, and none goes beyond w
 5. **The support email on Google's branding page** must be your Google account's own address or
    a Google Group it manages. If `info@triquet.me` is neither, enter yours there; the pages give
    `info@triquet.me` either way.
+6. **Smiths' names to anyone with a hunt's label** (from the review). `/h/<label>` looks a label up
+   across every org, and `hunts:open` hands a hunt's smiths' names and handles to anyone not on
+   it. Labels are guessable adjective_animal pairs, so a script could list every hunt's smiths. The
+   policy says this truly as written; thread 9 weighs the guessability.
+7. **Images from other hosts** (from the review). An image in a question's markdown loads from
+   whatever host a member wrote, and that host sees each viewer's IP address and when they looked,
+   `no-referrer` notwithstanding. "No analytics or tracking" is true of Triquet itself; a sentence
+   on this may be wanted.
+8. **Checking a deletion request** (from the review). A request naming a handle with no Google
+   account behind it cannot be verified. Decide what is checked before deleting.
 
 **Claims that become true only with later threads** (the pages land early, in the first merge
 step, so they are written to be true either way, mostly with "if you sign in with Google"):

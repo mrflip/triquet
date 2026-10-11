@@ -1,6 +1,8 @@
 # Thread 7: google_pages (2026-10-11)
 
-Branch `20261011-google_pages`, PR filed at landing; see the report. Suites at `ready`: justify
+Branch `20261011-google_pages`, PR filed at landing; see the report. Reviewed (`fixed`: `3645eec8`
+names Convex Auth's sign-in cookies in the policy); the reviewer's three wording findings are on the
+Coach's list in `human/20261011-google_pages.md`, items 6 to 8. Suites at `ready`: justify
 green (203 unit files, 5932 tests); e2e smoke tier 31/31, and `brand` with the new `policies`
 spec 16/16, on lane 4. Not yet proved (`pnpm e2e`): the root layout changed, so `--touched`
 reaches the whole suite.
