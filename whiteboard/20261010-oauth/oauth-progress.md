@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: threads 1, 2 and 7 landing (2026-10-11).**
+**Status: 7 landed (#226); 1 and 2 landing; 8 underway (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -13,11 +13,21 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | pending (3) | | |
 | 5 | `google_signin`: the provider, the patch, the merge | pending (3) | | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
-| 7 | `google_pages`: homepage, privacy, terms, contact | landing | `20261011-google_pages` | |
-| 8 | `reserved_words`: survey and augment the reserved list | pending (a free slot) | | |
+| 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
+| 8 | `reserved_words`: survey and augment the reserved list | underway | `20261011-reserved_words` | |
 | 9 | `oauth_security`: a strong review | pending (1-8) | | |
 
 Full e2e runs at landing: threads 3 and 5, and every fourth landing (none yet).
+
+## Reviews of landed threads
+
+*Orchestrator:*
+
+* **Thread 7, #226.** *Review: fixed.* One fix: the policy no longer says flatly that Triquet
+  sets no cookies (Convex Auth's Google sign-in sets 15-minute OAuth cookies on the Convex site).
+  Left, as wording for the Coach (`human/20261011-google_pages.md`, items 6 to 8): smiths visible
+  through guessable hunt labels (thread 9 weighs it); images in questions load from other hosts;
+  a deletion request naming a handle can't be verified. Full e2e 299/299, no flakes.
 
 ## What the threads have taught
 
