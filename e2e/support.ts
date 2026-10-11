@@ -188,9 +188,12 @@ const ConvexAuthKey = '__convexAuth'
  * Forget the session `page`'s browser holds, as signing out will (thread 6's *Sign out*): its
  * next page signs in afresh, a new anonymous user holding no userlabel, while what else the
  * browser keeps (the hunt histories) stays. For a spec about one browser that more than one user
- * has used: a handle is chosen once, so there is no becoming someone else.
+ * has used: a handle is chosen once, so there is no becoming someone else. The page is left
+ * first, for one that opens no database (the privacy policy), so that no refresh of the session
+ * still on its way from the page before can write the session back once it is forgotten.
  */
 export async function forgetSession(page: Page): Promise<void> {
+  await page.goto('/privacy')
   await page.evaluate((prefix) => {
     for (const key of Object.keys(localStorage)) {
       if (key.startsWith(prefix)) { localStorage.removeItem(key) }
