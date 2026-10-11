@@ -16,6 +16,7 @@ import { QuizValidators } from '../../src/models/quiz'
 import { RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
 import { ReviewingValidators } from '../../src/models/reviewing'
+import { SchemaStepValidators } from '../../src/models/schema-step'
 import { SignalValidators } from '../../src/models/signal'
 import { WidgetValidators } from '../../src/models/widget'
 import { WidgetedValidators } from '../../src/models/widgeted'
@@ -47,6 +48,7 @@ const RowValidators: Record<TableNames, RowValidator> = {
   reviews:     ReviewValidators.row,
   reviewings:  ReviewingValidators.row,
   signals:     SignalValidators.row,
+  schema_steps: SchemaStepValidators.row,
   widgets:     WidgetValidators.row,
   widgetings:  WidgetingValidators.row,
   widgeteds:   WidgetedValidators.row,
@@ -142,6 +144,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
         result_meta: { model_tier_applied: 'quick', approx_tokens: 120, truncated: false, response: { error: { kind: 'overloaded', retry: [1, 2] } } },
       }),
       signals:     SignalValidators.row({ hunt_id, quiz_id, changed_at: 1_759_700_000_000 }),
+      schema_steps: SchemaStepValidators.row({ sha: '84de1bb0c2a1f5e6d7b8a9c0d1e2f3a4b5c6d7e8', subject: 'model: hunts remember their branch', pushed_at: 1_759_700_000_000, backfilled_at: null }),
       quiz_widgeteds: WidgetedValidators.quizRow({
         hunt_id, quiz_id, widgeting_id, status: 'ok', value: { names: ['Ada', 'Grace'] }, message: null, result_meta: { imported: true, nested: { deep: [1, 2] } },
       }),
@@ -162,6 +165,7 @@ const WrongTyped: Record<TableNames, Record<string, unknown>> = {
   reviews:     { phase: 'finished' },
   reviewings:  { minutes: 'a few' },
   signals:     { changed_at: 'just now' },
+  schema_steps: { pushed_at: 'yesterday' },
   widgets:     { formulary: 'gadget' },
   widgetings:  { position: 'first' },
   widgeteds:   { status: 'pending' },
