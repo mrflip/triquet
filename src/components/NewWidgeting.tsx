@@ -60,7 +60,7 @@ export function NewWidgetingPicker({ tier, entriesOnly, label, onDone, ...contex
       <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start', flexWrap: 'wrap', rowGap: 1 }}>
         <WidgetPicker
           library={offered} label={label}
-          helperText={entriesOnly ? 'Pick what its cells take: a new entry and its column are made at once.' : 'Pick one to put to work in this quiz: it is made at once.'}
+          about={entriesOnly ? 'Pick what its cells take: a new entry and its column are made at once.' : 'Pick one to put to work in this quiz: it is made at once.'}
           onPick={(widget) => { put(widget, library) }}
         />
         {changeable && <Button size="small" variant="outlined" sx={{ mt: 0.5 }} onClick={() => { setWriting(true) }}>New widget…</Button>}

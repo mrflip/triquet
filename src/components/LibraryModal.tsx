@@ -6,7 +6,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { ClosableTitle } from './ClosableTitle'
 import { WidgetEditor } from './WidgetEditor'
 import { LibraryForm } from './panels/LibraryForm'
-import { FormularyWords } from './widget-words'
+import { FormularyMark } from './FormularyMark'
 import { Widget, type WidgetT } from '../models/widget'
 import type { ShallowHuntT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
@@ -42,18 +42,25 @@ export function LibraryModal({ onClose, hunt, library, quiz, changeable, dispatc
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="md" aria-labelledby="library-title">
-      <ClosableTitle id="library-title" onClose={onClose}>Widget library</ClosableTitle>
+      <ClosableTitle
+        id="library-title" onClose={onClose}
+        about={(
+          <>
+            Every hunt shares these. A formula is a <a href="https://docs.jsonata.org" target="_blank" rel="noreferrer">JSONata</a> expression
+            worked out for every question; a prompt is put to a model when you ask from the cell. A quiz puts one to work
+            in its widgetings, under the gear.
+          </>
+        )}
+      >
+        Widget library
+      </ClosableTitle>
       <DialogContent>
-        <p className={styles.microcopy}>
-          Every hunt shares these. A formula is a <a href="https://docs.jsonata.org" target="_blank" rel="noreferrer">JSONata</a> expression
-          worked out for every question; a prompt is put to a model when you ask from the cell. A quiz puts one to work
-          in its widgetings, under the gear.
-        </p>
         <Stack spacing={1}>
           {library.map((widget) => (
             <Stack key={Widget.keyOf(widget)} direction="row" spacing={1} role="group" aria-label={`Widget ${widget.label}`} sx={{ alignItems: 'center' }}>
+              <FormularyMark formulary={widget.formulary} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <strong>{widget.label}</strong> <span className={styles.microcopy}>{FormularyWords[widget.formulary].noun}</span>
+                <strong>{widget.label}</strong>
                 <div className={styles.microcopy}>{widget.description}</div>
               </div>
               {changeable && <IconButton size="small" aria-label={`Edit widget ${widget.label}`} onClick={() => { setEditing({ kind: 'held', label: widget.label }) }}>⚙</IconButton>}

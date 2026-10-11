@@ -12,7 +12,7 @@ import { CellNotices } from '../../src/lib/notices'
 import type { SeenQuestionT } from '../../src/lib/rows'
 import { SeedWidgets } from '../../src/models/seeds'
 import { AlarmsProvider } from '../../src/state/alarms'
-import { ShownHuntProvider } from '../../src/state/shown-hunt'
+import { ShownProvider } from '../../src/state/shown'
 import type { Id } from '../../convex/_generated/dataModel'
 import { bigHuntFor, bigQuiz, bigReadingsOf } from '../support/big-quiz'
 import { FakeServer, resetFakeServer } from '../support/fake-convex-react'
@@ -157,7 +157,7 @@ describe("the quiz's screen, one change at a time", () => {
     holder.root = root
     holder.host = host
     await settled(() => {
-      root.render(<AlarmsProvider><ShownHuntProvider><QuizRoute org={hunt.org} labels={labels} mode="edit" /></ShownHuntProvider></AlarmsProvider>)
+      root.render(<AlarmsProvider><ShownProvider><QuizRoute org={hunt.org} labels={labels} mode="edit" /></ShownProvider></AlarmsProvider>)
     })
     expect(host.querySelectorAll('input[aria-label="Title"]')).to.have.lengthOf(40)
     clearCounts()

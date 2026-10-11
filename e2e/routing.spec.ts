@@ -3,7 +3,7 @@ import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import * as Routes from '../src/lib/routes'
 import { putOnHunt } from './admin'
-import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openPanel, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
+import { addMember, answerRemoval, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openAccount, openManage, openPanel, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
 
 // The tests about the front door, the hunts list, or making a hunt go in by themselves
 // (`startAt: null`); the rest begin at the fixture's fresh hunt, with the fixture's friend for a
@@ -128,6 +128,23 @@ test.describe('the front door', () => {
     await page.getByRole('button', { name: `Log in as ${other}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(@${other})`)).toBeVisible()
+  })
+
+  test("names the visitor in the header's account menu, which retitles them and lets them become someone else", async ({ page }) => {
+    const label = await assumeIdent(page)
+    let account = await openAccount(page)
+    await expect(account).toContainText(`@${label}`)
+    await account.getByRole('textbox', { name: 'Your name' }).fill('Menu Named')
+    await account.getByRole('textbox', { name: 'Your name' }).blur()
+    // Said to the menu itself: the blur leaves focus on the page's body, which the menu does not hear.
+    await account.press('Escape')
+    await expect(account).toBeHidden()
+    await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('Menu Named')
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Account' })).toHaveText('M')
+
+    account = await openAccount(page)
+    await account.getByRole('menuitem', { name: 'Be someone else' }).click()
+    await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
   })
 
   test('lets a visitor about to become someone else keep being who they are', async ({ page }) => {
@@ -272,6 +289,10 @@ test.describe('a hunt', () => {
     await manageDialog(page).getByRole('button', { name: 'Rename' }).click()
     await waitUntilSaved(page)
     await expect(whereYouAre(page).getByRole('link', { name: huntTitle })).toBeVisible()
+    // On a quiz, the crumbs go on to its realm, which opens the hunt's quizzes, and the quiz itself.
+    await expect(whereYouAre(page).getByRole('link', { name: 'home', exact: true })).toHaveAttribute('href', Routes.quizzesPath(hunt))
+    await page.getByLabel('Quiz name').fill('Crumbed quiz')
+    await expect(whereYouAre(page).getByRole('button', { name: 'Crumbed quiz' })).toHaveAttribute('aria-current', 'page')
 
     await page.goto(Routes.categoriesPath(hunt))
     await whereYouAre(page).getByRole('link', { name: huntTitle }).click()
@@ -293,7 +314,8 @@ test.describe('a hunt', () => {
     await expect(page.getByRole('table', { name: 'Your hunts' }).getByRole('rowheader', { name: huntTitle })).toBeVisible()
 
     // A page about no hunt names none.
-    await page.getByRole('link', { name: 'About' }).click()
+    const account = await openAccount(page)
+    await account.getByRole('menuitem', { name: 'About' }).click()
     await expect(page).toHaveURL('/about')
     await expect(whereYouAre(page).getByRole('link')).toHaveCount(1)
   })
@@ -671,6 +693,7 @@ test.describe('a link handed to a friend', () => {
 
     const members = await openPanel(page, 'Members')
     await members.getByRole('button', { name: `Remove ${label}` }).click()
+    await answerRemoval(page, 'Yes, remove')
     await expect(friend.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
     await expect(friend.getByLabel('Quiz name')).toBeHidden()
   })
@@ -683,6 +706,7 @@ test.describe('a link handed to a friend', () => {
     await expect(friend).toHaveURL(`${path}/!playtest`)
 
     await members.getByRole('button', { name: `Remove ${label}` }).click()
+    await answerRemoval(page, 'Yes, remove')
     await expect(friend.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
     await addMember(page, label, 'Smith')
     await expect(members.getByRole('row').filter({ hasText: label })).toHaveCount(1)

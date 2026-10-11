@@ -2,6 +2,8 @@
 
 import { Autocomplete, Box, TextField, createFilterOptions } from '@mui/material'
 import _ from 'es-toolkit/compat'
+import { FormularyMark } from './FormularyMark'
+import { Explained } from './InfoTip'
 import { FormularyWords } from './widget-words'
 import { FormularykindVals, Widget, type WidgetT } from '../models/widget'
 import styles from './workbench.module.css'
@@ -11,8 +13,8 @@ export type WidgetPickerProps = {
   library:    readonly WidgetT[]
   /** What the picker is called, on screen and to assistive technology */
   label:      string
-  /** Said beneath it: what picking one does */
-  helperText: string
+  /** What picking one does, behind the (i) at its end */
+  about:      string
   disabled?:  boolean
   /** Told the widget picked */
   onPick:     (widget: WidgetT) => void
@@ -26,30 +28,34 @@ const filterWidgets = createFilterOptions<WidgetT>({ stringify: (widget) => `${w
  * title, with its label and what it works out, and found by typing any of them. It opens as it
  * appears, and a pick is told at once: the picker holds no choice of its own.
  */
-export function WidgetPicker({ library, label, helperText, disabled = false, onPick }: Readonly<WidgetPickerProps>) {
+export function WidgetPicker({ library, label, about, disabled = false, onPick }: Readonly<WidgetPickerProps>) {
   const options = _.sortBy([...library], (each) => FormularykindVals.indexOf(each.formulary))
   return (
-    <Autocomplete
-      options={options}
-      value={null}
-      disabled={disabled}
-      autoHighlight
-      openOnFocus
-      groupBy={(each) => FormularyWords[each.formulary].group}
-      getOptionLabel={(each) => Widget.titleOf(each)}
-      isOptionEqualToValue={(each, picked) => each.label === picked.label}
-      filterOptions={filterWidgets}
-      onChange={(_event, picked) => { if (picked) { onPick(picked) } }}
-      renderOption={({ key, ...props }, each) => (
-        <Box component="li" key={key} {...props}>
-          <Box sx={{ minWidth: 0 }}>
-            <div>{Widget.titleOf(each)} <Box component="code" sx={{ color: 'text.secondary', fontSize: 12 }}>{each.label}</Box></div>
-            {each.description === '' ? null : <div className={styles.microcopy}>{each.description}</div>}
-          </Box>
-        </Box>
-      )}
-      renderInput={(params) => <TextField {...params} autoFocus size="small" label={label} helperText={helperText} />}
-      sx={{ flex: 1, minWidth: 220 }}
-    />
+    <Box sx={{ flex: 1, minWidth: 220 }}>
+      <Explained topic="picking a widget" about={about}>
+        <Autocomplete
+          options={options}
+          value={null}
+          disabled={disabled}
+          autoHighlight
+          openOnFocus
+          groupBy={(each) => FormularyWords[each.formulary].group}
+          getOptionLabel={(each) => Widget.titleOf(each)}
+          isOptionEqualToValue={(each, picked) => each.label === picked.label}
+          filterOptions={filterWidgets}
+          onChange={(_event, picked) => { if (picked) { onPick(picked) } }}
+          renderOption={({ key, ...props }, each) => (
+            <Box component="li" key={key} {...props} sx={{ gap: 1 }}>
+              <FormularyMark formulary={each.formulary} />
+              <Box sx={{ minWidth: 0 }}>
+                <div>{Widget.titleOf(each)} <Box component="code" sx={{ color: 'text.secondary', fontSize: 12 }}>{each.label}</Box></div>
+                {each.description === '' ? null : <div className={styles.microcopy}>{each.description}</div>}
+              </Box>
+            </Box>
+          )}
+          renderInput={(params) => <TextField {...params} autoFocus size="small" label={label} />}
+        />
+      </Explained>
+    </Box>
   )
 }

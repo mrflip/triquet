@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, fillRows, grid, manageDialog, openManage, reloadOnceSaved, test, valuesOf } from './support'
+import { answerRemoval, expect, fillRows, grid, manageDialog, openManage, reloadOnceSaved, test, valuesOf } from './support'
 
 /** Title the first `titles.length` questions, top to bottom */
 async function titleQuiz(page: Page, titles: string[]) {
@@ -129,6 +129,7 @@ test('the gear un-archives a question back to the grid, and deletes another at o
   await openManage(page)
   await manageDialog(page).getByRole('button', { name: 'Un-archive apple' }).click()
   await manageDialog(page).getByRole('button', { name: 'Delete cherry' }).click()
+  await answerRemoval(page, 'Yes, delete')
   await expect(archivedList(page)).toHaveCount(0)
   await manageDialog(page).getByRole('button', { name: 'Done' }).click()
 

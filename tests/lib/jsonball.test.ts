@@ -102,6 +102,13 @@ describe('quizzesIn', () => {
     expect(keyed?.quizzes[0]?.widgetings).to.deep.eq([{ position: 0, widget_label: 'dumdum', label: 'dumdum' }])
   })
 
+  it("carries what a quiz's widgetings for the whole quiz came to when it holds them keyed, and says nothing of them otherwise", () => {
+    const widgeteds = { playtesters: { status: 'ok', value: 'Ada and Grace' } }
+    expect(Jsonball.quizzesIn({ questions: {}, widgeteds })?.quizzes[0]?.widgeteds).to.deep.eq(widgeteds)
+    expect(Jsonball.quizzesIn({ questions: {}, widgeteds: 'Ada' })?.quizzes[0]).to.not.have.property('widgeteds')
+    expect(Jsonball.quizzesIn({ questions: {} })?.quizzes[0]).to.not.have.property('widgeteds')
+  })
+
   it("reads quizzes by realm and label, each named by its key", () => {
     expect(Jsonball.quizzesIn({ quizzes: { home: { legends: { title: 'Legends' } } } })?.quizzes[0]?.label).to.eq('legends')
   })
@@ -155,7 +162,12 @@ describe('quizzesIn', () => {
   })
 
   it("reads a quiz's review alone as a quiz holding no questions", () => {
-    expect(Jsonball.quizzesIn({ quizzes: { home: { legends: { reviews: { lee_jones: { overall: '' } } } } } })?.quizzes).to.deep.eq([{ label: 'legends', title: null, fields: {}, questions: [], widgetings: [], columns: null }])
+    expect(Jsonball.quizzesIn({ quizzes: { home: { legends: { reviews: { lee_jones: { overall: '' } } } } } })?.quizzes).to.deep.eq([{ label: 'legends', title: null, fields: {}, questions: [], widgetings: [], columns: null, beside: { reviews: { lee_jones: { overall: '' } } } }])
+  })
+
+  it("keeps whatever sits beside a quiz's fields, for Import to match against its widgetings, and nothing when nothing does", () => {
+    expect(Jsonball.quizzesIn({ title: 'Legends', questions: [], playtesters: { status: 'ok', value: 'Ada' } })?.quizzes[0]?.beside).to.deep.eq({ playtesters: { status: 'ok', value: 'Ada' } })
+    expect(Jsonball.quizzesIn({ title: 'Legends', questions: [] })?.quizzes[0]).to.not.have.property('beside')
   })
 
   it("reads a quiz's own fields and its columns, keyed or in a list, in order, and an empty list of columns as none", () => {

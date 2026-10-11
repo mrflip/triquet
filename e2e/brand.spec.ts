@@ -1,16 +1,19 @@
 import { AppNotices } from '../src/lib/notices'
-import { expect, headLinks, test } from './support'
+import { expect, headLinks, openAccount, test } from './support'
 
 // About the header and the about page, neither of which needs a hunt.
 test.use({ startAt: null })
 
 test.describe('the header', () => {
-  test('carries the logo home, and the way to About', { tag: '@smoke' }, async ({ page }) => {
+  test('carries the logo home, and the way to About in its account menu', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/about')
     const banner = page.getByRole('banner')
     await banner.getByRole('link', { name: 'Triquet' }).click()
     await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
-    await banner.getByRole('link', { name: 'About' }).click()
+    // Nobody has said who they are yet: the menu has no name to show.
+    const account = await openAccount(page)
+    await expect(account.getByRole('textbox', { name: 'Your name' })).toHaveCount(0)
+    await account.getByRole('menuitem', { name: 'About' }).click()
     await expect(page).toHaveTitle('About — Triquet')
   })
 

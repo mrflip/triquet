@@ -1,13 +1,32 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Button, TextField } from '@mui/material'
+import { Box, Button, TextField } from '@mui/material'
 import * as Clipboard from '../../lib/clipboard'
 import { AppNotices } from '../../lib/notices'
 import styles from '../workbench.module.css'
 
 /** How long an inline copy confirmation stays on screen */
 export const CopyNoteMs = 2500
+
+/** The box's type, in pixels and lines: denser for material meant to be copied out wholesale */
+const BoxType = {
+  dense: { fontSize: 10, lineHeight: 1.35 },
+  plain: { fontSize: 12, lineHeight: 1.5 },
+} as const
+
+/** The space MUI's small outlined text box keeps above and below its text, together */
+const BoxPaddingPx = 17
+
+/**
+ * How tall a box of `rows` lines stands, its padding with it, in pixels.
+ *
+ * @example boxHeightPx(10, true)  // => 152
+ */
+export function boxHeightPx(rows: number, dense: boolean): number {
+  const { fontSize, lineHeight } = dense ? BoxType.dense : BoxType.plain
+  return (rows * fontSize * lineHeight) + BoxPaddingPx
+}
 
 export type ReadonlyBoxProps = {
   label: string
@@ -61,8 +80,7 @@ export function ReadonlyBox({ label, text, rows = 8, dense = false, actions, res
           '& .MuiInputBase-root': { bgcolor: 'var(--surface-sunk)' },
           '& textarea': {
             fontFamily: 'var(--font-data)',
-            fontSize:   dense ? 10 : 12,
-            lineHeight: dense ? 1.35 : 1.5,
+            ...(dense ? BoxType.dense : BoxType.plain),
             whiteSpace: dense ? 'pre-wrap' : 'pre',
             wordBreak:  dense ? 'break-all' : 'normal',
             overflow:   'auto !important',
@@ -75,6 +93,25 @@ export function ReadonlyBox({ label, text, rows = 8, dense = false, actions, res
         {actions}
         {note === null ? null : <span className={styles.microcopy} role="status">{note}</span>}
       </div>
+    </>
+  )
+}
+
+export type ReadonlyBoxStandInProps = Pick<ReadonlyBoxProps, 'rows' | 'dense'> & {
+  /** The buttons, where the box's own will be */
+  actions: ReactNode
+}
+
+/**
+ * The place a `ReadonlyBox` will take, held while its text is not yet made: an empty box in a fine
+ * outline, half as tall as the box of `rows` lines will be, and beneath it the row its buttons
+ * will sit in, holding `actions` (the button that makes the text) in their place.
+ */
+export function ReadonlyBoxStandIn({ rows = 8, dense = false, actions }: Readonly<ReadonlyBoxStandInProps>) {
+  return (
+    <>
+      <Box sx={{ mt: 1, height: boxHeightPx(rows, dense) / 2, border: 1, borderColor: 'divider', borderRadius: 'var(--radius-input)' }} />
+      <div className={styles.panelRow}>{actions}</div>
     </>
   )
 }

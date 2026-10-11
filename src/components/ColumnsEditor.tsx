@@ -5,14 +5,15 @@ import { Box, Button, Collapse, IconButton, Menu, MenuItem, Stack, Tooltip } fro
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter'
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft'
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight'
-import { ColumnIssue, ColumnMoreFields, ColumnRefField, ColumnTitleField, ColumnWidthField, RefPicker, useColumnCommit } from './ColumnFields'
+import { ColumnIssue, ColumnMoreFields, ColumnRefField, ColumnTitleField, ColumnWidthField, RefPicker, columnStagesOf, columnTemplatingOf, useColumnCommit } from './ColumnFields'
+import { ColumnToggles, ColumnTogglesWidthPx } from './ColumnToggles'
 import { FoldButton } from './FoldButton'
 import { NewWidgetDoor, NewWidgetingPicker } from './NewWidgeting'
 import { RowPreview } from './RowPreview'
 import { SortableList } from './SortableList'
 import { WidgetingPanel, type WidgetingPanelContext } from './WidgetingPanel'
 import { LayoutFoldkeys, madeFoldkeys } from './layout-folds'
-import { hiddenUntil } from './room'
+import { RowSlots, hiddenUntil } from './room'
 import * as ColumnMenu from '../lib/column-menu'
 import { alignAfter, headAlignOf, resolve } from '../lib/columns'
 import type { QuizRun } from '../lib/formulary/runner'
@@ -38,9 +39,10 @@ const AlignIcons: Readonly<Record<ColumnAlign, React.ReactNode>> = {
 /**
  * How wide the columns list must be for a column's row to show each of its lesser fields, as MUI's
  * container-query shorthand. The label goes first as it narrows, then what the column shows, then
- * its width, each moving into the column's panel; the title and the alignment always stay.
+ * its width, each moving into the column's panel; the title, the alignment and the toggles always
+ * stay, the toggles wrapping beneath in the narrowest.
  */
-const RoomFor = { label: '@800', source: '@620', width: '@400' } as const
+const RoomFor = { label: '@880', source: '@770', width: '@470' } as const
 
 /**
  * A quiz's columns, leading, one question's row of the grid previewed above them as they stand
@@ -108,19 +110,23 @@ type ColumnPanelProps = WidgetingPanelContext & {
 }
 
 /**
- * One column, as a panel: its row -- its handle, its title to type into, what it shows to pick,
- * its width, its alignment and its label, the lesser of them giving way as the list narrows
- * (`RoomFor`) -- unfolding to the rest of it (`ColumnMoreFields`): its label to relabel, its
- * formula, template, readout and collapse, and its removal. Beneath, the panel of the widgeting it
- * shows, if it shows one, folded to that widgeting's line. A title, width, formula or template is
- * kept when its field loses focus, a pick or a click at once.
+ * One column, as a panel: its row -- its handle, its title to type into (as wide as a widgeting's
+ * title block, `RowSlots`, so the widgeting beneath lines up with it), what it shows to pick, its
+ * width, its alignment, and, folded, its toggles (`ColumnToggles`: its readout, whether what it
+ * shows is templated, whether it is collapsed), then its label, the lesser of them giving way as
+ * the list narrows (`RoomFor`) -- unfolding to the rest of it (`ColumnMoreFields`): its label to
+ * relabel, its formula and template, the full controls of its toggles, and its removal. Beneath,
+ * the panel of the widgeting it shows, if it shows one, folded to that widgeting's line. A title,
+ * width, formula or template is kept when its field loses focus, a pick or a click at once.
  */
 function ColumnPanel({ column, handle, ...context }: Readonly<ColumnPanelProps>) {
   const { quiz, library, sources, revisable, dispatch, folds } = context
   const { commit, issue } = useColumnCommit(column, dispatch, ColumnMenu.namerOf(quiz, library))
   const restId = useId()
   const foldkey = LayoutFoldkeys.column(column.label)
+  const open = folds.isOpen(foldkey)
   const columnName = column.title || column.label
+  const templating = columnTemplatingOf(column, quiz, library, dispatch)
   const locked = ! revisable
   const shown = resolve(column.source, quiz.widgetings)
   const widgeting = shown?.kind === 'widgeting' ? shown.widgeting : null
@@ -131,33 +137,36 @@ function ColumnPanel({ column, handle, ...context }: Readonly<ColumnPanelProps>)
 
   return (
     <Stack spacing={0.5} role="group" aria-label={`Column ${columnName}`}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-        <Box sx={{ pt: 1 }}>{handle}</Box>
-        <Box sx={{ pt: 0.5 }}>
-          <FoldButton open={folds.isOpen(foldkey)} onOpenChange={(next) => { folds.setOpen(foldkey, next) }} label={`Column ${columnName} in full`} controls={restId} />
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start', flexWrap: 'wrap', rowGap: 0.5 }}>
+        <Box sx={RowSlots.grip}>{handle}</Box>
+        <Box sx={RowSlots.fold}>
+          <FoldButton open={open} onOpenChange={(next) => { folds.setOpen(foldkey, next) }} label={`Column ${columnName} in full`} controls={restId} />
         </Box>
-        <ColumnTitleField column={column} locked={locked} onCommit={commit} sx={{ flex: 1, minWidth: 140 }} />
+        <ColumnTitleField column={column} locked={locked} onCommit={commit} sx={RowSlots.title} />
         <ColumnRefField
-          source={column.source} choices={sources} locked={locked} sx={{ ...hiddenUntil(RoomFor.source), width: 240, flexShrink: 0 }}
+          source={column.source} choices={sources} locked={locked} sx={{ ...hiddenUntil(RoomFor.source), flex: '1 1 180px', maxWidth: 300 }}
           onPick={(source) => { commit({ source }) }}
         />
         <Box sx={{ ...hiddenUntil(RoomFor.width), width: 96, flexShrink: 0 }}>
           <ColumnWidthField column={column} locked={locked} onCommit={commit} />
         </Box>
         <AlignButton column={column} columnName={columnName} locked={locked} onAlign={(align) => { commit({ align }) }} />
-        <Box className={styles.microcopy} sx={{ ...hiddenUntil(RoomFor.label), width: 160, flexShrink: 0, pt: 1, overflowWrap: 'anywhere' }}>{column.label}</Box>
+        {open ? <Box sx={{ width: ColumnTogglesWidthPx, flexShrink: 0 }} /> : (
+          <ColumnToggles column={column} columnName={columnName} stages={columnStagesOf(column, quiz, library)} templating={templating} locked={locked} onCommit={commit} />
+        )}
+        <Box className={styles.microcopy} sx={{ ...hiddenUntil(RoomFor.label), flex: '1 1 80px', minWidth: 80, pt: 1, overflowWrap: 'anywhere' }}>{column.label}</Box>
       </Stack>
-      <Collapse in={folds.isOpen(foldkey)} unmountOnExit id={restId}>
-        <Box sx={{ pl: 8, pt: 1, pb: 1 }}>
+      <Collapse in={open} unmountOnExit id={restId}>
+        <Box sx={{ pl: 7, pt: 1, pb: 1 }}>
           <ColumnMoreFields
-            column={column} quiz={quiz} library={library} sources={sources} locked={locked} beside={RoomFor} onCommit={commit}
+            column={column} quiz={quiz} library={library} sources={sources} templating={templating} locked={locked} beside={RoomFor} onCommit={commit}
             onRelabel={onRelabel} onRemove={() => { dispatch({ kind: 'delete_column', label: column.label }) }}
           />
         </Box>
       </Collapse>
       <ColumnIssue issue={issue} />
       {widgeting && (
-        <Box sx={{ pl: 4, pb: 1 }}>
+        <Box sx={{ pb: 1 }}>
           <WidgetingPanel widgeting={widgeting} beneath={column} foldkeyOf={() => LayoutFoldkeys.beneath(column.label)} {...context} />
         </Box>
       )}

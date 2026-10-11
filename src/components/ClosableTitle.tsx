@@ -1,10 +1,13 @@
 'use client'
 
 import { DialogTitle, IconButton } from '@mui/material'
+import { InfoTip } from './InfoTip'
 
 export type ClosableTitleProps = {
   id:       string
   onClose:  () => void
+  /** What the dialog is and does, behind an (i) after its title (`InfoTip`, its topic the title) */
+  about?:   React.ReactNode
   children: React.ReactNode
 }
 
@@ -13,11 +16,14 @@ export type ClosableTitleProps = {
  *
  * @param id - The title's id, for the dialog to be named by.
  * @param onClose - Called when the button is pressed.
+ * @param about - What the dialog is, behind an (i) after its title, if it needs saying.
  */
-export function ClosableTitle({ id, onClose, children }: Readonly<ClosableTitleProps>) {
+export function ClosableTitle({ id, onClose, about, children }: Readonly<ClosableTitleProps>) {
   return (
     <DialogTitle id={id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <span style={{ flex: 1 }}>{children}</span>
+      <span>{children}</span>
+      {about === undefined ? null : <InfoTip topic={typeof children === 'string' ? `the ${children.toLowerCase()}` : 'this dialog'}>{about}</InfoTip>}
+      <span style={{ flex: 1 }} />
       <IconButton size="small" aria-label="Close" onClick={onClose}>✕</IconButton>
     </DialogTitle>
   )

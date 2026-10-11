@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, MenuItem, Stack, TextField } from '@mui/material'
+import { Box, Button, Dialog, DialogActions, DialogContent, MenuItem, Stack, TextField } from '@mui/material'
+import { Explained } from './InfoTip'
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { ConfirmRemove } from './ConfirmRemove'
 import { AibotFields } from './AibotFields'
@@ -127,13 +128,16 @@ function NewWidgetEditor({ hunt, library, quiz, widgeting = null, dispatch, onCl
       <ClosableTitle id="new-widget-title" onClose={onClose}>New widget</ClosableTitle>
       <DialogContent>
         <Stack spacing={1.5} sx={{ mt: 1 }}>
-          <TextField
-            select size="small" label="Formulary" value={draft.formulary} sx={{ maxWidth: 520 }}
-            helperText="What kind of widget it is: how its values come to be. It cannot be changed afterward."
-            onChange={(event) => { setDraft(blankDraftOf(event.target.value as Formularykind, draft)); setIssue(null) }}
-          >
-            {FormularykindVals.map((formulary) => <MenuItem key={formulary} value={formulary}>{FormularyWords[formulary].gist}</MenuItem>)}
-          </TextField>
+          <Box sx={{ maxWidth: 520 }}>
+            <Explained topic="the formulary" about="What kind of widget it is: how its values come to be. It cannot be changed afterward.">
+              <TextField
+                select size="small" label="Formulary" value={draft.formulary}
+                onChange={(event) => { setDraft(blankDraftOf(event.target.value as Formularykind, draft)); setIssue(null) }}
+              >
+                {FormularykindVals.map((formulary) => <MenuItem key={formulary} value={formulary}>{FormularyWords[formulary].gist}</MenuItem>)}
+              </TextField>
+            </Explained>
+          </Box>
           <DraftFields key={draft.formulary} hunt={hunt} library={library} quiz={quiz} draft={draft} onChange={revise} labelEditable labelIssue={labelIssue} widgeting={widgeting} />
           {issue !== null && issue !== labelIssue && <p className={styles.microcopy} role="alert">{issue}</p>}
         </Stack>

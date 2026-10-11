@@ -20,12 +20,12 @@ export type ReviewsPanelProps = {
   reviews:   readonly ReviewedT[]
   /** The panel's heading; `Reviews` unless given */
   title?:    string
-  /** What the panel says it holds; the smiths' reading unless given */
-  blurb?:    string
+  /** What the panel holds, behind its (i); the smiths' reading unless given */
+  about?:    string
 }
 
-/** What the panel says it holds, for the smiths */
-const SmithsBlurb = 'What reviewers have made of this quiz. Nothing appears here until a reviewer chooses to share it.'
+/** What the panel holds, for the smiths */
+const SmithsAbout = 'What reviewers have made of this quiz. Nothing appears here until a reviewer chooses to share it.'
 
 /**
  * What reviewers have shared about the open quiz, read-only: one block per reviewer, with their
@@ -35,12 +35,12 @@ const SmithsBlurb = 'What reviewers have made of this quiz. Nothing appears here
  * The smiths see it below the grid; a reviewer sees the others' below their own, once theirs is
  * shared.
  */
-export function ReviewsPanel({ reviews, questions, title = 'Reviews', blurb = SmithsBlurb }: Readonly<ReviewsPanelProps>) {
+export function ReviewsPanel({ reviews, questions, title = 'Reviews', about = SmithsAbout }: Readonly<ReviewsPanelProps>) {
   const shared = sharedReviewsOf(reviews)
   const ranked = Rank.inRankOrder(Question.unarchived(questions))
 
   return (
-    <Panel title={title} blurb={blurb} wide={shared.length > 0}>
+    <Panel title={title} about={about} wide={shared.length > 0}>
       {shared.length === 0 ? (
         <p className={styles.microcopy}>{AppNotices.noReviewsShared}</p>
       ) : (

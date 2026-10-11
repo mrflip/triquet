@@ -5,7 +5,7 @@ import * as Regexes from '../regexes'
 import { ValidatorKit } from '../validator'
 import * as PA from '../vv/patterns'
 import { EstimateValidators } from '../../models/estimate'
-import { EntryFamilyOf, EntryParamsOf, EntryPresets, WidgetValidators, entryParamsIssues, type EntryParamsFor, type EntryValueT, type EntryWidgetT, type TextParamsT, type TextPattern } from '../../models/widget'
+import { EntryFamilyOf, EntryParamsOf, EntryPresets, TextPresets, WidgetValidators, entryParamsIssues, type EntryParamsFor, type EntryValueT, type EntryWidgetT, type TextParamsT, type TextPattern } from '../../models/widget'
 import type { WidgetingT } from '../../models/widgeting'
 import type { InputOutcome } from './formularies'
 
@@ -73,7 +73,8 @@ export class EntryFormulary {
   /**
    * The validator of a widgeting's params, given the entry widget it works: its family's, each
    * param optional, none it does not know; and the params taken together with the widget's
-   * defaults beneath them, so a least above a most is refused whichever of the two said it.
+   * defaults beneath them, and its kind's preset beneath those (`entryParamsIssues`), so a least
+   * above a most is refused whichever of them said it.
    *
    * @param widget - The entry widget, whose kind names its family and whose config holds its defaults.
    * @returns The validator; its shape has one key per param, which a params editor draws a field for.
@@ -91,8 +92,8 @@ export class EntryFormulary {
   }
 
   /**
-   * One of the entry's cells: its family, and the params in force, a preset of `text` beneath the
-   * widget's defaults, beneath the widgeting's own. A widgeting written before params were held to
+   * One of the entry's cells: its family, and the params in force, a preset (of `text`, or a
+   * percent's bounds) beneath the widget's defaults, beneath the widgeting's own. A widgeting written before params were held to
    * its family is read as saying nothing of its own.
    *
    * @param widget - The entry widget.
@@ -101,13 +102,14 @@ export class EntryFormulary {
    *
    * @example EntryFormulary.inForce({ config: { entry_kind: 'number', min: 1, max: 10 } }, { params: { max: 5 } })  // => { family: 'number', params: { min: 1, max: 5 } }
    * @example EntryFormulary.inForce({ config: { entry_kind: 'labelish' } }, { params: {} })                       // => { family: 'text', params: { pattern: 'label', lines: 'one' } }
+   * @example EntryFormulary.inForce({ config: { entry_kind: 'percent' } }, { params: { max: 50 } })               // => { family: 'number', params: { min: 0, max: 50 } }
    */
   static inForce(widget: EntryWidgetish, widgeting: EntryWidgetingish): EntryInForceT {
     const { entry_kind } = widget.config
     const own = EntryParamsOf[entry_kind].safeParse(widgeting.params)
     const params = { ...EntryPresets[entry_kind], ...defaultsOf(widget), ...(own.success && own.data) }
     // The params are each family's own, by the validator its kind names.
-    return { family: EntryFamilyOf[entry_kind], params } as EntryInForceT
+    return { family: EntryFamilyOf[entry_kind], params }
   }
 
   /**
@@ -148,7 +150,7 @@ export class EntryFormulary {
   static kindValueOf(widget: EntryWidgetish): Z.ZodType<EntryValueT> {
     const { entry_kind } = widget.config
     switch (EntryFamilyOf[entry_kind]) {
-    case 'text':      { return textValueOf(EntryPresets[entry_kind] ?? {}) }
+    case 'text':      { return textValueOf(TextPresets[entry_kind] ?? {}) }
     case 'number':    { return num }
     case 'boolean':   { return bool }
     case 'enum':      { return WidgetValidators.enumOption }

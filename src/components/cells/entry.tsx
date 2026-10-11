@@ -5,7 +5,7 @@ import { ChoiceField, NumberField, PlainField, StretchField, TruthField, type Te
 import { EstimatesCell } from './estimates'
 import { useEntering } from './use-entering'
 import { Widgeted, type WidgetedT } from '../../models/widgeted'
-import type { EntryValueT, EntryWidgetT } from '../../models/widget'
+import { EntrySuffixes, type EntryValueT, type EntryWidgetT } from '../../models/widget'
 import type { WidgetingT } from '../../models/widgeting'
 
 export type EntryCellProps = TemplatedFieldProps & {
@@ -29,7 +29,7 @@ export type EntryCellProps = TemplatedFieldProps & {
  * force (`EntryFormulary.inForce`), committing on blur or as it is clicked. Text is a notes box
  * (markdown, stretched to the row), or the Title box when it takes one line, a label tidied into
  * one as it is left; a number is the Q# box, signed unless its least is nought or more, whole when
- * it says so, and never typed past its most; a yes or no is a checkbox; a choice is a select of its
+ * it says so, and never typed past its most, a percent's with `%` after it; a yes or no is a checkbox; a choice is a select of its
  * options. An emptied box is sent as null, which leaves the cell `missing`; a value the params
  * refuse is not sent, and the author is told why (`useEntering`). Category estimates are pills,
  * each change sent as it is made. It never asks anything of anyone. Text the quiz templates shows
@@ -50,7 +50,7 @@ export function EntryCell({ widget, widgeting, widgeted, label, locked, heightPx
   case 'number': {
     const committed = widgeted.status === 'ok' && typeof widgeted.value === 'number' ? widgeted.value : null
     const { signed, fractional } = EntryFormulary.numberBoxOf(cell.params, committed)
-    return <NumberField bare fractional={fractional} signed={signed} max={cell.params.max} label={label} locked={locked} committed={committed} onCommit={enter} />
+    return <NumberField bare fractional={fractional} signed={signed} max={cell.params.max} suffix={EntrySuffixes[widget.config.entry_kind]} label={label} locked={locked} committed={committed} onCommit={enter} />
   }
   case 'boolean': {
     const committed = widgeted.status === 'ok' && typeof widgeted.value === 'boolean' ? widgeted.value : null

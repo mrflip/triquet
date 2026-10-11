@@ -532,6 +532,56 @@ describe('snapshotOf', () => {
   })
 })
 
+/** `quiz` worked over the library holding its entry, with a widgeting `playtesters` of the entry `remark` run once for the whole quiz, holding `typed` */
+function withQuizEntry(quiz: QuizT, typed: string): QuizT {
+  return {
+    ...quiz,
+    stored:     { playtesters: { newest: storedOk(typed), ok: storedOk(typed) } } as QuizT['stored'],
+    widgetings: [...quiz.widgetings, Widgeting.fill({ widget_label: 'remark', label: 'playtesters', tier: 'quiz' })],
+  }
+}
+
+/** `quiz` with its `playtesters` widgeting held to at most `max_length` characters */
+function cappedEntry(quiz: QuizT, max_length: number): QuizT {
+  return { ...quiz, widgetings: quiz.widgetings.map((widgeting) => (widgeting.label === 'playtesters' ? { ...widgeting, params: { max_length } } : widgeting)) }
+}
+
+/** `quiz`'s copy (`quizCopyOf`), run over the library holding its entry */
+const copyOf = (quiz: QuizT) => Exporting.quizCopyOf(quiz, runOf(quiz, EntryLibrary), EntryLibrary) as Jsonball.QuizBodyT & { pub: { widgets: Record<string, { formulary: string }> } }
+
+describe('quizCopyOf', () => {
+  it("is the quiz's body with the widgets it works beside it, and says nothing of whether it is locked", () => {
+    const quiz = { ...chainedQuiz(), locked: true }
+    const { pub, ...rest } = copyOf(quiz)
+    expect(rest).to.deep.eq(_.omit(bodyOf(quiz), ['label', 'locked']))
+    const worked = _.uniq(quiz.widgetings.map((widgeting) => widgeting.widget_label))
+    expect(Object.keys(pub.widgets)).to.have.members(worked)
+  })
+
+  it("carries no id at any depth, and names neither its quiz nor its hunt", () => {
+    const copy = copyOf(chainedQuiz())
+    expect(idPaths(copy)).to.deep.eq([])
+    expect(copy).to.not.have.any.keys('label', 'quizzes', 'org', 'hunt')
+  })
+
+  it("reads the doc block's widget example", () => {
+    expect(copyOf(chainedQuiz()).pub.widgets.dumdum?.formulary).to.eq('aibot')
+  })
+
+  it("reads back as one quiz of no label to a quiz's Import, and as the widgets it works to the library's", () => {
+    const copy = copyOf(chainedQuiz())
+    const read = Jsonball.quizzesIn(copy)
+    expect(read?.shape).to.eq('quiz')
+    expect(read?.quizzes[0]?.label).to.be.null
+    expect(Jsonball.widgetsIn(copy)?.map((widget) => (widget as { label: string }).label)).to.include.members(['dumdum', 'remark'])
+  })
+
+  it("holds what the quiz's own entries hold, beside its fields under their widgetings' labels", () => {
+    const quiz = withQuizEntry(chainedQuiz(), 'Ada and Grace')
+    expect(copyOf(quiz).playtesters).to.deep.eq({ status: 'ok', value: 'Ada and Grace' })
+  })
+})
+
 describe("a quiz's export, imported", () => {
   it("into a quiz holding the same labels, sends nothing that changes it, chains and widgetings and all", () => {
     const quiz = chainedQuiz()
@@ -567,5 +617,69 @@ describe("a quiz's export, imported", () => {
     const fields = _.pick(present(quiz.questions[0]), ['qnum', 'clueing', 'hint', 'title', 'alt_text', 'notes', 'full_answer', 'recap', 'viz'])
     expect(leon).to.deep.eq({ label: 'leon', patch: { ...fields, chains_to: 'nantes' }, entered: { remark: 'Ask Flip.' }, replied: { numnum_clueing: SpottedItems } })
     expect(nantes).to.deep.include({ label: 'nantes', entered: { remark: null } })
+  })
+
+  it("as a copy, into an empty quiz of another name, sends every widgeting, column and question, its fields, and what its own entries hold", () => {
+    const quiz = withQuizEntry({ ...chainedQuiz(), smiths_note: 'Play fair.' }, 'Ada and Grace')
+    const empty = { ...Quiz.blank('Elsewhere', 'elsewhere'), questions: [], widgetings: [], columns: [] }
+    const outcome = Importing.importInto(empty, JSON.stringify(copyOf(quiz)), EntryLibrary)
+    expect(outcome.ok).to.be.true
+    expect(outcome.summary).to.include('Read as one quiz')
+    expect(outcome.widgetingActions).to.deep.eq(quiz.widgetings.map((widgeting) => ({ kind: 'add_widgeting', widgeting })))
+    expect(outcome.columnLog.map((entry) => [entry.label, entry.outcome])).to.deep.eq(quiz.columns.map((column) => [column.label, 'added']))
+    expect(present(outcome.questions).map((question) => question.label)).to.deep.eq(['leon', 'nantes'])
+    expect(outcome.fieldActions).to.deep.include({ kind: 'set_smiths_note', smiths_note: 'Play fair.' })
+    expect(outcome.fieldActions).to.deep.include({ kind: 'retitle_quiz', title: 'Princes' })
+    expect(outcome.quizEntryLog).to.deep.eq([{ label: 'playtesters', outcome: 'carried', reason: null }])
+    expect(outcome.actions).to.deep.include({ kind: 'enter_quiz_widgeted', entered: { widgeting_label: 'playtesters', value: 'Ada and Grace' } })
+    // Its own entries are typed once their widgetings are there, and before the questions come in.
+    const kinds = outcome.actions.map((action) => action.kind)
+    expect(kinds.indexOf('enter_quiz_widgeted')).to.be.greaterThan(kinds.lastIndexOf('add_widgeting'))
+    expect(kinds.at(-1)).to.eq('import_questions')
+  })
+
+  it("keeps a quiz entry already as the paste has it, and sends nothing for it", () => {
+    const quiz = withQuizEntry(chainedQuiz(), 'Ada and Grace')
+    const outcome = Importing.importInto(quiz, JSON.stringify(copyOf(quiz)), EntryLibrary)
+    expect(outcome.quizEntryLog).to.deep.eq([{ label: 'playtesters', outcome: 'kept', reason: null }])
+    expect(outcome.actions.map((action) => action.kind)).to.not.include('enter_quiz_widgeted')
+  })
+
+  it("holds a quiz entry to the params the paste revises its widgeting to, which the server will hold it to", () => {
+    const quiz = withQuizEntry(chainedQuiz(), 'Ada and Grace')
+    const target = cappedEntry(withQuizEntry(chainedQuiz(), 'Ada'), 5)
+    const loosened = Importing.importInto(target, JSON.stringify(copyOf(quiz)), EntryLibrary)
+    expect(loosened.actions).to.deep.include({ kind: 'edit_widgeting', label: 'playtesters', patch: { description: '', params: {} } })
+    expect(loosened.quizEntryLog).to.deep.eq([{ label: 'playtesters', outcome: 'carried', reason: null }])
+    const tightenedCopy = copyOf(cappedEntry(quiz, 5))
+    const tightened = Importing.importInto(quiz, JSON.stringify(tightenedCopy), EntryLibrary)
+    expect(tightened.quizEntryLog.map((entry) => entry.outcome)).to.deep.eq(['skipped'])
+    expect(tightened.actions.map((action) => action.kind)).to.not.include('enter_quiz_widgeted')
+  })
+
+  it("skips a quiz entry whose value will not do, naming why, and carries the rest", () => {
+    const quiz = withQuizEntry(chainedQuiz(), 'Ada and Grace')
+    const pasted = { ...copyOf(quiz), playtesters: { status: 'errored', value: null } }
+    const outcome = Importing.importInto(quiz, JSON.stringify(pasted), EntryLibrary)
+    expect(outcome.ok).to.be.false
+    expect(outcome.quizEntryLog).to.deep.eq([{ label: 'playtesters', outcome: 'skipped', reason: 'An entry is typed, so it cannot be "errored"' }])
+    expect(outcome.summary).to.include('quiz entries 0 carried, 1 skipped')
+  })
+
+  it("carries nothing a formula for the whole quiz came to, which is worked out again", () => {
+    const quiz = { ...chainedQuiz(), widgetings: [...chainedQuiz().widgetings, Widgeting.fill({ widget_label: 'answer_reversed', label: 'backward', tier: 'quiz' })] }
+    const pasted = { ...copyOf(quiz), backward: { status: 'ok', value: 'drawkcab' } }
+    expect(Importing.importInto(quiz, JSON.stringify(pasted), EntryLibrary).quizEntryLog).to.deep.eq([])
+  })
+
+  it("still reads what an older export held under widgeteds, and prefers what sits beside the fields", () => {
+    const quiz = withQuizEntry(chainedQuiz(), 'Ada and Grace')
+    const empty = { ...Quiz.blank('Elsewhere', 'elsewhere'), questions: [], widgetings: [], columns: [] }
+    const { playtesters, ...rest } = copyOf(quiz)
+    const older = { ...rest, widgeteds: { playtesters } }
+    expect(Importing.importInto(empty, JSON.stringify(older), EntryLibrary).quizEntryLog).to.deep.eq([{ label: 'playtesters', outcome: 'carried', reason: null }])
+    const both = { ...rest, playtesters: { status: 'ok', value: 'Barbara' }, widgeteds: { playtesters } }
+    const entered = Importing.importInto(empty, JSON.stringify(both), EntryLibrary).actions.find((action) => action.kind === 'enter_quiz_widgeted')
+    expect(entered).to.deep.eq({ kind: 'enter_quiz_widgeted', entered: { widgeting_label: 'playtesters', value: 'Barbara' } })
   })
 })

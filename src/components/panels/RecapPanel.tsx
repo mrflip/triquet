@@ -47,7 +47,7 @@ export function RecapPanel(props: Readonly<RecapPanelProps>) {
   return (
     <Panel
       title="Recap"
-      blurb="The recap note to post once the quiz has been played, in the message boards' BBCode: the head, each question with its answer behind a spoiler and its recap (the grid's Recap column), then the tail. The head and tail are templates, filled in as a templated field is: {{quiz.title}} and the like. The recap template, folded below, lays the whole note out."
+      about="The recap note to post once the quiz has been played, in the message boards' BBCode: the head, each question with its answer behind a spoiler and its recap (the grid's Recap column), then the tail. The head and tail are templates, filled in as a templated field is: {{quiz.title}} and the like. The recap template, folded below, lays the whole note out."
       double
     >
       <RecapBody {...props} />
