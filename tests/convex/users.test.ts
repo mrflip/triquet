@@ -208,3 +208,18 @@ describe('users.perform: retitle_user', () => {
     expect(await fieldOf(tt, session.user_id, 'title')).to.be.undefined
   })
 })
+
+describe('a user holding a userlabel the reserved list has kept since', () => {
+  it('stays writable: it retitles itself, and a smith puts it on a hunt by its userlabel', async () => {
+    const tt = openTester()
+    const held = await googleUser(tt, 'kept_later')
+    await tt.run(async (ctx) => {
+      await ctx.db.patch('users', held.user_id, { userlabel: 'google_fan' })
+    })
+    await retitle(held, 'Fan')
+    const { act, open } = await seedHunt(tt, huntHolding([Quiz.blank()]))
+    await act({ kind: 'add_huntship', userlabel: 'google_fan', role: 'reviewer' })
+    const huntships = await tt.run(async (ctx) => await ctx.db.query('huntships').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', open.hunt_id)).collect())
+    expect([await fieldOf(tt, held.user_id, 'title'), huntships.map((row) => [row.userlabel, row.usertitle])]).to.deep.eq(['Fan', [['seed_smith', 'Seed Smith'], ['google_fan', 'Fan']]])
+  })
+})

@@ -5,9 +5,11 @@ import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 
-export const UserValidators = Validator(({ obj, str, num, bool, userlabel, titleish, stamps }) => {
+export const UserValidators = Validator(({ obj, str, num, bool, userlabel, heldUserlabel, titleish, stamps }) => {
   const label = userlabel
-    .describe('What a person types to become this user (their userlabel, a handle on screen), what others add them to a hunt by, and the org of the hunts they make. Unique across the app, set once, and absent until chosen: a userlabel is free only while no user holds it, no ghosting holds it, and no hunt carries it as its orglabel.')
+    .describe('A userlabel being claimed: what a person types to become a user (a handle on screen). Kept from every reserved word, top-level ones included (`Labelmaker.isReserved`), and free only while no user holds it, no ghosting holds it, and no hunt carries it as its orglabel.')
+  const held = heldUserlabel
+    .describe('A userlabel already held: what others add the user to a hunt by, and the org of the hunts it makes. Unique across the app and set once. Held to the words every label is kept from, not the top-level ones, so a word reserved later leaves a user holding it writable (`CK.heldUserlabel`).')
   const title = titleish.min(1)
     .describe('What the user is called on screen: the name typed beside the userlabel, or the userlabel titleized. Set with the userlabel, and changed at will after.')
 
@@ -28,7 +30,8 @@ export const UserValidators = Validator(({ obj, str, num, bool, userlabel, title
     isAnonymous:           bool.optional()
       .describe("Convex Auth's: whether the user was signed in with no proof (the Anonymous provider). An anonymous user is sealed: a userlabel and one sandbox, nothing more (`Approve`)."),
     // Ours
-    userlabel:             label.optional(),
+    userlabel:             held.optional()
+      .describe('The user\'s userlabel, absent until chosen.'),
     title:                 title.optional(),
     admin:                 bool.optional()
       .describe('Whether the user looks after what belongs to no hunt (the library): set only from the command line, absent for no. Read in one place, as the actor is built (`Actor.ofUser`).'),
@@ -36,7 +39,7 @@ export const UserValidators = Validator(({ obj, str, num, bool, userlabel, title
   })
     .describe('One user: what a session is signed in as, holding its userlabel, title and admin flag beside the fields Convex Auth keeps. Never a person: one person may hold several.')
 
-  return { userlabel: label, title, row }
+  return { userlabel: label, heldUserlabel: held, title, row }
 })
 
 export type UserDNA  = Z.input<typeof UserValidators.row>

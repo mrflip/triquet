@@ -163,6 +163,11 @@ describe('UserValidators.row', () => {
     expect([UserValidators.row({}), UserValidators.row(row)]).to.deep.eq([{}, row])
   })
 
+  it("takes a userlabel already held that the top-level list has kept since, as a claim would not", () => {
+    expect(UserValidators.row({ userlabel: 'google_fan', title: 'Fan' }).userlabel).to.eq('google_fan')
+    expect(UserValidators.userlabel.safeParse('google_fan').success).to.be.false
+  })
+
   const Refused: [object, string][] = [
     [{ userlabel: 'Flip K' },    'a userlabel that is not one'],
     [{ title: '' },              'a title left blank, which no user has'],

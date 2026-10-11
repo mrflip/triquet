@@ -17,7 +17,7 @@ export const HuntValidators = Validator(({ obj, arr, label, toplabel, heldUserla
   const newLabel = toplabel
     .describe('A label a hunt is given, made or relabelled: a hunt label, and none of the words kept for the app\'s own pages and people (`PA.ReservedToplevel`).')
   const orglabel = heldUserlabel
-    .describe('The org the hunt is addressed under (`/~<org>/<hunt>`), which namespaces its label: the ident label of whoever made it, copied when it was made. Never changes: not when its maker is retitled, leaves the hunt, or changes role, nor when a word it is is kept for the app\'s own use later.')
+    .describe('The org the hunt is addressed under (`/~<org>/<hunt>`), which namespaces its label: the userlabel of whoever made it, copied when it was made. Never changes: not when its maker is retitled, leaves the hunt, or changes role, nor when a word it is is kept for the app\'s own use later.')
   const title = titleish
     .describe('What the hunt is called on screen; a blank one displays as its label titleized.')
   const branch = label

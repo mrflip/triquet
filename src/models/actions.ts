@@ -95,7 +95,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('set_review_phase'),    quiz_id: zid('quizzes'), phase: oneof(['draft', 'shared']) }),
     obj({ kind: lit('set_reviewing'),       quiz_id: zid('quizzes'), question_id: zid('questions'), patch: ReviewingValidators.reviewingPatch }),
     obj({ kind: lit('peek_answer'),         quiz_id: zid('quizzes'), question_id: zid('questions') }),
-    obj({ kind: lit('add_huntship'),        userlabel: UserValidators.userlabel, role: HuntshipValidators.role }),
+    obj({ kind: lit('add_huntship'),        userlabel: UserValidators.heldUserlabel, role: HuntshipValidators.role }),
     obj({ kind: lit('remove_huntship'),     user_id: zid('users') }),
     obj({ kind: lit('retitle_hunt'),        title: titleish }),
     obj({ kind: lit('relabel_hunt'),        label: HuntValidators.newLabel }),
