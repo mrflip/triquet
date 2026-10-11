@@ -8,9 +8,12 @@ commit. Nothing is published by hand.
 
 If a task may touch on convex or vercel, load the appropriate skills
 
-Merge, and Vercel does the rest, backfills included. The one thing that can stop a release is the
-schema (below), and the one thing to watch for when merging is a pull request titled
-`(Serial Deploy: …)` (*Serial Deploy*, below).
+Merge, and Vercel does the rest, backfills included: that is **serial mode**, and it holds as long
+as every merge since the last deploy is one production's rows already fit. A stack holding a
+widening and its tightening is deployed in **yeet mode** instead: merge it whole, then run
+`pnpm deploy`, which walks production through the schema steps in order (*Schema pushes: the two
+modes*, below). Both read and write one **migrations table**, `schema_steps`, so either can
+follow the other.
 
 **What is live** is said at `/stats`, linked from nowhere: the commit the build came from, the pull
 request its merge names (number, title, description) and the commits it brought in, when it was
@@ -34,8 +37,9 @@ effort, and a shallow clone may list no commits.
   the build passed, pushes `convex/` (schema, functions, indexes) to it. A production key deploys
   to production; a preview key makes (or reuses) a preview deployment named for the branch. Once
   the push has landed, the backfills run: on a preview, `--preview-run` starts them; on
-  production, `scripts/convex-migrations.ts` starts them and waits for them to finish
-  (*Schema pushes*, below). Without a key the
+  production, `scripts/convex-migrations.ts` records the commit in the migrations table, starts
+  them, waits for them to finish, seeds, and records them finished; a backfill that stops fails
+  the build, loudly (*Serial mode*, below). Without a key the
   build fails before it starts; without the URL, the page says so instead of opening
   (`SyncUnconfigured`). `ANTHROPIC_API_KEY` stays a Vercel variable for the ask route, beside
   `ENABLE_ANTHROPIC_BOT=allow`, which switches the route on (`Approve.mayAskAnthropicBot`):
@@ -85,110 +89,142 @@ effort, and a shallow clone may list no commits.
 | --- | --- |
 | Components, state, lib, models | Vercel builds; nothing else |
 | A function in `convex/`, or `convex/authorize.ts` | `convex deploy` pushes it with the build; the new functions serve as soon as the push lands, a moment before the new pages |
-| A row validator in `models/`, and so a table in `convex/schema.ts` (a field added, removed, renamed or reshaped; an index) | the push **validates every document the deployment holds** against the new schema, and refuses if any fails (below) |
-| A backfill in `convex/migrations.ts` | it runs once the push lands, and the build waits for it; the title says `(Serial Deploy: …)`: merge up to it, and wait (*Serial Deploy*, below) |
+| A row validator in `models/`, and so a table in `convex/schema.ts` (a field added, removed, renamed or reshaped; an index) | the push **validates every document the deployment holds** against the new schema, and refuses if any fails (below): a widening lands, a tightening lands only after its widening's backfill |
+| A backfill in `convex/migrations.ts` | it runs once the push lands, and the build waits for it. The title says `(Serial Deploy: …)`: in serial mode, merge up to it and let its build finish; in yeet mode, merge on |
 | `convex/_generated/` | commit what the push writes; CI refuses a checkout whose generated code is stale |
 
-**Schema pushes.** Convex checks every existing document against the schema being pushed, and
-refuses the whole push if one does not fit: the build fails, and the deployment keeps serving the
-previous version untouched. Production holds quizzes people are writing, so a change that its rows
-would not fit (a required field added, a field reshaped) ships as a migration, in two pull
-requests, through `@convex-dev/migrations` (`convex/migrations.ts`; the `convex-migrate` skill
-knows it):
+## Schema pushes: the two modes
+
+Convex checks every existing document against the schema being pushed, and refuses the whole push
+if one does not fit: the build fails, and the deployment keeps serving the previous version
+untouched. A backfill runs only on a deployment holding its code. So a change that production's
+rows would not fit (a required field added, a field reshaped, a field retired) is **two schema
+steps**, with a backfill between them, as the migrations component's own README has it:
 
 1. **Widen.** The schema accepts the old rows and the new: the field is optional in
    `convex/schema.ts` (written by hand there, over the row validator, which stays strict so every
-   write gives it), and code that reads it copes with its absence. A backfill in
-   `convex/migrations.ts` writes it into the old rows, and joins the end of `Backfills` there (a
-   test refuses a backfill missing from it). `tests/convex/schema.test.ts` lists the field under
-   `Backfilling`. The pull request's title ends `(Serial Deploy: <chain>)` (below).
-2. **Backfill: the deploy does it.** Once `convex deploy` has pushed, `scripts/convex-migrations.ts`
-   starts `migrations:runAll`, which runs every backfill in `Backfills` in order and skips each one
-   already finished, then waits (up to five minutes) for `migrations:outstanding` to come back
-   empty. The build log ends `Backfills: every one has finished.`, or warns naming each backfill
-   still running or stopped. A warning never fails the build: the new functions already serve, and
-   a failed build would only part the pages from them. A backfill that throws stops the series,
-   and those after it in `Backfills` wait until it is fixed and deployed again. To look later, or
-   to start them by hand:
-   `./scripts/doppledo prd_janitor npx convex run migrations:outstanding` (and `migrations:runAll`).
-3. **Tighten.** The second pull request makes the field required again, drops the fallback and
-   the backfill (from `Backfills` too), and empties `Backfilling`. Its push checks every row, so
-   it lands only once the backfill is complete: merged too soon, its build fails and production
-   keeps serving the widened version, and redeploying once the backfill is done lands it. It also
-   adds the migration to the ledger below, since the backfill it drops is still needed by any
-   backend that has not run it. It leaves `Backfills` holding at least one: `runAll` is the
-   component's runner of a series, which refuses an empty one, and every deploy runs it.
+   write gives it). A backfill in `convex/migrations.ts` writes it into the old rows, and joins
+   the end of `Backfills` there (a test refuses a backfill missing from it).
+   `tests/convex/schema.test.ts` lists the field under `Backfilling`. The pull request's title
+   ends `(Serial Deploy: <chain>)`, the chain being the sprint's name. A table to be emptied is
+   emptied by a backfill the same way, while the widened schema still names it. Code that reads
+   the field may cope with its absence, or may not: the window between the two steps is minutes
+   in yeet mode, and a dash or an error on an old row for those minutes is accepted.
+2. **Tighten.** A second pull request, stacked above, makes the field required again (or drops
+   the table), drops the fallback and the backfill (from `Backfills` too), and empties
+   `Backfilling`. It leaves `Backfills` holding at least one: `runAll`, the component's runner of
+   a series, refuses an empty one, and every deploy runs it.
 
-**Serial Deploy.** A widening's production deploy must finish, backfill and all, before anything
-stacked above it reaches `main`. Vercel builds only the newest commit of a push, so a tightening
-merged in the same push as its widening is built alone: its schema is refused, since no backfill
-has run, and the backfill never runs, since the widening's commit is never deployed and the
-tightening's no longer holds it. Production keeps serving safely, but stuck, until the widening
-is deployed by itself. So a pull request that adds a backfill to `Backfills`, or changes one, says
-so at the end of its title:
-
-```
-Hunts remember the branch their quizzes were on (Serial Deploy: hunt_branches)
-```
-
-It means: **merge up to and including this pull request, wait for its production deploy to finish
-(its build log says `Backfills: every one has finished.`), then merge what is stacked above it.**
-The name is the migration chain: related backfills, run in pull-request order. In a sprint it is
-the sprint's name; outside one, the thread's label. Every pull request of a chain that adds a
-backfill carries the same name. The tightening carries no marker, since nothing waits on it, and
-says in its body which chain it ends: `Tightens Serial Deploy: hunt_branches`.
-
-Two chains may interleave: each widening is its own stop, so nothing lands unready. Recovery is
-harder, though: every backfill runs in one series, so a failure in one chain holds back the other
-chain's backfills, and both chains' tightenings are refused until it is fixed. Where it costs
-nothing, merge one chain through its tightening before the next chain's first widening.
-
-Two ordinary `convex/` changes merged in separate pushes close together are not covered: if Vercel
-builds them at once, Convex keeps whichever pushed last, which may be the older. That is tolerated
-for now; redeploy `main` if it happens.
-
-Rehearse a backfill on a copy first, since nobody runs it by hand on production any more: `npx convex export --path
-<zip>` from production (read-only; it also leaves a snapshot in the dashboard to restore from),
-`npx convex import --replace-all` into a local role, push the widening to it, and run
-`migrations:run '{"fn": "migrations:<name>", "dryRun": true}'` to see what it would do, then
-`node scripts/convex-migrations.ts run`, each through `scripts/convex_dev <role>` (as under
-*Catching up*, below). Push the tightening last: it lands only if every row now fits.
+A **schema step** is a first-parent commit of `main` that changes `convex/schema.ts` or
+`convex/migrations.ts`: a widening, a tightening, or a backfill with no schema change. Steps are
+taken in merge order, which is the order the sprint needs. One Vercel build is one commit, and so
+one step: the two modes differ in how the steps get taken.
 
 A field whose absence has a meaning of its own needs none of this: it is optional in its row
 validator for good, every reader says what its absence means, and `tests/convex/schema.test.ts`
 lists it under `Absentable`. A hunt's `wheel` is the first: a hunt nobody has arranged reads as
 the default wheel.
 
-A local role whose rows no longer fit is simply emptied (`scripts/convex_reset <role>`), unless
-its rows are worth keeping: then catch it up (below). A preview deployment is made fresh for a
-branch and kept across its pushes; delete it in the dashboard and the next push makes another.
+### Serial mode
 
-**The migration ledger.** Every backfill ever written, and every table cleared by hand rather
-than migrated, oldest first, with the commit on `main` that needed it. Production's deploys run
-each backfill themselves now (`20261005-deploy_migrations` on); `Run` is for catching up a backend
-that missed one, and for the clearings, which are still a Coach's steps. Any commit from a backfill's
-up to the tightening one still holds the backfill; a clearing has no code to hold, only the steps
-below the table.
+Today's flow, unchanged in shape: merge, Vercel builds `main`, `convex deploy` pushes `convex/`,
+and `scripts/convex-migrations.ts after-vercel-build` records the commit as pushed in the
+migrations table, runs `migrations:runAll`, waits (up to five minutes) for
+`migrations:outstanding` to come back empty, seeds (`seeding:seedWidgets`), and records the commit
+backfilled. No downtime, and nothing to think about while no merge tightens.
 
-| Commit | What its backfill writes | Run |
-| --- | --- | --- |
-| `b648bc6` | `hunt_id` on questions and reviews; a smith (`CaretakerLabel`) on each hunt nobody is on | `migrations:runAll` |
-| `ed009a7` | `smiths_note` on quizzes, empty | `migrations:run '{"fn": "migrations:backfillSmithsNotes"}'` |
-| the rewidgeting merge (thread 3, `20261001-widget_tables`) | No backfill. Cleared by hand: `expressions`, `widgets` and `bottings`, which no schema since holds (`bulk_ishes_last` too, taken off by the next row). Re-created by seeding: the library and each laid-out quiz's default widgetings. Not re-created: the bots' replies, and any expression or widget a person wrote (*Clearing the widget tables*, below; `whiteboard/20261001-rewidgeting/losses.md`) | `seeding:seedWidgets` |
-| `20261004-unset_bulk_ishes_last` (#77) | No backfill: takes `bulk_ishes_last` off each quiz, which no schema since the rewidgeting names | `migrations:run '{"fn": "migrations:retireBulkIshesLast"}'` |
-| `20261004-dbpolicy_sessions` (#79, dbpolicy thread 1) | Cleared by hand first: `identings`, whose rows name a browser key the new schema has no place for. It is only history: every browser signs in afresh and asserts its username once more (*Sessions*, below). Then the backfill: `user_id: null` on each ident, claimed by nobody until a session asserts it | `migrations:run '{"fn": "migrations:backfillIdentClaims"}'` |
-| `20261004-dbpolicy_one_label` (#82, dbpolicy thread 3) | No backfill of a new field: folds the retiring `forced_label` into `label` on hunts, quizzes and questions (the override, where one is set, becomes the label), and takes `forced_label` off every row. Run it straight after the deploy: until it has, a hunt or quiz relabelled before answers to the label it was made with. `migrations:runAll` runs it with every other backfill still defined | `migrations:runAll`, or one at a time: `migrations:run '{"fn": "migrations:retireHuntForcedLabels"}'`, then `retireQuizForcedLabels`, `retireQuestionForcedLabels` |
-| `20261004-dbpolicy_denormalize` (#83, dbpolicy thread 4) | Copies of a parent's field (`notes/convex.md`, *Denormalized fields*): `hunt_id` on quizzes (from the realm), widgetings and columns (from the quiz); `hunt_id` and `quiz_id` on widgeteds (from the question); `hunt_id`, `quiz_id` and `ident_id` on reviewings (from the review); `ident_label` and `ident_title` on huntings (from the ident). Until a row has them its reads go through its parent and its first update fills them in, so nothing breaks in between; run it before threads 5 to 9 deploy, which read the copies alone. A row whose parent is gone is left without, and the tightening's push names it. Here `migrations:runAll` runs the two rows above it too, oldest first: once `identings` is cleared, one run brings rows from before thread 1 up to the tightening, `20261004-dbpolicy_tighten` | `migrations:runAll`, or one at a time: `migrations:run '{"fn": "migrations:backfillQuizCopies"}'`, then `backfillWidgetingCopies`, `backfillColumnCopies`, `backfillWidgetedCopies`, `backfillReviewingCopies`, `backfillHuntingCopies` |
-| `20261004-export_tweaks` (#80) | `q1_preamble` on quizzes, the default (`Important: Read the smith's note before you play![br][br]`) | `migrations:run '{"fn": "migrations:backfillQ1Preambles"}'` |
-| `20261005-hunt_branch` (#115) | `branch` on hunts, from the version most of each hunt's quizzes were on (`main` winning a tie it is part of, and for a hunt whose quizzes name none); then takes the retiring `version` off every quiz. The second refuses a quiz whose hunt has no branch yet, so the order is safe | `migrations:runAll`, or one at a time: `migrations:run '{"fn": "migrations:backfillHuntBranches"}'`, then `retireQuizVersions` |
-| `20261005-orglabel` (#133, hunt_git thread 7) | `orglabel` on hunts: the ident label of each hunt's earliest member (its maker, unless they left), which its address has named since this commit. A hunt nobody is on is left without one, said in the log, and the tightening's push names it: give it a smith, or delete it, first. Until it has run, a hunt reads its org that same way, and its next edit stores it | `migrations:runAll`, or `migrations:run '{"fn": "migrations:backfillHuntOrglabels"}'` |
-| `20261005-viz` (#140, hunt_git thread 8) | `viz: 'normal'` on each question, which the tightening then requires. Then stamps, for forensics, on every row of every table the stamping trigger covers (all of ours but `identings`): `created_at` and `updated_at` both the whole millisecond the database made the row (`_creationTime`), so a never-edited row reads as untouched; a row edited since the deploy keeps its `updated_at`. The stamps stay optional for good (the trigger writes them once a row has landed), so the tightening leaves them be; the backfill writes raw, past the trigger, and so is no edit. Until it has run, a row reads its viz and stamps that same way. Defined beside the orgs' backfill, so one `migrations:runAll` after merging brings production up to both tightenings (`orglabel`, `viz`) | `migrations:runAll`, or one at a time: `migrations:run '{"fn": "migrations:backfillQuestionViz"}'`, then the stamps, a backfill per table (`backfillIdentStamps`, `backfillHuntStamps`, … `backfillHuntingStamps`) |
-| `20261006-tighten_orglabel_viz` (hunt_git, the tightening of #133 and #140) | No backfill: requires `orglabel` on hunts and `viz` on questions, and drops their backfills. Its push is refused by a hunt with no `orglabel`, or a question with no `viz`, for one of two reasons. The backend missed `20261005-viz`: catch it up there first. Or a hunt nobody is on, which the orgs' backfill skipped with a warning ("has nobody on it") and still reported `success`: give it a smith or delete it, then push again. The stamps' backfills stay defined (the stamps stay optional, so no tightening retires them), and `migrations:runAll` still runs them | nothing |
-| `20261006-recap_widen` (#163, recap thread 1; `1ca9e16`) | On quizzes, an empty `recap_head` and `recap_tail` and an empty `templated`; on questions, an empty `recap`; on widgetings, `tier: 'question'` (every widgeting before it ran for each question). Each writes only what a row lacks, and holds only that to its validator, so an older row the validators would now refuse (a widgeting labelled `recap`) cannot stop the series. Until it has run, a row reads those same defaults, and its next edit stores them. Production's deploy did not start these (2026-10-07): a Coach ran `migrations:runAll` by hand, and they finished | `migrations:runAll`, or one at a time: `migrations:run '{"fn": "migrations:backfillQuizRecaps"}'`, then `backfillQuestionRecaps`, `backfillWidgetingTiers` |
-| `20261007-recap_tighten` (recap thread 9, the tightening of #163) | No backfill: requires `recap_head`, `recap_tail` and `templated` on quizzes, `recap` on questions and `tier` on widgetings, and drops their backfills and the defaults rows were read with meanwhile. Its push is refused by a row lacking one only where the backend missed `20261006-recap_widen`: catch it up there first. A quiz's `recap_template` is not among them: it stays optional for good (`Absentable`) | nothing |
-| `20261008-cw_widen` (#193, columnwise thread 3a; `392bb014`) | Relabels the library's `categories` entry `category_data` (taking it away where seeding made one), each quiz's widgetings of it or labelled `categories`/`categories_<n>` (`category_data`, `category_data_<n>`, or the first free label after it), and the columns and nominations naming them; writes each column's source plain (`question.<x>` becomes `<x>`, `<w>.<part>` becomes `<w>` with `formula: '$.<part>'`); writes each quiz's `templated` as `templateable`, plain, taking `templated` off. A value today's validators refuse is left and said in the log. **Nothing rewrites an author's formula reading `qn.categories`**, which reads `missing` afterwards: grep the raw export for it (`whiteboard/20261008-columnwise/prd_checks.mts`, section 3). Until it has run, every reader reads the old grammar as the new Production's deploy did not start these (2026-10-08). Nobody noticed until #209's tightening was refused (2026-10-09, 06:01 UTC). An agent then ran `migrations:runAll` by hand on the Coach's say-so, and they finished | `migrations:runAll`, or one at a time: `migrations:run '{"fn": "migrations:backfillCategoryDataWidget"}'`, then `backfillCategoryDataWidgetings`, `backfillPlainColumnSources`, `backfillQuizTemplateables` |
-| `20261009-cw_tighten` (columnwise thread 3c, the tightening of #193) | No backfill: requires `templateable` on quizzes and drops `templated`, the four backfills, and the readers' old grammar (only the importer reads it now, `src/models/before-october.ts`); reserves `categories` and `category` from widgeting labels. Its push is refused by a quiz lacking `templateable` or holding `templated` only where the backend missed `20261008-cw_widen`: catch it up there first. A column `source` is a string to the schema, so a source still in the old grammar, or a widgeting still labelled `categories` or `category`, does not stop the push: its row validator refuses its next write, a quiz nominating such a widgeting as templateable refuses every write to its own row (an order, a title, its sort memory), and the widgeting's quiz no longer passes its integrity check (an import into it). Find any first: `migrations:outstanding` is `[]`, and `prd_checks.mts`, section 5, finds none (it flags a widget or widgeting labelled `categories`, `category`, or either with `_<n>`) | nothing |
-| `20261009-cw_bag` (columnwise thread 10, `Serial Deploy: bagshape`) | No schema change: rewrites every stored text that reads the bag in the words it has since it took the export's shape (`qn` to `question`, `qns` to `questions`, `qn_label` to `question_label`; `src/models/before-october.ts`): each widget's input formula, and a `jsonata` formula or a `liquidize` template reading the whole bag (the seeded sums and ishes come out as the seeds read now); a `liquidize` widgeting's own template and `template_from` ref; each column's ref and template; each quiz's recap head, tail and template; and each question's field and text entry's value its quiz nominates as templateable. Written raw, so no stamp moves and no trigger fires: browsers already open read the new words on their next fetch, and the git mirror writes the texts on its next change. A text its validator refuses once rewritten is left, and said in the log. What the rewrite cannot reach is in `human/20261009-cw_bag.md`. Until it has run, a stored formula still reading `qn` reads nothing, and its column the dash. With no tightening, the backfills stay in `Backfills` until a later pull request retires them, any time after this deploy said they finished | `migrations:runAll`, or one at a time: `migrations:run '{"fn": "migrations:backfillBagshapeWidgets"}'`, then `backfillBagshapeWidgetings`, `backfillBagshapeColumns`, `backfillBagshapeQuizzes`, `backfillBagshapeQuestions`, `backfillBagshapeWidgeteds` |
+With a tightening in play, **merge in order and let each Serial Deploy's build finish** before
+merging what is stacked above it: Vercel builds only the newest commit of a push, and skips
+queued builds of the same branch in favour of the newest (`github.autoJobCancelation`), so a
+widening and its tightening merged minutes apart build the tightening alone. Its push is refused
+(the rows lack the field), production keeps serving the previous step, whole, and the build log
+names the row. That is not a lockout: it is the cue for yeet mode. A backfill that stops, or is
+still running at the limit, fails the build the same way; the functions already serve, so what
+fails is the pages, where a warning in a log once went unread (10-07, 10-08).
+
+### Yeet mode
+
+`pnpm deploy` (`scripts/deploy.ts`) walks a deployment through the schema steps itself, from a
+full checkout, so a whole stack can be merged at once and deployed in one sitting, with the
+minutes of downtime that implies. Agents never run it against production; a Coach does, under
+the janitor's config:
+
+```sh
+./scripts/doppledo prd_janitor pnpm deploy --dry-run   # what it would do, and nothing else
+./scripts/doppledo prd_janitor pnpm deploy             # do it
+```
+
+It fetches `origin/main`, reads the migrations table's newest row (`deploying:newest`), lists the
+steps newer than it (`git rev-list --first-parent origin/main -- convex/schema.ts
+convex/migrations.ts`), takes a snapshot (`convex export`, to `data/snapshots/` or `--snapshot
+<path>`; it also leaves one to restore from in the dashboard), and then, for each step oldest
+first, in a scratch worktree at that commit (its own packages installed when its lockfile
+differs): pushes its functions and schema (`convex deploy`, typecheck and codegen off), records it
+pushed, runs its backfills to the end, seeds, records it backfilled. Then the same for `main`'s
+head. A refused push or a backfill that stops ends the run with Convex's words, the deployment
+left serving the last step whole; fix it in a new commit and run again, and the walk resumes
+where it stood. A head already pushed whose backfills never finished (serial mode's build failed
+in the wait) is finished and recorded, not re-walked. Flags: `--to <ref>` for a head other than
+`origin/main`; `--from <sha>` for the step the rows stand at when the table is empty or names a
+commit not in this history (the first run on production: `/stats` names the commit it serves);
+`--wait <seconds>` for the backfill limit (300). With `TRIQUET_DEPLOY_HOOK_URL` set, it ends by
+posting to it: Vercel's deploy hook, so the pages are built once the functions they talk to are
+in. Without it, redeploy `main` from Vercel, whose own push is then a no-op and whose backfill run
+finds nothing.
+
+Two rules keep the modes from colliding: **do not run `pnpm deploy` while a production build is
+mid-push** (run it after the build has finished, red or green), and end a yeet with that
+redeploy. The steps the walk needs are the repository's history, each step's schema and the
+backfills that fit it being the files at that commit; that is why it runs from a clone and not
+from Vercel's build, and why a backfill may lean on its commit's row validators.
+
+### The migrations table
+
+`schema_steps` (`src/models/schema-step.ts`, `convex/deploying.ts`): one row per schema step a
+backend has taken, with the commit's sha and subject, when it was pushed, and when its backfills
+finished (null until they have). Written by whatever pushed the step: the build, `pnpm deploy`,
+or `scripts/convex_dev`. The newest row is the backend's mark; `pnpm deploy` walks what is newer
+and infers nothing from what a deployment or a website is serving. It is data, so an export
+carries it, and a rehearsal knows where a snapshot stands without being told. The migrations
+component keeps the other half, a row per backfill with how far it got, which `/stats` shows and
+every runner waits on. Git is the ledger of what each step did:
+`git log --first-parent -- convex/schema.ts convex/migrations.ts`.
+
+### Rehearsing a deploy on production's rows
+
+```sh
+./scripts/doppledo prd_janitor npx convex export --path ~/prd-exports/<date>.zip
+pnpm deploy --role agent --rehearse ~/prd-exports/<date>.zip
+```
+
+The rehearsal reads the snapshot's `schema_steps` to learn the step its rows stand at (or is told
+with `--from`), pushes that step to the role, imports the snapshot over everything the role
+holds (`convex import --replace-all`), and walks it to the checkout's head: what production will
+do, on production's rows. Keep the export outside the repo; it is production's data.
+
+### Local backends
+
+`scripts/convex_dev` records the checkout's `HEAD` as the step a role's backend holds at every
+push (an empty backend fits any schema, so a reset backend holds the head) and starts its
+backfills. A backend that saw each widening as it was merged never falls behind. One that jumped
+past a tightening is refused its push, and is caught up by the same program:
+
+```sh
+pnpm deploy --role dev            # stop the role's dev server first: its watch would push the head over every step
+pnpm deploy --role dev --dry-run
+```
+
+It walks the role from its mark to the checkout's `HEAD` (uncommitted changes come with the next
+`pnpm dev`). A mark the checkout's history does not hold (a backend last pushed from a branch
+since rebased) is refused; `--from <sha>` says where its rows really stand. A role whose rows are
+not worth keeping is simply emptied instead (`scripts/convex_reset <role>`, or
+`scripts/convex_dev <role> --reset`).
+
+## History
+
+What was done by hand before deploys took their own steps: the table clearings of September and
+October 2026, kept here because no commit holds them. Everything since is in git and in the
+migrations table.
 
 **Clearing the widget tables (rewidgeting).** The merge that brought in `widgets`, `widgetings`
 and `widgeteds` translates no rows: the three tables they replace are cleared, and one idempotent
@@ -241,24 +277,6 @@ A Coach's steps, in order:
    holds it from then on: that is how each person gets theirs back, and also how someone else could
    get there first.
 
-**Catching up a backend that missed a backfill.** Main cannot do it: its schema push checks every
-row before any of its functions arrive, so it is refused before a backfill could run, and main no
-longer has the backfill anyway. The refusal names the table and the field, which the ledger
-matches to a commit. A backend stuck there holds no row newer than that commit's schema, so it
-goes back and comes forward again. For each migration it missed, oldest first:
-
-1. Stop the role's dev server, whose `--watch` would push each checkout as it goes by, and check
-   out the ledger's commit: `git switch --detach <commit>`.
-2. Start the role's dev server again (`pnpm dev`, `pnpm dev:agent`). It pushes that commit's
-   schema, which accepts the old rows, and keeps the backend up while the backfill runs.
-3. In a second terminal, start the ledger's `Run` through `scripts/convex_dev`, prefixed as the
-   role's `pnpm` script prefixes it (`doppler run --` for `dev`, `scripts/doppledo dev_claude` for
-   `agent`), eg `doppler run -- scripts/convex_dev dev npx convex run migrations:runAll`. The
-   runner does the first hundred rows at once and schedules the rest; `npx convex run --component
-   migrations lib:getStatus`, run the same way, says when it is done.
-
-Then stop the dev server, return to your branch, and start it again: the push lands.
-
 ## Working locally
 
 Each role (`dev` for a person, `agent`, `e2e`, `e2e-agent`, `e2e-built`) has a Convex backend of
@@ -269,7 +287,8 @@ actions on `35xx`), with its database, file storage, instance secret and the CLI
 `scripts/convex_dev <role> [--reset] [--watch] <command>` is how anything runs against one: it
 starts the backend if it is not answering, pushes `convex/` to it (which regenerates
 `convex/_generated/`), marks it clearable, gives it throwaway keys for Convex Auth when it has none
-(`scripts/convex_auth_keys`), empties it with `--reset`, keeps pushing as `convex/`
+(`scripts/convex_auth_keys`), empties it with `--reset`, records the checkout's `HEAD` in its
+migrations table and starts its backfills (*Local backends*, above), keeps pushing as `convex/`
 changes with `--watch`, and runs the command with `NEXT_PUBLIC_CONVEX_URL` naming the backend.
 `pnpm dev` and `pnpm dev:agent` go through it; so does the e2e suite, from `playwright.config.ts`.
 A backend the script started stops with the command; one that was already running is left alone.

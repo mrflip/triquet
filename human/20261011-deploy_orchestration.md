@@ -201,3 +201,29 @@ If you want it built: one PR for `scripts/deploy.ts` and the `convex_dev` change
 (the step list from a git log, the walk against a local role); one for `build:vercel`,
 `vercel.json`, `automerge`'s stops and the notes. The first is usable on a local role before
 anything about production changes.
+
+## What was built (same day, on this thread)
+
+* **The migrations table.** `schema_steps` (`src/models/schema-step.ts`, `convex/deploying.ts`):
+  one row per schema step a backend has taken, with `recordPushed`, `recordBackfilled`, `newest`
+  and `recent`, all internal. Tests in `tests/convex/deploying.test.ts`; the schema test covers the
+  table like every other.
+* **Serial mode.** `scripts/convex-migrations.ts after-vercel-build` records the commit as pushed,
+  runs the backfills and waits, seeds, records it backfilled, and fails the build when a backfill
+  stops or is still running at the limit. `run` is unchanged for hand use.
+* **Yeet mode.** `scripts/deploy.ts` (`pnpm deploy`), with `--dry-run`, `--to`, `--from`,
+  `--wait`, `--snapshot`, `--role` and `--rehearse`, as the notes describe. Proven here by resetting
+  the agent role to `6c8e71f` (before the columnwise widening), seeding it, and walking it to this
+  branch's head: four steps and the head, each pushed from a worktree at its commit, backfilled and
+  recorded. The pure parts are tested in `tests/scripts/deploy.test.ts`; the walk itself is proven
+  by that run, not by a unit test.
+* **Local backends.** `scripts/convex_dev` records `HEAD` as the step it pushed and starts the
+  backfills; a refused push now says to catch up with `pnpm deploy --role`.
+* **Notes.** `notes/deploy.md` rewritten around the two modes; the ledger table is gone, the
+  hand clearings kept under *History*; `notes/git_hygiene.md`, `notes/git_hygiene-coach.md`,
+  `notes/convex.md` and `CLAUDE.md` point at it.
+
+Not done, and for you: `vercel.json`'s `github.autoJobCancelation` is untouched (serial mode still
+wants one build per merge for a stack with a tightening; yeet mode does not care); the deploy hook
+URL (`TRIQUET_DEPLOY_HOOK_URL`) is read when set and otherwise nothing is posted; and production's
+first `pnpm deploy` needs `--from <the commit /stats names>`, after which the table says.
