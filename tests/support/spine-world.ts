@@ -79,8 +79,8 @@ export interface WorldT {
   scratch: string
   main:    string
   git:     (cwd: string, ...args: string[]) => string
-  /** Runs scripts/spine.ts in `cwd`; returns its exit status and everything it printed */
-  spine:   (cwd: string, args: string[], env?: Record<string, string>) => { status: number | null, said: string }
+  /** Runs scripts/spine.ts in `cwd`; returns its exit status, everything it printed, what it printed on stdout alone, and its narration on stderr */
+  spine:   (cwd: string, args: string[], env?: Record<string, string>) => { status: number | null, said: string, printed: string, narrated: string }
   /** Starts scripts/spine.ts in `cwd` and lets it run: what it has printed so far, and its exit status once it exits */
   started: (cwd: string, args: string[], env?: Record<string, string>) => { said: () => string, exited: Promise<number | null> }
   /** The e2e lock's directory and its holder's note, beside the e2e log */
@@ -89,8 +89,8 @@ export interface WorldT {
   commit:  (cwd: string, filename: string, body: string) => void
   /** Cuts a worktree for `label` and returns its root */
   cut:     (label: string) => string
-  /** Justifies the branch at `root`, proves it by e2e, and bids: the land's exit status and what it printed */
-  bid:     (root: string, env?: Record<string, string>) => { status: number | null, said: string }
+  /** Justifies the branch at `root`, proves it by e2e, and bids: the land's exit status and what it printed, as `spine` returns them */
+  bid:     (root: string, env?: Record<string, string>) => ReturnType<WorldT['spine']>
   /** Every line of the e2e log */
   logged:  () => E2eLog.Entry[]
   /** The branch the main checkout stands on */
@@ -113,7 +113,7 @@ export const makeWorld = (scratch: string, compileCache?: string): WorldT => {
   const spine = (cwd: string, args: string[], extra: Record<string, string> = {}) => {
     // eslint-disable-next-line sonarjs/no-os-command-from-path -- the node running these tests, whichever it is
     const ran = spawnSync('node', [SpineScript, ...args], { cwd, encoding: 'utf8', env: { ...env, ...extra } })
-    return { status: ran.status, said: `${ran.stdout}${ran.stderr}` }
+    return { status: ran.status, said: `${ran.stdout}${ran.stderr}`, printed: ran.stdout, narrated: ran.stderr }
   }
   const started = (cwd: string, args: string[], extra: Record<string, string> = {}) => {
     // eslint-disable-next-line sonarjs/no-os-command-from-path -- the node running these tests, whichever it is

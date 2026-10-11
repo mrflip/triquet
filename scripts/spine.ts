@@ -230,6 +230,14 @@ export interface Top {
   sha:    string
 }
 
+/**
+ * Tells the operator, on stderr and before it happens, of a step worth knowing was taken: a fetch, a
+ * push, a rebase, a switch, an install. The lines a command prints on stdout say how it ended.
+ */
+export function narrate(doing: string): void {
+  process.stderr.write(`spine: ${doing}\n`)
+}
+
 /** Runs git in `cwd` and hands back what it printed; a failure throws with what git said */
 export function git(cwd: string, ...args: string[]): string {
   return gitExactly(cwd, ...args).trim()
@@ -405,6 +413,7 @@ export function refuseBusy(main: string): void {
  * @returns Lines saying what was done, empty when the spine was already on `origin/main`.
  */
 export function restack(main: string): string[] {
+  narrate('fetching origin')
   git(main, 'fetch', '--quiet', '--prune', 'origin')
   const top = topOf(main)
   const replayed = gitOk(main, 'merge-base', '--is-ancestor', 'origin/main', top.sha) ? [] : replay(main, top)
@@ -414,6 +423,7 @@ export function restack(main: string): string[] {
 /** Replays the spine, which origin/main has moved past, onto it: the body of restack() */
 function replay(main: string, top: Top): string[] {
   if (top.branch === 'main') {
+    narrate('fast-forwarding main to origin/main')
     git(main, 'merge', '--quiet', '--ff-only', '--autostash', 'origin/main')
     return ['The main checkout stood on main: fast-forwarded it to origin/main.']
   }
@@ -421,6 +431,7 @@ function replay(main: string, top: Top): string[] {
   const leases = spine.filter((branch) => gitOk(main, 'rev-parse', '--verify', '--quiet', `refs/remotes/origin/${branch}`))
     .map((branch) => [branch, git(main, 'rev-parse', `refs/remotes/origin/${branch}`)] as const)
   const stashesBefore = git(main, 'stash', 'list').split('\n').filter(Boolean).length
+  narrate(`replaying the spine (${spine.join(', ')}) onto origin/main`)
   try {
     git(main, 'rebase', '--quiet', '--update-refs', '--autostash', 'origin/main')
   } catch (err) {
@@ -431,6 +442,7 @@ function replay(main: string, top: Top): string[] {
   // A branch whose every commit main already had is empty now: pushing it would only point its PR at main.
   const pushing = leases.filter(([branch]) => ! gitOk(main, 'merge-base', '--is-ancestor', branch, 'origin/main'))
   for (const [branch, sha] of pushing) {
+    narrate(`pushing ${branch}`)
     git(main, ...PushArgs, `--force-with-lease=${branch}:${sha}`, 'origin', branch)
   }
   return [
@@ -454,6 +466,7 @@ function backOnMain(main: string): string[] {
   if (gitOk(main, 'rev-parse', '--verify', '--quiet', 'refs/heads/main') && ! gitOk(main, 'merge-base', '--is-ancestor', 'main', 'origin/main')) {
     return [`The whole spine has merged, but local main holds commits origin/main lacks: the main checkout stays on ${top.branch}. Tell the Coach.`]
   }
+  narrate('switching the main checkout onto main')
   git(main, 'switch', '--quiet', '--force-create', 'main', 'origin/main')
   return [`The whole spine has merged: the main checkout stands on main again, and ${top.branch} is done.`]
 }
@@ -478,8 +491,10 @@ export function sweep(main: string): string[] {
     const taken = (branch: string) => gitOk(main, 'rev-parse', '--verify', '--quiet', `refs/heads/${branch}`)
     const base = `${datestamp()}-swept_notes`
     const branch = [base, ...[2, 3, 4, 5, 6, 7, 8, 9].map((idx) => `${base}${String(idx)}`)].find((name) => ! taken(name)) ?? `${base}_${String(Date.now())}`
+    narrate(`cutting ${branch} for the sweep`)
     git(main, 'switch', '--quiet', '--create', branch)
   }
+  narrate(`committing ${String(paths.length)} swept file(s) from the main checkout`)
   git(main, 'add', '--all', '--', ...paths)
   git(main, 'commit', '--quiet', '--message', 'docs: swept from the main checkout', '--', ...paths)
   return paths
@@ -487,6 +502,7 @@ export function sweep(main: string): string[] {
 
 /** Whether the checkout at `root` installed its packages (TRIQUET_INSTALL, else InstallCommand), the install's output shown as it runs */
 function installs(root: string): boolean {
+  narrate(`installing packages in ${root}`)
   return passes(root, process.env.TRIQUET_INSTALL ?? InstallCommand)
 }
 
@@ -543,6 +559,7 @@ export function cutWorktree(cwd: string, label: string, opts: { install: boolean
     const said = [...restack(main), ...sweptNotes(sweep(main))]
     const stood = topOf(main)
     fs.mkdirSync(path.dirname(root), { recursive: true })
+    narrate(`adding the worktree ${root}`)
     git(main, 'worktree', 'add', '--quiet', '-b', branch, root, stood.sha)
     return { top: stood, notes: said }
   })
@@ -568,6 +585,7 @@ function seedCache(main: string, root: string): string[] {
   const from = path.join(main, E2eDistDir, 'dev', 'cache')
   if (! fs.existsSync(from)) { return [] }
   const onto = path.join(root, E2eDistDir, 'dev', 'cache')
+  narrate('seeding the e2e build cache from the main checkout\'s')
   const began = Date.now()
   try {
     fs.cpSync(from, onto, { recursive: true, mode: fs.constants.COPYFILE_FICLONE })
@@ -609,6 +627,7 @@ export function removeWorktree(cwd: string): string[] {
   if (dirty.length > 0) { throw new SpineStop(`This worktree holds uncommitted files, which removing it would lose: ${dirty.join(', ')}. Commit them, or move them, first.`) }
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- the node running this script, whichever it is
   const freed = execFileSync('node', [path.join(root, 'scripts', 'lanes.ts'), 'release'], { cwd: root, encoding: 'utf8' }).trim()
+  narrate(`removing the worktree ${root}`)
   git(main, 'worktree', 'remove', '--force', root)
   return [`Removed ${root}. ${freed}`]
 }
@@ -798,6 +817,7 @@ function caughtUp(root: string, branch: string, top: Top): boolean {
   const base = spinebaseOf(root, branch, top)
   if (base === top.sha) { return false }
   git(root, 'config', `branch.${branch}.spinebase-pending`, top.sha)
+  narrate(`rebasing ${branch} onto ${top.branch} at ${top.sha.slice(0, 8)}`)
   try {
     git(root, 'rebase', '--quiet', '--onto', top.sha, base, branch)
   } catch (err) {
@@ -844,6 +864,7 @@ export function catchUp(cwd: string): string[] {
 export function justify(cwd: string): string[] {
   const { root, main } = checkoutAt(cwd)
   const ante = standingOf(root, main)
+  narrate('running typecheck, lint and the unit tests')
   const began = Date.now()
   const green = passes(root, process.env.TRIQUET_JUSTIFY ?? JustifyCommand)
   const took = `${secondsSince(began)} s`
@@ -1293,6 +1314,7 @@ export function land(cwd: string, skipE2e?: string, into?: string): string[] {
     const rebased = caughtUp(root, branch, stood)
     if (rebased) { said.push(`The top had moved: rebased onto ${stood.branch} at ${stood.sha.slice(0, 8)}.`, ...installedSince(root, before)) }
     const proven = rebased ? proofAfresh(root, branch, stood, skipE2e) : proofBefore
+    narrate(`running typecheck and the unit tests on ${branch}`)
     if (! passes(root, checks)) { throw new SpineStop(`Typecheck or the tests failed on ${branch}, on ${stood.branch}: repair, commit, justify, and bid again. The spine is untouched.`) }
     refuseBusy(main)
     if (into === undefined) {
@@ -1348,6 +1370,7 @@ function stackingOn(top: Top): string {
 
 /** Switches the main checkout onto `branch`, freeing it from the worktree first; a refusal puts the worktree back and stops */
 function foldIn(root: string, main: string, branch: string): void {
+  narrate(`switching the main checkout onto ${branch}`)
   git(root, 'switch', '--quiet', '--detach')
   try {
     git(main, 'switch', '--quiet', branch)
@@ -1363,6 +1386,7 @@ function foldIn(root: string, main: string, branch: string): void {
  * `into` holds now. A refusal puts the worktree back and stops.
  */
 function foldInto(root: string, main: string, branch: string, into: string): void {
+  narrate(`fast-forwarding ${into} onto ${branch}`)
   git(root, 'switch', '--quiet', '--detach')
   try {
     git(main, 'merge', '--quiet', '--ff-only', branch)
@@ -1378,6 +1402,7 @@ function foldInto(root: string, main: string, branch: string, into: string): voi
 function pushed(main: string, branch: string): string[] {
   const remote = `refs/remotes/origin/${branch}`
   const leased = gitOk(main, 'rev-parse', '--verify', '--quiet', remote) ? git(main, 'rev-parse', remote) : ''
+  narrate(`pushing ${branch}`)
   try {
     git(main, ...PushArgs, '--set-upstream', `--force-with-lease=${branch}:${leased}`, 'origin', branch)
     return [`Pushed ${branch}.`]

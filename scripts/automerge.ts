@@ -25,7 +25,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SpineStop, PushArgs, checkoutAt, git, gitOk, refuseBusy, restack, topOf, withSpineHeld } from './spine'
+import { SpineStop, PushArgs, checkoutAt, git, gitOk, narrate, refuseBusy, restack, topOf, withSpineHeld } from './spine'
 
 const Usage = 'Usage: pnpm automerge <PR#> [--dry-run]'
 
@@ -187,6 +187,7 @@ function replayed(main: string, line: readonly PrT[]): MoveT[] {
 
 /** Pushes every move in one atomic push, each leased on the head GitHub showed; then moves any local branch still on its old head and checked out nowhere */
 function pushedMoves(main: string, moves: readonly MoveT[]): string[] {
+  narrate(`pushing ${moves.map((move) => move.branch).join(', ')}`)
   git(main, ...PushArgs, '--atomic', ...moves.map((move) => `--force-with-lease=${move.branch}:${move.from}`), 'origin', ...moves.map((move) => `${move.to}:refs/heads/${move.branch}`))
   const busy = checkedOut(main)
   const followed = moves.filter((move) => ! busy.includes(move.branch) && gitOk(main, 'update-ref', `refs/heads/${move.branch}`, move.to, move.from))
@@ -262,6 +263,7 @@ function broughtUp(main: string, commondir: string, survey: SurveyT, opts: { dry
 /** Brings PR `number`'s line up to date with main, and sets the PR to merge once its checks pass: the lines to print */
 export function automerge(cwd: string, number: number, opts: { dryRun: boolean }): string[] {
   const { main, commondir } = checkoutAt(cwd)
+  narrate('fetching origin')
   git(main, 'fetch', '--quiet', '--prune', 'origin')
   const survey = surveyed(main, number, opts)
   const { target, merging, required } = survey
