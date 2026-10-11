@@ -110,6 +110,16 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
    provider and signs nobody in, so it is not the "fake Google" the ground rules forbid. But it is
    a way past sealing on test backends, so its reviewer and thread 9 check its gate.
 
+## The Coach's guidance during the sprint
+
+* **2026-10-11: an anonymous (sealed) user may not delete a hunt.** "No new hunt, no delete hunt
+  for anonymous seems easier to reason about." `deleteHunt` takes a hunt holding up to one quiz
+  with it, so an anonymous user could delete its sandbox's work and then make a fresh one.
+  Thread 3 adds the refusal before it lands, or folds it in after. `new_hunt` stays as it is: a
+  sealed user makes only its sandbox, at most one. *Orchestrator's reading:* "no new hunt" means
+  no hunt beyond the sandbox. Making the sandbox automatically when a handle is taken would be the
+  other reading, and is not being built.
+
 ## The threads
 
 | # | Thread | Depends on |

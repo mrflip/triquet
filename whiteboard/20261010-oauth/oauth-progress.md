@@ -145,7 +145,9 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
     can hide the label field with `mayOffer('relabel_hunt')`. Retitle, rebranch, arrange and
     delete were checked and keep a sandbox a sandbox. *Second review: clean.* Left for **thread
     6**: the gear (`HuntEditModal`) and the quiz's manage dialog still offer an anonymous smith the
-    Label field; gate it on `Approve.mayOffer('relabel_hunt', claims)`. The other five focus areas held: authorization through
+    Label field; gate it on `Approve.mayOffer('relabel_hunt', claims)`.
+  - **The Coach (2026-10-11): a sealed user may not delete a hunt** (plan, *The Coach's
+    guidance*). Thread 3 adds it; **thread 6** hides the Workbench's delete button with `mayOffer`. The other five focus areas held: authorization through
     `user_id` and huntships; default-deny row rules keep `users`, `ghostings` and `auth*` out of
     scoped databases; every other seal; `vouchFor`'s gate; the userlabel race (one transaction);
     no query returns an email; `admin` read only in `Actor.ofUser`.
