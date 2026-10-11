@@ -1,8 +1,13 @@
 # Thread 8: reserved_words (2026-10-11)
 
 Branch `20261011-reserved_words`, PR filed at landing; see the report. Stacked on thread 2's
-`20261011-clear_people` (the guard). Suites: justify green (typecheck, lint, 208 unit files,
-6028 tests); e2e not yet run (at landing).
+`20261011-clear_people` (the guard). Suites: justify green; full e2e at landing (the sprint's
+fourth landing); the review came back clean.
+
+**Merges no earlier than the clear**: in the pre-plan's second step, with thread 3, not the
+first. Idents are not grandfathered (*Deviations*), so on production with idents still in it,
+the smith of an org whose label this list now keeps would be locked out of their ident once their
+session ended. Once `clear_people` has run there are no idents to lock out.
 
 * **Built**:
   - **The survey.** Every top-level route is reserved: `about`, `privacy`, `terms` (pages), `my`,
@@ -67,7 +72,9 @@ Branch `20261011-reserved_words`, PR filed at landing; see the report. Stacked o
     hunting row's `ident_label`, `assume_ident` and `add_hunting`, stays `CK.userlabel`, strict.
     Until thread 3 drops idents, an existing ident whose label is newly reserved (`google…`,
     `handles`, `sandbox…`) cannot be re-asserted, retitled, or added to a hunt, and cannot make a
-    hunt. Production's idents are cleared before thread 3, and the check names any such org. I
+    hunt. Production's idents are cleared before thread 3, and the check names any such org. Hence the
+    merge order above. The check names hunts only: an ident holding a reserved label and no hunt
+    goes unlisted (the review's second finding; thread 3 weighs adding userlabels to the check). I
     left idents alone so as not to collide with threads 1 and 3 in files thread 3 deletes.
 * **Discoveries**:
   - Before this thread, a hunt whose label became reserved could not be retitled, rebranched or

@@ -2,6 +2,9 @@
 
 Thread 8 of the oauth sprint (`whiteboard/20261010-oauth/thread-8-reserved_words.md`).
 
+0. **Merge this PR no earlier than the clear**: with thread 3, in the second step, not the first.
+   Idents are not grandfathered, so before `clear_people` runs, an org's smith whose label the
+   list now keeps would be locked out of their ident once their session ended.
 1. **Run the check once the thread deploys**: `./scripts/doppledo prd_janitor scripts/check_reserved`.
    It writes nothing. It names every hunt whose label or org (`~org/label`) the grown list would
    refuse if it were made today. Such hunts keep working at their addresses: the list now governs
