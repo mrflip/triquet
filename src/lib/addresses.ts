@@ -272,7 +272,7 @@ function quizResourceFrom(inQuiz: InQuizT, keypath: readonly string[]): AddressT
 export function orgFrom(raw: string | null | undefined): string | null {
   if (! raw?.startsWith('~')) { return null }
   const org = raw.slice(1)
-  return isIdentlabel(org) ? org : null
+  return isHeldUserlabel(org) ? org : null
 }
 
 /**
@@ -295,10 +295,10 @@ function isLabel(str: string): boolean {
 }
 
 /**
- * Whether `str` is an ident's label as an org holds one, by the server's own check: a label, of an
- * ident's length, and none of the words every label is kept from. A top-level word is an org's
+ * Whether `str` is a userlabel as an org holds one, by the server's own check: a label, of a
+ * userlabel's length, and none of the words every label is kept from. A top-level word is an org's
  * all the same, kept since the org was named (`CK.heldUserlabel`).
  */
-function isIdentlabel(str: string): boolean {
+function isHeldUserlabel(str: string): boolean {
   return CK.heldUserlabel.safeParse(str).success
 }

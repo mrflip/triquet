@@ -70,11 +70,11 @@ export const toplabel  = label.refine((val) => PA.UnreservedToplevel.rule(val), 
  */
 export const heldUserlabel = lower.min(PA.Userlabel.min).max(PA.Userlabel.max).regex(PA.Userlabel.re, PA.Userlabel.msg)
   .refine((val) => PA.Unreserved.rule(val), PA.Unreserved.msg)
-  .describe('held ident label')
-/** A userlabel, an ident's label as it is claimed: a userlabel held (`heldUserlabel`), and none of the words a top-level label is kept from */
+  .describe('held userlabel')
+/** A userlabel as it is claimed, a user's handle: a userlabel held (`heldUserlabel`), and none of the words a top-level label is kept from */
 export const userlabel  = heldUserlabel
   .refine((val) => PA.UnreservedToplevel.rule(val), PA.UnreservedToplevel.msg)
-  .describe('ident label')
+  .describe('userlabel')
 export const dashlabel = lower.min(PA.Dashlabel.min).max(PA.Dashlabel.max).regex(PA.Dashlabel.re, PA.Dashlabel.msg).describe('dash-separated label')
 export const handleish = lower.min(PA.Handleish.min).max(PA.Handleish.max).regex(PA.Handleish.re, PA.Handleish.msg).describe('record handle')
 export const keyish    = trimmed.min(PA.Keyish.min).max(PA.Keyish.max).regex(PA.Keyish.re, PA.Keyish.msg).describe('freeform key')

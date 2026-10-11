@@ -112,7 +112,7 @@ function repaired(cleaned: string, max: number): string {
 }
 
 export type IsReservedOpts = {
-  /** Whether the label is a new hunt's or ident's, kept from the top-level words too (`PA.ReservedToplevel`) */
+  /** Whether the label is a new hunt's or a userlabel being claimed, kept from the top-level words too (`PA.ReservedToplevel`) */
   toplevel?: boolean
   /** Words let through all the same, whatever the reserved lists say (`PA.isUnreserved`) */
   allowed?:  ReadonlySet<string>
@@ -126,7 +126,7 @@ export type IsReservedOpts = {
  * label already held stands whatever this says (`CK.heldUserlabel`).
  *
  * @param label - A label, or anything typed for one.
- * @param opts - `toplevel` for a new hunt's or ident's label, kept from the top-level words as well; `allowed`, words let through.
+ * @param opts - `toplevel` for a new hunt's label or a userlabel being claimed, kept from the top-level words as well; `allowed`, words let through.
  * @returns True when the label validator would refuse it for its word rather than its shape.
  *
  * @example isReserved('position')                       // => true

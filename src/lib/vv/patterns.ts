@@ -100,7 +100,7 @@ export function reservedOf(words: readonly string[], msg = 'is a name already in
   return { rule: (label) => ! reserved.has(label), msg }
 }
 
-/** The tool's own nouns, one and many: its tables, and the things its rows and bags are made of */
+/** The tool's own nouns, one and many: its tables (and those it has had: the idents, identings and huntings of before the OAuth sprint), and the things its rows and bags are made of */
 const ModelNouns = [
   ['hunt', 'hunts'], ['realm', 'realms'], ['quiz', 'quizzes'], ['question', 'questions'],
   ['column', 'columns'], ['widget', 'widgets'], ['widgeting', 'widgetings'], ['widgeted', 'widgeteds'],
@@ -186,8 +186,8 @@ export function isUnreserved(val: string, allowed?: ReadonlySet<string>): boolea
 }
 
 /**
- * The words no new hunt and no new ident may be labelled, beyond those no label may be. A hunt's
- * label and an ident's are each global, the first word of an address or the name a person goes
+ * The words no new hunt may be labelled and no userlabel may be claimed as, beyond those no label
+ * may be. A hunt's label and a userlabel are each global, the first word of an address or the name a person goes
  * by, so these are kept for the app's own pages and for whoever speaks for it. They govern a label
  * being made or claimed, and never one already held: a word added here leaves every hunt and org
  * already so labelled at its address (`CK.heldUserlabel`), which `scripts/check_reserved` names.
@@ -228,7 +228,7 @@ export const ReservedToplevelGroups = {
 export const ReservedToplevel: readonly string[] = Object.values(ReservedToplevelGroups).flat()
 
 /**
- * How no new hunt's or ident's label may begin: what would pass for the app's own desk, its say-so
+ * How no new hunt's label or claimed userlabel may begin: what would pass for the app's own desk, its say-so
  * or its sign-in's with anything after it (`help_desk`, `triquet_team`, `verified_ben`,
  * `google_support`). A prefix is here when
  * the trick it plays is a bad one and few real names begin with it; one too common to refuse
@@ -243,7 +243,7 @@ const ReservedToplevelSet: ReadonlySet<string> = new Set(ReservedToplevel)
 const ReservedToplevelFormRe = new RegExp(`^(?:${ReservedToplevelForms.join('|')})$`)
 
 /**
- * A new hunt's or ident's label that is no top-level reserved word or form, and begins with no
+ * A new hunt's label or a claimed userlabel that is no top-level reserved word or form, and begins with no
  * reserved prefix. Says nothing of the words every label is kept from, which is `Unreserved`'s
  * business.
  */
