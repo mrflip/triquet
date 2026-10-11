@@ -431,7 +431,8 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
 * **Touches:**
   - the gate (`UserlabelGate`, after thread 3) and the user menu from thread 1;
   - a dialog for the name choice;
-  - the settling mutation, `relabelUser` (*Decisions taken in YOLO*, 5), and its ghosting write;
+  - the settling mutation, which calls thread 4's `relabelUser` (*Orchestrator:* ~~`relabelUser`~~
+    was pulled forward by thread 4) and adds the ghosting write and the name choice;
   - the sealing notices in `src/lib/notices.ts`;
   - Google's "G" asset under `public/`;
   - e2e up to the redirect, and convex-test for the settling mutation.

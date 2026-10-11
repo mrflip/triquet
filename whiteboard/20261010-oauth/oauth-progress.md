@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: 7, 2, 1, 8 and 3 landed (#226-#230); 4 and 5 underway (2026-10-11).**
+**Status: 7, 2, 1, 8 and 3 landed (#226-#230); 4 landing, 5 underway (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -10,7 +10,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 1 | `split_account`: free the words "account" and "username" | landed #228 | `20261011-split_account` | [#228](https://github.com/mrflip/triquet/pull/228) |
 | 2 | `clear_people`: delete production's people, keep its hunts | landed #227 | `20261011-clear_people` | [#227](https://github.com/mrflip/triquet/pull/227) |
 | 3 | `converge`: users and huntships, everywhere | landed #230 | `20261011-converge` | [#230](https://github.com/mrflip/triquet/pull/230) |
-| 4 | `adopt_script`: give a user a userlabel, admin, and hunts | underway | `20261011-adopt_script` | |
+| 4 | `adopt_script`: give a user a userlabel, admin, and hunts | landing | `20261011-adopt_script` | |
 | 5 | `google_signin`: the provider, the patch, the merge | underway | `20261011-google_signin` | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
@@ -159,6 +159,31 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
     no query returns an email; `admin` read only in `Actor.ofUser`.
   - **For thread 9:** a smith adding a handle learns whether that user is anonymous (from the
     `sealedJoin` refusal); the privacy policy does not say so.
+
+* **What thread 4 built** (`thread-4-adopt_script.md`): `adopt:plan` (a query, so the dry run
+  cannot write) and `adopt:perform` (one transaction), over one shared plan; `scripts/adopt` on
+  `takeAim`. **Pulled forward from thread 6:** `relabelUser` in `writing/user_actions.ts`
+  relabels a user and rewrites its huntships' copies. *Orchestrator:* thread 6's settling
+  mutation calls it and adds only the ghosting and the name choice. Also new:
+  `grantHuntship` (through `placeOn`, refusing a sealed user) and `Huntship.holdsAtLeast`.
+  The shared `convexRun` now shows the `Uncaught …` line in quiet mode; refusals for `convex run`
+  are `ConvexError`s. The guard's one-check gap stays: pinning needs the admin key, which the
+  guard never sees.
+* *Review (thread 4): clean.* Plan cannot write; plan and perform share `planFor`; the
+  refusals, idempotence, the copies rule and `convexRun`'s change hold. One fix was refused to
+  the reviewer by the session's permissions, and the worker makes it at landing (plan/perform
+  disagreeing on a since-reserved userlabel). **For thread 9:** `--smith-all` reaches anonymous
+  sandboxes past sealing (safe at adoption time only); relabelling an anonymous user that holds
+  a sandbox lets it make a second (`mayMakeHunt` checks only label == userlabel).
+* **Permission refusals in reviewers' sessions** (threads 3 and 4): the auto-mode classifier
+  refused a reviewer's read, then another's edit and `tsx -e`, in a worktree, as "Modify Shared
+  Resources". Neither worked round it. The thread's own worker made each fix instead, on its own
+  branch. Reported to the Coach.
+* **Who runs the adopt command** (thread 4's question). *Orchestrator:* the pre-plan's
+  *Production* step 5 stands: the orchestrator runs it, on the Coach's word at the time, after the
+  sprint, saying the command in chat first and relaying its output whole. No worker runs it, and
+  nothing in this sprint's run does. `--smith-all` also reaches anonymous sandboxes; production
+  holds none at adoption time, as everyone is cleared first.
 
 ## Convex Auth, as installed (checked 2026-10-10)
 
