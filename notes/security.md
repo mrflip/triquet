@@ -142,14 +142,17 @@ security expert who knows what questions to ask.
   At the callback our code links the account to its own user, or to a new **provisional** user, and
   reads nothing of the starting browser's; at the exchange it upgrades, merges or switches
   (`userForGoogle`, `accountUserAtCallback`, `userAtExchange`). A code presented with the wrong
-  verifier is spent, so a code leaked from the clicker's address bar, history or a server log
-  cannot then be used with the link's verifier. Shape chosen over a claim after the exchange
-  (proof of the old session carried across the redirect): smaller, atomic (no moment signed in as
-  the wrong user, no claim left unmade), and it uses the proof Convex Auth already has. Left: the
-  code is 8 digits and lives 2 minutes, and guesses at it are not throttled, so the link's maker,
-  holding the verifier, could guess at it until the clicker's browser lands on the app and spends
-  it by presenting its own verifier (at once, unless that browser never runs the app's script); a provisional user whose exchange never came stays,
-  holding its account, until that account signs in again. The patch's exact lines:
+  verifier is spent, so once the clicker's browser has presented it, a code leaked from its address
+  bar, history or a server log cannot then be used with the link's verifier. Shape chosen over a
+  claim after the exchange (proof of the old session carried across the redirect): smaller, atomic
+  (no moment signed in as the wrong user, no claim left unmade), and it uses the proof Convex Auth
+  already has. Left: the code is 8 digits and lives 2 minutes, and guesses at it are not throttled,
+  so the link's maker, holding the verifier, can guess at it (or use it, if it leaks) until the
+  clicker's browser presents it. The link's maker chooses where that browser lands (the sign-in
+  route's `redirectTo`, any path on the site), and a page outside `(synced)` (`/privacy`,
+  `/terms`, `/about`) runs no Convex client and never presents it, so the maker can always have
+  the whole 2 minutes. A provisional user whose exchange never came stays, holding its account,
+  until that account signs in again; `adopt` refuses one. The patch's exact lines:
   `notes/stack.md`, *Authentication*. The callback is Google's redirect to the deployment, carrying
   no token; the PR's browser-chosen `scope` is not carried.
 * 2026-10-11 (oauth sprint, thread 5): a Google sign-in's user is decided, at the code's exchange,
