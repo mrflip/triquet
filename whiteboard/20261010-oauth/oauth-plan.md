@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-11. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `/sprint oath YOLO`, "plan and execute the sprint described in
 whiteboard/20261010-oauth", which is `20261011-oauth_preplan.md` beside this file.
-**Status: paused (2026-10-11): thread 5's second review left a significant finding for the Coach (`human/20261011-sprint_oauth_paused.md`). Threads 1, 2, 3, 4, 7, 8 landed (#226-#231); 5 waits in its worktree; 6 and 9 not started.** `oauth-progress.md`, beside this file, is newer
+**Status: resumed (2026-10-11) on the Coach's decision for thread 5 (option 1: bound the verifier). Threads 1, 2, 3, 4, 7, 8 landed (#226-#231); 5 fixing, to the Coach before it lands; 6 and 9 not started.** `oauth-progress.md`, beside this file, is newer
 than this plan wherever the two disagree.
 
 The earlier plan in this file (three threads, an app-made hand-off, 2026-10-10) is superseded and
@@ -131,6 +131,15 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
    **Production's Google keys wait until this is reviewed.**
 
 ## The Coach's guidance during the sprint
+
+* **2026-10-11: thread 5's verifier: option 1.** Hand the starting session on only from a recently
+  made verifier, and delete a verifier wherever its code dies (`human/20261011-sprint_oauth_paused.md`).
+  The Coach's conditions: "Make sure it can't succeed leaving the person without their old anon
+  record. Or leaving a confusing oauth state." *Orchestrator:* so a refused exchange leaves the
+  browser on its old anonymous session, with nothing half-linked, and a plain notice; the client's
+  behaviour on a failed exchange is checked first. Also a `callbacks.redirect` limited to synced
+  pages (closing the guess window). No sweep (no crons); noted in TODO. The result goes to the
+  Coach before it lands.
 
 * **2026-10-11: an anonymous (sealed) user may not delete a hunt.** "No new hunt, no delete hunt
   for anonymous seems easier to reason about." `deleteHunt` takes a hunt holding up to one quiz
