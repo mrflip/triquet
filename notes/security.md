@@ -90,8 +90,9 @@ security expert who knows what questions to ask.
   `authSessions`, `authRefreshTokens`, `authVerifiers`, `authVerificationCodes`,
   `authRateLimits`) and of `idents`, `identings`, `huntings`, `reviews` and `reviewings`, with no
   argument and no environment check: the one place our code writes Convex Auth's tables. It is
-  run on production once, by a Coach, through `scripts/clear_people` under `prd_janitor`; the
-  `converge` thread deletes it. The script's guard (`scripts/janitor.ts`, kept for later janitor
+  run on production once, by a Coach, through `scripts/clear_people` under `prd_janitor`. The
+  `converge` thread (thread 3) deleted the mutation and its script with the tables they emptied,
+  so no code of ours writes Convex Auth's own tables now. The script's guard (`scripts/janitor.ts`, kept for later janitor
   commands) acts only when `--deployment` names the deployment the CLI's environment reaches, by
   the address that deployment reports for itself (its `cloudUrl`, read by `convex function-spec`
   with the same admin key, not the address the CLI connected to); a dry run is the default.

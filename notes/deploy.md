@@ -311,7 +311,9 @@ The Coach's steps, in order:
    giving that user `mrflip`, admin, and smith of every hunt.
 
 The `converge` thread deletes `scripts/clear_people` and `convex/clear_people.ts` with the tables
-they empty, and keeps the guard.
+they empty, and keeps the guard. So step 3's clear runs from a checkout of `main` as step 2 left
+it, holding the script, before the remaining threads merge: once `converge` is on `main`, the
+script is no longer there to run (`git switch --detach <step 2's merge>` brings it back).
 
 ## History
 

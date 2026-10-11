@@ -15,9 +15,9 @@
  * `https://careful-otter-123.convex.cloud`), or, for a local backend, its host and port
  * (`127.0.0.1:3431`), which a run against a lane's backend proves the command with:
  *
- *   ./scripts/doppledo prd_janitor scripts/clear_people                                    a dry run
- *   ./scripts/doppledo prd_janitor scripts/clear_people --deployment careful-otter-123     for real
- *   ./scripts/doppledo dev_claude scripts/convex_dev agent scripts/clear_people           a lane's backend, dry
+ *   ./scripts/doppledo prd_janitor scripts/<command>                                       a dry run
+ *   ./scripts/doppledo prd_janitor scripts/<command> --deployment careful-otter-123        for real
+ *   ./scripts/doppledo dev_claude scripts/convex_dev agent scripts/<command>              a lane's backend, dry
  *
  * A command takes aim first (`takeAim`), says where (`aim.said`), does its looking, and acts only
  * when `aim.acting`; a dry run ends with `dryRunCoda(aim)`. Its own `main` catches a `JanitorStop`
