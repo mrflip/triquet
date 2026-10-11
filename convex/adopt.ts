@@ -1,5 +1,6 @@
 import { ConvexError } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
+import * as Actor from '../src/lib/actor'
 import { AdoptionValidators, type AdoptChangeT, type AdoptedT, type AdoptionT } from '../src/models/adoption'
 import { Huntship, type HuntRole } from '../src/models/huntship'
 import { User } from '../src/models/user'
@@ -81,7 +82,7 @@ async function planFor(db: Reader, request: AdoptionT): Promise<PlanT> {
   const user = await userFound(db, request.find)
   const relabel = await relabelFor(db, user, request)
   const userlabel = relabel?.userlabel ?? user.userlabel
-  const signedIn = ! User.isAnonymous(user)
+  const signedIn = Actor.isSignedInWithGoogle(user)
   if (! signedIn && request.admin === true) { throw new ConvexError(`The user ${userline(user)} is anonymous: only a user signed in with Google is made an admin.`) }
   if (request.grants.length > 0) {
     if (! signedIn) { throw new ConvexError(`The user ${userline(user)} is anonymous: only a user signed in with Google is put on a hunt.`) }
