@@ -1,15 +1,15 @@
 # Sprint `oauth`: progress
 
-**Status: 7 and 2 landed (#226, #227); 1 landing; 8 underway (2026-10-11).**
+**Status: 7, 2 and 1 landed (#226, #227, #228); 3 and 8 underway (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
-| 1 | `split_account`: free the words "account" and "username" | landing | `20261011-split_account` | |
+| 1 | `split_account`: free the words "account" and "username" | landed #228 | `20261011-split_account` | [#228](https://github.com/mrflip/triquet/pull/228) |
 | 2 | `clear_people`: delete production's people, keep its hunts | landed #227 | `20261011-clear_people` | [#227](https://github.com/mrflip/triquet/pull/227) |
-| 3 | `converge`: users and huntships, everywhere | pending (1, 2) | | |
+| 3 | `converge`: users and huntships, everywhere | underway | `20261011-converge` | |
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | pending (3) | | |
 | 5 | `google_signin`: the provider, the patch, the merge | pending (3) | | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
@@ -17,7 +17,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 8 | `reserved_words`: survey and augment the reserved list | underway | `20261011-reserved_words` | |
 | 9 | `oauth_security`: a strong review | pending (1-8) | | |
 
-Full e2e runs at landing: threads 3 and 5, and every fourth landing (none yet).
+Full e2e runs at landing: threads 3 and 5, and every fourth landing. So far every landing's `--touched` ran the whole suite: 7 (299/299), 2 (293/293), 1 (299/299), no flakes.
 
 ## Reviews of landed threads
 
@@ -33,6 +33,14 @@ Full e2e runs at landing: threads 3 and 5, and every fourth landing (none yet).
   as the action); the mutation touches only the people's tables. Left, minor: the deployment is
   checked once, and later `convex run`s pick it again from the environment (*Open, for threads 4
   and 8* in its thread file). Full e2e 293/293, no flakes.
+* **Thread 1, #228**, stacked on #227. *Review: clean.* The split passes exactly the old checks,
+  action for action. Left, minor and named in the PR: deploy skew (an old tab gets "Could not
+  find public function" until it reloads; no shim), and the visible changes (`keyRefused`, the
+  `userlabelClaimed` wording, the menu's name "You"). Full e2e 299/299, no flakes.
+* **Thread 1's notes for thread 3** (`thread-1-split_account.md`): move the `hunts.performOuter`
+  tests to `hunts.test.ts`; sealing goes in `mayMakeHunt` and `newHunt`; "anonymous" means two
+  things today (Convex Auth's `isAnonymous`, no proof; and the actor's `{ kind: 'anonymous' }`,
+  no userlabel asserted), and thread 3 should give them different words.
 
 ## What the threads have taught
 
