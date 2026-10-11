@@ -56,7 +56,7 @@ describe('checkReserved', () => {
     expect(lines).to.deep.eq([
       'Aimed at 127.0.0.1:3431 (http://127.0.0.1:3431): a dry run, which changes nothing.',
       'Read 3 hunts.',
-      '2 have a label or org the reserved list keeps from new ones. Each stands at its address, and stays writable:',
+      '2 have a label or org the reserved list keeps from new ones. Each hunt keeps its address, and its own row stays writable:',
       '  ~pat_smith/privacy  (its label)',
       '  ~google_fan/quiet_otter  (its org)',
     ])

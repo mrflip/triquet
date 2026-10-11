@@ -55,7 +55,7 @@ export function checkReserved(argv: readonly string[], run: RunT, say: (line: st
     say('None has a label or org the reserved list keeps from new ones.')
     return report
   }
-  say(`${String(report.refused.length)} have a label or org the reserved list keeps from new ones. Each stands at its address, and stays writable:`)
+  say(`${String(report.refused.length)} have a label or org the reserved list keeps from new ones. Each hunt keeps its address, and its own row stays writable:`)
   for (const hunt of report.refused) { say(lineOf(hunt)) }
   return report
 }
