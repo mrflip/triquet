@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as authorize from "../authorize.js";
+import type * as check_reserved from "../check_reserved.js";
 import type * as clear_people from "../clear_people.js";
 import type * as deploying from "../deploying.js";
 import type * as functions from "../functions.js";
@@ -49,6 +50,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authorize: typeof authorize;
+  check_reserved: typeof check_reserved;
   clear_people: typeof clear_people;
   deploying: typeof deploying;
   functions: typeof functions;
