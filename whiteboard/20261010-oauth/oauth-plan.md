@@ -101,6 +101,14 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
 5. **The name choice after a merge.** Thread 5 records a pending name choice, shaped for thread 6.
    Thread 6 builds the mutation that settles it (`relabelUser`, per the pre-plan's rename table)
    and writes the ghosting.
+6. **Thread 3 catches up before its review** (2026-10-11). Thread 8 landed beneath it while it
+   built, and the catch-up changes code (the user's and huntship's userlabels move to
+   `CK.heldUserlabel`) across about seven files. So the reviewer reads the branch after the
+   catch-up, not before.
+7. **Thread 3's `testing:vouchFor` stands, pending review.** It is e2e's stand-in for Google: an
+   internal mutation, refused unless `TRIQUET_CLEARABLE=yes`, that clears `isAnonymous`. It is no
+   provider and signs nobody in, so it is not the "fake Google" the ground rules forbid. But it is
+   a way past sealing on test backends, so its reviewer and thread 9 check its gate.
 
 ## The threads
 

@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: 7, 2, 1 and 8 landed (#226-#229); 3 underway (2026-10-11).**
+**Status: 7, 2, 1 and 8 landed (#226-#229); 3 built, catching up before review (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -9,7 +9,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 |---|--------|--------|--------|----|
 | 1 | `split_account`: free the words "account" and "username" | landed #228 | `20261011-split_account` | [#228](https://github.com/mrflip/triquet/pull/228) |
 | 2 | `clear_people`: delete production's people, keep its hunts | landed #227 | `20261011-clear_people` | [#227](https://github.com/mrflip/triquet/pull/227) |
-| 3 | `converge`: users and huntships, everywhere | underway | `20261011-converge` | |
+| 3 | `converge`: users and huntships, everywhere | ready; catching up onto 8 before review | `20261011-converge` | |
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | pending (3) | | |
 | 5 | `google_signin`: the provider, the patch, the merge | pending (3) | | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
@@ -110,6 +110,31 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   `CK.userlabel` (sent to thread 3 directly, 2026-10-11). **Threads 3 and 6:** the one predicate is
   `Labelmaker.isReserved(word, { toplevel: true })`, which agrees word for word with `CK.userlabel`.
   No npm package: both candidates are unmaintained (2018, 2019).
+
+* **What thread 3 built, for threads 4, 5, 6 and 9** (`thread-3-converge.md`, and
+  `converge-map.md` for every renamed or added name):
+  - **The actor** comes from `Actor.ofUser`, the one place `admin` is read:
+    `{kind:'unlabelled'}` until a userlabel is held, then `{kind:'user', user_id, userlabel,
+    usertitle, admin, anonymous}`. `TRIQUET_ADMINS` is gone; a local backend sets
+    `TRIQUET_EVERYONE_ADMIN=yes`.
+  - **Sealing reads `users.isAnonymous`**, not "has a Google account". **Thread 5's
+    upgrade-in-place must clear it.** **Thread 4's** "signed in with Google" should agree with that.
+  - **`createOrUpdateUser` is `userForSignIn`**: a new anonymous account gets a new user; a
+    returning account its own; any other provider throws. Thread 5 extends it.
+  - **`smithOfSandbox`**, in `writing/huntship_actions.ts`, is the named write for thread 5's merge.
+  - **Test helpers:** `anonymousSession`, `anonymousUser`, `googleUser` (pulled forward from 5:
+    it seeds a Google `authAccounts` row, never a sign-in). `PA.Convexid` now accepts
+    convex-test's ids for Convex Auth's tables. **Thread 5 builds on these.**
+  - **e2e's stand-in for Google is `testing:vouchFor`**: an internal mutation, refused unless
+    `TRIQUET_CLEARABLE=yes`, that sets `isAnonymous: false`. It is no provider and signs nobody
+    in. **Thread 9** reviews it (`notes/security.md`).
+  - **Privacy:** no scoped database reaches `users`. Another user is known only by userlabel,
+    title and anonymity, through the census. No query returns an email.
+  - **For thread 6:** the sealing refusals say "Sign in with Google to … — coming soon". Today
+    `NotOnHunt` tells an anonymous visitor to ask a smith to add them, which will be refused, and
+    an anonymous smith opening its own sandbox at `!playtest` is told "Not yet on this hunt".
+  - **For thread 9:** a smith adding a handle learns whether that user is anonymous (from the
+    `sealedJoin` refusal); the privacy policy does not say so.
 
 ## Convex Auth, as installed (checked 2026-10-10)
 
