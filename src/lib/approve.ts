@@ -19,7 +19,7 @@ export const Allow = 'allow'
 /** Why a policy said no: each a refusal kind, so its sentence is the refusal's (`RefusalNotices`) */
 export const DenialkindVals = [
   'notIdentified', 'notPermitted', 'ownHuntship', 'quizLocked', 'botsOff', 'userlabelSet',
-  'sealedHunts', 'sealedMembers', 'sealedJoin', 'sealedReview',
+  'sealedHunts', 'sealedRelabel', 'sealedMembers', 'sealedJoin', 'sealedReview',
 ] as const satisfies readonly Refusalkind[]
 export type Denialkind = typeof DenialkindVals[number]
 
@@ -76,7 +76,8 @@ export function mayReadHunt(claims: Actor.HuntClaimsT): VerdictT {
 /**
  * Whether the claimed actor may change their hunt: make, delete, lock and unlock its quizzes,
  * retitle, relabel or delete it. Revising a quiz asks `mayReviseQuiz`, which also holds to the
- * quiz's lock. In order:
+ * quiz's lock; relabelling the hunt asks `mayRelabelHunt`, which also holds a sealed user's sandbox
+ * to its label. In order:
  *
  * * Nobody without a userlabel
  * * A smith of the hunt
@@ -88,6 +89,25 @@ export function mayChangeHunt(claims: Actor.HuntClaimsT): VerdictT {
   if (Actor.isUnlabelled(claims)) { return 'notIdentified' } // Nobody without a userlabel
   if (Actor.isSmith(claims))      { return Allow }           // A smith of the hunt
   return 'notPermitted'                                      // Nobody else
+}
+
+/**
+ * Whether the claimed actor may relabel their hunt. A sealed user's one hunt is its sandbox,
+ * `~label/label`, and the label that makes it one is the only one it may hold (`Hunt.isSandbox`):
+ * a relabel could only break the sandbox or change nothing, so none is offered. In order:
+ *
+ * * Whoever may change the hunt (`mayChangeHunt`): a smith of it
+ * * Nobody sealed (`Actor.isSealed`) relabels its sandbox
+ * * Any other smith
+ *
+ * @example Approve.mayRelabelHunt(claims)  // => 'allow', for a smith signed in with Google
+ * @example Approve.mayRelabelHunt(claims)  // => 'sealedRelabel', for an anonymous smith of its sandbox
+ */
+export function mayRelabelHunt(claims: Actor.HuntClaimsT): VerdictT {
+  const changing = mayChangeHunt(claims)
+  if (changing !== Allow)     { return changing }        // Whoever may change the hunt (`mayChangeHunt`): a smith of it
+  if (Actor.isSealed(claims)) { return 'sealedRelabel' } // Nobody sealed relabels its sandbox
+  return Allow                                           // Any other smith
 }
 
 /**
@@ -479,7 +499,7 @@ const HuntPolicies = {
   add_huntship:    mayChangeMembership,
   remove_huntship: mayChangeMembership,
   retitle_hunt:   mayChangeHunt,
-  relabel_hunt:   mayChangeHunt,
+  relabel_hunt:   mayRelabelHunt,
   delete_hunt:    mayChangeHunt,
   arrange_categories: mayChangeHunt,
   rebranch_hunt:  mayChangeHunt,

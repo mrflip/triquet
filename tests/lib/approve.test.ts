@@ -277,6 +277,20 @@ describe('Approve.mayMakeHunt', () => {
   }
 })
 
+describe('Approve.mayRelabelHunt', () => {
+  it('lets a smith signed in with Google relabel their hunt', () => {
+    expect(Approve.mayRelabelHunt(ClaimsAs.smith)).to.eq('allow')
+  })
+
+  it('refuses an anonymous smith any relabel of its sandbox, whose label is its handle', () => {
+    expect(Approve.mayRelabelHunt(ClaimsAs.sealed_smith)).to.eq('sealedRelabel')
+  })
+
+  it('refuses whoever may not change the hunt, as mayChangeHunt does, before asking of sealing', () => {
+    expect([Approve.mayRelabelHunt(ClaimsAs.reviewer), Approve.mayRelabelHunt(ClaimsAs.unlabelled)]).to.deep.eq(['notPermitted', 'notIdentified'])
+  })
+})
+
 describe('Approve.mayJoinHunt', () => {
   it('nobody anonymous; anyone else', () => {
     expect([Approve.mayJoinHunt({ anonymous: true }), Approve.mayJoinHunt({ anonymous: false })]).to.deep.eq(['sealedJoin', 'allow'])
@@ -353,6 +367,7 @@ type VerdictRowT = readonly [Approve.VerdictT, Approve.VerdictT, Approve.Verdict
 //                              smith    reviewer        stranger        unlabelled       smith, quiz locked  anonymous smith
 const Revisers:    VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'quizLocked',      'allow']
 const Smiths:      VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow',           'allow']
+const Relabels:    VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow',           'sealedRelabel']
 const Memberships: VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow',           'sealedMembers']
 const Members:     VerdictRowT = ['allow', 'allow',        'notPermitted', 'notIdentified', 'allow',           'sealedReview']
 const Labelled:    VerdictRowT = ['allow', 'allow',        'allow',        'notIdentified', 'allow',           'allow']
@@ -412,7 +427,7 @@ const Matrix = {
   add_huntship:        [{ kind: 'add_huntship', userlabel: 'bob_reviews', role: 'reviewer' },                                        Memberships],
   remove_huntship:     [{ kind: 'remove_huntship', user_id: bob_id },                                                                Memberships],
   retitle_hunt:        [{ kind: 'retitle_hunt', title: 'Princes' },                                                                  Smiths],
-  relabel_hunt:        [{ kind: 'relabel_hunt', label: 'princes' },                                                                  Smiths],
+  relabel_hunt:        [{ kind: 'relabel_hunt', label: 'princes' },                                                                  Relabels],
   delete_hunt:         [{ kind: 'delete_hunt' },                                                                                     Smiths],
   arrange_categories:  [{ kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] },                          Smiths],
   rebranch_hunt:       [{ kind: 'rebranch_hunt', hunt_id, branch: 'playtest' },                                                      Smiths],

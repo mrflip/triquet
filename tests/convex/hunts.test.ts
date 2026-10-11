@@ -19,7 +19,7 @@ import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { defaultLayout } from '../../src/models/layout'
 import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
-import type { HuntActionDNA } from '../../src/models/actions'
+import type { HuntActionDNA, OuterHuntActionDNA } from '../../src/models/actions'
 import type { WheelT } from '../../src/models/category'
 import { HomeRealmLabel } from '../../src/models/realm'
 import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
@@ -2375,6 +2375,26 @@ describe("hunts.perform, sealing an anonymous user in its sandbox", () => {
     const err = await refusalOf(act({ kind: 'add_huntship', userlabel: 'bob_reviews', role: 'reviewer' }))
     expect(noticeOf(err)).to.eq(RefusalNotices.sealedMembers)
     expect(await allOf(tt, 'huntships')).to.have.lengthOf(1)
+  })
+
+  it("refuses its relabelling its sandbox, from outside the quiz or in it, writing nothing: the label is what makes it a sandbox", async () => {
+    const { tt, anon, open, act } = await sandboxed()
+    const outer = anon.as.mutation(api.hunts.performOuter, { action: { kind: 'relabel_hunt', hunt_id: open.hunt_id, label: 'spring_hunt' } })
+    const err = await refusalOf(outer)
+    expect(noticeOf(err)).to.eq(RefusalNotices.sealedRelabel)
+    expect(await refusedAs(act({ kind: 'relabel_hunt', label: 'spring_hunt' }))).to.eq('sealedRelabel')
+    const hunt = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
+    expect([hunt.orglabel, hunt.label, Hunt.isSandbox(hunt)]).to.deep.eq(['anon_alice', 'anon_alice', true])
+  })
+
+  it("lets it retitle its sandbox, put it on another branch, and arrange its categories, none of which unmakes a sandbox", async () => {
+    const { tt, anon, open } = await sandboxed()
+    const outer = async (action: OuterHuntActionDNA) => await anon.as.mutation(api.hunts.performOuter, { action })
+    await outer({ kind: 'retitle_hunt', hunt_id: open.hunt_id, title: 'My Sandbox' })
+    await outer({ kind: 'rebranch_hunt', hunt_id: open.hunt_id, branch: 'playtest' })
+    await outer({ kind: 'arrange_categories', hunt_id: open.hunt_id, wheel: Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool') })
+    const hunt = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
+    expect([hunt.title, hunt.branch, Hunt.isSandbox(hunt)]).to.deep.eq(['My Sandbox', 'playtest', true])
   })
 
   it("refuses its reviewing, even its own sandbox's quiz", async () => {

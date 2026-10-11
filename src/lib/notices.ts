@@ -106,6 +106,7 @@ export const RefusalNotices = {
   orgFull:          `One handle may make at most ${String(PA.HuntsPerOrg.max)} hunts.`,
   huntshipsFull:    `A hunt holds at most ${String(PA.HuntshipsPerHunt.max)} members.`,
   sealedHunts:      'Sign in with Google to make more hunts than the one named for your handle — coming soon.',
+  sealedRelabel:    'Sign in with Google to relabel your hunt: its label is your handle until then — coming soon.',
   sealedMembers:    'Sign in with Google to bring others onto your hunt — coming soon.',
   sealedJoin:       "That handle isn't signed in with Google, so it can't be put on a hunt yet. Signing in with Google is coming soon.",
   sealedReview:     'Sign in with Google to review quizzes — coming soon.',
