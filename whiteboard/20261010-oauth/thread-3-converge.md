@@ -14,6 +14,16 @@ prose now says userlabel (`isIdentlabel` is `isHeldUserlabel`). The reserved lis
 `ident`, `identing` and `hunting` as model nouns, past tables: left, as removing a reserved word is
 thread 8's call. No e2e since the catch-up.
 
+**Review (flagged, one finding), fixed:** an anonymous smith could relabel its sandbox
+(`relabel_hunt` asked only `mayChangeHunt`), unmaking it. Now `Approve.mayRelabelHunt` refuses a
+sealed smith any relabel (`sealedRelabel`, "Sign in with Google to relabel your hunt …"), from
+`hunts.performOuter` and `hunts.perform` alike. Any relabel, not any but its own: its own label is
+the only one a sandbox may hold, so the policy reads the claims alone and `relabel_hunt` stays
+offerable (no view asks `mayOffer('relabel_hunt')` yet; thread 6 might, to hide the gear's label
+field). Checked beside it: `retitle_hunt`, `rebranch_hunt` and `arrange_categories` change neither
+label nor org (a test holds the sandbox one after each); `delete_hunt` empties the org, so a new
+sandbox may follow; `orglabel` changes nowhere; quiz actions touch no hunt label.
+
 * **Built**: the schema step (`users` ours, `huntships`, `ghostings`, `user_id` on reviews; idents,
   identings and huntings gone); our `createOrUpdateUser` (`userForSignIn`); the actor built from
   the user's row (`Actor.ofUser`, the one place `admin` is read; `TRIQUET_EVERYONE_ADMIN` for local
