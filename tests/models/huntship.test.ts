@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import type { Id } from '../../convex/_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
-import { Huntship, HuntshipValidators, HuntRoleVals } from '../../src/models/huntship'
+import { Huntship, HuntshipValidators, HuntRoleVals, type HuntRole } from '../../src/models/huntship'
 import { ModeVals } from '../../src/lib/addresses'
 import { userActor } from '../support/actors'
 
@@ -35,6 +35,20 @@ describe('Huntship.modeFor', () => {
   it('opens the workbench for a smith and the playtest for a reviewer', () => {
     expect(HuntRoleVals.map((role) => Huntship.modeFor(role))).to.deep.eq(['edit', 'playtest'])
   })
+})
+
+describe('Huntship.holdsAtLeast', () => {
+  const HoldsCases: [[HuntRole, HuntRole], boolean, string][] = [
+    [["smith",    "reviewer"], true,  "a smith holds a reviewer's place, and more"],
+    [["reviewer", "smith"],    false, "a reviewer holds less than a smith's"],
+    [["smith",    "smith"],    true,  'a smith holds its own'],
+    [["reviewer", "reviewer"], true,  'a reviewer holds its own'],
+  ]
+  for (const [[held, role], expected, describes] of HoldsCases) {
+    it(describes, () => {
+      expect(Huntship.holdsAtLeast(held, role)).to.eq(expected)
+    })
+  }
 })
 
 describe('Huntship.mayOpen', () => {

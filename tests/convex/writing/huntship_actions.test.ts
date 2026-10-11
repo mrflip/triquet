@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../../convex/_generated/api'
+import type { Id } from '../../../convex/_generated/dataModel'
 import { membersOf } from '../../../convex/reading'
 import { triggers } from '../../../convex/triggers'
-import { smithOfSandbox } from '../../../convex/writing/huntship_actions'
+import { grantHuntship, smithOfSandbox } from '../../../convex/writing/huntship_actions'
 import { failurekindOf, noticeOf } from '../../../src/lib/refusals'
 import { RefusalNotices, userUnknownNotice } from '../../../src/lib/notices'
 import * as PA from '../../../src/lib/vv/patterns'
 import { Hunt } from '../../../src/models/hunt'
 import { Quiz } from '../../../src/models/quiz'
+import type { HuntRole } from '../../../src/models/huntship'
+import { User } from '../../../src/models/user'
 import { anonymousSession, anonymousUser, expectRefusal, googleUser, huntHolding, openTester, seedHunt, type Seeded } from '../../support/convex'
 import { present } from '../../support/present'
 import { expectSound } from '../../support/soundness'
@@ -184,5 +187,53 @@ describe('smithOfSandbox', () => {
       const [user, hunt] = [present(await ctx.db.get('users', heir.user_id)), present(await ctx.db.get('hunts', seeded.open.hunt_id))]
       await smithOfSandbox(triggers.wrapDB(ctx).db, user, hunt)
     })).rejects.toThrow(/is no sandbox/)
+  })
+})
+
+/** Give the user `user_id` the role `role` on the seeded hunt, as `adopt:perform` does, and what it answered */
+async function granted({ tt, open }: Pick<Seeded, 'tt' | 'open'>, user_id: Id<'users'>, role: HuntRole) {
+  return await tt.run(async (ctx) => {
+    const user = present(await ctx.db.get('users', user_id))
+    const face = present(User.faceOf(user))
+    return await grantHuntship(triggers.wrapDB(ctx).db, open.hunt_id, face, role)
+  })
+}
+
+describe('grantHuntship', () => {
+  it('puts a user signed in with Google on the hunt in the role given, its huntship copying its userlabel and title', async () => {
+    const seeded = await smithed()
+    const bob = await googleUser(seeded.tt, 'bob_reviews')
+    expect(await granted(seeded, bob.user_id, 'reviewer')).to.deep.eq({ written: true, from: null })
+    expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith'], ['bob_reviews', 'reviewer']])
+    await expectSound(seeded.tt)
+  })
+
+  it('makes a reviewer a smith, in the huntship it has', async () => {
+    const seeded = await smithed()
+    const bob = await seeded.join('bob_reviews', 'reviewer')
+    expect(await granted(seeded, bob.user_id, 'smith')).to.deep.eq({ written: true, from: 'reviewer' })
+    expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith'], ['bob_reviews', 'smith']])
+  })
+
+  it('never lowers a role: a smith asked to review keeps smithing, and nothing is written', async () => {
+    const seeded = await smithed()
+    const ante = await seeded.tt.run(async (ctx) => await ctx.db.query('huntships').collect())
+    expect(await granted(seeded, seeded.alice.user_id, 'reviewer')).to.deep.eq({ written: false, from: 'smith' })
+    expect(await seeded.tt.run(async (ctx) => await ctx.db.query('huntships').collect())).to.deep.eq(ante)
+  })
+
+  it('grants twice as once', async () => {
+    const seeded = await smithed()
+    const bob = await googleUser(seeded.tt, 'bob_reviews')
+    await granted(seeded, bob.user_id, 'smith')
+    expect(await granted(seeded, bob.user_id, 'smith')).to.deep.eq({ written: false, from: 'smith' })
+    expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith'], ['bob_reviews', 'smith']])
+  })
+
+  it('refuses an anonymous user, as sealing refuses one anywhere, writing nothing', async () => {
+    const seeded = await smithed()
+    const anon = await anonymousUser(seeded.tt, 'anon_carol')
+    await expect(granted(seeded, anon.user_id, 'smith')).rejects.toThrow(RefusalNotices.sealedJoin)
+    expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith']])
   })
 })

@@ -58,6 +58,33 @@ export async function retitleUser(db: Writer, actor: Actor.ActorT, title: string
 }
 
 /**
+ * Give the user `user_id` the userlabel `userlabel`, titled `title`, whatever it held before, and
+ * rewrite the copies each of its huntships holds to match (`notes/convex.md`, *Denormalized
+ * fields*): the one write that changes a userlabel once it is set. Whether the userlabel is the
+ * user's to take is the caller's to say first: no policy is asked here, and no address moves (a
+ * hunt's `orglabel` stays as it was made).
+ *
+ * @param db - The mutation's database.
+ * @param user_id - The user to relabel.
+ * @param userlabel - Its new userlabel, held to the shape and words of one being claimed.
+ * @param title - What to call it; its userlabel titleized when blank.
+ * @returns How many of its huntships' copies were rewritten.
+ * @throws When the userlabel is not one, or the title is not a title; nothing is written.
+ *
+ * @example await relabelUser(db, user_id, 'mrflip', '')  // => 3, for a user on three hunts
+ */
+export async function relabelUser(db: Writer, user_id: Id<'users'>, userlabel: string, title: string): Promise<number> {
+  const labelled = User.labelled(userlabel, title)
+  const huntships = await huntshipsFor(db, user_id)
+  await db.patch('users', user_id, labelled)
+  const stale = huntships.filter((huntship) => huntship.userlabel !== labelled.userlabel || huntship.usertitle !== labelled.title)
+  for (const huntship of stale) {
+    await db.patch('huntships', huntship._id, { userlabel: labelled.userlabel, usertitle: labelled.title })
+  }
+  return stale.length
+}
+
+/**
  * Carry out what a visitor did as themselves, writing the rows it comes to: take a userlabel, or
  * retitle the user they are. Whether they may is asked before this (`authorize`).
  *

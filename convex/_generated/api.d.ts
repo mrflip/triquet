@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as adopt from "../adopt.js";
 import type * as auth from "../auth.js";
 import type * as authorize from "../authorize.js";
 import type * as check_reserved from "../check_reserved.js";
@@ -47,6 +48,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  adopt: typeof adopt;
   auth: typeof auth;
   authorize: typeof authorize;
   check_reserved: typeof check_reserved;

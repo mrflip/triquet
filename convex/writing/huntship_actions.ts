@@ -4,7 +4,7 @@ import * as PA from '../../src/lib/vv/patterns'
 import { userUnknownNotice } from '../../src/lib/notices'
 import { refuse } from '../../src/lib/refusals'
 import { Hunt } from '../../src/models/hunt'
-import { HuntshipValidators, type HuntRole } from '../../src/models/huntship'
+import { Huntship, HuntshipValidators, type HuntRole } from '../../src/models/huntship'
 import { User, type UserFaceT } from '../../src/models/user'
 import { huntshipFor, huntshipsOf, type CensusT } from '../reading'
 import type { Writer } from './quiz_writing'
@@ -12,8 +12,8 @@ import type { Writer } from './quiz_writing'
 /**
  * Put `user` on `hunt_id` as `role`: a new huntship, carrying the user's userlabel and title, or
  * the role of the one it already has replaced, never a second. Past every policy: whoever calls
- * this has decided the user may be put on (`addHuntship`, `smithOfSandbox`, the admin's
- * `testing:putOnHunt`).
+ * this has decided the user may be put on (`addHuntship`, `grantHuntship`, `smithOfSandbox`, the
+ * admin's `testing:putOnHunt`).
  *
  * @throws A refusal (`huntshipsFull`) when the hunt holds as many members as a hunt may; nothing is written.
  */
@@ -53,6 +53,30 @@ export async function addHuntship(db: Writer, census: CensusT, hunt_id: Id<'hunt
   if (! user) { refuse('userUnknown', userUnknownNotice(userlabel)) }
   Approve.must('join_hunt', user)
   await placeOn(db, hunt_id, user, role)
+}
+
+/**
+ * Give `user` the role `role` on `hunt_id`, never lowering one it holds: a new huntship, or a
+ * reviewer made a smith; a smith asked to review keeps smithing, and a user already in that role is
+ * left as it is, so granting twice is granting once. Past the hunt's smiths' say, as the deployment's
+ * admin key decides (`adopt:perform`), but never past the user's own: an anonymous user is refused,
+ * as `mayJoinHunt` refuses one.
+ *
+ * @param db - The mutation's database, holding every hunt.
+ * @param hunt_id - Which hunt.
+ * @param user - Who to give the role, holding a userlabel.
+ * @param role - The role to give, at least.
+ * @returns The role it held there before, null when it was on no huntship; and whether anything was written.
+ * @throws A refusal (`sealedJoin`, `huntshipsFull`); nothing is written.
+ *
+ * @example await grantHuntship(db, hunt_id, face, 'smith')  // => { written: true, from: 'reviewer' }
+ */
+export async function grantHuntship(db: Writer, hunt_id: Id<'hunts'>, user: UserFaceT, role: HuntRole): Promise<{ written: boolean, from: HuntRole | null }> {
+  Approve.must('join_hunt', user)
+  const held = await huntshipFor(db, hunt_id, user._id)
+  if (held && Huntship.holdsAtLeast(held.role, role)) { return { written: false, from: held.role } }
+  await placeOn(db, hunt_id, user, role)
+  return { written: true, from: held?.role ?? null }
 }
 
 /**

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { triggers } from '../../../convex/triggers'
-import { userForSignIn, type SignInT } from '../../../convex/writing/user_actions'
-import { anonymousUser, openTester, type Tester } from '../../support/convex'
+import { relabelUser, userForSignIn, type SignInT } from '../../../convex/writing/user_actions'
+import { Hunt } from '../../../src/models/hunt'
+import { anonymousSession, anonymousUser, googleUser, openTester, seedHunt, type Tester } from '../../support/convex'
 import { present } from '../../support/present'
+import { expectSound } from '../../support/soundness'
 
 /** The user a sign-in comes to, as Convex Auth's `createOrUpdateUser` would be asked for it, through the database the triggers run on */
 async function signedInAs(tt: Tester, signIn: SignInT): Promise<Id<'users'>> {
@@ -36,5 +38,47 @@ describe('userForSignIn', () => {
     const tt = openTester()
     await expect(signedInAs(tt, { existingUserId: null, provider: { id: 'google' } })).rejects.toThrow(/No user is made for a sign-in with google/)
     expect(await usersIn(tt)).to.deep.eq([])
+  })
+})
+
+/** Relabel the user `user_id` as `adopt:perform` does, through the database the triggers run on, and how many huntships' copies it rewrote */
+async function relabelled(tt: Tester, user_id: Id<'users'>, userlabel: string, title: string): Promise<number> {
+  return await tt.run(async (ctx) => await relabelUser(triggers.wrapDB(ctx).db, user_id, userlabel, title))
+}
+
+describe('relabelUser', () => {
+  it('gives a user holding no userlabel one, its title the userlabel titleized when blank', async () => {
+    const tt = openTester()
+    const { user_id } = await anonymousSession(tt)
+    expect(await relabelled(tt, user_id, 'mrflip', '')).to.eq(0)
+    const user = present(await tt.run(async (ctx) => await ctx.db.get('users', user_id)))
+    expect([user.userlabel, user.title]).to.deep.eq(['mrflip', 'Mrflip'])
+  })
+
+  it("relabels and retitles a user on three hunts, rewriting each huntship's copies, and moves no hunt's address", async () => {
+    const tt = openTester()
+    for (const label of ['quiet_otter', 'loud_heron', 'brisk_finch']) { await seedHunt(tt, Hunt.blank(label), { smith: 'flippy_kromer' }) }
+    const flippy = await googleUser(tt, 'flippy_kromer')
+    expect(await relabelled(tt, flippy.user_id, 'mrflip', 'Flip')).to.eq(3)
+    const huntships = await tt.run(async (ctx) => await ctx.db.query('huntships').collect())
+    expect(huntships.map((huntship) => [huntship.userlabel, huntship.usertitle])).to.deep.eq([['mrflip', 'Flip'], ['mrflip', 'Flip'], ['mrflip', 'Flip']])
+    const hunts = await tt.run(async (ctx) => await ctx.db.query('hunts').collect())
+    expect(hunts.map((hunt) => hunt.orglabel)).to.deep.eq(['flippy_kromer', 'flippy_kromer', 'flippy_kromer'])
+    await expectSound(tt)
+  })
+
+  it('rewrites nothing that already matches', async () => {
+    const tt = openTester()
+    const { smith } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'flippy_kromer' })
+    expect(await relabelled(tt, smith.user_id, 'flippy_kromer', 'Flippy Kromer')).to.eq(0)
+  })
+
+  it('refuses a userlabel that is not one, or a reserved word, writing nothing', async () => {
+    const tt = openTester()
+    const { user_id } = await anonymousSession(tt)
+    await expect(relabelled(tt, user_id, 'Mr Flip', '')).rejects.toThrow()
+    await expect(relabelled(tt, user_id, 'support', '')).rejects.toThrow()
+    const user = present(await tt.run(async (ctx) => await ctx.db.get('users', user_id)))
+    expect(user.userlabel).to.be.undefined
   })
 })

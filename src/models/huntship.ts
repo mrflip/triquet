@@ -35,6 +35,9 @@ export const HuntshipValidators = Validator(({ obj, oneof, stamps, zid }) => {
 
 export type HuntshipRowT = Z.output<typeof HuntshipValidators.row>
 
+/** How much each role may do, to compare two: a smith all a reviewer may, and more */
+const HuntRoleRanks = { smith: 2, reviewer: 1 } as const satisfies Record<HuntRole, number>
+
 /** The mode the app's own links open a quiz in for each role: a smith works on it, a reviewer playtests it */
 const ModeForRole = { smith: 'edit', reviewer: 'playtest' } as const satisfies Record<HuntRole, Mode>
 
@@ -62,6 +65,19 @@ export class Huntship implements HuntshipRowT {
    */
   static modeFor(role: HuntRole): Mode {
     return ModeForRole[role]
+  }
+
+  /**
+   * Whether a huntship of role `held` already gives what `role` would: a smith may do all a
+   * reviewer may and more, so a smith holds a reviewer's place, never the reverse. What a grant
+   * that never lowers a role asks before it writes (`grantHuntship`).
+   *
+   * @example Huntship.holdsAtLeast('smith', 'reviewer')  // => true
+   * @example Huntship.holdsAtLeast('reviewer', 'smith')  // => false
+   * @example Huntship.holdsAtLeast('smith', 'smith')     // => true
+   */
+  static holdsAtLeast(held: HuntRole, role: HuntRole): boolean {
+    return HuntRoleRanks[held] >= HuntRoleRanks[role]
   }
 
   /**
