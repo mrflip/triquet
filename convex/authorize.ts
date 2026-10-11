@@ -55,6 +55,7 @@ export const Unscoped = {
   "auth:isAuthenticated":  "Convex Auth's own, of the session alone",
   "auth:signIn":           "Convex Auth's own, of the session alone",
   "auth:signOut":          "Convex Auth's own, of the session alone",
+  "auth:offered":          "Which ways of signing in the deployment offers: of the deployment alone, asked before anyone signs in",
   "users:current":         "Who the session is: asked before any hunt is in play",
   "users:perform":         "A userlabel taken, or a user retitled, before any hunt is in play: of the actor alone",
   "hunts:list":            "The hunts the actor is on, read through the actor's own huntships: many hunts, none affirmed",

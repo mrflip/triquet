@@ -33,24 +33,44 @@ describe('Actor.ofUser', () => {
     expect([actor, Actor.isSealed(actor)]).to.deep.eq([{ kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: true }, true])
   })
 
-  const AdminCases: [boolean | undefined, boolean, boolean, string][] = [
-    //  the flag   everyone  admin
-    [true,         false,    true,  "a user whose own flag says so, where the deployment says nothing"],
-    [false,        false,    false, "a user whose flag says no"],
-    [undefined,    false,    false, "a user with no flag, as every user is until the command line sets one"],
-    [undefined,    true,     true,  "anyone at all, where the deployment makes everyone an admin (a local backend)"],
-    [false,        true,     true,  "even a user whose flag says no, where everyone is one"],
+  const AdminCases: [boolean | undefined, boolean, boolean, boolean, string][] = [
+    //  the flag   anonymous everyone  admin
+    [true,         false,    false,    true,  "a user signed in with Google whose own flag says so, where the deployment says nothing"],
+    [false,        false,    false,    false, "a user whose flag says no"],
+    [undefined,    false,    false,    false, "a user with no flag, as every user is until the command line sets one"],
+    [true,         true,     false,    false, "never an anonymous user, whatever its flag says: an admin is signed in with Google"],
+    [undefined,    false,    true,     true,  "anyone at all, where the deployment makes everyone an admin (a local backend)"],
+    [false,        false,    true,     true,  "even a user whose flag says no, where everyone is one"],
+    [undefined,    true,     true,     true,  "even an anonymous user, where everyone is one"],
   ]
-  for (const [admin, everyoneAdmin, expected, describes] of AdminCases) {
+  for (const [admin, isAnonymous, everyoneAdmin, expected, describes] of AdminCases) {
     it(`reads the admin flag once: ${describes}`, () => {
-      const actor = Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', ...(admin !== undefined && { admin }) }, { everyoneAdmin })
+      const actor = Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', isAnonymous, ...(admin !== undefined && { admin }) }, { everyoneAdmin })
       expect(actor.kind === 'user' && Actor.isAdmin(actor)).to.eq(expected)
     })
   }
+
+  it("counts an anonymous user's admin flag for nothing", () => {
+    const actor = Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', admin: true, isAnonymous: true }, Production)
+    expect(actor).to.deep.include({ admin: false, anonymous: true })
+  })
 })
 
 const Flip  = { kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: false } as const satisfies Actor.UserActorT
 const Anon  = { ...Flip, anonymous: true } as const satisfies Actor.UserActorT
+
+describe('Actor.isSignedInWithGoogle', () => {
+  const Cases: [{ isAnonymous?: boolean }, boolean, string][] = [
+    [{ isAnonymous: false }, true,  'a user a Google sign-in made, or upgraded'],
+    [{ isAnonymous: true },  false, 'an anonymous user, signed in with no proof'],
+    [{},                     true,  'a user saying nothing, as only an anonymous one says so'],
+  ]
+  for (const [user, expected, describes] of Cases) {
+    it(`is ${String(expected)} for ${describes}`, () => {
+      expect(Actor.isSignedInWithGoogle(user)).to.eq(expected)
+    })
+  }
+})
 
 describe('Actor.isUnlabelled', () => {
   it('is true for the unlabelled actor, and false for a user holding a userlabel', () => {

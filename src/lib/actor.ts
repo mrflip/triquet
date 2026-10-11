@@ -1,7 +1,7 @@
 import type { Id } from '../../convex/_generated/dataModel'
 import type { HuntRole } from '../models/huntship'
 import type { QuizRowT } from '../models/quiz'
-import type { UserRowT } from '../models/user'
+import { User, type UserRowT } from '../models/user'
 
 /** Who a request is from before its user holds a userlabel, or when it has no session at all */
 export type UnlabelledActorT = { kind: 'unlabelled' }
@@ -34,9 +34,23 @@ export const unlabelled: UnlabelledActorT = Object.freeze({ kind: 'unlabelled' }
 export type DeploymentT = { everyoneAdmin: boolean }
 
 /**
+ * Whether `user` is signed in with Google: not anonymous. The one predicate for it, which sealing
+ * (`isSealed`, through the actor's `anonymous`), the admin flag (`ofUser`) and the command line's
+ * grants all ask. A Google sign-in is the only write that makes an anonymous user no longer so
+ * (`userForSignIn`); a test backend's `testing:vouchFor` stands in for it.
+ *
+ * @example Actor.isSignedInWithGoogle({ isAnonymous: false })  // => true
+ * @example Actor.isSignedInWithGoogle({ isAnonymous: true })   // => false
+ */
+export function isSignedInWithGoogle(user: Pick<UserRowT, 'isAnonymous'>): boolean {
+  return ! User.isAnonymous(user)
+}
+
+/**
  * The actor of a request whose user is `user`: unlabelled until it holds a userlabel, and then the
  * user, with its userlabel and title. **The one place the `admin` flag is read**: a user is an
- * admin where its row says so, or where the deployment makes everyone one (a local backend:
+ * admin where its row says so and it is signed in with Google (an anonymous user's flag counts for
+ * nothing), or where the deployment makes everyone one (a local backend:
  * `TRIQUET_EVERYONE_ADMIN`, which production never has).
  *
  * @param user_id - The user's row id.
@@ -44,6 +58,7 @@ export type DeploymentT = { everyoneAdmin: boolean }
  * @param deployment - What the deployment says beside it.
  *
  * @example Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', isAnonymous: true }, { everyoneAdmin: false })  // => { kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: true }
+ * @example Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', admin: true, isAnonymous: true }, { everyoneAdmin: false })  // => { ..., admin: false, anonymous: true }
  * @example Actor.ofUser(user_id, { isAnonymous: true }, { everyoneAdmin: true })  // => Actor.unlabelled
  */
 export function ofUser(user_id: Id<'users'>, user: Pick<UserRowT, 'userlabel' | 'title' | 'admin' | 'isAnonymous'>, deployment: DeploymentT): ActorT {
@@ -54,7 +69,7 @@ export function ofUser(user_id: Id<'users'>, user: Pick<UserRowT, 'userlabel' | 
     user_id,
     userlabel,
     usertitle: user.title ?? userlabel,
-    admin:     user.admin === true || deployment.everyoneAdmin,
+    admin:     (user.admin === true && isSignedInWithGoogle(user)) || deployment.everyoneAdmin,
     anonymous: user.isAnonymous === true,
   }
 }

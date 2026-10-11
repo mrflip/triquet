@@ -115,6 +115,50 @@ describe('User.labelled', () => {
   }
 })
 
+describe('User.relabelled', () => {
+  it('takes over a userlabel already held, titled as given or after it', () => {
+    expect([User.relabelled('flip_kromer', 'Flip'), User.relabelled('flip_kromer', '')]).to.deep.eq([{ userlabel: 'flip_kromer', title: 'Flip' }, { userlabel: 'flip_kromer', title: 'Flip Kromer' }])
+  })
+
+  it('takes a userlabel the top-level list has kept since it was claimed, as a claim would not', () => {
+    expect(User.relabelled('google_fan', '').userlabel).to.eq('google_fan')
+    expect(() => User.labelled('google_fan', '')).to.throw(Z.ZodError)
+  })
+
+  it('refuses what no userlabel is', () => {
+    expect(() => User.relabelled('Flip Kromer', '')).to.throw(Z.ZodError)
+  })
+})
+
+describe('User.fromGoogle', () => {
+  it('is a user signed in with Google, holding the email, name and picture Google sent', () => {
+    expect(User.fromGoogle({ email: 'flip@example.com', name: 'Flip' })).to.deep.eq({ isAnonymous: false, email: 'flip@example.com', name: 'Flip' })
+    expect(User.fromGoogle({ email: 'f@example.com', name: 'F', image: 'https://lh3.googleusercontent.com/a/f' })).to.deep.eq({ isAnonymous: false, email: 'f@example.com', name: 'F', image: 'https://lh3.googleusercontent.com/a/f' })
+  })
+
+  it('drops anything else Google sends, so a profile cannot set a userlabel, an admin flag, or anonymity', () => {
+    const sent = { email: 'flip@example.com', locale: 'en', userlabel: 'mrflip', admin: true, isAnonymous: true } as never
+    expect(User.fromGoogle(sent)).to.deep.eq({ isAnonymous: false, email: 'flip@example.com' })
+  })
+
+  it('is no longer anonymous even when Google sends nothing', () => {
+    expect(User.fromGoogle({})).to.deep.eq({ isAnonymous: false })
+  })
+})
+
+describe('User.mergedInto', () => {
+  const into_user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
+  const account_id = '10000000000000000000authAccounts' as Id<'authAccounts'>
+
+  it('is the mark of a user merged away: the user it merged into, and the account whose sign-in did it', () => {
+    expect(User.mergedInto(into_user_id, account_id)).to.deep.eq({ merged: { into_user_id, account_id } })
+  })
+
+  it('refuses what is not a row id', () => {
+    expect(() => User.mergedInto('nobody' as Id<'users'>, account_id)).to.throw(Z.ZodError)
+  })
+})
+
 describe('User.titleFor', () => {
   it('is the title as given, or the userlabel titleized when blank', () => {
     expect([User.titleFor('flip_kromer', ''), User.titleFor('flip_kromer', 'Flip')]).to.deep.eq(['Flip Kromer', 'Flip'])

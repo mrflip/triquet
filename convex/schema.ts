@@ -74,8 +74,8 @@ const schemaStepFields  = zodOutputToConvexFields(SchemaStepValidators.row.shape
  */
 export default defineSchema({
   ...authOwnTables,
-  /** What a session is signed in as: the persona in the app, holding its userlabel, found by it, or by Convex Auth by its email or phone */
-  users:       defineTable(userFields).index('email', ['email']).index('phone', ['phone']).index('by_userlabel', ['userlabel']),
+  /** What a session is signed in as: the persona in the app, holding its userlabel, found by it, or by Convex Auth by its email or phone; one merged away is found by the user it merged into, while it still holds its userlabel */
+  users:       defineTable(userFields).index('email', ['email']).index('phone', ['phone']).index('by_userlabel', ['userlabel']).index('by_merged_into', ['merged.into_user_id', 'userlabel']),
   /** A userlabel retired by a merge, held reserved until released: appended, never edited */
   ghostings:   defineTable(ghostingFields).index('by_userlabel', ['userlabel']),
   /** A hunt: the unit of address and of membership, found by its label within its org (or, from an old address, by its label alone). Its realms hold its quizzes. */

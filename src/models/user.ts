@@ -5,13 +5,40 @@ import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 
-export const UserValidators = Validator(({ obj, str, num, bool, userlabel, heldUserlabel, titleish, stamps }) => {
+export const UserValidators = Validator(({ obj, str, num, bool, zid, userlabel, heldUserlabel, titleish, stamps }) => {
   const label = userlabel
     .describe('A userlabel being claimed: what a person types to become a user (a handle on screen). Kept from every reserved word, top-level ones included (`Labelmaker.isReserved`), and free only while no user holds it, no ghosting holds it, and no hunt carries it as its orglabel.')
   const held = heldUserlabel
     .describe('A userlabel already held: what others add the user to a hunt by, and the org of the hunts it makes. Unique across the app and set once. Held to the words every label is kept from, not the top-level ones, so a word reserved later leaves a user holding it writable (`CK.heldUserlabel`).')
   const title = titleish.min(1)
     .describe('What the user is called on screen: the name typed beside the userlabel, or the userlabel titleized. Set with the userlabel, and changed at will after.')
+  const googleProfile = obj({
+    email: str.optional()
+      .describe('The email Google sends. Shown to its owner alone, and never how a user is found at sign-in.'),
+    name:  str.optional()
+      .describe('The name Google sends.'),
+    image: str.optional()
+      .describe('The address of the picture Google sends.'),
+  })
+    .describe("What a Google sign-in keeps of what Google sends: the email, name and picture the privacy policy names, and nothing more (Google's account id is the account's, not the user's). Anything else is dropped here.")
+  const merged = obj({
+    into_user_id: zid('users')
+      .describe('The user it merged into, which carries on: signed in with Google, and made smith of its sandbox, if it had one.'),
+    account_id:   zid('authAccounts')
+      .describe('The Google account whose sign-in merged it: one the user it merged into already had.'),
+  })
+    .describe('How an anonymous user holding a userlabel was merged away, when its browser signed in with a Google account that already had a user: marked, never deleted, its sessions gone. While it still holds its userlabel, the user it merged into has a name choice to make (`nameChoiceFor`).')
+  const signIn = obj({
+    existingUserId: zid('users').nullable()
+      .describe('The user of the account signed in to, for a returning account; null for a new one.'),
+    authUserId:     zid('users').nullable().default(null)
+      .describe("The user the browser was signed in as when it started the sign-in (our patch of Convex Auth, upstream's PR #306); null when it had no session, or the session is gone."),
+    provider:       obj({ id: str })
+      .describe('The provider signed in with, by its id: `anonymous` or `google`.'),
+    profile:        googleProfile.default({})
+      .describe('What the provider sent, as far as a user keeps any of it.'),
+  })
+    .describe('What Convex Auth tells `createOrUpdateUser` of a sign-in, as far as it is read: whose the account is, whose the browser is, the provider, and the profile.')
 
   const row = obj({
     // Convex Auth's fields, as `authTables` ships them, kept with its indexes
@@ -34,16 +61,23 @@ export const UserValidators = Validator(({ obj, str, num, bool, userlabel, heldU
       .describe('The user\'s userlabel, absent until chosen.'),
     title:                 title.optional(),
     admin:                 bool.optional()
-      .describe('Whether the user looks after what belongs to no hunt (the library): set only from the command line, absent for no. Read in one place, as the actor is built (`Actor.ofUser`).'),
+      .describe('Whether the user looks after what belongs to no hunt (the library): set only from the command line, absent for no. Read in one place, as the actor is built (`Actor.ofUser`), and counted only for a user signed in with Google.'),
+    merged:                merged.optional(),
     ...stamps,
   })
     .describe('One user: what a session is signed in as, holding its userlabel, title and admin flag beside the fields Convex Auth keeps. Never a person: one person may hold several.')
 
-  return { userlabel: label, heldUserlabel: held, title, row }
+  return { userlabel: label, heldUserlabel: held, title, googleProfile, merged, signIn, row }
 })
 
 export type UserDNA  = Z.input<typeof UserValidators.row>
 export type UserRowT = Z.output<typeof UserValidators.row>
+/** What a Google sign-in keeps of what Google sends */
+export type GoogleProfileT = Z.output<typeof UserValidators.googleProfile>
+/** What Convex Auth tells `createOrUpdateUser` of a sign-in, as it hands it over */
+export type SignInDNA = Z.input<typeof UserValidators.signIn>
+/** ...and as far as it is read, once validated */
+export type SignInT = Z.output<typeof UserValidators.signIn>
 /** A user as its holder is shown it: its userlabel and title, and never its email */
 export type UserT    = { _id: string, userlabel: string, title: string }
 /** Who a session is, as it is told: its user, and the actor the server sees in its requests */
@@ -162,6 +196,30 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
   }
 
   /**
+   * The fields of a user signed in with Google, as a Google sign-in writes them: no longer
+   * anonymous, and holding what Google sent of its email, name and picture, which every sign-in
+   * with the account brings up to date. A field Google did not send is left as it was.
+   *
+   * @param profile - What Google sent, already kept to the email, name and picture.
+   * @returns The fields to insert, or to patch onto the row.
+   *
+   * @example User.fromGoogle({ email: 'flip@example.com', name: 'Flip' })  // => { isAnonymous: false, email: 'flip@example.com', name: 'Flip' }
+   */
+  static fromGoogle(profile: GoogleProfileT): UserRowT {
+    return UserValidators.row({ ...UserValidators.googleProfile(profile), isAnonymous: false })
+  }
+
+  /**
+   * The mark a user merged away carries: the user it merged into, and the Google account whose
+   * sign-in merged it.
+   *
+   * @example User.mergedInto(into_user_id, account_id)  // => { merged: { into_user_id, account_id } }
+   */
+  static mergedInto(into_user_id: Id<'users'>, account_id: Id<'authAccounts'>): Pick<UserRowT, 'merged'> {
+    return { merged: UserValidators.merged({ into_user_id, account_id }) }
+  }
+
+  /**
    * What a user's row becomes once it takes `userlabel`: the userlabel, and the title, a blank one
    * defaulting to the userlabel titleized. The fields to patch, validated.
    *
@@ -174,6 +232,21 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    */
   static labelled(userlabel: string, title: string): { userlabel: string, title: string } {
     return { userlabel: UserValidators.userlabel(userlabel), title: this.titleFor(userlabel, title) }
+  }
+
+  /**
+   * What a user's row becomes once it takes over `userlabel`, a userlabel already held, from a user
+   * merged into it: the userlabel, and the title. Held to what a held userlabel is
+   * (`heldUserlabel`), not to the rules for claiming one, as it was claimed once already.
+   *
+   * @param userlabel - The userlabel taken over.
+   * @param title - What to call the user, where blank means "use the userlabel".
+   * @returns The fields to patch onto the row.
+   *
+   * @example User.relabelled('flip_kromer', 'Flip')  // => { userlabel: 'flip_kromer', title: 'Flip' }
+   */
+  static relabelled(userlabel: string, title: string): { userlabel: string, title: string } {
+    return { userlabel: UserValidators.heldUserlabel(userlabel), title: this.titleFor(userlabel, title) }
   }
 
   /**

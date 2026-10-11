@@ -32,6 +32,25 @@ export async function ghostingFor(db: Reader, userlabel: string): Promise<Doc<'g
 }
 
 /**
+ * The name choice the user `user_id` has yet to make, if any: the earliest-made user merged into
+ * it (`users.merged`) that still holds its userlabel, the handle the merged browser went by. Until
+ * it is settled, the merged-away user keeps that userlabel, so nobody else takes it; settling it
+ * takes the userlabel from it, so the next pending choice, if any, comes up.
+ *
+ * @returns The merged-away user still holding its userlabel; null when no choice is pending.
+ *
+ * @example (await nameChoiceFor(db, user_id))?.userlabel  // => 'mrflip', the handle the merged browser went by
+ */
+export async function nameChoiceFor(db: Reader, user_id: Id<'users'>): Promise<Doc<'users'> | null> {
+  return await db.query('users').withIndex('by_merged_into', (cvx) => cvx.eq('merged.into_user_id', user_id).gt('userlabel', '')).first()
+}
+
+/** The Google account of the user `user_id`: a user has at most one, as nothing links a second; null for a user signed in with none */
+export async function googleAccountOf(db: Reader, user_id: Id<'users'>): Promise<Doc<'authAccounts'> | null> {
+  return await db.query('authAccounts').withIndex('userIdAndProvider', (cvx) => cvx.eq('userId', user_id).eq('provider', 'google')).first()
+}
+
+/**
  * What holds the userlabel `userlabel`, if anything: a user; a ghosting, which keeps a userlabel
  * a merge retired; or an address, a hunt carrying it as its `orglabel`. A userlabel is free only
  * when nothing does: the last keeps a stranger from becoming `alice` and seeming to own the hunts

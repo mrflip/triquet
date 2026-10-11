@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntshipFor, huntsCountedInOrg, huntRowsOf, ghostingFor, holderOfUserlabel, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
+  censusOf, cellRowsOf, googleAccountOf, huntForLabel, huntInOrg, huntshipFor, huntsCountedInOrg, huntRowsOf, ghostingFor, holderOfUserlabel, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, nameChoiceFor, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
   usageOf, userForUserlabel, wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import type { CellRows } from '../../src/lib/rows'
@@ -402,6 +402,53 @@ describe("userForUserlabel", () => {
     await anonymousSession(tt)
     const found = await tt.run(async (ctx) => [await userForUserlabel(ctx.db, 'flip_kromer'), await userForUserlabel(ctx.db, 'quiet_otter')])
     expect(found.map((user) => user?._id ?? null)).to.deep.eq([flip.user_id, null])
+  })
+})
+
+/** Mark `gone` merged into `into`, by the Google account `account_id`, as a merge leaves it */
+async function merge(tt: Tester, gone: Id<'users'>, into: Id<'users'>, account_id: Id<'authAccounts'>): Promise<void> {
+  await tt.run(async (ctx) => { await ctx.db.patch('users', gone, { merged: { into_user_id: into, account_id } }) })
+}
+
+describe("nameChoiceFor", () => {
+  it("is the earliest user merged into this one still holding its userlabel, and null once none does", async () => {
+    const tt = openTester()
+    const alice = await googleUser(tt, 'alice_google')
+    const account = present(await tt.run(async (ctx) => await googleAccountOf(ctx.db, alice.user_id)))
+    const [first, second, unlabelled] = [await anonymousUser(tt, 'anon_first'), await anonymousUser(tt, 'anon_second'), await anonymousSession(tt)]
+    const choiceNow = async () => {
+      const choice = await tt.run(async (ctx) => await nameChoiceFor(ctx.db, alice.user_id))
+      return choice?.userlabel ?? null
+    }
+    expect(await choiceNow()).to.be.null
+    await merge(tt, unlabelled.user_id, alice.user_id, account._id)
+    expect(await choiceNow()).to.be.null
+    await merge(tt, first.user_id, alice.user_id, account._id)
+    await merge(tt, second.user_id, alice.user_id, account._id)
+    expect(await choiceNow()).to.eq('anon_first')
+    await tt.run(async (ctx) => { await ctx.db.patch('users', first.user_id, { userlabel: undefined }) })
+    expect(await choiceNow()).to.eq('anon_second')
+    await tt.run(async (ctx) => { await ctx.db.patch('users', second.user_id, { userlabel: undefined }) })
+    expect(await choiceNow()).to.be.null
+  })
+
+  it("is null for a user nothing was merged into, whatever was merged into another", async () => {
+    const tt = openTester()
+    const [alice, bob] = [await googleUser(tt, 'alice_google'), await googleUser(tt, 'bob_google')]
+    const account = present(await tt.run(async (ctx) => await googleAccountOf(ctx.db, alice.user_id)))
+    const anon = await anonymousUser(tt, 'anon_first')
+    await merge(tt, anon.user_id, alice.user_id, account._id)
+    expect(await tt.run(async (ctx) => await nameChoiceFor(ctx.db, bob.user_id))).to.be.null
+  })
+})
+
+describe("googleAccountOf", () => {
+  it("is a Google user's Google account, and null for an anonymous user", async () => {
+    const tt = openTester()
+    const [alice, anon] = [await googleUser(tt, 'alice_google'), await anonymousUser(tt, 'anon_alice')]
+    const account = present(await tt.run(async (ctx) => await googleAccountOf(ctx.db, alice.user_id)))
+    expect([account.userId, account.provider, account.providerAccountId]).to.deep.eq([alice.user_id, 'google', 'google-sub-alice_google'])
+    expect(await tt.run(async (ctx) => await googleAccountOf(ctx.db, anon.user_id))).to.be.null
   })
 })
 

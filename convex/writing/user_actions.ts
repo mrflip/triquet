@@ -1,9 +1,10 @@
-import type { Id } from '../_generated/dataModel'
+import type { Doc, Id } from '../_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
 import { refuse } from '../../src/lib/refusals'
-import { User } from '../../src/models/user'
+import { User, UserValidators, type SignInDNA, type SignInT } from '../../src/models/user'
 import type { UserActionT } from '../../src/models/actions'
-import { holderOfUserlabel, huntshipsFor } from '../reading'
+import { googleAccountOf, holderOfUserlabel, huntInOrg, huntshipFor, huntshipsFor } from '../reading'
+import { removeHuntship, smithOfSandbox } from './huntship_actions'
 import type { Writer } from './quiz_writing'
 
 /**
@@ -102,22 +103,15 @@ export async function performUser(db: Writer, user_id: Id<'users'>, actor: Actor
   }
 }
 
-/** What Convex Auth tells `createOrUpdateUser` of a sign-in, as far as it is read here */
-export type SignInT = {
-  /** The user of the account signed in to, when the account is a returning one; null for a new account */
-  existingUserId: Id<'users'> | null
-  /** The provider signed in with */
-  provider:       { id: string }
-}
-
 /**
  * The user a sign-in is signed in as, made when it is new: Convex Auth's `createOrUpdateUser`,
- * ours, so that every write to `users` passes our row validator. In order:
+ * ours, so that every write to `users` passes our row validator. What Convex Auth hands over is
+ * validated here, and kept to what a user holds (`UserValidators.signIn`). In order:
  *
- * * A returning account: its own user, as it is
- * * A new anonymous account (every browser's first visit): a new anonymous user, holding no
- *   userlabel until it takes one
- * * Anything else: refused, as no other provider is offered yet
+ * * Anonymous: a returning account's own user, or for a new account (every browser's first
+ *   visit), a new anonymous user, holding no userlabel until it takes one.
+ * * Google: as `userForGoogle` says, from whose the account is and whose the browser was.
+ * * Anything else: refused, as no other provider is offered.
  *
  * @param db - The sign-in's database, running the triggers.
  * @param signIn - What Convex Auth says of the sign-in.
@@ -126,8 +120,92 @@ export type SignInT = {
  *
  * @example await userForSignIn(db, { existingUserId: null, provider: { id: 'anonymous' } })  // => a new anonymous user's id
  */
-export async function userForSignIn(db: Writer, signIn: SignInT): Promise<Id<'users'>> {
-  if (signIn.existingUserId !== null)     { return signIn.existingUserId }                    // A returning account: its own user
-  if (signIn.provider.id === 'anonymous') { return await db.insert('users', User.anonymous()) } // A new anonymous account: a new anonymous user
-  throw new Error(`No user is made for a sign-in with ${signIn.provider.id}`)                    // Anything else: refused
+export async function userForSignIn(db: Writer, signIn: SignInDNA): Promise<Id<'users'>> {
+  const checked = UserValidators.signIn(signIn)
+  const { existingUserId, provider } = checked
+  if (provider.id === 'google') { return await userForGoogle(db, checked) }
+  if (provider.id !== 'anonymous') { throw new Error(`No user is made for a sign-in with ${provider.id}`) }
+  return existingUserId ?? await db.insert('users', User.anonymous())
+}
+
+/**
+ * The user a Google sign-in is signed in as, by whose the account is (`existingUserId`: known, or
+ * new) and whose the browser was as it started (`authUserId`: anonymous, signed in with Google, or
+ * no session). Nothing is decided by email: two Google accounts sharing one are two users. In
+ * order:
+ *
+ * * A new account, from an anonymous browser: **upgrade in place**. The account joins that user,
+ *   which is no longer anonymous, keeping its userlabel, its sandbox and its sessions.
+ * * A new account, from a browser signed in with Google or with no session: a new user, signed in
+ *   with Google, holding no userlabel. (Linking a second Google account to a user is not done.)
+ * * A known account, from its own user's browser, one signed in with Google as another user (two
+ *   Google users are never merged), no session, or an anonymous user holding no userlabel: the
+ *   account's user, which the browser switches to.
+ * * A known account, from an anonymous browser holding a userlabel: **merge** (`mergeInto`). The
+ *   account's user carries on.
+ *
+ * Every sign-in brings the user's email, name and picture up to date with what Google sent.
+ *
+ * @returns The user's row id.
+ */
+async function userForGoogle(db: Writer, signIn: SignInT): Promise<Id<'users'>> {
+  const { existingUserId, authUserId, profile } = signIn
+  const browser = authUserId === null ? null : await db.get('users', authUserId)
+  const anonymous = browser !== null && User.isAnonymous(browser)
+  if (existingUserId === null) {
+    if (! anonymous) { return await db.insert('users', User.fromGoogle(profile)) } // a new user
+    await db.patch('users', browser._id, User.fromGoogle(profile))                 // upgrade in place
+    return browser._id
+  }
+  await db.patch('users', existingUserId, User.fromGoogle(profile))
+  if (anonymous && browser.userlabel !== undefined) { await mergeInto(db, browser, browser.userlabel, existingUserId) }
+  return existingUserId
+}
+
+/**
+ * Merge the anonymous user `gone`, holding a userlabel, into `into_user_id`, a user signed in with
+ * Google, whose account its browser has just signed in to. `into_user_id` carries on:
+ *
+ * * It is made smith of `gone`'s sandbox, if `gone` has one, which keeps its address; `gone` is
+ *   taken off it, as nobody can be signed in as `gone` again.
+ * * A name choice: while `into_user_id` holds a userlabel, it keeps it, and `gone` keeps its own,
+ *   held from everyone else, until the choice is settled (`nameChoiceFor`). An `into_user_id`
+ *   holding none has nothing to choose between, and takes `gone`'s userlabel and title.
+ * * `gone` is marked (`merged`), never deleted, and its sessions are deleted, with their refresh
+ *   tokens: Convex Auth's own rows.
+ *
+ * @param db - The sign-in's database.
+ * @param gone - The anonymous user the browser was.
+ * @param goneLabel - The userlabel it holds.
+ * @param into_user_id - The user of the Google account signed in to.
+ */
+async function mergeInto(db: Writer, gone: Doc<'users'>, goneLabel: string, into_user_id: Id<'users'>): Promise<void> {
+  const [into, account, sandbox] = await Promise.all([
+    db.get('users', into_user_id), googleAccountOf(db, into_user_id), huntInOrg(db, goneLabel, goneLabel),
+  ])
+  if (into === null || account === null) { throw new Error('A merge is into a user signed in with Google') }
+  const carried = sandbox === null ? null : await huntshipFor(db, sandbox._id, gone._id)
+  const takesLabel = into.userlabel === undefined
+  await db.patch('users', gone._id, { ...User.mergedInto(into._id, account._id), ...(takesLabel && { userlabel: undefined }) })
+  const heir = takesLabel ? { ...into, ...User.relabelled(goneLabel, gone.title ?? '') } : into
+  if (takesLabel) { await db.patch('users', into._id, User.relabelled(goneLabel, gone.title ?? '')) }
+  if (sandbox !== null && carried !== null) {
+    await smithOfSandbox(db, heir, sandbox)
+    await removeHuntship(db, sandbox._id, gone._id)
+  }
+  await endSessionsOf(db, gone._id)
+}
+
+/**
+ * Delete every session of the user `user_id`, and each one's refresh tokens, as Convex Auth's sign
+ * out deletes one: nobody is signed in as it afterwards. Convex Auth's own rows, written here only
+ * for a merge.
+ */
+async function endSessionsOf(db: Writer, user_id: Id<'users'>): Promise<void> {
+  const sessions = db.query('authSessions').withIndex('userId', (cvx) => cvx.eq('userId', user_id))
+  for await (const session of sessions) {
+    const tokens = db.query('authRefreshTokens').withIndex('sessionId', (cvx) => cvx.eq('sessionId', session._id))
+    for await (const token of tokens) { await db.delete('authRefreshTokens', token._id) }
+    await db.delete('authSessions', session._id)
+  }
 }

@@ -438,7 +438,7 @@ describe("users, each session's own", () => {
 
   it("are listed by no function, nor is a userlabel taken from a user by one; Convex Auth's own functions are the rest", async () => {
     expect(await publicFunctions()).to.deep.eq([
-      'auth:isAuthenticated', 'auth:signIn', 'auth:signOut',
+      'auth:isAuthenticated', 'auth:offered', 'auth:signIn', 'auth:signOut',
       'hunts:list', 'hunts:open', 'hunts:perform', 'hunts:performOuter', 'hunts:whole',
       'questions:open',
       'quizzes:open', 'quizzes:signals', 'quizzes:whole',

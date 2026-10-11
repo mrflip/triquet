@@ -20,6 +20,10 @@ const Switch = CVX.union(CVX.literal('true'), CVX.literal('false'))
  *   them itself: the key it signs a session's tokens with, the public half it checks them by, and
  *   the web app's address. `scripts/convex_auth_keys` sets them on a local backend; a Coach sets
  *   production's (`notes/deploy.md`).
+ * * `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are Google's keys for signing in with Google, which
+ *   Convex Auth reads itself: a deployment offers Google only where both are set
+ *   (`googleKeyed` in `auth.ts`). `scripts/convex_dev` sets them on a local backend from its Doppler
+ *   config; a Coach sets production's (`notes/deploy.md`); a preview and CI have none.
  *
  * `migrations` keeps the state of the backfills in `convex/migrations.ts`.
  */
@@ -31,6 +35,8 @@ const app = defineApp({
     JWT_PRIVATE_KEY:              CVX.optional(CVX.string()),
     JWKS:                         CVX.optional(CVX.string()),
     SITE_URL:                     CVX.optional(CVX.string()),
+    AUTH_GOOGLE_ID:               CVX.optional(CVX.string()),
+    AUTH_GOOGLE_SECRET:           CVX.optional(CVX.string()),
   },
 })
 app.use(migrations) // eslint-disable-line unicorn/no-top-level-side-effects -- Convex registers a component only this way
