@@ -80,6 +80,12 @@ async function sessionsOf(tt: Tester, user_id: Id<'users'>): Promise<[number, nu
   })
 }
 
+/** How many refresh tokens there are, whoever's session they were given to, a deleted one's included */
+async function refreshTokensIn(tt: Tester): Promise<number> {
+  const tokens = await tt.run(async (ctx) => await ctx.db.query('authRefreshTokens').collect())
+  return tokens.length
+}
+
 /** Who is on `hunt_id`, by userlabel and role */
 async function membersByLabel(tt: Tester, hunt_id: Id<'hunts'>): Promise<[string, string][]> {
   const members = await tt.run(async (ctx) => await membersOf(ctx.db, hunt_id))
@@ -285,10 +291,11 @@ describe('userForSignIn, merging an anonymous browser holding a userlabel into a
 
   it("marks the anonymous user merged, never deleting it, and deletes its sessions and their refresh tokens, and no one else's", async () => {
     const { tt, anon, alice, account_id } = await merging()
+    expect([await sessionsOf(tt, anon.user_id), await refreshTokensIn(tt)]).to.deep.eq([[1, 1], 1])
     await signedInAs(tt, googleSignIn(alice.user_id, anon.user_id))
     const gone = await userRow(tt, anon.user_id)
     expect([gone.merged, gone.isAnonymous]).to.deep.eq([{ into_user_id: alice.user_id, account_id }, true])
-    expect([await sessionsOf(tt, anon.user_id), await sessionsOf(tt, alice.user_id)]).to.deep.eq([[0, 0], [1, 0]])
+    expect([await sessionsOf(tt, anon.user_id), await sessionsOf(tt, alice.user_id), await refreshTokensIn(tt)]).to.deep.eq([[0, 0], [1, 0], 0])
     expect(await anon.as.query(api.users.current, {})).to.be.null
   })
 
