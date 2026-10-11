@@ -97,15 +97,24 @@ changes: whatever needs it reads the review.
 
 ## Who is asking
 
-A browser is a Convex Auth session (`convex/auth.ts`; anonymous for now), signed in as a user,
-which takes a userlabel once. Our `createOrUpdateUser` (`userForSignIn` in `writing/user_actions.ts`)
-makes the user, so `users` is ours to write and validate; Convex Auth's other tables stay its own.
+A browser is a Convex Auth session (`convex/auth.ts`): anonymous at first, and signed in with
+Google where the deployment offers it (`auth.offered`, true only with Google's keys set), signed
+in as a user, which takes a userlabel once. Our `createOrUpdateUser` (`userForSignIn` in
+`writing/user_actions.ts`) makes the user, so `users` is ours to write and validate; Convex Auth's
+other tables stay its own, but for a merge's deletion of the merged-away user's sessions. For a
+Google sign-in it decides by whose the account is (`existingUserId`) and whose the signing-in
+browser was (`authUserId`, which our patch of Convex Auth hands it), never by email: a new account
+upgrades an anonymous browser's user in place (clearing `isAnonymous`) or makes a new user; a known
+one switches the browser to its user, merging into it an anonymous user that holds a userlabel
+(made smith of its sandbox, the anonymous user marked `merged` and its sessions deleted, a name
+choice left pending: `nameChoiceFor` in `reading.ts`). Two Google users are never merged.
 No function takes an argument saying who is asking: the builders in `convex/functions.ts`
 (`zQuery`, `zMutation`) build it once per request (`askerOf`: the session, if Convex Auth still
 holds it, and its user's row) and hand it to every handler as `ctx.actor` (`Actor.ofUser` in
 `src/lib/actor.ts`: unlabelled, or the user with its userlabel, title, admin flag and whether it is
 anonymous) and `ctx.user_id` (the session's user, null with no session). The admin flag is read
-there and nowhere else. A builder layered over these calls `askerOf` rather than reading identity a
+there and nowhere else, and counts only for a user signed in with Google
+(`Actor.isSignedInWithGoogle`, the one predicate for it: the user is not anonymous). A builder layered over these calls `askerOf` rather than reading identity a
 second way. Tests call as a session, each helper named for the kind of user it makes:
 `googleUser(tt, label)` (its Google account row seeded, never signed in to), `anonymousUser(tt,
 label)` and `anonymousSession(tt)` (no userlabel), in `tests/support/convex.ts`.

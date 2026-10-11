@@ -74,10 +74,24 @@ effort, and a shallow clone may list no commits.
   command line (`scripts/adopt`, *Adopting a user*, below). A local backend makes every user an
   admin (`TRIQUET_EVERYONE_ADMIN=yes`, set by `scripts/convex_dev`); production and previews never
   set it. A `TRIQUET_ADMINS` left on a deployment from before is read by nothing, and may be unset
-  (`./scripts/doppledo prd_janitor npx convex env remove TRIQUET_ADMINS`). Another,
+  (`./scripts/doppledo prd_janitor npx convex env remove TRIQUET_ADMINS`). An admin must be signed
+  in with Google: an anonymous user's flag counts for nothing (`Actor.ofUser`). Another,
   `EXPOSE_INTERNAL_STATS_TO_ALL`, shows `/stats`'s backfills to everyone rather than to an admin
   alone: `true` (`./scripts/doppledo prd_janitor npx convex env set EXPOSE_INTERNAL_STATS_TO_ALL
   true`); `false` or unset, they stay an admin's, and any other value is refused.
+* **Google sign-in** is offered only on a deployment holding both of Google's keys,
+  `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` (`googleKeyed`, `convex/auth.ts`); everywhere else the
+  browser sees only the anonymous way in. Like the session keys they live on the deployment, never
+  in Doppler's app configs. **Production's** are a web client of a Google Cloud project of its own,
+  made by *path A* in `whiteboard/20261010-oauth/google-oauth-keys.md` (published, unbranded; the
+  consent screen names `<prod>.convex.site`), whose one redirect URI is production's HTTP-actions
+  address plus `/api/auth/callback/google`; a Coach sets them with `npx convex env set` under
+  `prd_janitor`, or in the dashboard, and keeps the secret out of chat and files. A deployment
+  picks them up without a redeploy (a local backend served the Google routes at once, 2026-10-11).
+  **A local backend** takes them from the Doppler config `scripts/convex_dev` runs under (all three
+  dev configs carry the dev client, which accepts lane 0's `dev` and `agent` callbacks, ports 3500
+  and 3501), and has them taken away under a config without them. **Previews and CI** never have
+  them: Google allows no wildcard redirect URI, and nothing automated signs in to Google.
 * **GitHub Actions** (`.github/workflows/ci.yml`) typechecks, lints, tests, builds and runs e2e
   (against the optimized build) on every pull request and every push to `main`, and checks that
   `convex/_generated/` was committed as the functions regenerate it. Every job runs against a local backend or none; CI
@@ -326,6 +340,8 @@ The Coach's steps, in order:
 
 1. **Export production**, and keep the file outside the repo:
    `./scripts/doppledo prd_janitor npx convex export --path ~/prd-exports/<date>.zip`.
+   Set production's two Google keys too (*Google sign-in*, under *The pieces*, above), so the
+   sign-in is there as soon as the new code is.
 2. **Merge the sprint's first two threads** (`split_account` and `clear_people`), and let them
    deploy. Nothing changes for visitors; the clear's functions are now on production.
 3. **Clear, then deploy at once.**

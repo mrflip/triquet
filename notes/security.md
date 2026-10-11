@@ -28,8 +28,8 @@ security expert who knows what questions to ask.
   from the command line (thread 4), once, as the server builds the actor (`Actor.ofUser`), and is
   carried to the browser. No variable lists admins; `TRIQUET_EVERYONE_ADMIN=yes` makes every user
   an admin, anonymous ones included, and `scripts/convex_dev` sets it on every local backend
-  (production never has it, and a `TRIQUET_ADMINS` left set there is read by nothing). Until thread
-  5, an anonymous user's flag counts as a Google user's does.
+  (production never has it, and a `TRIQUET_ADMINS` left set there is read by nothing). Since
+  thread 5, the flag counts only for a user signed in with Google (below).
 * 2026-10-11 (oauth sprint, thread 4): `adopt:perform` (`convex/adopt.ts`), an internal mutation
   run by `scripts/adopt` under `prd_janitor` behind the janitor's guard, sets a user's `admin` flag,
   gives it a userlabel that only a hunt's `orglabel` holds (past the rule that keeps an address's
@@ -122,7 +122,44 @@ security expert who knows what questions to ask.
   argument and no environment check: the one place our code writes Convex Auth's tables. It is
   run on production once, by a Coach, through `scripts/clear_people` under `prd_janitor`. The
   `converge` thread (thread 3) deleted the mutation and its script with the tables they emptied,
-  so no code of ours writes Convex Auth's own tables now. The script's guard (`scripts/janitor.ts`, kept for later janitor
+  and only a Google merge's deletion of the merged-away user's sessions writes Convex Auth's own
+  tables now (thread 5, below). The script's guard (`scripts/janitor.ts`, kept for later janitor
   commands) acts only when `--deployment` names the deployment the CLI's environment reaches, by
   the address that deployment reports for itself (its `cloudUrl`, read by `convex function-spec`
   with the same admin key, not the address the CLI connected to); a dry run is the default.
+* 2026-10-11 (oauth sprint, thread 5): Convex Auth 0.0.96 is patched with the `authUserId` half of
+  upstream's open PR #306 (`patches/@convex-dev__auth@0.0.96.patch`): `createOrUpdateUser` is
+  handed the user of the session recorded on the OAuth verifier, which is the session whose token
+  called `auth:signIn` to start the sign-in. The callback that runs it is Google's redirect to the
+  deployment, carrying no token; the verifier is matched to it by the signature of the PKCE
+  verifier and state Convex Auth keeps in its own cookies. The PR's browser-chosen `scope` is not
+  carried.
+* 2026-10-11 (oauth sprint, thread 5): a Google sign-in's user is decided by whose the account
+  is and whose the signing-in browser was (`userForGoogle`, `convex/writing/user_actions.ts`),
+  never by email: Convex Auth's default linking by verified email is off with our
+  `createOrUpdateUser`, and two Google accounts sharing an email are two users. A new account from
+  an anonymous browser joins that user and clears its `isAnonymous` (unsealing it); from a Google
+  user's browser, or none, it makes a new user. A known account switches the browser to its user;
+  from an anonymous browser holding a handle it **merges**: the Google user is made smith of the
+  anonymous user's sandbox past sealing (`smithOfSandbox`), the anonymous user is taken off it,
+  marked `merged` (never deleted), keeps its userlabel reserved until a name choice is settled, and
+  every one of its sessions and their refresh tokens is deleted by our code. A Google user is never
+  merged away. A Google user holding no handle takes the anonymous user's handle and title outright.
+* 2026-10-11 (oauth sprint, thread 5): an admin must be signed in with Google
+  (`Actor.isSignedInWithGoogle`: the user is not anonymous): `Actor.ofUser` counts an anonymous
+  user's `admin` flag for nothing. Not by email, because a Google account's email can change and a
+  Workspace address can pass to someone else (Google says to identify an account by its `sub`);
+  the flag sits on the user, bound to the Google account's `sub` through its account row, and is
+  set only with the deploy key. `TRIQUET_EVERYONE_ADMIN` still makes everyone an admin on a local
+  backend.
+* 2026-10-11 (oauth sprint, thread 5): what we keep from Google is held to the privacy policy:
+  Google is asked for `openid email profile` (`GoogleScope`, `convex/auth.ts`, and an e2e test of
+  the redirect); the user row keeps only the email, name and picture (`UserValidators.googleProfile`
+  drops anything else before a write), refreshed at every sign-in; the account row keeps Google's
+  `sub` as `providerAccountId`; Convex Auth stores no Google token. The only cookies are Convex
+  Auth's OAuth ones on the deployment's site (the e2e test checks their names). No query returns
+  the email yet. Google is offered only on a deployment holding `AUTH_GOOGLE_ID` and
+  `AUTH_GOOGLE_SECRET`; `scripts/convex_dev` hands a local backend the dev client's through a
+  file only its user can read, never a command line; convex-test uses placeholder keys and drives
+  Convex Auth's own `store` past the part only Google does, which no deployment can be made to do
+  without a deploy key.

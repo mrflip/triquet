@@ -151,8 +151,9 @@ the code does not say so yet, the entry names the sprint's thread that makes it.
 account and a session are never a person: one person may hold several of each, and nothing here
 can tell.
 
-* **account** -- one way in: a row of Convex Auth's `authAccounts`, anonymous or (thread 5) one
-  Google account, belonging to exactly one user. Our own code says it of nothing else: what was
+* **account** -- one way in: a row of Convex Auth's `authAccounts`, anonymous or one Google
+  account (its `providerAccountId` Google's `sub`), belonging to exactly one user, which has at
+  most one Google account. Our own code says it of nothing else: what was
   once named for accounts is user actions and outer hunt actions (below). Another service's
   account (Anthropic's, GitHub's, Convex's) is that service's word, never ours.
 * **user** -- a row of `users`: what a session is signed in as, and the persona in the app,
@@ -188,11 +189,21 @@ can tell.
   huntship: another smith does. Replaced the **hunting**.
 * **sandbox** -- the one hunt an anonymous user may make: labelled with its own userlabel, so at
   `~label/label` (`Hunt.isSandbox`), with no other member. Its address stays when a merge hands it
-  to a user signed in with Google (`smithOfSandbox`, thread 5).
+  to a user signed in with Google (`smithOfSandbox`).
+* **upgrade**, **switch**, **merge** -- what a Google sign-in does with the browser's user
+  (`userForSignIn`): a new Google account **upgrades** an anonymous browser's user in place, which
+  is then signed in with Google; a known one **switches** the browser to the account's user; and
+  where the browser's anonymous user holds a userlabel, **merges** it into the account's user,
+  which carries on, smith of its sandbox. The user merged away is **merged** (`users.merged`:
+  into whom, by which account), never deleted, and nobody is signed in as it again. While it still
+  holds its userlabel, the user it merged into has a **name choice** pending (`nameChoiceFor`):
+  which of the two handles to keep. Two users signed in with Google are never merged. *Signed in
+  with Google* is one predicate, `Actor.isSignedInWithGoogle`: the user is not anonymous.
 * **ghosting** -- a userlabel retired by a merge, held reserved until it can be released: a row of
   `ghostings`, appended and never edited, naming the user that held it (`user_id`), the user it
-  merged into (`into_user_id`), and the account whose sign-in caused it (`account_id`). The
-  table is thread 3's, and the free-userlabel check reads it; threads 5 and 6 write it. The
+  merged into (`into_user_id`), and the account whose sign-in caused it (`account_id`), as the
+  merged user's `merged` mark names them. The table is thread 3's, and the free-userlabel check
+  reads it; settling a name choice writes it (thread 6). The
   Coach's word.
 * **user action**, **outer hunt action** -- what a visitor does outside any quiz, each kind on a
   mutation of its own: as themselves, taking a userlabel or retitling themselves (`users.perform`,
@@ -248,8 +259,8 @@ can tell.
 * **admin** -- one who looks after what belongs to no hunt: the library. Changing it is an admin's
   act (`Approve.mayChangeLibrary`). Who is an admin is the user's own `admin` flag, set only from
   the command line (`scripts/adopt`), read once as the actor is built (`Actor.ofUser`); a local backend
-  makes every user one (`TRIQUET_EVERYONE_ADMIN`). No environment variable lists admins. Thread 5
-  makes the flag count only for a user signed in with Google. Policies ask `Actor.isAdmin`.
+  makes every user one (`TRIQUET_EVERYONE_ADMIN`). No environment variable lists admins. The flag
+  counts only for a user signed in with Google. Policies ask `Actor.isAdmin`.
 * **census** -- what a function about one hunt must know beyond it, asked of the whole database
   and answered with an id, a yes, or a user's face, never a row: whose a hunt label is, whether a
   widget is worked
