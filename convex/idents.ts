@@ -4,10 +4,10 @@ import { refuse, refusingInvalid } from '../src/lib/refusals'
 import { ActionValidators } from '../src/models/actions'
 import type { CurrentIdentT } from '../src/models/ident'
 import { zMutation, zQuery } from './functions'
-import { affirmAccountAction } from './authorize'
-import { performAccount as performAccountAction } from './writing/account_actions'
+import { affirmUserAction } from './authorize'
+import { performUser } from './writing/user_actions'
 
-const { zid, zod } = ValidatorKit
+const { zid } = ValidatorKit
 
 /**
  * Who the asking session is now: the ident its newest identing names, and the actor the server
@@ -24,24 +24,22 @@ export const current = zQuery({
 })
 
 /**
- * Carry out what a visitor did before opening any quiz: assert a username, retitle it, make a
- * hunt, or retitle, relabel or arrange the categories of a hunt they smith (`authorize`). See
- * `writing/account_actions`.
+ * Carry out what a visitor did as themselves: assert a username, or retitle it. See
+ * `writing/user_actions`.
  *
- * @returns The ident taken on or retitled, or the hunt made or changed.
+ * @returns The ident taken on or retitled.
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`: `notSignedIn` for a request
- *   with no session, `notIdentified` for a hunt named by a session that has asserted no
- *   username, `notPermitted` for one its ident may not change, `usernameClaimed` for a username
- *   another session holds), or `{ ZodError }` for an argument that is not valid; nothing is
- *   written.
+ *   with no session, `notIdentified` for a retitle by a session that has asserted no username,
+ *   `usernameClaimed` for a username another session holds), or `{ ZodError }` for an argument
+ *   that is not valid; nothing is written.
  */
-export const performAccount = zMutation({
-  args:    { action: ActionValidators.accountAction },
-  returns: zod.union([zid('idents'), zid('hunts')]),
+export const perform = zMutation({
+  args:    { action: ActionValidators.userAction },
+  returns: zid('idents'),
   handler: async (ctx, { action }) => await refusingInvalid(async () => {
     const { actor, user_id } = ctx
     if (user_id === null) { refuse('notSignedIn') }
-    await affirmAccountAction(ctx.db, actor, action)
-    return await performAccountAction(ctx.db, user_id, actor, action)
+    affirmUserAction(actor, action)
+    return await performUser(ctx.db, user_id, actor, action)
   }),
 })

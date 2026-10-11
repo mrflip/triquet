@@ -6,9 +6,9 @@ import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined
 import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import type { ListedHuntT } from '../lib/rows'
-import type { AccountActionDNA } from '../models/actions'
+import type { OuterHuntActionDNA } from '../models/actions'
 import { HuntValidators } from '../models/hunt'
-import { useAccountActions } from '../state/use-account-actions'
+import { useOuterHuntActions } from '../state/use-outer-hunt-actions'
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import styles from './workbench.module.css'
 
@@ -26,7 +26,7 @@ export type HuntEditModalProps = {
  */
 export function HuntEditModal({ hunt, onClose }: Readonly<HuntEditModalProps>) {
   const huntLabel = hunt.label
-  const { act, busy, notice } = useAccountActions()
+  const { act, busy, notice } = useOuterHuntActions()
   const [titleDraft, setTitleDraft] = useState(hunt.title)
   const [labelDraft, setLabelDraft] = useState(huntLabel)
   const [titleIssue, setTitleIssue] = useState<string | null>(null)
@@ -43,7 +43,7 @@ export function HuntEditModal({ hunt, onClose }: Readonly<HuntEditModalProps>) {
     setLabelIssue(labelOk ? null : labelRefusal)
     if (! (titleOk && labelOk)) { return }
     // The label goes first, as the one the server may refuse; the title then waits for a retry.
-    const changes: AccountActionDNA[] = [
+    const changes: OuterHuntActionDNA[] = [
       ...(label === huntLabel ? [] : [{ kind: 'relabel_hunt', hunt_id: hunt._id, label } as const]),
       ...(title === hunt.title ? [] : [{ kind: 'retitle_hunt', hunt_id: hunt._id, title } as const]),
     ]

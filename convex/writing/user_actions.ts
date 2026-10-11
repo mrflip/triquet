@@ -1,14 +1,11 @@
 import type { Doc, Id } from '../_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
-import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
-import { HuntingValidators } from '../../src/models/hunting'
 import { Ident } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
-import type { AccountActionT } from '../../src/models/actions'
-import { censusOf, huntInOrg, huntingsFor, huntsCountedInOrg, huntsOf, identForLabel } from '../reading'
-import { arrangeCategories, rebranchHunt, relabelHunt, retitleHunt } from './hunt_actions'
-import { insertHunt, type Writer } from './quiz_writing'
+import type { UserActionT } from '../../src/models/actions'
+import { huntingsFor, identForLabel } from '../reading'
+import type { Writer } from './quiz_writing'
 
 /**
  * Assert the username `label` for the session `user_id`, and become that ident. In order:
@@ -74,61 +71,19 @@ export async function retitleIdent(db: Writer, actor: Actor.ActorT, title: strin
 }
 
 /**
- * Make a fresh hunt under `label`: one realm, `home`, holding one blank quiz of the same label,
- * with the ident `actor` is as its smith, and its org (`orglabel`). An actor who has asserted no
- * username is refused, since a hunt nobody is on is a hunt nobody can open. So is one hunt more
- * than their org may hold (`PA.HuntsPerOrg`), so no one username takes up the app's room; and
- * whatever `makeHuntFor` refuses.
- *
- * @returns The hunt's row id.
- * @throws A refusal (`notIdentified`, `orgFull`, `labelTaken`, `huntsFull`); nothing is written.
- */
-export async function newHunt(db: Writer, actor: Actor.ActorT, label: string): Promise<Id<'hunts'>> {
-  if (Actor.isAnonymous(actor)) { refuse('notIdentified') }
-  const ident = await db.get('idents', actor.ident_id)
-  if (! ident) { refuse('notIdentified') }
-  if (await huntsCountedInOrg(db, ident.label) >= PA.HuntsPerOrg.max) { refuse('orgFull') }
-  return await makeHuntFor(db, ident, label)
-}
-
-/**
- * Make a fresh hunt under `label` for `ident`, as `newHunt` does, however many hunts its org
- * already holds: for the deployment's admin alone (`testing:makeHunt`, by which the e2e suite makes
- * a whole run's hunts, under one ident per worker). A label some hunt of the org already answers to
- * (`huntInOrg`) is refused, as a quiz's is: the caller has already put it in an address. So is one
- * hunt more than the app may hold.
- *
- * @returns The hunt's row id.
- * @throws A refusal (`labelTaken`, `huntsFull`); nothing is written.
- */
-export async function makeHuntFor(db: Writer, ident: Doc<'idents'>, label: string): Promise<Id<'hunts'>> {
-  const [hunts, taken] = await Promise.all([huntsOf(db), huntInOrg(db, ident.label, label)])
-  if (taken) { refuse('labelTaken') }
-  if (hunts.length >= PA.HuntsInApp.max) { refuse('huntsFull') }
-  const hunt_id = await insertHunt(db, label, ident.label)
-  await db.insert('huntings', HuntingValidators.row({ hunt_id, ident_id: ident._id, ident_label: ident.label, ident_title: ident.title, role: 'smith' }))
-  return hunt_id
-}
-
-/**
- * Carry out what a visitor did before opening any quiz, writing the rows it comes to. Whether
- * they may retitle, relabel or arrange the categories of a hunt is asked before this (`authorize`).
+ * Carry out what a visitor did as themselves, writing the rows it comes to: assert a username, or
+ * retitle the ident they are. Whether they may is asked before this (`authorize`).
  *
  * @param db - The mutation's database.
  * @param user_id - The visitor's session.
  * @param actor - Who the visitor is now; anonymous until they have asserted a username.
  * @param action - What the visitor did.
- * @returns The id of the ident taken on or retitled, or the hunt made or changed.
+ * @returns The id of the ident taken on or retitled.
  * @throws A refusal when the action cannot be carried out; nothing is written.
  */
-export async function performAccount(db: Writer, user_id: Id<'users'>, actor: Actor.ActorT, action: AccountActionT): Promise<Id<'idents'> | Id<'hunts'>> {
+export async function performUser(db: Writer, user_id: Id<'users'>, actor: Actor.ActorT, action: UserActionT): Promise<Id<'idents'>> {
   switch (action.kind) {
   case 'assume_ident':  { return await assumeIdent(db, user_id, action.label, action.title) }
   case 'retitle_ident': { return await retitleIdent(db, actor, action.title) }
-  case 'new_hunt':      { return await newHunt(db, actor, action.label) }
-  case 'retitle_hunt':  { await retitleHunt(db, action.hunt_id, action.title); return action.hunt_id }
-  case 'relabel_hunt':  { await relabelHunt(db, censusOf(db), action.hunt_id, action.label); return action.hunt_id }
-  case 'arrange_categories': { await arrangeCategories(db, action.hunt_id, action.wheel); return action.hunt_id }
-  case 'rebranch_hunt': { await rebranchHunt(db, action.hunt_id, action.branch); return action.hunt_id }
   }
 }

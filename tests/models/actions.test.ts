@@ -3,7 +3,7 @@ import * as Z from 'zod'
 import { zodToConvex } from 'convex-helpers/server/zod4'
 import type { Id } from '../../convex/_generated/dataModel'
 import { CategoryLabelVals } from '../../src/models/category'
-import { ActionValidators, isLayoutAction, LayoutActionKindVals, type HuntActionDNA, type AccountActionT, type LibraryActionDNA } from '../../src/models/actions'
+import { ActionValidators, isLayoutAction, LayoutActionKindVals, type HuntActionDNA, type LibraryActionDNA, type OuterHuntActionT, type UserActionT } from '../../src/models/actions'
 
 const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
 const quiz_id = 'j97d0qbj35dar1v8edndzckvsx8f8299'
@@ -140,52 +140,59 @@ describe('ActionValidators.libraryAction', () => {
   })
 })
 
-describe('ActionValidators.accountAction', () => {
-  it('takes becoming an ident, retitling it, and making a hunt', () => {
-    const actions: AccountActionT[] = [{ kind: 'assume_ident', label: 'flip_kromer', title: '' }, { kind: 'retitle_ident', title: 'Flip' }, { kind: 'new_hunt', label: 'quiet_otter' }]
-    expect(actions.map((action) => ActionValidators.accountAction(action))).to.deep.eq(actions)
+describe('ActionValidators.outerHuntAction', () => {
+  it('takes making a hunt', () => {
+    const action: OuterHuntActionT = { kind: 'new_hunt', label: 'quiet_otter' }
+    expect(ActionValidators.outerHuntAction(action)).to.deep.eq(action)
   })
 
   it('takes retitling and relabelling a hunt, named by its id', () => {
     const hunt_id = 'j97d0qbj35dar1v8edndzckvsx8f82aa' as Id<'hunts'>
-    const actions: AccountActionT[] = [{ kind: 'retitle_hunt', hunt_id, title: 'The Autumn Hunt' }, { kind: 'relabel_hunt', hunt_id, label: 'autumn_hunt' }]
-    expect(actions.map((action) => ActionValidators.accountAction(action))).to.deep.eq(actions)
+    const actions: OuterHuntActionT[] = [{ kind: 'retitle_hunt', hunt_id, title: 'The Autumn Hunt' }, { kind: 'relabel_hunt', hunt_id, label: 'autumn_hunt' }]
+    expect(actions.map((action) => ActionValidators.outerHuntAction(action))).to.deep.eq(actions)
   })
 
   it("takes arranging a hunt's categories, holes and all", () => {
     const hunt_id = 'j97d0qbj35dar1v8edndzckvsx8f82aa' as Id<'hunts'>
-    const action: AccountActionT = { kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] }
-    expect(ActionValidators.accountAction(action)).to.deep.eq(action)
+    const action: OuterHuntActionT = { kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] }
+    expect(ActionValidators.outerHuntAction(action)).to.deep.eq(action)
   })
 
   it("takes putting a hunt on another branch, and refuses a branch that is not a label", () => {
     const hunt_id = 'j97d0qbj35dar1v8edndzckvsx8f82aa' as Id<'hunts'>
-    const action: AccountActionT = { kind: 'rebranch_hunt', hunt_id, branch: 'playtest' }
-    expect(ActionValidators.accountAction(action)).to.deep.eq(action)
-    expect(() => ActionValidators.accountAction({ ...action, branch: 'Play Test' })).to.throw(Z.ZodError)
+    const action: OuterHuntActionT = { kind: 'rebranch_hunt', hunt_id, branch: 'playtest' }
+    expect(ActionValidators.outerHuntAction(action)).to.deep.eq(action)
+    expect(() => ActionValidators.outerHuntAction({ ...action, branch: 'Play Test' })).to.throw(Z.ZodError)
   })
 
   it("refuses arranging a hunt's categories with one category in two slots", () => {
     const wheel = CategoryLabelVals.map((label, idx) => (idx === 3 ? 'tv' : label))
-    expect(() => ActionValidators.accountAction({ kind: 'arrange_categories', hunt_id: 'j97d0qbj35dar1v8edndzckvsx8f82aa', wheel })).to.throw(Z.ZodError)
+    expect(() => ActionValidators.outerHuntAction({ kind: 'arrange_categories', hunt_id: 'j97d0qbj35dar1v8edndzckvsx8f82aa', wheel })).to.throw(Z.ZodError)
   })
 
   it('refuses relabelling a hunt to something that is not a label', () => {
-    expect(() => ActionValidators.accountAction({ kind: 'relabel_hunt', hunt_id: 'j97d0qbj35dar1v8edndzckvsx8f82aa', label: 'Autumn Hunt' })).to.throw(Z.ZodError)
+    expect(() => ActionValidators.outerHuntAction({ kind: 'relabel_hunt', hunt_id: 'j97d0qbj35dar1v8edndzckvsx8f82aa', label: 'Autumn Hunt' })).to.throw(Z.ZodError)
+  })
+})
+
+describe('ActionValidators.userAction', () => {
+  it('takes becoming an ident, and retitling it', () => {
+    const actions: UserActionT[] = [{ kind: 'assume_ident', label: 'flip_kromer', title: '' }, { kind: 'retitle_ident', title: 'Flip' }]
+    expect(actions.map((action) => ActionValidators.userAction(action))).to.deep.eq(actions)
   })
 
   it('refuses an ident label too short to be one', () => {
-    expect(() => ActionValidators.accountAction({ kind: 'assume_ident', label: 'flip', title: '' })).to.throw(Z.ZodError)
+    expect(() => ActionValidators.userAction({ kind: 'assume_ident', label: 'flip', title: '' })).to.throw(Z.ZodError)
   })
 
   it('refuses retitling an ident to nothing', () => {
-    expect(() => ActionValidators.accountAction({ kind: 'retitle_ident', title: '' })).to.throw(Z.ZodError)
+    expect(() => ActionValidators.userAction({ kind: 'retitle_ident', title: '' })).to.throw(Z.ZodError)
   })
 
   it("takes a blank title on assuming an ident, which then goes by its label, but not one that is not a title", () => {
-    expect(ActionValidators.accountAction({ kind: 'assume_ident', label: 'flip_kromer', title: '' })).to.deep.eq({ kind: 'assume_ident', label: 'flip_kromer', title: '' })
-    expect(() => ActionValidators.accountAction({ kind: 'assume_ident', label: 'flip_kromer', title: 'Flip\u{0}Kromer' })).to.throw(Z.ZodError)
-    expect(() => ActionValidators.accountAction({ kind: 'assume_ident', label: 'flip_kromer', title: 'F'.repeat(83) })).to.throw(Z.ZodError)
+    expect(ActionValidators.userAction({ kind: 'assume_ident', label: 'flip_kromer', title: '' })).to.deep.eq({ kind: 'assume_ident', label: 'flip_kromer', title: '' })
+    expect(() => ActionValidators.userAction({ kind: 'assume_ident', label: 'flip_kromer', title: 'Flip\u{0}Kromer' })).to.throw(Z.ZodError)
+    expect(() => ActionValidators.userAction({ kind: 'assume_ident', label: 'flip_kromer', title: 'F'.repeat(83) })).to.throw(Z.ZodError)
   })
 })
 

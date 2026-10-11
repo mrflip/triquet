@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { SyncProvider } from '../providers'
-import { ShowAccount } from '../../components/ShowAccount'
+import { ShowAccount } from '../../components/ShowUser'
 
 /**
  * The pages that work on hunts and quizzes, and so connect to the database, telling the header's

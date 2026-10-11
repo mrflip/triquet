@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/prefer-combined-guards -- one guard per rule, each beside its rule, as notes/policy_approve.md asks */
-import type { AccountActionT, HuntActionT, LibraryActionT, QuizRevisionKind } from '../models/actions'
+import type { HuntActionT, LibraryActionT, OuterHuntActionT, QuizRevisionKind, UserActionT } from '../models/actions'
 import { Quiz, type QuizRowT } from '../models/quiz'
 import { Review, type ReviewPolicyT } from '../models/review'
 import { Validator } from './validator'
@@ -320,20 +320,20 @@ export function mayAskAnthropicBot(switchval: string | undefined): VerdictT {
 
 // --- The dispatch table
 
-/** Every action a request can carry: from inside a quiz, to the library, or before any quiz is open */
-type ActionT = HuntActionT | LibraryActionT | AccountActionT
+/** Every action a request can carry: from inside a quiz, to a hunt from outside any quiz, to the library, or as the visitor themselves */
+type ActionT = HuntActionT | OuterHuntActionT | LibraryActionT | UserActionT
 type ActionKind = ActionT['kind']
 /** The action of one kind */
 type ActionOfKind<KK extends ActionKind> = Extract<ActionT, { kind: KK }>
-/** The kinds of action decided of the actor alone: on the library, which no hunt owns, or before any hunt is in play (an account action that names no hunt) */
-type HuntlessKind = Exclude<LibraryActionT['kind'] | Exclude<AccountActionT, { hunt_id: unknown }>['kind'], HuntActionT['kind']>
+/** The kinds of action decided of the actor alone: on the library, which no hunt owns, or before any hunt is in play (a user action, or making a hunt) */
+type HuntlessKind = Exclude<LibraryActionT['kind'] | UserActionT['kind'] | Exclude<OuterHuntActionT, { hunt_id: unknown }>['kind'], HuntActionT['kind']>
 
 /**
  * What each policy is handed, by key. An action's policy is handed the claims on the hunt it
  * lands on (the actor alone, for one on the library or one decided before any hunt is in play;
- * with the quiz on screen, for one that revises it) and the action; the account actions that name
- * a hunt share the row of the hunt action of their kind, where there is one, and are handed the
- * claims on that hunt all the same where there is not (arranging its categories).
+ * with the quiz on screen, for one that revises it) and the action; the outer hunt actions that
+ * name a hunt share the row of the hunt action of their kind, where there is one, and are handed
+ * the claims on that hunt all the same where there is not (arranging its categories).
  */
 type EvidenceT = {
   [KK in ActionKind]: KK extends HuntlessKind ? [actor: Actor.ActorT, action: ActionT]
@@ -425,7 +425,7 @@ const ReviewPolicies = {
   peek_answer:      mayWriteReview,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
-/** The actions on the hunt itself, and who is on it */
+/** The actions on the hunt itself, and who is on it, and making one */
 const HuntPolicies = {
   add_hunting:    mayChangeMembership,
   remove_hunting: mayChangeMembership,
@@ -434,13 +434,13 @@ const HuntPolicies = {
   delete_hunt:    mayChangeHunt,
   arrange_categories: mayChangeHunt,
   rebranch_hunt:  mayChangeHunt,
+  new_hunt:       mayMakeHunt,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
-/** The account actions that name no hunt: of the actor alone */
-const AccountPolicies = {
+/** The user actions: the visitor as themselves, of the actor alone */
+const UserPolicies = {
   assume_ident:  mayAssertUsername,
   retitle_ident: mayRetitleIdent,
-  new_hunt:      mayMakeHunt,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
 /** The reads, and the ask, by name */
@@ -465,7 +465,7 @@ const RowPolicies = {
 /** The policy of every action, by its kind */
 const ActionPolicies = {
   ...LayoutPolicies, ...LibraryPolicies, ...ContentPolicies, ...RealmPolicies,
-  ...ReviewPolicies, ...HuntPolicies, ...AccountPolicies,
+  ...ReviewPolicies, ...HuntPolicies, ...UserPolicies,
 } as const satisfies PolicyRowsT<ActionKind>
 
 /** Every policy, by key: a key with no row fails to compile, and so does a row with no key */

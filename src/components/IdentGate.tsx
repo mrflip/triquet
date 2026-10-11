@@ -7,7 +7,7 @@ import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import * as PA from '../lib/vv/patterns'
 import { Ident, type IdentT, type LabelFlawT } from '../models/ident'
-import { useAccountActions } from '../state/use-account-actions'
+import { useUserActions } from '../state/use-user-actions'
 import { useIdent } from '../state/use-ident'
 import { Panel } from './panels/Panel'
 import { OpeningNotice } from './SyncNotices'
@@ -35,7 +35,7 @@ export function IdentGate() {
   const onward = Routes.thenFrom(params.get('then')) ?? Routes.huntsPath()
   const switching = params.has('switch')
   const { ident, loaded } = useIdent()
-  const { act, busy, notice } = useAccountActions()
+  const { act, busy, notice } = useUserActions()
   const [nameDraft, setNameDraft] = useState('')
   // The username as typed into its own field, or null while it follows the name. Emptied, it is ''
   // until the name changes or the field is left: following again, but blank while being cleared.

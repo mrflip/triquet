@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { affirmAccountAction, affirmExportHunt, affirmLibraryAction, affirmForHunt, affirmPerform, affirmReadHunt, affirmReadQuestion, affirmReadReviews, claimsFor, Unscoped } from '../../convex/authorize'
+import { affirmExportHunt, affirmLibraryAction, affirmForHunt, affirmOuterHuntAction, affirmPerform, affirmReadHunt, affirmReadQuestion, affirmReadReviews, affirmUserAction, claimsFor, Unscoped } from '../../convex/authorize'
 import { scopeOf } from '../../convex/functions'
 import { scopedReader } from '../../convex/policy_rules'
 import { huntingFor, identForLabel, reviewsOf } from '../../convex/reading'
@@ -252,27 +252,47 @@ describe("affirmLibraryAction", () => {
   })
 })
 
-describe("affirmAccountAction", () => {
-  it("lets only a smith retitle or relabel a hunt, anyone with a username retitle themselves or make a hunt, and anyone at all assert a username", async () => {
+describe("affirmOuterHuntAction", () => {
+  it("lets only a smith retitle or relabel a hunt, and anyone with a username make one", async () => {
     const { tt, open, alice, bob, carol } = await peopled()
     const actions = [
       { kind: 'retitle_hunt',  hunt_id: open.hunt_id, title: 'Mine now' },
       { kind: 'relabel_hunt',  hunt_id: open.hunt_id, label: 'mine_now' },
       { kind: 'new_hunt',      label: 'loud_heron' },
+    ] as const
+    const outcomes: string[][] = []
+    for (const actor of [alice.actor, bob.actor, carol.actor, Actor.anonymous]) {
+      const row: string[] = []
+      for (const action of actions) { row.push(await outcomeOf(tt.run(async (ctx) => { await affirmOuterHuntAction(ctx.db, actor, action) }))) }
+      outcomes.push(row)
+    }
+    expect(outcomes).to.deep.eq([
+      ['allow',         'allow',         'allow'],
+      ['notPermitted',  'notPermitted',  'allow'],
+      ['notPermitted',  'notPermitted',  'allow'],
+      ['notIdentified', 'notIdentified', 'notIdentified'],
+    ])
+  })
+})
+
+describe("affirmUserAction", () => {
+  it("lets anyone with a username retitle themselves, and anyone at all assert a username", async () => {
+    const { alice, bob, carol } = await peopled()
+    const actions = [
       { kind: 'retitle_ident', title: 'Me' },
       { kind: 'assume_ident',  label: 'someone_else', title: 'Someone' },
     ] as const
     const outcomes: string[][] = []
     for (const actor of [alice.actor, bob.actor, carol.actor, Actor.anonymous]) {
       const row: string[] = []
-      for (const action of actions) { row.push(await outcomeOf(tt.run(async (ctx) => { await affirmAccountAction(ctx.db, actor, action) }))) }
+      for (const action of actions) { row.push(await outcomeOf(Promise.try(() => { affirmUserAction(actor, action) }))) }
       outcomes.push(row)
     }
     expect(outcomes).to.deep.eq([
-      ['allow',         'allow',         'allow',         'allow',         'allow'],
-      ['notPermitted',  'notPermitted',  'allow',         'allow',         'allow'],
-      ['notPermitted',  'notPermitted',  'allow',         'allow',         'allow'],
-      ['notIdentified', 'notIdentified', 'notIdentified', 'notIdentified', 'allow'],
+      ['allow',         'allow'],
+      ['allow',         'allow'],
+      ['allow',         'allow'],
+      ['notIdentified', 'allow'],
     ])
   })
 })
@@ -419,8 +439,8 @@ describe("identings, each session's own", () => {
   it("are listed by no function, nor are idents changed or removed by one; Convex Auth's own functions are the rest", async () => {
     expect(await publicFunctions()).to.deep.eq([
       'auth:isAuthenticated', 'auth:signIn', 'auth:signOut',
-      'hunts:list', 'hunts:open', 'hunts:perform', 'hunts:whole',
-      'idents:current', 'idents:performAccount',
+      'hunts:list', 'hunts:open', 'hunts:perform', 'hunts:performOuter', 'hunts:whole',
+      'idents:current', 'idents:perform',
       'questions:open',
       'quizzes:open', 'quizzes:signals', 'quizzes:whole',
       'reviews:forQuiz',
@@ -444,8 +464,8 @@ describe("idents", () => {
   it("are made by any session, and are never changed by another asserting the username", async () => {
     const tt = openTester()
     const [first, second] = [await signedIn(tt), await signedIn(tt)]
-    await first.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Flip' } })
-    await expectRefusal(second.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Impostor' } }), 'usernameClaimed')
+    await first.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Flip' } })
+    await expectRefusal(second.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Impostor' } }), 'usernameClaimed')
     const ident = await tt.run(async (ctx) => await identForLabel(ctx.db, 'flip_kromer'))
     expect([ident?.title, ident?.user_id]).to.deep.eq(['Flip', first.user_id])
   })

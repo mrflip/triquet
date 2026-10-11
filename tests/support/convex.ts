@@ -220,7 +220,7 @@ const SessionMs = 24 * 60 * 60 * 1000
  * A fresh browser's session, signed in anonymously as Convex Auth would sign it in (a `users` row
  * and an `authSessions` row), having asserted no username: anonymous, but able to assert one.
  *
- * @example const { as } = await signedIn(tt); await as.mutation(api.idents.performAccount, { action })
+ * @example const { as } = await signedIn(tt); await as.mutation(api.idents.perform, { action })
  */
 export async function signedIn(tt: Tester): Promise<Session> {
   const { user_id, session_id } = await tt.run(async (ctx) => {
@@ -237,7 +237,7 @@ const HoldersIn = new WeakMap<Tester, Map<string, Identified>>()
 /**
  * The session holding the username `label`: the one `identified` already signed in for it in
  * `tt`, or else a fresh browser's, asserting it (made, and claimed, if it is new) through
- * `idents.performAccount`. How to call as it, the ident's id, and the actor the server builds for
+ * `idents.perform`. How to call as it, the ident's id, and the actor the server builds for
  * it, for a test that asks a rule directly. A username has one holder, so asking twice is asking
  * for the same person; a test of a second session asserting a held username uses `signedIn`.
  *
@@ -249,7 +249,7 @@ export async function identified(tt: Tester, label: string): Promise<Identified>
   const held = holders.get(label)
   if (held) { return held }
   const session = await signedIn(tt)
-  const ident_id = await session.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label, title: '' } }) as Id<'idents'>
+  const ident_id = await session.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label, title: '' } }) as Id<'idents'>
   const holder = { ...session, ident_id, label, actor: Actor.asIdent(session.user_id, { _id: ident_id, label }, Actor.namesAdmin(process.env.TRIQUET_ADMINS, label)) }
   holders.set(label, holder)
   return holder

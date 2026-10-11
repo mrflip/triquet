@@ -6,7 +6,7 @@ const DayMs = 24 * 60 * 60 * 1000
 
 /**
  * Sessions, by Convex Auth. A browser signs in anonymously on its first visit and keeps its
- * session; who it is in the app is the username it then asserts (`idents.performAccount`), which
+ * session; who it is in the app is the username it then asserts (`idents.perform`), which
  * that session alone holds from then on. A provider that proves who someone is (Google, say) joins
  * `Anonymous` in the list.
  *

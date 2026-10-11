@@ -16,18 +16,18 @@ import { expectSound } from '../support/soundness'
 
 /** Assert the username `label` as the session `by` (the bare tester for no session), through the public function */
 async function assume(by: Session | Tester, label: string, title = '') {
-  return await callerOf(by).mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label, title } })
+  return await callerOf(by).mutation(api.idents.perform, { action: { kind: 'assume_ident', label, title } })
 }
 
 /** Retitle the ident the session `by` is now, through the public function */
 async function retitle(by: Session | Tester, title: string) {
-  return await callerOf(by).mutation(api.idents.performAccount, { action: { kind: 'retitle_ident', title } })
+  return await callerOf(by).mutation(api.idents.perform, { action: { kind: 'retitle_ident', title } })
 }
 
 /** Make a hunt labelled `label` through the public function, as the session `by`, or as a fresh ident's session */
 async function makeHunt(tt: Tester, label: string, by?: Session | Tester) {
   const maker = by ?? await identified(tt, `maker_${mintId().slice(-8)}`)
-  return await callerOf(maker).mutation(api.idents.performAccount, { action: { kind: 'new_hunt', label } })
+  return await callerOf(maker).mutation(api.hunts.performOuter, { action: { kind: 'new_hunt', label } })
 }
 
 /** Every row of a table, for the tests that count them */
@@ -50,7 +50,7 @@ async function identLabelled(tt: Tester, label: string) {
   return present(await tt.run(async (ctx) => await identForLabel(ctx.db, label)), `the ident ${label}`)
 }
 
-describe('idents.performAccount: assume_ident', () => {
+describe('idents.perform: assume_ident', () => {
   it('makes an ident nobody goes by yet, titled as asked and held by this session, and records the session taking it on', async () => {
     const tt = openTester()
     const session = await signedIn(tt)
@@ -169,7 +169,7 @@ describe('idents.current', () => {
   })
 })
 
-describe('idents.performAccount: retitle_ident', () => {
+describe('idents.perform: retitle_ident', () => {
   it('retitles the ident this session is, keeping its label', async () => {
     const tt = openTester()
     const otter = await identified(tt, 'quiet_otter')
@@ -197,7 +197,7 @@ describe('idents.performAccount: retitle_ident', () => {
   })
 })
 
-describe('idents.performAccount: new_hunt', () => {
+describe('hunts.performOuter: new_hunt', () => {
   it('makes a hunt with one realm, home, holding one blank quiz under the hunt\'s own label and title', async () => {
     const tt = openTester()
     const hunt_id = present(await makeHunt(tt, 'loud_heron'))
@@ -297,12 +297,12 @@ async function smithed() {
   const tt = openTester()
   const { open: { hunt_id }, smith, join } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'alice_smiths' })
   const bob = await join('bob_reviews', 'reviewer')
-  const perform = async (edit: HuntEdit, by: Session | Tester = smith) => await callerOf(by).mutation(api.idents.performAccount, { action: { ...edit, hunt_id } })
+  const perform = async (edit: HuntEdit, by: Session | Tester = smith) => await callerOf(by).mutation(api.hunts.performOuter, { action: { ...edit, hunt_id } })
   const held = async () => present(await tt.run(async (ctx) => await ctx.db.get('hunts', hunt_id)))
   return { tt, hunt_id, smith, bob, perform, held }
 }
 
-describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
+describe('hunts.performOuter: retitle_hunt and relabel_hunt', () => {
   it("lets the hunt's smith retitle it and relabel it, with no quiz open", async () => {
     const { hunt_id, perform, held } = await smithed()
     expect(await perform({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })).to.eq(hunt_id)
@@ -346,7 +346,7 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
   })
 })
 
-describe('idents.performAccount: rebranch_hunt', () => {
+describe('hunts.performOuter: rebranch_hunt', () => {
   it("lets the hunt's smith put it on another branch, with no quiz open, and everyone on it sees it", async () => {
     const { hunt_id, smith, bob, perform, held } = await smithed()
     const before = await held()
@@ -379,7 +379,7 @@ describe('idents.performAccount: rebranch_hunt', () => {
   })
 })
 
-describe('idents.performAccount: arrange_categories', () => {
+describe('hunts.performOuter: arrange_categories', () => {
   // TV in the pool, and Art moved to the top, swapping with Math & Econ.
   const arranged = Wheel.placed(Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool'), 'art', 0)
 

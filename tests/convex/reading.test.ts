@@ -400,7 +400,7 @@ describe("identFor", () => {
   it("is the ident a session asserted last, and null for one that never has", async () => {
     const tt = openTester()
     const flip = await identified(tt, 'flip_kromer')
-    await flip.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'quiet_otter', title: '' } })
+    await flip.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'quiet_otter', title: '' } })
     const { user_id } = await signedIn(tt)
     const found = await tt.run(async (ctx) => [await identFor(ctx.db, flip.user_id), await identFor(ctx.db, user_id)])
     expect(found.map((ident) => ident?.label ?? null)).to.deep.eq(['quiet_otter', null])

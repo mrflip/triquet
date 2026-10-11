@@ -2,7 +2,7 @@ import * as EST from 'es-toolkit'
 import type { Doc, Id } from './_generated/dataModel'
 import * as Actor from '../src/lib/actor'
 import * as Approve from '../src/lib/approve'
-import type { AccountActionT, AffirmsT, HuntActionT, HuntAffirmsT, LibraryActionT, QuizAffirmsT } from '../src/models/actions'
+import type { AffirmsT, HuntActionT, HuntAffirmsT, LibraryActionT, OuterHuntActionT, QuizAffirmsT, UserActionT } from '../src/models/actions'
 import { huntingFor, reviewFor, type Reader } from './reading'
 
 // Where the evidence for every authorization is gathered. Who is asking is the actor every
@@ -21,7 +21,7 @@ import { huntingFor, reviewFor, type Reader } from './reading'
 // An ident's hunting on a hunt is its standing there: a smith reads and changes everything of the
 // hunt, a reviewer reads it and writes their own reviews (and reads the others' shared ones once
 // their own is shared), and a stranger is shown nothing of it but who to ask. A username belongs
-// to the session that claimed it (`writing/account_actions`), so the claims trust that the
+// to the session that claimed it (`writing/user_actions`), so the claims trust that the
 // session holding the ident is theirs.
 //
 // The library of widgets belongs to no hunt: every hunt sees the same one, and no hunt's function
@@ -55,9 +55,10 @@ export const Unscoped = {
   "auth:signIn":           "Convex Auth's own, of the session alone",
   "auth:signOut":          "Convex Auth's own, of the session alone",
   "idents:current":        "Who the session is: asked before any hunt is in play",
-  "idents:performAccount": "A username, or a hunt from the hunts list, before any quiz is open: a hunt it names is asked of the actor's claims on it (`claimsFor`)",
+  "idents:perform":        "A username, asserted or retitled, before any hunt is in play: of the actor alone",
   "hunts:list":            "The hunts the actor is on, read through the actor's own huntings: many hunts, none affirmed",
   "hunts:open":            "Finds a hunt by its org and label (or, from an old address, its label alone) and tells the browser its standing there, which is what the browser goes on to affirm",
+  "hunts:performOuter":    "A hunt made, or named from outside any quiz: one it names is asked of the actor's claims on it (`claimsFor`)",
   "widgets:library":       "The library belongs to no hunt: every hunt sees the same one",
   "widgets:usage":         "Counts the widgetings of every hunt, and hands back counts only (`Approve.mayCountUsage`)",
   "stats:backfills":       "How far each backfill has run: the migrations component's state, of no hunt, names and counts only, for an admin (`Approve.mayReadBackfills`)",
@@ -135,7 +136,7 @@ export async function affirmForHunt<AT extends AffirmableT, QQ extends PendingT>
 
 /**
  * The claims of `actor` on `hunt_id`, from its hunting there, for a request that affirms nothing:
- * one that finds its hunt by label (`hunts.open`), or an account action naming a hunt. One read;
+ * one that finds its hunt by label (`hunts.open`), or an outer hunt action naming a hunt. One read;
  * none for an actor who has asserted no username, a stranger to every hunt.
  *
  * @param db - The function's database.
@@ -258,19 +259,34 @@ export async function affirmPerform(db: Reader, affirms: AffirmsT, actor: Actor.
 }
 
 /**
- * Go on only when `actor` may carry out the account action `action`, by the policy of its kind:
- * one that names a hunt asked of the actor's claims on it, anything else of the actor alone. An
- * account action is taken from the hunts list, before any quiz is open, so it affirms nothing:
- * the one read its claims need is made here.
+ * Go on only when `actor` may carry out the user action `action`, by the policy of its kind. It
+ * is the visitor's own, so the decision is of the actor alone, and there is nothing to read.
  *
- * @param db - The mutation's database.
  * @param actor - Who is acting.
  * @param action - What they did.
  * @throws `Approve.NotApprovedError` when the policy says no: `notIdentified` for retitle_ident before any username.
  *
- * @example await affirmAccountAction(ctx.db, ctx.actor, action)
+ * @example affirmUserAction(ctx.actor, { kind: 'retitle_ident', title: 'Flip' })
  */
-export async function affirmAccountAction(db: Reader, actor: Actor.ActorT, action: AccountActionT): Promise<void> {
+export function affirmUserAction(actor: Actor.ActorT, action: UserActionT): void {
+  Approve.must(action.kind, actor, action)
+}
+
+/**
+ * Go on only when `actor` may carry out the outer hunt action `action`, by the policy of its kind:
+ * one that names a hunt asked of the actor's claims on it, making one of the actor alone. An outer
+ * hunt action is taken from outside any quiz, so it affirms nothing: the one read its claims need
+ * is made here.
+ *
+ * @param db - The mutation's database.
+ * @param actor - Who is acting.
+ * @param action - What they did.
+ * @throws `Approve.NotApprovedError` when the policy says no: `notIdentified` for new_hunt before
+ *   any username, `notPermitted` for a hunt they do not smith.
+ *
+ * @example await affirmOuterHuntAction(ctx.db, ctx.actor, action)
+ */
+export async function affirmOuterHuntAction(db: Reader, actor: Actor.ActorT, action: OuterHuntActionT): Promise<void> {
   if ('hunt_id' in action) {
     Approve.must(action.kind, await claimsFor(db, action.hunt_id, actor), action)
     return

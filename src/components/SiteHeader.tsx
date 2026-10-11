@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { AppBar, Box, Breadcrumbs, Link, Toolbar, useMediaQuery, type Theme } from '@mui/material'
-import { AccountMenu } from './AccountMenu'
+import { AccountMenu } from './UserMenu'
 import NextLink from './NextLink'
 import { Logo } from './Logo'
 import { QuizActsButtons, QuizSwitcher } from './QuizSwitcher'

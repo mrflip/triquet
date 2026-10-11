@@ -5,7 +5,7 @@ import * as Approve from '../../src/lib/approve'
 import { AuthorizationError } from '../../src/lib/errors'
 import { RefusalNotices } from '../../src/lib/notices'
 import { CategoryLabelVals } from '../../src/models/category'
-import { ActionValidators, QuizRevisionKindVals, type AccountActionDNA, type AccountActionT, type HuntActionDNA, type HuntActionT, type LibraryActionDNA, type LibraryActionT } from '../../src/models/actions'
+import { ActionValidators, QuizRevisionKindVals, type HuntActionDNA, type HuntActionT, type LibraryActionDNA, type LibraryActionT, type OuterHuntActionDNA, type OuterHuntActionT, type UserActionDNA, type UserActionT } from '../../src/models/actions'
 import type { ReviewPhase, ReviewPolicyT } from '../../src/models/review'
 
 /** Whatever `attempt` throws, or null when it does not */
@@ -255,31 +255,31 @@ describe('Approve.mayAskAnthropicBot', () => {
 
 // --- The matrix: every action kind, as each standing, through the dispatcher
 
-type ActionT = HuntActionT | LibraryActionT | AccountActionT
-type ActionDNA = HuntActionDNA | LibraryActionDNA | AccountActionDNA
+type ActionT = HuntActionT | OuterHuntActionT | LibraryActionT | UserActionT
+type ActionDNA = HuntActionDNA | OuterHuntActionDNA | LibraryActionDNA | UserActionDNA
 type ActionKind = ActionT['kind']
 
-/** An account action that names no hunt, and so is no hunt action's kind too */
-type HuntlessDNA = Extract<AccountActionDNA, { kind: 'assume_ident' | 'retitle_ident' | 'new_hunt' }>
+/** A user action, or the outer hunt action that names no hunt: of the actor alone, and no hunt action's kind */
+type HuntlessDNA = UserActionDNA | Extract<OuterHuntActionDNA, { kind: 'new_hunt' }>
 
-/** The kinds of account action that name no hunt */
+/** The kinds of action that name no hunt, and are no hunt action's kind */
 const HuntlessKinds: ReadonlySet<string> = new Set<HuntlessDNA['kind']>(['assume_ident', 'retitle_ident', 'new_hunt'])
 
-/** An account action that names a hunt, and is no hunt action's kind */
-type HuntNamingDNA = Extract<AccountActionDNA, { kind: 'arrange_categories' | 'rebranch_hunt' }>
+/** An outer hunt action that names a hunt, and is no hunt action's kind */
+type HuntNamingDNA = Extract<OuterHuntActionDNA, { kind: 'arrange_categories' | 'rebranch_hunt' }>
 
-/** The kinds of account action that name a hunt, and are no hunt action's kind */
+/** The kinds of outer hunt action that name a hunt, and are no hunt action's kind */
 const HuntNamingKinds: ReadonlySet<string> = new Set<HuntNamingDNA['kind']>(['arrange_categories', 'rebranch_hunt'])
 
 /** The kinds of action on the library */
 const LibraryKinds: ReadonlySet<string> = new Set<LibraryActionDNA['kind']>(['add_widget', 'edit_widget', 'delete_widget', 'move_widget', 'import_widgets'])
 
-/** Whether `dna` is an account action that names no hunt */
+/** Whether `dna` is an action that names no hunt, and is no hunt action's kind */
 function isHuntless(dna: ActionDNA): dna is HuntlessDNA {
   return HuntlessKinds.has(dna.kind)
 }
 
-/** Whether `dna` is an account action that names a hunt, and is no hunt action's kind */
+/** Whether `dna` is an outer hunt action that names a hunt, and is no hunt action's kind */
 function isHuntNaming(dna: ActionDNA): dna is HuntNamingDNA {
   return HuntNamingKinds.has(dna.kind)
 }
@@ -291,7 +291,8 @@ function isOnLibrary(dna: ActionDNA): dna is LibraryActionDNA {
 
 /** `dna` validated, as the server holds an action */
 function actionOf(dna: HuntActionDNA | LibraryActionDNA | HuntlessDNA | HuntNamingDNA): ActionT {
-  if (isHuntless(dna) || isHuntNaming(dna)) { return ActionValidators.accountAction(dna) }
+  if (isHuntless(dna)) { return dna.kind === 'new_hunt' ? ActionValidators.outerHuntAction(dna) : ActionValidators.userAction(dna) }
+  if (isHuntNaming(dna)) { return ActionValidators.outerHuntAction(dna) }
   if (isOnLibrary(dna)) { return ActionValidators.libraryAction(dna) }
   return ActionValidators.huntAction(dna)
 }
@@ -363,10 +364,10 @@ const Matrix = {
   delete_hunt:         [{ kind: 'delete_hunt' },                                                                                     Smiths],
   arrange_categories:  [{ kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] },                          Smiths],
   rebranch_hunt:       [{ kind: 'rebranch_hunt', hunt_id, branch: 'playtest' },                                                      Smiths],
-  // account actions, of the actor alone:
+  // making a hunt, and the user actions, of the actor alone:
+  new_hunt:            [{ kind: 'new_hunt', label: 'loud_heron' },                                                                   Idents],
   assume_ident:        [{ kind: 'assume_ident', label: 'alice_smiths', title: 'Alice' },                                             Anyone],
   retitle_ident:       [{ kind: 'retitle_ident', title: 'Alice' },                                                                   Idents],
-  new_hunt:            [{ kind: 'new_hunt', label: 'loud_heron' },                                                                   Idents],
 } as const satisfies { [KK in ActionKind]: readonly [Extract<HuntActionDNA | LibraryActionDNA | HuntlessDNA | HuntNamingDNA, { kind: KK }>, VerdictRowT] }
 
 describe('the matrix: every action kind, as each standing, and as a smith of a locked quiz', () => {
@@ -415,7 +416,7 @@ describe('the matrix: every action kind, as each standing, and as a smith of a l
     })
   })
 
-  it('asks a hunt-naming account action as the hunt action of its kind', () => {
+  it('asks a hunt-naming outer hunt action as the hunt action of its kind', () => {
     const retitle = { kind: 'retitle_hunt', hunt_id, title: 'Princes' } as const
     expect(ColumnVals.map((column) => Approve.verdictOn('retitle_hunt', ClaimsAs[column], retitle))).to.deep.eq(Smiths)
   })

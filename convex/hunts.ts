@@ -1,16 +1,18 @@
 import _ from 'es-toolkit/compat'
 import * as Actor from '../src/lib/actor'
 import * as Approve from '../src/lib/approve'
+import { refuse, refusingInvalid } from '../src/lib/refusals'
 import { ValidatorKit } from '../src/lib/validator'
 import { huntListingOf, shallowHuntOf, smithsOf, type HuntOpeningT, type ListedHuntT } from '../src/lib/rows'
 import { ActionValidators } from '../src/models/actions'
 import type { HuntT } from '../src/models/hunt'
-import { zHuntMutation, zHuntQuery, zQuery } from './functions'
-import { affirmExportHunt, affirmPerform, claimsFor } from './authorize'
+import { zHuntMutation, zHuntQuery, zMutation, zQuery } from './functions'
+import { affirmExportHunt, affirmOuterHuntAction, affirmPerform, claimsFor } from './authorize'
 import { huntForLabel, huntInOrg, huntingsFor, huntRowsOf, membersOf, realmsOf, wholeHuntOf } from './reading'
+import { performOuterHunt } from './writing/hunt_actions'
 import { perform as performAction } from './writing/perform'
 
-const { userlabel, label, zod } = ValidatorKit
+const { userlabel, label, zid, zod } = ValidatorKit
 
 /**
  * The hunts the asking actor is on, as the hunts list shows them, each with its role there and
@@ -88,4 +90,27 @@ export const perform = zHuntMutation({
     await performAction(ctx.db, ctx.census, ctx.claims, action)
     return null
   },
+})
+
+/**
+ * Carry out what a visitor did to a hunt from outside any quiz, from the hunts list or the hunt's
+ * own pages: make a hunt, or retitle, relabel, arrange the categories of, or put on another branch
+ * one they smith (`authorize`). It names its hunt rather than affirming it, so it holds the whole
+ * database (`Unscoped`). See `writing/hunt_actions`.
+ *
+ * @returns The hunt made or changed.
+ * @throws A `ConvexError` whose data is a refusal (`lib/refusals`: `notSignedIn` for a request
+ *   with no session, `notIdentified` for a session that has asserted no username, `notPermitted`
+ *   for a hunt its ident may not change), or `{ ZodError }` for an argument that is not valid;
+ *   nothing is written.
+ */
+export const performOuter = zMutation({
+  args:    { action: ActionValidators.outerHuntAction },
+  returns: zid('hunts'),
+  handler: async (ctx, { action }) => await refusingInvalid(async () => {
+    const { actor, user_id } = ctx
+    if (user_id === null) { refuse('notSignedIn') }
+    await affirmOuterHuntAction(ctx.db, actor, action)
+    return await performOuterHunt(ctx.db, actor, action)
+  }),
 })

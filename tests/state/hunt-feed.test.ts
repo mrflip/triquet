@@ -367,7 +367,7 @@ describe('watchHunt', () => {
     const before = lastOf(readings)
     const { hunt } = await held.smith.as.query(api.hunts.open, { orglabel: held.orglabel, hunt_label: held.hunt_label })
     const { wheel } = present(hunt)
-    await held.smith.as.mutation(api.idents.performAccount, { action: { kind: 'arrange_categories', hunt_id: held.open.hunt_id, wheel: wheel.toReversed() } })
+    await held.smith.as.mutation(api.hunts.performOuter, { action: { kind: 'arrange_categories', hunt_id: held.open.hunt_id, wheel: wheel.toReversed() } })
     await standIn.settle()
     expect(Huntfiles.changesBetween(before.files, lastOf(readings).files).written.keys().toArray()).to.include('categories.tqc.json')
     expect(lastOf(readings).files).to.deep.eq(await filesFromRows(held))

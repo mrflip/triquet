@@ -5,7 +5,7 @@ import { InputBase } from '@mui/material'
 import { useDraft } from './use-draft'
 import type { IdentT } from '../models/ident'
 import { useRaiseAlarm } from '../state/alarms'
-import { useAccountActions } from '../state/use-account-actions'
+import { useUserActions } from '../state/use-user-actions'
 
 export type IdentTitleProps = {
   /** Who the visitor is */
@@ -45,7 +45,7 @@ export function IdentTitle({ ident, onRetitle }: Readonly<IdentTitleProps>) {
  * @returns What to tell the field.
  */
 export function useRetitleIdent(): (title: string) => void {
-  const { act } = useAccountActions()
+  const { act } = useUserActions()
   const raise = useRaiseAlarm()
   return useCallback((title: string) => {
     const retitle = async () => {

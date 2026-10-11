@@ -1211,7 +1211,7 @@ describe("hunts.perform", () => {
     it("reviews as the ident the session asserted last, and turns away a browser still affirming the one before", async () => {
       const { act, read, tt, open, join } = await seed(huntOf(['1', 'a']))
       const alice = await join('alice_reviews', 'reviewer')
-      const otherself = await alice.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
+      const otherself = await alice.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
       await putOn(tt, open.hunt_id, otherself, 'reviewer')
       const quiz_id = openOf(await read())._id
       await expectRefusal(act({ kind: 'open_review', quiz_id }, alice), 'notPermitted')
@@ -1836,7 +1836,7 @@ describe("hunts.list", () => {
     const tt = openTester()
     const alice = await identified(tt, 'alice_smiths')
     const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Her other self\'s')]), label: 'quiet_otter' })
-    const otherself = await alice.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
+    const otherself = await alice.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
     await putOn(tt, otter.open.hunt_id, otherself, 'reviewer')
     const listed = await alice.as.query(api.hunts.list, {})
     expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])

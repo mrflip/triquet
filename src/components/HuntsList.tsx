@@ -14,7 +14,7 @@ import type { ListedHuntT } from '../lib/rows'
 import { Hunting, HuntRoleTitles } from '../models/hunting'
 import { Ident } from '../models/ident'
 import { useRaiseAlarm } from '../state/alarms'
-import { useAccountActions } from '../state/use-account-actions'
+import { useOuterHuntActions } from '../state/use-outer-hunt-actions'
 import { useHuntsList } from '../state/use-hunts-list'
 import { useIdent } from '../state/use-ident'
 import { HuntEditModal } from './HuntEditModal'
@@ -74,7 +74,7 @@ export function HuntsList({ org }: Readonly<HuntsListProps>) {
   const router = useRouter()
   const { ident, actor, loaded } = useIdent()
   const listed = useHuntsList()
-  const { act, busy } = useAccountActions()
+  const { act, busy } = useOuterHuntActions()
   const retitle = useRetitleIdent()
   const raise = useRaiseAlarm()
   const here = org === undefined ? Routes.huntsPath() : Routes.orgPath(org)
