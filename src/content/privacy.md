@@ -23,7 +23,7 @@ Nobody else. We sell nothing, show no ads, and run no analytics or tracking.
 
 ## What stays in your browser
 
-* **Your session** is kept in your browser's storage. Triquet sets no cookies.
+* **Your session** is kept in your browser's storage. Triquet sets no cookies, except that signing in with Google sets a few short-lived ones, to carry the sign-in to Google and back.
 * **A history of the hunts you work on**, what you could see of them as they changed, is kept there too, for you to download as a hunt's Full History.
 
 Clearing this site's data in your browser removes both. If you have not signed in with Google, your handle belongs to that session alone: clearing it, or losing the browser, leaves the handle out of your reach for good.

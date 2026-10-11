@@ -69,5 +69,7 @@ security expert who knows what questions to ask.
   Anthropic: among others, that a Google account gives only its email, name, picture and `sub`;
   that an email is shown to its owner alone; that anyone opening a hunt's address while not on it
   reads its smiths' names and handles (`NotOnHunt`); that a session lives in the browser's storage
-  and no cookie is set; and that nothing goes to a bot unasked. Code that changes any of these
+  and no cookie is set but the short-lived ones Convex Auth's Google sign-in sets on the Convex
+  site (`*OAuthstate`, `*OAuthpkce`, `*OAuthnonce`, `*RedirectTo`, fifteen minutes each); and that
+  nothing goes to a bot unasked. Code that changes any of these
   changes the policy, and its date, in the same PR.
