@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: 7, 2, 1, 8 and 3 landed (#226-#230); 4 landing, 5 underway (2026-10-11).**
+**Status: 7, 2, 1, 8, 3 and 4 landed (#226-#231); 5 underway (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -10,7 +10,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 1 | `split_account`: free the words "account" and "username" | landed #228 | `20261011-split_account` | [#228](https://github.com/mrflip/triquet/pull/228) |
 | 2 | `clear_people`: delete production's people, keep its hunts | landed #227 | `20261011-clear_people` | [#227](https://github.com/mrflip/triquet/pull/227) |
 | 3 | `converge`: users and huntships, everywhere | landed #230 | `20261011-converge` | [#230](https://github.com/mrflip/triquet/pull/230) |
-| 4 | `adopt_script`: give a user a userlabel, admin, and hunts | landing | `20261011-adopt_script` | |
+| 4 | `adopt_script`: give a user a userlabel, admin, and hunts | landed #231 | `20261011-adopt_script` | [#231](https://github.com/mrflip/triquet/pull/231) |
 | 5 | `google_signin`: the provider, the patch, the merge | underway | `20261011-google_signin` | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
@@ -55,6 +55,12 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   the Coach's word, `mayDeleteHunt` refuses a sealed user (`sealedDelete`); that change landed
   after the second review, unreviewed: **thread 9 covers it**. Full e2e 299/299, no flakes (one
   real failure before, in `routing.spec.ts`, fixed: the spec now vouches for its smith).
+* **Thread 4, #231**, stacked on #230; merge after the clear. *Review: clean.* The one fix the
+  reviewer was refused, the worker made in a better shape: `relabelUser` keeps a held userlabel
+  and only retitles. Left for thread 9: `--smith-all` reaches anonymous sandboxes; relabelling an
+  anonymous user holding a sandbox lets it make a second. Full e2e 298/299, one flake
+  (`routing.spec.ts`'s hunt-history test, timing out after `forgetSession`, twice under load,
+  green alone): **watch it**. Thread 5 now switches `adopt.ts` to its predicate.
 * **Thread 1's notes for thread 3** (`thread-1-split_account.md`): move the `hunts.performOuter`
   tests to `hunts.test.ts`; sealing goes in `mayMakeHunt` and `newHunt`; "anonymous" means two
   things today (Convex Auth's `isAnonymous`, no proof; and the actor's `{ kind: 'anonymous' }`,
