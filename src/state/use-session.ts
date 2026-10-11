@@ -20,6 +20,9 @@ const RetryMs = 3000
  * and kept from then on (Convex Auth holds it in this browser's storage). A session says nothing
  * of who the visitor is; that is the userlabel its user takes (`useMe`).
  *
+ * It never signs in while Convex Auth is still loading, which it is while a browser back from
+ * Google exchanges the `?code=` in its address: that exchange is the session it comes back to.
+ *
  * A sign-in that fails is reported, and tried again a few seconds later while a screen still asks.
  *
  * @returns Whether the session is ready.

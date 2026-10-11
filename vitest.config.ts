@@ -33,8 +33,9 @@ export default defineConfig({
           exclude:     ['tests/convex/**', 'tests/**/*.dom.test.tsx'],
         },
       },
-      // A screen rendered in a DOM, to count what one change draws again: never what a view looks
-      // like or does in a browser, which is the e2e suite's.
+      // A screen rendered in a DOM, to count what one change draws again, or the session's hook
+      // beside Convex Auth's provider: never what a view looks like or does in a browser, which is
+      // the e2e suite's.
       {
         extends: true,
         test: {
