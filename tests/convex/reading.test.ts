@@ -411,7 +411,7 @@ async function merge(tt: Tester, gone: Id<'users'>, into: Id<'users'>, account_i
 }
 
 describe("nameChoiceFor", () => {
-  it("is the earliest user merged into this one still holding its userlabel, and null once none does", async () => {
+  it("is the user merged into this one still holding its userlabel, the first by userlabel, and null once none does", async () => {
     const tt = openTester()
     const alice = await googleUser(tt, 'alice_google')
     const account = present(await tt.run(async (ctx) => await googleAccountOf(ctx.db, alice.user_id)))

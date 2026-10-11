@@ -32,8 +32,9 @@ export async function ghostingFor(db: Reader, userlabel: string): Promise<Doc<'g
 }
 
 /**
- * The name choice the user `user_id` has yet to make, if any: the earliest-made user merged into
- * it (`users.merged`) that still holds its userlabel, the handle the merged browser went by. Until
+ * The name choice the user `user_id` has yet to make, if any: of the users merged into it
+ * (`users.merged`) that still hold their userlabel, the one whose userlabel comes first
+ * alphabetically (the index's order), and its userlabel the handle the merged browser went by. Until
  * it is settled, the merged-away user keeps that userlabel, so nobody else takes it; settling it
  * takes the userlabel from it, so the next pending choice, if any, comes up.
  *
