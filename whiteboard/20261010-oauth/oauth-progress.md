@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: 7, 2, 1 and 8 landed (#226-#229); 3 built, catching up before review (2026-10-11).**
+**Status: 7, 2, 1 and 8 landed (#226-#229); 3 landing (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -9,7 +9,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 |---|--------|--------|--------|----|
 | 1 | `split_account`: free the words "account" and "username" | landed #228 | `20261011-split_account` | [#228](https://github.com/mrflip/triquet/pull/228) |
 | 2 | `clear_people`: delete production's people, keep its hunts | landed #227 | `20261011-clear_people` | [#227](https://github.com/mrflip/triquet/pull/227) |
-| 3 | `converge`: users and huntships, everywhere | ready; catching up onto 8 before review | `20261011-converge` | |
+| 3 | `converge`: users and huntships, everywhere | landing (full e2e) | `20261011-converge` | |
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | pending (3) | | |
 | 5 | `google_signin`: the provider, the patch, the merge | pending (3) | | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
@@ -133,6 +133,22 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   - **For thread 6:** the sealing refusals say "Sign in with Google to … — coming soon". Today
     `NotOnHunt` tells an anonymous visitor to ask a smith to add them, which will be refused, and
     an anonymous smith opening its own sandbox at `!playtest` is told "Not yet on this hunt".
+  - **Caught up onto thread 8:** everything naming a userlabel already held uses
+    `CK.heldUserlabel` (user row, huntship copy, ghosting, `add_huntship`); claiming one stays on
+    `CK.userlabel`. `isIdentlabel` is now `isHeldUserlabel`. `PA.ReservedLabels` still lists
+    `ident(s)`, `identing(s)`, `hunting(s)`; left reserved.
+  - *Review, first pass (flagged):* an anonymous smith could relabel its sandbox
+    (`relabel_hunt` → `mayChangeHunt`, which never asks `Actor.isSealed`), making it no sandbox,
+    so thread 5's `smithOfSandbox` would throw. Sent back as a directive. **Fixed** (`8aa7967a`):
+    `Approve.mayRelabelHunt(claims)` refuses a sealed smith any relabel (`sealedRelabel`), through
+    both `hunts.performOuter` and `hunts.perform`; `relabel_hunt` stays offerable, so **thread 6**
+    can hide the label field with `mayOffer('relabel_hunt')`. Retitle, rebranch, arrange and
+    delete were checked and keep a sandbox a sandbox. *Second review: clean.* Left for **thread
+    6**: the gear (`HuntEditModal`) and the quiz's manage dialog still offer an anonymous smith the
+    Label field; gate it on `Approve.mayOffer('relabel_hunt', claims)`. The other five focus areas held: authorization through
+    `user_id` and huntships; default-deny row rules keep `users`, `ghostings` and `auth*` out of
+    scoped databases; every other seal; `vouchFor`'s gate; the userlabel race (one transaction);
+    no query returns an email; `admin` read only in `Actor.ofUser`.
   - **For thread 9:** a smith adding a handle learns whether that user is anonymous (from the
     `sealedJoin` refusal); the privacy policy does not say so.
 
