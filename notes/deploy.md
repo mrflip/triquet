@@ -11,7 +11,7 @@ If a task may touch on convex or vercel, load the appropriate skills
 Merge, and Vercel does the rest, backfills included: that is **serial mode**, and it holds as long
 as every merge since the last deploy is one production's rows already fit. A stack holding a
 widening and its tightening is deployed in **yeet mode** instead: merge it whole, then run
-`pnpm deploy`, which walks production through the schema steps in order (*Schema pushes: the two
+`pnpm db:up`, which walks production through the schema steps in order (*Schema pushes: the two
 modes*, below). Both read and write one **migrations table**, `schema_steps`, so either can
 follow the other.
 
@@ -145,14 +145,14 @@ fails is the pages, where a warning in a log once went unread (10-07, 10-08).
 
 ### Yeet mode
 
-`pnpm deploy` (`scripts/deploy.ts`) walks a deployment through the schema steps itself, from a
+`pnpm db:up` (`scripts/deploy.ts`) walks a deployment through the schema steps itself, from a
 full checkout, so a whole stack can be merged at once and deployed in one sitting, with the
 minutes of downtime that implies. Agents never run it against production; a Coach does, under
 the janitor's config:
 
 ```sh
-./scripts/doppledo prd_janitor pnpm deploy --dry-run   # what it would do, and nothing else
-./scripts/doppledo prd_janitor pnpm deploy             # do it
+./scripts/doppledo prd_janitor pnpm db:up --dry-run   # what it would do, and nothing else
+./scripts/doppledo prd_janitor pnpm db:up             # do it
 ```
 
 It fetches `origin/main`, reads the migrations table's newest row (`deploying:newest`), lists the
@@ -166,8 +166,9 @@ head. A refused push or a backfill that stops ends the run with Convex's words, 
 left serving the last step whole; fix it in a new commit and run again, and the walk resumes
 where it stood. A head already pushed whose backfills never finished (serial mode's build failed
 in the wait) is finished and recorded, not re-walked. Flags: `--to <ref>` for a head other than
-`origin/main`; `--from <sha>` for the step the rows stand at when the table is empty or names a
-commit not in this history (the first run on production: `/stats` names the commit it serves);
+`origin/main`; `--from <rev>` (a sha, short or long, or any ref) for the step the rows stand at
+when the table is empty or names a commit not in this history (the first run on production:
+`/stats` names the commit it serves; given both, `--from` wins and the run says so);
 `--wait <seconds>` for the backfill limit (300); `--verify <role>` to check the table's word
 before anything is pushed: the step it names is pushed to that local role (emptied if its rows
 refuse it) and the role's function spec (`convex function-spec`, as `scripts/convex_healthcheck`
@@ -178,7 +179,7 @@ posting to it: Vercel's deploy hook, so the pages are built once the functions t
 in. Without it, redeploy `main` from Vercel, whose own push is then a no-op and whose backfill run
 finds nothing.
 
-Two rules keep the modes from colliding: **do not run `pnpm deploy` while a production build is
+Two rules keep the modes from colliding: **do not run `pnpm db:up` while a production build is
 mid-push** (run it after the build has finished, red or green), and end a yeet with that
 redeploy. The steps the walk needs are the repository's history, each step's schema and the
 backfills that fit it being the files at that commit; that is why it runs from a clone and not
@@ -188,8 +189,8 @@ from Vercel's build, and why a backfill may lean on its commit's row validators.
 
 `schema_steps` (`src/models/schema-step.ts`, `convex/deploying.ts`): one row per schema step a
 backend has taken, with the commit's sha and subject, when it was pushed, and when its backfills
-finished (null until they have). Written by whatever pushed the step: the build, `pnpm deploy`,
-or `scripts/convex_dev`. The newest row is the backend's mark; `pnpm deploy` walks what is newer
+finished (null until they have). Written by whatever pushed the step: the build, `pnpm db:up`,
+or `scripts/convex_dev`. The newest row is the backend's mark; `pnpm db:up` walks what is newer
 and infers nothing from what a deployment or a website is serving. It is data, so an export
 carries it, and a rehearsal knows where a snapshot stands without being told. The migrations
 component keeps the other half, a row per backfill with how far it got, which `/stats` shows and
@@ -200,11 +201,11 @@ every runner waits on. Git is the ledger of what each step did:
 
 ```sh
 ./scripts/doppledo prd_janitor npx convex export --path ~/prd-exports/<date>.zip
-pnpm deploy --role agent --rehearse ~/prd-exports/<date>.zip
+pnpm db:up --role agent --rehearse ~/prd-exports/<date>.zip
 ```
 
 The rehearsal reads the snapshot's `schema_steps` to learn the step its rows stand at (or is told
-with `--from`), pushes that step to the role, imports the snapshot over everything the role
+with `--from <rev>`), pushes that step to the role, imports the snapshot over everything the role
 holds (`convex import --replace-all`), and walks it to the checkout's head: what production will
 do, on production's rows. Keep the export outside the repo; it is production's data.
 
@@ -216,13 +217,13 @@ backfills. A backend that saw each widening as it was merged never falls behind.
 past a tightening is refused its push, and is caught up by the same program:
 
 ```sh
-pnpm deploy --role dev            # stop the role's dev server first: its watch would push the head over every step
-pnpm deploy --role dev --dry-run
+pnpm db:up --role dev            # stop the role's dev server first: its watch would push the head over every step
+pnpm db:up --role dev --dry-run
 ```
 
 It walks the role from its mark to the checkout's `HEAD` (uncommitted changes come with the next
 `pnpm dev`). A mark the checkout's history does not hold (a backend last pushed from a branch
-since rebased) is refused; `--from <sha>` says where its rows really stand. A role whose rows are
+since rebased) is refused; `--from <rev>` says where its rows really stand. A role whose rows are
 not worth keeping is simply emptied instead (`scripts/convex_reset <role>`, or
 `scripts/convex_dev <role> --reset`).
 

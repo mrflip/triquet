@@ -38,7 +38,7 @@ How the branch gets pushed and the PR opened differs by place (`-laptop`, `-clou
   in `convex/migrations.ts` ends its title `(Serial Deploy: <chain>)`, the chain being the
   sprint's name (the thread's label outside a sprint): in serial mode the Coach merges up to it
   and lets its build finish before merging what is stacked above; in yeet mode the stack merges
-  whole and `pnpm deploy` takes the steps (`notes/deploy.md`, *Schema pushes: the two modes*).
+  whole and `pnpm db:up` takes the steps (`notes/deploy.md`, *Schema pushes: the two modes*).
 - **Body**: follow recent PRs (#35 is a good model):
   - What changed, in short paragraphs or bullets with **bold lead-ins**.
   - A **Tests:** line naming the suites run and their counts.

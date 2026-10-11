@@ -18,12 +18,12 @@ describe('argsOf', () => {
   it("takes a role to verify against", () => {
     expect(Deploy.argsOf(['--verify', 'e2e']).verify).to.equal('e2e')
   })
-  it("takes a full sha for --from", () => {
+  it("takes any revision for --from, to resolve against the checkout later", () => {
     expect(Deploy.argsOf(['--from', ShaA]).from).to.equal(ShaA)
+    expect(Deploy.argsOf(['--from', '198f993']).from).to.equal('198f993')
   })
   const RefusedCases: [string[], RegExp, string][] = [
     [['--rehearse', 'prd.zip'],      /needs --role/,        'a rehearsal with no role'],
-    [['--from', '84de1bb'],          /forty/,               'an abbreviated sha'],
     [['--role', 'prod'],             /one of dev, agent/,   'a role that is not one'],
     [['--verify', 'prod'],           /one of dev, agent/,   'a verifying role that is not one'],
     [['--role', 'agent', '--verify', 'agent'], /other than the target/, 'verifying against the target itself'],

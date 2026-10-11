@@ -88,7 +88,7 @@ Wherever you are: never pass a port or a Convex URL by hand (`scripts/lanes.ts` 
 path in this repo's documents and in a handoff is relative to the checkout's root, `git rev-parse
 --show-toplevel`.
 
-A change under `convex/` regenerates `convex/_generated/`, which is committed: push it to your backend (`scripts/convex_dev`) and commit what it writes, a large regeneration in a commit of its own. A schema push refuses documents that no longer fit: a local backend is caught up step by step (`pnpm deploy --role`) or emptied and pushed again, and production is migrated (`notes/deploy.md`).
+A change under `convex/` regenerates `convex/_generated/`, which is committed: push it to your backend (`scripts/convex_dev`) and commit what it writes, a large regeneration in a commit of its own. A schema push refuses documents that no longer fit: a local backend is caught up step by step (`pnpm db:up --role`) or emptied and pushed again, and production is migrated (`notes/deploy.md`).
 
 ## Architecture
 
