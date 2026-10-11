@@ -4,6 +4,16 @@ Branch `20261011-converge`, PR filed at landing; see the report. Suites at `read
 (typecheck, lint, 206 unit files, 5995 tests); a full e2e run before review, 299/299, no flakes (lane 1,
 load 14.8). The landing proof is still to come.
 
+**Caught up onto thread 8 (#229), before review.** One conflict, `tests/models/hunt.test.ts`
+(both sides kept); `convex/_generated/api.d.ts` regenerated, not merged. Three `fix:` commits
+after: `tests/convex/check_reserved.test.ts` makes its hunt as a `googleUser`; a userlabel already
+held (the user row, the huntship's copy, a ghosting, `add_huntship`, the `testing:` commands) is
+held to `CK.heldUserlabel`, while claiming one (`assume_userlabel`) stays on `CK.userlabel`, with a
+test that a user holding a since-reserved word stays writable and addable; thread 8's "ident"
+prose now says userlabel (`isIdentlabel` is `isHeldUserlabel`). The reserved list still names
+`ident`, `identing` and `hunting` as model nouns, past tables: left, as removing a reserved word is
+thread 8's call. No e2e since the catch-up.
+
 * **Built**: the schema step (`users` ours, `huntships`, `ghostings`, `user_id` on reviews; idents,
   identings and huntings gone); our `createOrUpdateUser` (`userForSignIn`); the actor built from
   the user's row (`Actor.ofUser`, the one place `admin` is read; `TRIQUET_EVERYONE_ADMIN` for local
