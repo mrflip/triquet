@@ -1,9 +1,10 @@
 /**
  * The guard every command meant for `./scripts/doppledo prd_janitor ...` stands behind: it does
  * nothing but look unless it is told, by `--deployment <name>`, which deployment it is to act on,
- * and that name is checked against the deployment the environment's key actually reaches, as that
- * deployment's own function spec gives its address. A name typed on the command line never vouches
- * for itself, so the guard cannot be talked past by typing the wrong name twice.
+ * and that name is checked against the deployment the environment's key actually reaches, by the
+ * address that deployment reports for itself (its own `cloudUrl`, which `convex function-spec`
+ * reads from it with the same admin key). A name typed on the command line never vouches for
+ * itself, so the guard cannot be talked past by typing the wrong name twice.
  *
  * * Without `--deployment`: a dry run. The command says what it would do, and ends by naming the
  *   deployment it reached, so the person running it sees where it is aimed before it acts.
@@ -101,7 +102,7 @@ export function dryRunCoda(aim: Pick<AimT, 'deployment'>): string {
   return `A dry run: nothing was changed. To act on ${aim.deployment}, run again with ${DeploymentFlag} ${aim.deployment}.`
 }
 
-/** What `convex function-spec` says of the deployment it reached: its address, at least */
+/** What `convex function-spec` says of the deployment it reached: the address that deployment reports for itself, at least */
 const SpecAddress = z.looseObject({ url: z.url() })
 
 /** How many bytes of function spec are read at most: the whole app's, several times over */
@@ -109,8 +110,9 @@ const SpecBytesMax = 64 * 1024 * 1024
 
 /**
  * The deployment the convex CLI reaches from this environment (a deploy key, or a local backend's
- * address and admin key), by asking it for its function spec, which gives its address. Run from
- * `cwd`, the checkout. Reads, and writes nothing.
+ * address and admin key), by the address that deployment reports for itself: its `cloudUrl`,
+ * which `convex function-spec` reads from it with the same admin key, and which is not the address
+ * the CLI connected to. Run from `cwd`, the checkout. Reads, and writes nothing.
  *
  * @throws When the CLI reaches no deployment.
  */

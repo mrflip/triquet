@@ -15,7 +15,8 @@ Branch `20261011-clear_people`, PR filed at landing; see the report. Suites: jus
     true when the name equals the deployment reached, and anything else throws `JanitorStop` before
     anything is done. The deployment reached is learned by `reachedDeployment()`, which runs
     `pnpm exec convex function-spec` in the same environment the command's `convex run`s use and
-    reads its `url`: the name is the `*.convex.cloud` subdomain, or host:port for a local backend.
+    reads its `url`, the deployment's own `cloudUrl` (`_system/cli/convexUrl:cloudUrl`, read with
+    the same admin key; not the address the CLI connected to): the name is the `*.convex.cloud` subdomain, or host:port for a local backend.
     It also exports `aim.said` (the first line to print), `dryRunCoda(aim)` (the last line of a dry
     run, naming the flag to add) and `stopOrThrow(err)` for `main`.
   - `scripts/clear_people` (a bash wrapper) over `scripts/clear-people.ts`. It counts, and on a
@@ -35,9 +36,9 @@ Branch `20261011-clear_people`, PR filed at landing; see the report. Suites: jus
     reviews are deleted has its change signal moved, as any deletion of them moves it. That is
     true to what the signal means. The other choice was writing raw past the ESLint rule that
     keeps every mutation on the triggers. Signals are never deleted.
-  - The flag is `--deployment <name>`. The name comes from the address `function-spec` reports,
-    not from the deploy key's prefix, because that address is where the CLI actually went. A
-    stray `.env.local` or a self-hosted URL beside the key cannot fool it.
+  - The flag is `--deployment <name>`. The name comes from the address the deployment reports
+    for itself, through `function-spec` with the same admin key, not from the deploy key's prefix
+    or the command line.
   - The mutation itself has no environment or argument guard. It is internal, so only a holder of
     the admin key can call it, and thread 3 deletes it.
 * **Discoveries**:
@@ -50,6 +51,10 @@ Branch `20261011-clear_people`, PR filed at landing; see the report. Suites: jus
     stopped with exit 1, having done nothing; the real run deleted all 160 in one run; the hunts,
     realms, quizzes, questions, widgets, columns and signals counts were unchanged; a second run
     deleted nothing.
+* **Open, for threads 4 and 8** (the review's minor finding): the deployment is checked once, and
+  each later `convex run` picks it again from the environment. That matters only without a deploy
+  key, if `.env.local`'s `CONVEX_DEPLOYMENT` changed during a run. Pinning it means changing the
+  shared `convexRun` (`scripts/convex-migrations.ts`); left alone here.
 * **For threads 3, 4 and 8**:
   - Thread 3 deletes `convex/clear_people.ts`, `scripts/clear_people`, `scripts/clear-people.ts`
     and their two tests, the regenerated `convex/_generated/api.d.ts` entry, and the two sentences

@@ -236,9 +236,9 @@ by accident:
 * **A dry run by default.** Without `--deployment`, the command looks, says what it would do, and
   changes nothing. It ends by naming the deployment it reached.
 * **It acts only with `--deployment <name>`**, and only when that name is the deployment the
-  environment's key actually reaches: the guard asks that deployment for its function spec
-  (`convex function-spec`, which reads and writes nothing) and takes the name from the address it
-  gives (`careful-otter-123` from `https://careful-otter-123.convex.cloud`; a local backend's host
+  environment's key actually reaches: the guard asks that deployment, with the same admin key,
+  for the address it reports for itself (its `cloudUrl`, which `convex function-spec` reads and
+  which writes nothing), and takes the name from that (`careful-otter-123` from `https://careful-otter-123.convex.cloud`; a local backend's host
   and port, `127.0.0.1:3431`). A name typed on the command line never vouches for itself. Any other
   name stops the command before it does anything.
 
