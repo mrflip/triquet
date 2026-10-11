@@ -370,11 +370,30 @@ export type GoogleCallbackT = { verifier: string, code: string }
  * @example const { verifier, code } = await googleCallback(tt, anon, 'google-sub-flip')
  */
 export async function googleCallback(tt: Tester, by: Session | Tester, sub: string, profile: Record<string, unknown> = GoogleProfile): Promise<GoogleCallbackT> {
-  const verifier = Z.string().parse(await callerOf(by).mutation(internal.auth.store, { args: { type: 'verifier' } }))
+  const verifier = await googleStart(by)
+  return { verifier, code: await googleFinish(tt, verifier, sub, profile) }
+}
+
+/**
+ * The first part of `googleCallback`: the browser `by` starts a Google sign-in, Convex Auth
+ * making the verifier it keeps.
+ *
+ * @returns The verifier's id.
+ */
+export async function googleStart(by: Session | Tester): Promise<string> {
+  return Z.string().parse(await callerOf(by).mutation(internal.auth.store, { args: { type: 'verifier' } }))
+}
+
+/**
+ * The rest of `googleCallback`, for the sign-in `verifier` started: the sign-in route signs it,
+ * and Google's callback, for the account `sub`, makes the code.
+ *
+ * @returns The code, as Google's callback sends it to the browser.
+ */
+export async function googleFinish(tt: Tester, verifier: string, sub: string, profile: Record<string, unknown> = GoogleProfile): Promise<string> {
   const signature = `signature-of-${verifier}`
   await tt.mutation(internal.auth.store, { args: { type: 'verifierSignature', verifier, signature } })
-  const code = Z.string().parse(await tt.mutation(internal.auth.store, { args: { type: 'userOAuth', provider: 'google', providerAccountId: sub, profile, signature } }))
-  return { verifier, code }
+  return Z.string().parse(await tt.mutation(internal.auth.store, { args: { type: 'userOAuth', provider: 'google', providerAccountId: sub, profile, signature } }))
 }
 
 /**

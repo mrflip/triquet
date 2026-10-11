@@ -1,8 +1,41 @@
+diff --git a/dist/react/client.js b/dist/react/client.js
+index 818636ce0729004ac3c61e45b491f8b53695046a..fd77be91c4818b7515a7c5f8395ac93adf945f6c 100644
+--- a/dist/react/client.js
++++ b/dist/react/client.js
+@@ -156,6 +156,12 @@ export function AuthProvider({ client, serverState, onChange, shouldHandleCode,
+         else if (result.tokens !== undefined) {
+             const { tokens } = result;
+             logVerbose(`signed in and got tokens, is null: ${tokens === null}`);
++            // Patched: a refused code's exchange keeps the session this browser had, rather than signing it out.
++            if (tokens === null && params.code !== undefined) {
++                const kept = (await storageGet(JWT_STORAGE_KEY)) ?? null;
++                await setToken({ shouldStore: false, tokens: kept === null ? null : { token: kept } });
++                return { signingIn: false };
++            }
+             await setToken({ shouldStore: true, tokens });
+             return { signingIn: result.tokens !== null };
+         }
+@@ -261,7 +267,14 @@ export function AuthProvider({ client, serverState, onChange, shouldHandleCode,
+             url.searchParams.delete("code");
+             void (async () => {
+                 await replaceURL(url.pathname + url.search + url.hash);
+-                await signIn(undefined, { code });
++                // Patched: an exchange that fails keeps the session this browser had, and ends the loading.
++                try {
++                    await signIn(undefined, { code });
++                }
++                catch (error) {
++                    logVerbose(`exchanging the code failed: ${error}`);
++                    await readStateFromStorage();
++                }
+                 signingInWithCodeFromURL.current = false;
+             })();
+         }
 diff --git a/dist/server/implementation/mutations/userOAuth.js b/dist/server/implementation/mutations/userOAuth.js
-index 7b3ded410b085966b9fe1048e35194ff6cc369ec..72e4f3e9141a27616263e5c2c984c7d43e3c89e0 100644
+index 7b3ded410b085966b9fe1048e35194ff6cc369ec..fac91d8c1f58cc087381417bca04ba71a7939e3a 100644
 --- a/dist/server/implementation/mutations/userOAuth.js
 +++ b/dist/server/implementation/mutations/userOAuth.js
-@@ -26,9 +26,12 @@ export async function userOAuthImpl(ctx, args, getProviderOrThrow, config) {
+@@ -26,15 +26,24 @@ export async function userOAuthImpl(ctx, args, getProviderOrThrow, config) {
      if (verifier === null) {
          throw new Error("Invalid state");
      }
@@ -17,22 +50,68 @@ index 7b3ded410b085966b9fe1048e35194ff6cc369ec..72e4f3e9141a27616263e5c2c984c7d4
      const existingVerificationCode = await ctx.db
          .query("authVerificationCodes")
          .withIndex("accountId", (q) => q.eq("accountId", accountId))
+         .unique();
+     if (existingVerificationCode !== null) {
+         await ctx.db.delete(existingVerificationCode._id);
++        // Patched: the replaced code's verifier dies with it, unless it is this sign-in's own.
++        const replacedId = existingVerificationCode.verifier === undefined || existingVerificationCode.verifier === verifier._id ? null : ctx.db.normalizeId("authVerifiers", existingVerificationCode.verifier);
++        const replaced = replacedId === null ? null : await ctx.db.get(replacedId);
++        if (replaced !== null) {
++            await ctx.db.delete(replaced._id);
++        }
+     }
+     await ctx.db.insert("authVerificationCodes", {
+         code: await sha256(code),
 diff --git a/dist/server/implementation/mutations/verifyCodeAndSignIn.js b/dist/server/implementation/mutations/verifyCodeAndSignIn.js
-index 7fe5cfa07ec47b11b4c8b8d95ee77282e09d72da..fb501ed6a50f53eadf309903f2509a45a2390366 100644
+index 7fe5cfa07ec47b11b4c8b8d95ee77282e09d72da..8ece6da7dd7345cba2872c8aadc264d57e43f965 100644
 --- a/dist/server/implementation/mutations/verifyCodeAndSignIn.js
 +++ b/dist/server/implementation/mutations/verifyCodeAndSignIn.js
-@@ -77,6 +77,10 @@ methodProviderId, getProviderOrThrow, allowExtraProviders, config, sessionId) {
+@@ -4,6 +4,25 @@ import * as Provider from "../provider.js";
+ import { createNewAndDeleteExistingSession, getAuthSessionId, maybeGenerateTokensForSession, } from "../sessions.js";
+ import { LOG_LEVELS, logWithLevel, sha256 } from "../utils.js";
+ import { upsertUserAndAccount } from "../users.js";
++/**
++ * Patched: how long after a browser starts an OAuth sign-in its verifier may still hand on the
++ * session that started it, at the code's exchange. A verifier is otherwise a bearer credential
++ * for that session for as long as it exists: whoever learns its id could finish a sign-in of
++ * their own with it. Fifteen minutes is far longer than anyone spends at Google's consent screen,
++ * and short enough that a verifier read later from a history or a log is spent.
++ */
++export const SIGN_IN_START_MAX_AGE_MS = 15 * 60 * 1000;
++/** Patched: delete the verifier an OAuth code was made for, if it is still there, as the code dies */
++async function deleteVerifierOf(ctx, verificationCode, keep) {
++    if (verificationCode.verifier === undefined || verificationCode.verifier === keep) {
++        return;
++    }
++    const verifierId = ctx.db.normalizeId("authVerifiers", verificationCode.verifier);
++    const verifierDoc = verifierId === null ? null : await ctx.db.get(verifierId);
++    if (verifierDoc !== null) {
++        await ctx.db.delete(verifierDoc._id);
++    }
++}
+ export const verifyCodeAndSignInArgs = v.object({
+     params: v.any(),
+     provider: v.optional(v.string()),
+@@ -77,12 +96,18 @@ methodProviderId, getProviderOrThrow, allowExtraProviders, config, sessionId) {
          // Expected: e.g. a magic link opened in a different browser than it was requested
          // from. Normal sign-in failure.
          logWithLevel(LOG_LEVELS.INFO, "Invalid verifier");
-+        // Patched: an OAuth code is spent by a browser that did not start its sign-in.
++        // Patched: an OAuth code is spent by a browser that did not start its sign-in, with its verifier.
 +        if (verificationCode.verifier !== undefined) {
 +            await ctx.db.delete(verificationCode._id);
++            await deleteVerifierOf(ctx, verificationCode);
 +        }
          return null;
      }
      if (verificationCode.expirationTime < Date.now()) {
-@@ -123,7 +127,17 @@ methodProviderId, getProviderOrThrow, allowExtraProviders, config, sessionId) {
+         // Expected: the user took too long, or followed a stale magic link.
+         logWithLevel(LOG_LEVELS.INFO, "Expired verification code");
+         await ctx.db.delete(verificationCode._id);
++        await deleteVerifierOf(ctx, verificationCode); // Patched
+         return null;
+     }
+     const { accountId, emailVerified, phoneVerified } = verificationCode;
+@@ -123,7 +148,24 @@ methodProviderId, getProviderOrThrow, allowExtraProviders, config, sessionId) {
      // Every check passed, so consume the code.
      await ctx.db.delete(verificationCode._id);
      let userId = account.userId;
@@ -40,12 +119,19 @@ index 7fe5cfa07ec47b11b4c8b8d95ee77282e09d72da..fb501ed6a50f53eadf309903f2509a45
 +    if (provider.type === "oauth" || provider.type === "oidc") {
 +        // Patched: the browser has proved it started the sign-in (it holds the verifier, and the
 +        // code Google sent it), so the starting session is handed to `createOrUpdateUser` now.
++        // A verifier gone, or made too long ago, refuses the exchange whole: the browser stays as it was.
 +        const verifierId = verificationCode.verifier === undefined ? null : ctx.db.normalizeId("authVerifiers", verificationCode.verifier);
 +        const verifierDoc = verifierId === null ? null : await ctx.db.get(verifierId);
-+        if (verifierDoc !== null) {
-+            await ctx.db.delete(verifierDoc._id);
++        if (verifierDoc === null) {
++            logWithLevel(LOG_LEVELS.INFO, "No verifier for this code");
++            return null;
 +        }
-+        ({ userId } = await upsertUserAndAccount(ctx, verifierDoc?.sessionId ?? null, { existingAccount: account }, { type: "verification", provider, profile: {} }, config));
++        await ctx.db.delete(verifierDoc._id);
++        if (Date.now() - verifierDoc._creationTime > SIGN_IN_START_MAX_AGE_MS) {
++            logWithLevel(LOG_LEVELS.INFO, "Sign-in started too long ago");
++            return null;
++        }
++        ({ userId } = await upsertUserAndAccount(ctx, verifierDoc.sessionId ?? null, { existingAccount: account }, { type: "verification", provider, profile: {} }, config));
 +    }
 +    else {
          ({ userId } = await upsertUserAndAccount(ctx, sessionId, { existingAccount: account }, {

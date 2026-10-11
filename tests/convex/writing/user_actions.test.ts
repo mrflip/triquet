@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../../convex/_generated/api'
 import type { Doc, Id } from '../../../convex/_generated/dataModel'
 import { membersOf, nameChoiceFor } from '../../../convex/reading'
@@ -7,7 +7,7 @@ import { relabelUser, userForSignIn } from '../../../convex/writing/user_actions
 import { Hunt } from '../../../src/models/hunt'
 import type { SignInDNA } from '../../../src/models/user'
 import {
-  GoogleProfile as Profile, anonymousSession, anonymousUser, exchangeCode, expectRefusal, googleCallback, googleUser, openTester, seedHunt, signInWithGoogle, type Session, type Tester,
+  GoogleProfile as Profile, anonymousSession, anonymousUser, exchangeCode, expectRefusal, googleCallback, googleFinish, googleStart, googleUser, openTester, seedHunt, signInWithGoogle, type Session, type Tester,
 } from '../../support/convex'
 import { present } from '../../support/present'
 import { expectSound } from '../../support/soundness'
@@ -401,6 +401,98 @@ describe('userForSignIn, when the browser finishing a Google sign-in did not sta
     const alice = await anonymousUser(tt, 'anon_alice')
     expect(await signInWithGoogle(tt, alice, NewSub)).to.eq(alice.user_id)
     expect([await accountUser(tt, NewSub), await tt.run(async (ctx) => await ctx.db.get('users', provisional))]).to.deep.eq([alice.user_id, null])
+  })
+})
+
+/** How many verifiers and codes Convex Auth holds, whoever's sign-ins they were */
+async function flowsIn(tt: Tester): Promise<[number, number]> {
+  const [verifiers, codes] = await tt.run(async (ctx) => [await ctx.db.query('authVerifiers').collect(), await ctx.db.query('authVerificationCodes').collect()])
+  return [verifiers.length, codes.length]
+}
+
+/** Let `minutes` pass on the clock Convex's functions read */
+function pass(minutes: number): void {
+  vi.setSystemTime(Date.now() + (minutes * 60_000))
+}
+
+/** How a sign-in started by `starter` stands, so a test can say it was left exactly as it was */
+async function standingOf(tt: Tester, starter: Session, sandbox_id: Id<'hunts'>) {
+  return { row: await userRow(tt, starter.user_id), sessions: await sessionsOf(tt, starter.user_id), members: await membersByLabel(tt, sandbox_id), current: await starter.as.query(api.users.current, {}) }
+}
+
+describe("a Google sign-in's verifier, bounded to its start, and dying with its code", () => {
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }) })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('refuses an upgrade whose sign-in started past the bound, leaving the browser\'s anonymous user exactly as it was', async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_alice')
+    const sandbox_id = await sandboxOf(anon)
+    await refreshed(tt, anon.user_id)
+    const ante = await standingOf(tt, anon, sandbox_id)
+    const verifier = await googleStart(anon)
+    pass(16)
+    const code = await googleFinish(tt, verifier, NewSub)
+    expect(await exchangeCode(tt, code, verifier)).to.be.null
+    expect(await standingOf(tt, anon, sandbox_id)).to.deep.eq(ante)
+    expect(await flowsIn(tt)).to.deep.eq([0, 0])
+  })
+
+  it('refuses a merge whose sign-in started past the bound the same way, recording no name choice', async () => {
+    const { tt, anon, sandbox_id, alice, sub } = await merging()
+    const ante = await standingOf(tt, anon, sandbox_id)
+    const verifier = await googleStart(anon)
+    pass(16)
+    expect(await exchangeCode(tt, await googleFinish(tt, verifier, sub), verifier)).to.be.null
+    expect([await standingOf(tt, anon, sandbox_id), await choiceOf(tt, alice.user_id)]).to.deep.eq([ante, null])
+  })
+
+  it('upgrades within the bound, as ever', async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_alice')
+    const verifier = await googleStart(anon)
+    pass(14)
+    expect(await exchangeCode(tt, await googleFinish(tt, verifier, NewSub), verifier)).to.eq(anon.user_id)
+    expect(await flowsIn(tt)).to.deep.eq([0, 0])
+  })
+
+  it('deletes the verifier when its code is presented with the wrong one', async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_alice')
+    const { code } = await googleCallback(tt, anon, NewSub)
+    expect(await flowsIn(tt)).to.deep.eq([1, 1])
+    expect(await exchangeCode(tt, code, undefined)).to.be.null
+    expect(await flowsIn(tt)).to.deep.eq([0, 0])
+  })
+
+  it('deletes the verifier when its code has expired, leaving the browser as it was', async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_alice')
+    const ante = await userRow(tt, anon.user_id)
+    const { verifier, code } = await googleCallback(tt, anon, NewSub)
+    pass(3)
+    expect(await exchangeCode(tt, code, verifier)).to.be.null
+    expect([await flowsIn(tt), await userRow(tt, anon.user_id)]).to.deep.eq([[0, 0], ante])
+  })
+
+  it("deletes the verifier of a code a later callback for the same account replaced, and keeps the later one's", async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_alice')
+    const first = await googleCallback(tt, anon, NewSub)
+    const second = await googleCallback(tt, tt, NewSub)
+    expect(await flowsIn(tt)).to.deep.eq([1, 1])
+    expect(await exchangeCode(tt, first.code, first.verifier)).to.be.null
+    expect(await exchangeCode(tt, second.code, second.verifier)).not.to.be.null
+    expect(await flowsIn(tt)).to.deep.eq([0, 0])
+  })
+
+  it('leaves the provisional user of a refused sign-in with no session, nobody signed in as it', async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_alice')
+    const { code } = await googleCallback(tt, anon, NewSub)
+    expect(await exchangeCode(tt, code, undefined)).to.be.null
+    const provisional = present(await accountUser(tt, NewSub))
+    expect(await sessionsOf(tt, provisional)).to.deep.eq([0, 0])
   })
 })
 

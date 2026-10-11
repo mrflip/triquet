@@ -17,7 +17,11 @@ import { useSession } from '../../src/state/use-session'
 type SignInCallT = { provider?: string, params?: { code?: string }, verifier?: string }
 
 /** The stand-in client's answer to the code's exchange, which the test gives when it chooses */
-type PendingT = { answer: (tokens: { token: string, refreshToken: string } | null) => void }
+type PendingT = {
+  answer: (tokens: { token: string, refreshToken: string } | null) => void
+  /** The exchange failing outright, as a network or server failure would */
+  fail:   (err: Error) => void
+}
 
 /** Where the stand-in client lives, and the namespace Convex Auth keeps its storage under */
 const Address = 'https://stand-in.convex.cloud'
@@ -36,7 +40,10 @@ function standInClient(calls: SignInCallT[], pending: PendingT): ConvexReactClie
     action:  async (_fnname: string, args: SignInCallT) => {
       calls.push(args)
       if (args.provider === 'anonymous') { return { tokens: { token: 'anonymous-jwt', refreshToken: 'anonymous-refresh' } } }
-      return await new Promise((resolve) => { pending.answer = (tokens) => { resolve({ tokens }) } })
+      return await new Promise((resolve, reject) => {
+        pending.answer = (tokens) => { resolve({ tokens }) }
+        pending.fail = (err) => { reject(err) }
+      })
     },
     setAuth: (fetchToken: (args: { forceRefreshToken: boolean }) => Promise<string | null>, onChange: (accepted: boolean) => void) => {
       void fetchToken({ forceRefreshToken: false }).then((token) => { onChange(token !== null) })
@@ -81,7 +88,7 @@ describe('useSession, beside Convex Auth', () => {
   async function rendered(path: string) {
     history.replaceState({}, '', path)
     const calls: SignInCallT[] = []
-    const pending: PendingT = { answer: () => { /* until the client is asked to exchange a code */ } }
+    const pending: PendingT = { answer: () => { /* until the client is asked to exchange a code */ }, fail: () => { /* likewise */ } }
     const seen: boolean[] = []
     const root = createRoot(document.createElement('div'))
     held.root = root
@@ -114,14 +121,31 @@ describe('useSession, beside Convex Auth', () => {
     expect([seen.at(-1), localStorage.getItem(`__convexAuthJWT_${Spaced}`)]).to.deep.eq([true, 'google-jwt'])
   })
 
-  it('signs in anonymously afresh only once an exchange has failed, the session before it gone', async () => {
+  it('keeps the session it had when the exchange is refused (our patch): no anonymous sign-in, the same stored session, the code and verifier gone', async () => {
     localStorage.setItem(`__convexAuthJWT_${Spaced}`, 'the-anonymous-jwt-before')
-    const { calls, pending } = await rendered('/?code=12345678')
+    localStorage.setItem(`__convexAuthRefreshToken_${Spaced}`, 'the-anonymous-refresh-before')
+    localStorage.setItem(`__convexAuthOAuthVerifier_${Spaced}`, 'the-verifier')
+    const { calls, pending, seen } = await rendered('/~flip_kromer/quiet_otter?code=12345678')
     await act(async () => {
       pending.answer(null)
       await Promise.resolve()
     })
     await settle()
-    expect(calls.map((call) => told(call))).to.deep.eq([['code 12345678', null], ['anonymous', null]])
+    expect(calls.map((call) => told(call))).to.deep.eq([['code 12345678', 'the-verifier']])
+    expect([seen.at(-1), location.search]).to.deep.eq([true, ''])
+    expect([`__convexAuthJWT_${Spaced}`, `__convexAuthRefreshToken_${Spaced}`, `__convexAuthOAuthVerifier_${Spaced}`].map((key) => localStorage.getItem(key)))
+      .to.deep.eq(['the-anonymous-jwt-before', 'the-anonymous-refresh-before', null])
+  })
+
+  it('keeps the session it had when the exchange fails outright (our patch), rather than loading for ever', async () => {
+    localStorage.setItem(`__convexAuthJWT_${Spaced}`, 'the-anonymous-jwt-before')
+    const { calls, pending, seen } = await rendered('/?code=12345678')
+    await act(async () => {
+      pending.fail(new Error('Server Error'))
+      await Promise.resolve()
+    })
+    await settle()
+    expect(calls.map((call) => told(call))).to.deep.eq([['code 12345678', null]])
+    expect([seen.at(-1), localStorage.getItem(`__convexAuthJWT_${Spaced}`)]).to.deep.eq([true, 'the-anonymous-jwt-before'])
   })
 })
