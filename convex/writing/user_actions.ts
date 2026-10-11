@@ -66,16 +66,16 @@ export async function retitleUser(db: Writer, actor: Actor.ActorT, title: string
  *
  * @param db - The mutation's database.
  * @param user_id - The user to relabel.
- * @param userlabel - Its new userlabel, held to the shape and words of one being claimed.
+ * @param userlabel - Its userlabel: a new one is held to the shape and words of one being claimed; the one it holds already is kept as it is, though a word reserved since would refuse it now.
  * @param title - What to call it; its userlabel titleized when blank.
  * @returns How many of its huntships' copies were rewritten.
- * @throws When the userlabel is not one, or the title is not a title; nothing is written.
+ * @throws When a new userlabel is not one, or the title is not a title; nothing is written.
  *
  * @example await relabelUser(db, user_id, 'mrflip', '')  // => 3, for a user on three hunts
  */
 export async function relabelUser(db: Writer, user_id: Id<'users'>, userlabel: string, title: string): Promise<number> {
-  const labelled = User.labelled(userlabel, title)
-  const huntships = await huntshipsFor(db, user_id)
+  const [user, huntships] = await Promise.all([db.get('users', user_id), huntshipsFor(db, user_id)])
+  const labelled = user?.userlabel === userlabel ? { userlabel, title: User.titleFor(userlabel, title) } : User.labelled(userlabel, title)
   await db.patch('users', user_id, labelled)
   const stale = huntships.filter((huntship) => huntship.userlabel !== labelled.userlabel || huntship.usertitle !== labelled.title)
   for (const huntship of stale) {

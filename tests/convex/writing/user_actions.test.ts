@@ -73,6 +73,16 @@ describe('relabelUser', () => {
     expect(await relabelled(tt, smith.user_id, 'flippy_kromer', 'Flippy Kromer')).to.eq(0)
   })
 
+  it('keeps the userlabel a user holds, though a word reserved since would refuse it, retitling it alone', async () => {
+    const tt = openTester()
+    const { user_id } = await anonymousSession(tt)
+    await tt.run(async (ctx) => { await ctx.db.patch('users', user_id, { userlabel: 'handles', title: 'Handles' }) })
+    expect(await relabelled(tt, user_id, 'handles', 'Handy')).to.eq(0)
+    const user = present(await tt.run(async (ctx) => await ctx.db.get('users', user_id)))
+    expect([user.userlabel, user.title]).to.deep.eq(['handles', 'Handy'])
+    await expect(relabelled(tt, user_id, 'sessions', '')).rejects.toThrow()
+  })
+
   it('refuses a userlabel that is not one, or a reserved word, writing nothing', async () => {
     const tt = openTester()
     const { user_id } = await anonymousSession(tt)

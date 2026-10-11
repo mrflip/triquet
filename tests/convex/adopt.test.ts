@@ -212,6 +212,24 @@ describe('adopt:perform, the userlabel', () => {
     expect(await changed(tt, { find: { user_id: flippy.user_id }, title: 'Flip' })).to.deep.eq([{ kind: 'userlabel', from: 'flippy_kromer', to: 'flippy_kromer', title: 'Flip', huntships: 0 }])
   })
 
+  it('retitles a user whose userlabel a word reserved since would refuse, plan and perform agreeing, its userlabel kept', async () => {
+    const tt = openTester()
+    const { open, smith } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'handy_smith' })
+    await tt.run(async (ctx) => {
+      await ctx.db.patch('users', smith.user_id, { userlabel: 'handles' })
+      const huntships = await ctx.db.query('huntships').collect()
+      for (const huntship of huntships) { await ctx.db.patch('huntships', huntship._id, { userlabel: 'handles' }) }
+    })
+    const request: AdoptionDNA = { find: { userlabel: 'handles' }, title: 'Handy' }
+    const plan = await planned(tt, request)
+    expect(plan.changes).to.deep.eq([{ kind: 'userlabel', from: 'handles', to: 'handles', title: 'Handy', huntships: 1 }])
+    expect(await adopted(tt, request)).to.deep.eq(plan)
+    const { userlabel, title } = await userRow(tt, smith.user_id)
+    expect([userlabel, title]).to.deep.eq(['handles', 'Handy'])
+    expect(await membersIn(tt, open.hunt_id)).to.deep.eq([['handles', 'smith']])
+    await expectSound(tt)
+  })
+
   it('gives an anonymous user a userlabel, as nothing but admin and grants needs Google', async () => {
     const tt = openTester()
     const { user_id } = await anonymousSession(tt)
