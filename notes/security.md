@@ -35,7 +35,8 @@ security expert who knows what questions to ask.
   its user. A userlabel is free only while no user, no ghosting, and no hunt's `orglabel` holds it,
   so nobody takes the handle a hunt's address carries (`holderOfUserlabel`).
 * 2026-10-11 (oauth sprint, thread 3): an anonymous user is sealed by policy (`Actor.isSealed`):
-  one hunt, its sandbox (`~label/label`); never put on another hunt (`mayJoinHunt`, asked by the
+  one hunt, its sandbox (`~label/label`), which it may neither relabel (`mayRelabelHunt`) nor
+  delete (`mayDeleteHunt`, the Coach's word); never put on another hunt (`mayJoinHunt`, asked by the
   write once it has found the user by userlabel, so the refusal tells a smith that handle is
   anonymous); never adding anyone to its own; never reviewing. Sealing reads Convex Auth's
   `isAnonymous` on the user row, which only our `createOrUpdateUser` writes (and thread 5's Google

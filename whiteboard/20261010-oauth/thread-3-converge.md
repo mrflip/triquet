@@ -24,6 +24,14 @@ field). Checked beside it: `retitle_hunt`, `rebranch_hunt` and `arrange_categori
 label nor org (a test holds the sandbox one after each); `delete_hunt` empties the org, so a new
 sandbox may follow; `orglabel` changes nowhere; quiz actions touch no hunt label.
 
+**Sealed users delete no hunt (the Coach, 2026-10-11).** `Approve.mayDeleteHunt` runs
+`mayChangeHunt`, then refuses a sealed smith (`sealedDelete`: "Sign in with Google to delete your
+hunt — coming soon."), reading the claims alone, so `delete_hunt` stays offerable. `new_hunt` is
+as it was: one sandbox, at most. **Thread 6:** hide the Workbench's *Delete this quiz and its
+hunt* for a sealed user (`mayOffer('delete_hunt')`), and the gear's and manage dialog's Label field
+(`mayOffer('relabel_hunt')`). The routing spec that relabels from the gear now vouches for its
+smith, as the relabel fix made it fail in the full run.
+
 * **Built**: the schema step (`users` ours, `huntships`, `ghostings`, `user_id` on reviews; idents,
   identings and huntings gone); our `createOrUpdateUser` (`userForSignIn`); the actor built from
   the user's row (`Actor.ofUser`, the one place `admin` is read; `TRIQUET_EVERYONE_ADMIN` for local

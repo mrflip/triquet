@@ -2397,6 +2397,15 @@ describe("hunts.perform, sealing an anonymous user in its sandbox", () => {
     expect([hunt.title, hunt.branch, Hunt.isSandbox(hunt)]).to.deep.eq(['My Sandbox', 'playtest', true])
   })
 
+  it("refuses its deleting its sandbox, which stands with its quiz, writing nothing", async () => {
+    const { tt, open, act } = await sandboxed()
+    const err = await refusalOf(act({ kind: 'delete_hunt' }))
+    expect(noticeOf(err)).to.eq(RefusalNotices.sealedDelete)
+    const [hunt, quiz] = await tt.run(async (ctx) => [await ctx.db.get('hunts', open.hunt_id), await ctx.db.get('quizzes', open.quiz_id)])
+    expect([hunt?.label, quiz?._id]).to.deep.eq(['anon_alice', open.quiz_id])
+    await expectSound(tt)
+  })
+
   it("refuses its reviewing, even its own sandbox's quiz", async () => {
     const { tt, open, act } = await sandboxed()
     expect(await refusedAs(act({ kind: 'open_review', quiz_id: open.quiz_id }))).to.eq('sealedReview')

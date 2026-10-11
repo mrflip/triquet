@@ -19,7 +19,7 @@ export const Allow = 'allow'
 /** Why a policy said no: each a refusal kind, so its sentence is the refusal's (`RefusalNotices`) */
 export const DenialkindVals = [
   'notIdentified', 'notPermitted', 'ownHuntship', 'quizLocked', 'botsOff', 'userlabelSet',
-  'sealedHunts', 'sealedRelabel', 'sealedMembers', 'sealedJoin', 'sealedReview',
+  'sealedHunts', 'sealedRelabel', 'sealedDelete', 'sealedMembers', 'sealedJoin', 'sealedReview',
 ] as const satisfies readonly Refusalkind[]
 export type Denialkind = typeof DenialkindVals[number]
 
@@ -77,7 +77,8 @@ export function mayReadHunt(claims: Actor.HuntClaimsT): VerdictT {
  * Whether the claimed actor may change their hunt: make, delete, lock and unlock its quizzes,
  * retitle, relabel or delete it. Revising a quiz asks `mayReviseQuiz`, which also holds to the
  * quiz's lock; relabelling the hunt asks `mayRelabelHunt`, which also holds a sealed user's sandbox
- * to its label. In order:
+ * to its label, and deleting it `mayDeleteHunt`, which keeps a sealed user's sandbox standing. In
+ * order:
  *
  * * Nobody without a userlabel
  * * A smith of the hunt
@@ -108,6 +109,25 @@ export function mayRelabelHunt(claims: Actor.HuntClaimsT): VerdictT {
   if (changing !== Allow)     { return changing }        // Whoever may change the hunt (`mayChangeHunt`): a smith of it
   if (Actor.isSealed(claims)) { return 'sealedRelabel' } // Nobody sealed relabels its sandbox
   return Allow                                           // Any other smith
+}
+
+/**
+ * Whether the claimed actor may delete their hunt, with its last quiz. A sealed user makes one
+ * hunt, its sandbox, and keeps it: it neither deletes it nor makes another in its place, which is
+ * simpler to reason about than a sandbox that comes and goes (the Coach, 2026-10-11). In order:
+ *
+ * * Whoever may change the hunt (`mayChangeHunt`): a smith of it
+ * * Nobody sealed (`Actor.isSealed`) deletes its sandbox
+ * * Any other smith
+ *
+ * @example Approve.mayDeleteHunt(claims)  // => 'allow', for a smith signed in with Google
+ * @example Approve.mayDeleteHunt(claims)  // => 'sealedDelete', for an anonymous smith of its sandbox
+ */
+export function mayDeleteHunt(claims: Actor.HuntClaimsT): VerdictT {
+  const changing = mayChangeHunt(claims)
+  if (changing !== Allow)     { return changing }       // Whoever may change the hunt (`mayChangeHunt`): a smith of it
+  if (Actor.isSealed(claims)) { return 'sealedDelete' } // Nobody sealed deletes its sandbox
+  return Allow                                          // Any other smith
 }
 
 /**
@@ -500,7 +520,7 @@ const HuntPolicies = {
   remove_huntship: mayChangeMembership,
   retitle_hunt:   mayChangeHunt,
   relabel_hunt:   mayRelabelHunt,
-  delete_hunt:    mayChangeHunt,
+  delete_hunt:    mayDeleteHunt,
   arrange_categories: mayChangeHunt,
   rebranch_hunt:  mayChangeHunt,
   new_hunt:       mayMakeHunt,

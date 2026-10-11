@@ -291,6 +291,20 @@ describe('Approve.mayRelabelHunt', () => {
   })
 })
 
+describe('Approve.mayDeleteHunt', () => {
+  it('lets a smith signed in with Google delete their hunt', () => {
+    expect(Approve.mayDeleteHunt(ClaimsAs.smith)).to.eq('allow')
+  })
+
+  it('refuses an anonymous smith the deletion of its sandbox', () => {
+    expect(Approve.mayDeleteHunt(ClaimsAs.sealed_smith)).to.eq('sealedDelete')
+  })
+
+  it('refuses whoever may not change the hunt, as mayChangeHunt does, before asking of sealing', () => {
+    expect([Approve.mayDeleteHunt(ClaimsAs.reviewer), Approve.mayDeleteHunt(ClaimsAs.unlabelled)]).to.deep.eq(['notPermitted', 'notIdentified'])
+  })
+})
+
 describe('Approve.mayJoinHunt', () => {
   it('nobody anonymous; anyone else', () => {
     expect([Approve.mayJoinHunt({ anonymous: true }), Approve.mayJoinHunt({ anonymous: false })]).to.deep.eq(['sealedJoin', 'allow'])
@@ -368,6 +382,7 @@ type VerdictRowT = readonly [Approve.VerdictT, Approve.VerdictT, Approve.Verdict
 const Revisers:    VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'quizLocked',      'allow']
 const Smiths:      VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow',           'allow']
 const Relabels:    VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow',           'sealedRelabel']
+const Deletions:   VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow',           'sealedDelete']
 const Memberships: VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow',           'sealedMembers']
 const Members:     VerdictRowT = ['allow', 'allow',        'notPermitted', 'notIdentified', 'allow',           'sealedReview']
 const Labelled:    VerdictRowT = ['allow', 'allow',        'allow',        'notIdentified', 'allow',           'allow']
@@ -428,7 +443,7 @@ const Matrix = {
   remove_huntship:     [{ kind: 'remove_huntship', user_id: bob_id },                                                                Memberships],
   retitle_hunt:        [{ kind: 'retitle_hunt', title: 'Princes' },                                                                  Smiths],
   relabel_hunt:        [{ kind: 'relabel_hunt', label: 'princes' },                                                                  Relabels],
-  delete_hunt:         [{ kind: 'delete_hunt' },                                                                                     Smiths],
+  delete_hunt:         [{ kind: 'delete_hunt' },                                                                                     Deletions],
   arrange_categories:  [{ kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] },                          Smiths],
   rebranch_hunt:       [{ kind: 'rebranch_hunt', hunt_id, branch: 'playtest' },                                                      Smiths],
   // making a hunt, and the user actions, of the actor alone:
