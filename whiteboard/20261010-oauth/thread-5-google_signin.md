@@ -143,6 +143,7 @@ the Google and routing specs 54/54; no full e2e since.
     session); the starting one is deleted by the patched exchange. It has no `authVerificationCodes`.
 
 * **For the Coach**: upstream's PR #306 has the same login CSRF as written (its own example
-  links at the callback); worth a comment there, which is yours to make. Set production's two keys before the clear (`notes/deploy.md`, step 1, path
-  A). CI never tests the redirect (no Google keys there, by the sprint's rule); local runs under
+  links at the callback); worth a comment there, which is yours to make. Set production's two keys only once this PR is merged and deployed (the
+  Coach, 2026-10-11; moved from before the clear: `notes/deploy.md`, step 4, path A). The notice
+  wording is approved ("wording is perfect"). CI never tests the redirect (no Google keys there, by the sprint's rule); local runs under
   `dev_e2e` do.

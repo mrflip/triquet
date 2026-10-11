@@ -340,8 +340,6 @@ The Coach's steps, in order:
 
 1. **Export production**, and keep the file outside the repo:
    `./scripts/doppledo prd_janitor npx convex export --path ~/prd-exports/<date>.zip`.
-   Set production's two Google keys too (*Google sign-in*, under *The pieces*, above), so the
-   sign-in is there as soon as the new code is.
 2. **Merge the sprint's first two threads** (`split_account` and `clear_people`), and let them
    deploy. Nothing changes for visitors; the clear's functions are now on production.
 3. **Clear, then deploy at once.**
@@ -353,9 +351,12 @@ The Coach's steps, in order:
    - Then merge the sprint's remaining threads straight away, and let them deploy. A visit in
      between leaves a row the new schema refuses, and the push stops, naming it: clear again and
      redeploy.
-4. **Sign in with Google**, with any handle or none (`mrflip` is held by hunts' addresses, so it
+4. **Set production's two Google keys** (*Google sign-in*, under *The pieces*, above), only once
+   the sprint's `google_signin` thread is merged and deployed (the Coach, 2026-10-11; the pre-plan
+   had them before the clear). The deployment picks them up without another deploy.
+5. **Sign in with Google**, with any handle or none (`mrflip` is held by hunts' addresses, so it
    cannot be claimed in the app).
-5. **Adopt** (*Adopting a user*, above), on the Coach's word at the time, said in chat before it
+6. **Adopt** (*Adopting a user*, above), on the Coach's word at the time, said in chat before it
    runs, its output relayed whole: give the user the Coach signed in as `mrflip`, admin, and smith
    of every hunt.
    - `./scripts/doppledo prd_janitor scripts/adopt --email <the Coach's> --userlabel mrflip --admin
