@@ -1,7 +1,7 @@
 # Thread 3: converge (2026-10-11)
 
 Branch `20261011-converge`, PR filed at landing; see the report. Suites at `ready`: justify green
-(typecheck, lint, 208 unit files); a full e2e run before review, 299/299, no flakes (lane 1,
+(typecheck, lint, 206 unit files, 5995 tests); a full e2e run before review, 299/299, no flakes (lane 1,
 load 14.8). The landing proof is still to come.
 
 * **Built**: the schema step (`users` ours, `huntships`, `ghostings`, `user_id` on reviews; idents,
