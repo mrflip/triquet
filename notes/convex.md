@@ -94,7 +94,7 @@ changes: whatever needs it reads the review.
 
 ## Who is asking
 
-A browser is a Convex Auth session (`convex/auth.ts`; anonymous for now), and asserts a username
+A browser is a Convex Auth session (`convex/auth.ts`; anonymous for now), and asserts a userlabel
 on top of it. No function takes an argument saying who is asking: the builders in
 `convex/functions.ts` (`zQuery`, `zMutation`) build it once per request (`askerOf`: the session,
 if Convex Auth still holds it, its user, the newest identing, the ident) and hand it to every

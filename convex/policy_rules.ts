@@ -104,7 +104,7 @@ const HuntOwned = { read: isOfHunt, modify: isOfHunt, insert: isOfHunt } as cons
  * * `hunts` -- its own hunt's row; none is made here (a hunt is made from the hunts list).
  * * The tables a hunt owns -- each row of the hunt, by the hunt it carries.
  * * `reviews`, `reviewings` -- seen across the hunt; written by their writer, or deleted by a smith.
- * * `widgets` -- the library every hunt shares: seen by anyone with a username, never written.
+ * * `widgets` -- the library every hunt shares: seen by anyone with a userlabel, never written.
  *   Changing it is an admin's act, on a mutation of its own (`LibraryRules`).
  * * `idents` -- a public persona, its label and title shown to whoever shares a hunt with it, and
  *   named by a smith adding a member: seen, never written (retitling is the ident's own).
@@ -140,7 +140,7 @@ export const ReadingRules = {
 
 /**
  * What the library's mutation may touch, scoped by the actor alone: the library's widgets, seen by
- * anyone with a username and changed by whoever may change the library (`Approve.mayChangeLibrary`).
+ * anyone with a userlabel and changed by whoever may change the library (`Approve.mayChangeLibrary`).
  * Nothing of any hunt: whether a widget is worked anywhere is the census's to say.
  */
 export const LibraryRules = {

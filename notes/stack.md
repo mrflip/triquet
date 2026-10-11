@@ -232,9 +232,9 @@ Settled; reach for these before writing the equivalent.
   sessions, chosen October 2026 (the `dbpolicy` sprint) over a hosted hub. Client-side only: the
   React provider (`ConvexAuthProvider`) keeps a session's tokens in the browser's storage; no
   Next.js middleware, no server function. Only the **Anonymous** provider for now: a browser is
-  signed in silently on its first visit and then asserts a username, which its session holds.
+  signed in silently on its first visit and then asserts a userlabel, which its session holds.
   **Google is deferred**, and joins `Anonymous` in the list in `convex/auth.ts` when it comes, with
-  the "anonymous here, signed in there" collision (a username held by the anonymous session on
+  the "anonymous here, signed in there" collision (a userlabel held by the anonymous session on
   another device) designed then. Its keys (`JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL`) live on the
   deployment: `scripts/convex_auth_keys` mints throwaway ones for a local backend, and a Coach sets
   production's (`notes/deploy.md`).
@@ -389,9 +389,9 @@ agrees to another.
 
 ## Later, i.e when we get there
 
-* **A second device**: a username belongs to the anonymous session that claimed it, so another
+* **A second device**: a userlabel belongs to the anonymous session that claimed it, so another
   browser cannot take it on. The door is a sign-in (Google, deferred: see *Authentication* under
-  Use), made from the device holding the username.
+  Use), made from the device holding the userlabel.
 * **Rate limiting** the public functions (`convex-helpers`' rate limiter), if anyone ever abuses
   a deployment's URL: every function is callable by whoever has it.
 * **MSW** for network mocking, so the same handlers serve tests and local development.

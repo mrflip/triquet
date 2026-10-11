@@ -8,8 +8,8 @@
  *   through `widgets.perform` (`actOnLibrary`), puts another ident on the hunt (`join`), and reads
  *   the hunt as its rows make it up (`read`). `openOf(seen)` is the quiz the test has open.
  * * `wholeHunt`, `putOn` -- reads past authorization, and a role granted from outside.
- * * `identified(tt, label)` -- a session holding the username `label`, on no hunt: a stranger;
- *   `signedIn(tt)` -- a session that has asserted no username; the bare `tt` -- no session at
+ * * `identified(tt, label)` -- a session holding the userlabel `label`, on no hunt: a stranger;
+ *   `signedIn(tt)` -- a session that has asserted no userlabel; the bare `tt` -- no session at
  *   all. `callerOf` takes any of them.
  * * `refusedAs`, `expectRefusal` -- what a refused call said, and the assertion on it.
  */
@@ -74,7 +74,7 @@ export type Seen = {
 /** A browser's session, signed in and nothing more: how to call as it, and its Convex Auth user */
 export type Session = { as: SessionTester, user_id: Id<'users'> }
 
-/** A session that has asserted a username: how to call as it, its user, the ident it took on, and the actor the server sees */
+/** A session that has asserted a userlabel: how to call as it, its user, the ident it took on, and the actor the server sees */
 export type Identified = Session & { ident_id: Id<'idents'>, label: string, actor: Actor.IdentActorT }
 
 /** Where a quiz sits: its hunt, its realm, and its id */
@@ -102,7 +102,7 @@ export type Seeded = {
    * Carry out `action` through `hunts.perform`, as the session `by`, affirming what a browser that
    * has read the hunt would: its ident, its standing as its hunting says, and the open quiz.
    *
-   * @param by - Who is acting; the hunt's smith unless given. A session with no username, or the bare tester (no session at all), are anonymous, and affirm as the smith.
+   * @param by - Who is acting; the hunt's smith unless given. A session with no userlabel, or the bare tester (no session at all), are anonymous, and affirm as the smith.
    */
   act:   (action: HuntActionDNA, by?: Session | Tester) => Promise<void>
   /**
@@ -113,7 +113,7 @@ export type Seeded = {
    */
   actOnLibrary: (action: LibraryActionDNA, by?: Session | Tester) => Promise<void>
   /**
-   * A fresh session, asserting the username `label` (made if it is new), put on the hunt as
+   * A fresh session, asserting the userlabel `label` (made if it is new), put on the hunt as
    * `role`.
    */
   join:  (label: string, role: HuntRole) => Promise<Identified>
@@ -218,7 +218,7 @@ const SessionMs = 24 * 60 * 60 * 1000
 
 /**
  * A fresh browser's session, signed in anonymously as Convex Auth would sign it in (a `users` row
- * and an `authSessions` row), having asserted no username: anonymous, but able to assert one.
+ * and an `authSessions` row), having asserted no userlabel: anonymous, but able to assert one.
  *
  * @example const { as } = await signedIn(tt); await as.mutation(api.idents.perform, { action })
  */
@@ -231,15 +231,15 @@ export async function signedIn(tt: Tester): Promise<Session> {
   return { as: tt.withIdentity({ subject: `${user_id}|${session_id}` }), user_id }
 }
 
-/** The sessions `identified` has signed in, by the username each holds, for each deployment */
+/** The sessions `identified` has signed in, by the userlabel each holds, for each deployment */
 const HoldersIn = new WeakMap<Tester, Map<string, Identified>>()
 
 /**
- * The session holding the username `label`: the one `identified` already signed in for it in
+ * The session holding the userlabel `label`: the one `identified` already signed in for it in
  * `tt`, or else a fresh browser's, asserting it (made, and claimed, if it is new) through
  * `idents.perform`. How to call as it, the ident's id, and the actor the server builds for
- * it, for a test that asks a rule directly. A username has one holder, so asking twice is asking
- * for the same person; a test of a second session asserting a held username uses `signedIn`.
+ * it, for a test that asks a rule directly. A userlabel has one holder, so asking twice is asking
+ * for the same person; a test of a second session asserting a held userlabel uses `signedIn`.
  *
  * @example const alice = await identified(tt, 'alice_reviews'); await alice.as.query(api.hunts.list, {})
  */
@@ -255,7 +255,7 @@ export async function identified(tt: Tester, label: string): Promise<Identified>
   return holder
 }
 
-/** Whether `by` is a session that has asserted a username */
+/** Whether `by` is a session that has asserted a userlabel */
 function isIdentified(by: Session | Tester): by is Identified {
   return 'ident_id' in by
 }

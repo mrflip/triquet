@@ -84,13 +84,13 @@ describe("affirmForHunt", () => {
     ])
   })
 
-  it("turns away each affirm that is not so, one guard at a time, and an actor who has asserted no username first", async () => {
+  it("turns away each affirm that is not so, one guard at a time, and an actor who has asserted no userlabel first", async () => {
     const { tt, open, other, alice, bob, carol } = await peopled()
     const { action: affirms } = await affirmsOf(tt, alice, open)
     const second_realm_id = await tt.run(async (ctx) => await ctx.db.insert('realms', { hunt_id: open.hunt_id, position: 1, label: 'away', title: 'Away' }))
     const Cases: [Actor.ActorT, typeof affirms, string, string][] = [
       // one case per guard, in order:
-      [Actor.anonymous, affirms,                                         'notIdentified', 'nobody who has asserted no username'],
+      [Actor.anonymous, affirms,                                         'notIdentified', 'nobody who has asserted no userlabel'],
       [bob.actor,       affirms,                                         'notPermitted',  'the browser is the ident it says'],
       [alice.actor,     { ...affirms, standing: 'reviewer' },            'notPermitted',  '...and stands on the hunt as it says'],
       [alice.actor,     { ...affirms, quiz_id: other.open.quiz_id },     'notPermitted',  'the quiz it names is of the hunt'],
@@ -128,7 +128,7 @@ describe("claimsFor", () => {
 })
 
 describe("affirmReadHunt and affirmReadQuestion", () => {
-  it("let anyone on the hunt read it, and turn away a stranger and anyone who has asserted no username", async () => {
+  it("let anyone on the hunt read it, and turn away a stranger and anyone who has asserted no userlabel", async () => {
     const { tt, open, alice, bob, carol } = await peopled()
     const outcomes = []
     for (const [actor, by] of [[alice.actor, alice], [bob.actor, bob], [carol.actor, carol], [Actor.anonymous, alice]] as const) {
@@ -153,7 +153,7 @@ describe("affirmReadHunt and affirmReadQuestion", () => {
 })
 
 describe("affirmExportHunt", () => {
-  it("lets a smith of the hunt export it, and turns away a reviewer, a stranger and anyone who has asserted no username", async () => {
+  it("lets a smith of the hunt export it, and turns away a reviewer, a stranger and anyone who has asserted no userlabel", async () => {
     const { tt, open, alice, bob, carol } = await peopled()
     const outcomes = []
     for (const [actor, by] of [[alice.actor, alice], [bob.actor, bob], [carol.actor, carol], [Actor.anonymous, alice]] as const) {
@@ -214,7 +214,7 @@ describe("affirmReadReviews, and the reviews a database scoped to its claims sho
     expect(await readersOf(tt, open, [bob], { [bob.ident_id]: 'bob' })).to.deep.eq([[]])
   })
 
-  it("read nothing of a quiz with no reviews, and turn away anyone who has asserted no username", async () => {
+  it("read nothing of a quiz with no reviews, and turn away anyone who has asserted no userlabel", async () => {
     const { tt, open, alice } = await peopled()
     const { quiz: affirms } = await affirmsOf(tt, alice, open)
     expect(await readersOf(tt, open, [alice], {})).to.deep.eq([[]])
@@ -238,7 +238,7 @@ describe("affirmLibraryAction", () => {
 
   afterEach(() => { vi.restoreAllMocks() })
 
-  it("lets anyone with a username change the library, smith of a hunt or not, where every one is an admin (`TRIQUET_ADMINS` `*`)", async () => {
+  it("lets anyone with a userlabel change the library, smith of a hunt or not, where every one is an admin (`TRIQUET_ADMINS` `*`)", async () => {
     const { alice, bob, carol } = await peopled()
     const outcomes = [alice.actor, bob.actor, carol.actor, Actor.anonymous].map((actor) => outcomeFor(actor))
     expect(outcomes).to.deep.eq(['allow', 'allow', 'allow', 'notIdentified'])
@@ -253,7 +253,7 @@ describe("affirmLibraryAction", () => {
 })
 
 describe("affirmOuterHuntAction", () => {
-  it("lets only a smith retitle or relabel a hunt, and anyone with a username make one", async () => {
+  it("lets only a smith retitle or relabel a hunt, and anyone with a userlabel make one", async () => {
     const { tt, open, alice, bob, carol } = await peopled()
     const actions = [
       { kind: 'retitle_hunt',  hunt_id: open.hunt_id, title: 'Mine now' },
@@ -276,7 +276,7 @@ describe("affirmOuterHuntAction", () => {
 })
 
 describe("affirmUserAction", () => {
-  it("lets anyone with a username retitle themselves, and anyone at all assert a username", async () => {
+  it("lets anyone with a userlabel retitle themselves, and anyone at all assert a userlabel", async () => {
     const { alice, bob, carol } = await peopled()
     const actions = [
       { kind: 'retitle_ident', title: 'Me' },
@@ -349,7 +349,7 @@ describe("hunts.perform, authorized", () => {
     await expectRefusal(act({ kind: 'open_review', quiz_id: open.quiz_id }, carol), 'notPermitted')
   })
 
-  it("refuses a session that has asserted no username, or a request with no session, before anything else", async () => {
+  it("refuses a session that has asserted no userlabel, or a request with no session, before anything else", async () => {
     const { tt, act } = await peopled()
     await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, await signedIn(tt)), 'notIdentified')
     await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, tt), 'notIdentified')
@@ -403,7 +403,7 @@ function actionsOn(quiz_id: Id<'quizzes'>): HuntActionDNA[] {
 
 describe("hunts.perform agrees with Approve, as each standing", () => {
   for (const kind of ['retitle_quiz', 'open_review', 'add_hunting'] as const) {
-    it(`${kind}: as a smith, a reviewer, a stranger, a session with no username, and no session`, async () => {
+    it(`${kind}: as a smith, a reviewer, a stranger, a session with no userlabel, and no session`, async () => {
       const { tt, open, alice, bob, carol } = await peopled()
       await identified(tt, 'erin_reviews')
       const dna = present(actionsOn(open.quiz_id).find((each) => each.kind === kind))
@@ -461,11 +461,11 @@ describe("the database a public function holds", () => {
 })
 
 describe("idents", () => {
-  it("are made by any session, and are never changed by another asserting the username", async () => {
+  it("are made by any session, and are never changed by another asserting the userlabel", async () => {
     const tt = openTester()
     const [first, second] = [await signedIn(tt), await signedIn(tt)]
     await first.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Flip' } })
-    await expectRefusal(second.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Impostor' } }), 'usernameClaimed')
+    await expectRefusal(second.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Impostor' } }), 'userlabelClaimed')
     const ident = await tt.run(async (ctx) => await identForLabel(ctx.db, 'flip_kromer'))
     expect([ident?.title, ident?.user_id]).to.deep.eq(['Flip', first.user_id])
   })

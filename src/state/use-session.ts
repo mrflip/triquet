@@ -18,7 +18,7 @@ const RetryMs = 3000
 /**
  * This browser's session: signed in anonymously the first time a screen asks and there is none,
  * and kept from then on (Convex Auth holds it in this browser's storage). A session says nothing
- * of who the visitor is; that is the username it asserts (`useIdent`).
+ * of who the visitor is; that is the userlabel it asserts (`useIdent`).
  *
  * A sign-in that fails is reported, and tried again a few seconds later while a screen still asks.
  *

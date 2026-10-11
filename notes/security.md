@@ -20,11 +20,11 @@ security expert who knows what questions to ask.
   to recheck's verdict (`lib/redos.ts`) where a mutation writes it, and refused unless recheck calls
   it `safe` within 200 ms; past that it is trusted and never checked again, nor timeboxed as it
   runs. Its source is at most 200 characters, its flags `i`, `m`, `s` and `u` only.
-* `Actor.isAdmin` is an equality check on the username, against the deployment's `TRIQUET_ADMINS`
+* `Actor.isAdmin` is an equality check on the userlabel, against the deployment's `TRIQUET_ADMINS`
   (production: `mrflip`), made on the server as it builds the actor and carried to the browser;
-  `*` makes every username an admin, which `scripts/convex_dev` sets on every local backend.
-* The first user to claim a username becomes that user: an ident nobody holds goes to the first
-  session to assert it (`claimFor`, `convex/writing/account_actions.ts`).
+  `*` makes every userlabel an admin, which `scripts/convex_dev` sets on every local backend.
+* The first user to claim a userlabel becomes that user: an ident nobody holds goes to the first
+  session to assert it (`claimFor`, `convex/writing/user_actions.ts`).
 * 2026-10-08: field, recap and prompt templates are LiquidJS (`lib/liquidry.ts`): a field or
   recap template is written by any smith of a quiz and run in every smith's browser; a prompt is
   written by an admin and rendered in the browser of whoever asks. LiquidJS calls a function it finds as an own property of what it reads;

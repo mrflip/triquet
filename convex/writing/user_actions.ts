@@ -8,12 +8,12 @@ import { huntingsFor, identForLabel } from '../reading'
 import type { Writer } from './quiz_writing'
 
 /**
- * Assert the username `label` for the session `user_id`, and become that ident. In order:
+ * Assert the userlabel `label` for the session `user_id`, and become that ident. In order:
  *
  * * No ident has the label: one is made now under `title`, claimed by this session.
  * * This session claimed it: it is taken on again.
- * * Nobody has claimed it (an ident from before usernames were held): this session claims it.
- * * Another session claimed it: refused, `usernameClaimed`, which says what to do instead.
+ * * Nobody has claimed it (an ident from before userlabels were held): this session claims it.
+ * * Another session claimed it: refused, `userlabelClaimed`, which says what to do instead.
  *
  * Whichever way it is taken on, the session records an identing of it, and from then on is that
  * ident. The ident is looked up and claimed inside the one write, so two sessions asserting one
@@ -21,11 +21,11 @@ import type { Writer } from './quiz_writing'
  * the one.
  *
  * @param db - The mutation's database.
- * @param user_id - The session asserting the username.
+ * @param user_id - The session asserting the userlabel.
  * @param label - The ident's label, already validated.
  * @param title - What to call a new ident; ignored when the ident exists, and its label titleized when blank.
  * @returns The ident's row id.
- * @throws A refusal (`usernameClaimed`); nothing is written.
+ * @throws A refusal (`userlabelClaimed`); nothing is written.
  *
  * @example await assumeIdent(ctx.db, user_id, 'flip_kromer', 'Flip')
  */
@@ -40,12 +40,12 @@ export async function assumeIdent(db: Writer, user_id: Id<'users'>, label: strin
  * The ident `ident`, held by the session `user_id`: already, or from now, when nobody held it.
  *
  * @returns The ident's row id.
- * @throws A refusal (`usernameClaimed`) when another session holds it; nothing is written.
+ * @throws A refusal (`userlabelClaimed`) when another session holds it; nothing is written.
  */
 async function claimFor(db: Writer, ident: Doc<'idents'>, user_id: Id<'users'>): Promise<Id<'idents'>> {
   const holder = ident.user_id
   if (holder === user_id) { return ident._id }            // this session's own
-  if (holder !== null)    { refuse('usernameClaimed') }   // another session's
+  if (holder !== null)    { refuse('userlabelClaimed') }   // another session's
   await db.patch('idents', ident._id, { user_id })         // nobody's yet: this session's now
   return ident._id
 }
@@ -53,7 +53,7 @@ async function claimFor(db: Writer, ident: Doc<'idents'>, user_id: Id<'users'>):
 /**
  * Retitle the ident `actor` is: what it is called on screen, which it may change at any time, and
  * so the copy of it each of its huntings holds. Its label, which others add it to hunts by, stays.
- * An actor who has asserted no username is refused.
+ * An actor who has asserted no userlabel is refused.
  *
  * @returns The ident's row id.
  * @throws A refusal (`notIdentified`); nothing is written.
@@ -71,12 +71,12 @@ export async function retitleIdent(db: Writer, actor: Actor.ActorT, title: strin
 }
 
 /**
- * Carry out what a visitor did as themselves, writing the rows it comes to: assert a username, or
+ * Carry out what a visitor did as themselves, writing the rows it comes to: assert a userlabel, or
  * retitle the ident they are. Whether they may is asked before this (`authorize`).
  *
  * @param db - The mutation's database.
  * @param user_id - The visitor's session.
- * @param actor - Who the visitor is now; anonymous until they have asserted a username.
+ * @param actor - Who the visitor is now; anonymous until they have asserted a userlabel.
  * @param action - What the visitor did.
  * @returns The id of the ident taken on or retitled.
  * @throws A refusal when the action cannot be carried out; nothing is written.

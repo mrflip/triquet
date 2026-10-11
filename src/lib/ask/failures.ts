@@ -19,7 +19,7 @@ import * as PA from '../vv/patterns'
 export function failurekindFor(err: unknown): AskFailurekind {
   if (err instanceof Approve.NotApprovedError) { return 'notPermitted' }
   if (err instanceof Anthropic.AuthenticationError) { return 'sessionExpired' }
-  if (err instanceof Anthropic.PermissionDeniedError) { return 'accountOff' }
+  if (err instanceof Anthropic.PermissionDeniedError) { return 'keyRefused' }
   if (err instanceof Anthropic.RateLimitError) { return 'rateLimited' }
   if (err instanceof Anthropic.APIConnectionError) { return 'connection' }
   if (err instanceof Anthropic.APIError) { return 'unknown' }

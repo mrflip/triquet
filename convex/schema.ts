@@ -73,7 +73,7 @@ export default defineSchema({
   ...authTables,
   /** A persona in the app, named by a label a person types to become it, held by the session that claimed it */
   idents:      defineTable(identFields).index('by_label', ['label']),
-  /** One time a session asserted a username: its newest is the ident it is now */
+  /** One time a session asserted a userlabel: its newest is the ident it is now */
   identings:   defineTable(identingFields).index('by_user_id', ['user_id']),
   /** A hunt: the unit of address and of membership, found by its label within its org (or, from an old address, by its label alone). Its realms hold its quizzes. */
   hunts:       defineTable(huntFields).index('by_label', ['label']).index('by_orglabel_and_label', ['orglabel', 'label']),

@@ -61,7 +61,7 @@ describe("widgets.library", () => {
     expect(await flip.as.query(api.widgets.library, {})).to.deep.eq([])
   })
 
-  it("is empty for a session that has asserted no username, and for a request with no session", async () => {
+  it("is empty for a session that has asserted no userlabel, and for a request with no session", async () => {
     const tt = openTester()
     await seedHunt(tt, classicHunt())
     const session = await signedIn(tt)
@@ -84,7 +84,7 @@ describe("widgets.usage", () => {
     expect(await smith.as.query(api.widgets.usage, { widget_label: 'answer_reversed' })).to.deep.eq({ widgetings: 0, quizzes: 0, hunts: 0, at_least: false })
   })
 
-  it("counts for a reviewer and a stranger to every hunt as for a smith, while everyone with a username is an admin", async () => {
+  it("counts for a reviewer and a stranger to every hunt as for a smith, while everyone with a userlabel is an admin", async () => {
     const tt = openTester()
     const { join } = await seedHunt(tt, classicHunt())
     const reviewer = await join('bob_reviews', 'reviewer')
@@ -93,7 +93,7 @@ describe("widgets.usage", () => {
     expect(usages).to.deep.eq([{ widgetings: 1, quizzes: 1, hunts: 1, at_least: false }, { widgetings: 1, quizzes: 1, hunts: 1, at_least: false }])
   })
 
-  it("is null for a session that has asserted no username, and a request with no session", async () => {
+  it("is null for a session that has asserted no userlabel, and a request with no session", async () => {
     const tt = openTester()
     await seedHunt(tt, classicHunt())
     const session = await signedIn(tt)
@@ -116,7 +116,7 @@ describe("widgets.usage", () => {
 })
 
 describe("widgets.perform", () => {
-  it("changes the library for anyone with a username where every one is an admin (`TRIQUET_ADMINS` `*`): a smith, a reviewer, a stranger to every hunt", async () => {
+  it("changes the library for anyone with a userlabel where every one is an admin (`TRIQUET_ADMINS` `*`): a smith, a reviewer, a stranger to every hunt", async () => {
     const tt = openTester()
     const { actOnLibrary, join, read } = await seedHunt(tt, classicHunt())
     const reviewer = await join('bob_reviews', 'reviewer')
@@ -135,7 +135,7 @@ describe("widgets.perform", () => {
     expect(await flip.as.query(api.widgets.library, {})).to.deep.eq([Shout])
   })
 
-  it("refuses every action, changing nothing, from a session that has asserted no username, or a request with no session", async () => {
+  it("refuses every action, changing nothing, from a session that has asserted no userlabel, or a request with no session", async () => {
     const tt = openTester()
     const { actOnLibrary, read } = await seedHunt(tt, classicHunt())
     const session = await signedIn(tt)

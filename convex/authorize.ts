@@ -20,7 +20,7 @@ import { huntingFor, reviewFor, type Reader } from './reading'
 //
 // An ident's hunting on a hunt is its standing there: a smith reads and changes everything of the
 // hunt, a reviewer reads it and writes their own reviews (and reads the others' shared ones once
-// their own is shared), and a stranger is shown nothing of it but who to ask. A username belongs
+// their own is shared), and a stranger is shown nothing of it but who to ask. A userlabel belongs
 // to the session that claimed it (`writing/user_actions`), so the claims trust that the
 // session holding the ident is theirs.
 //
@@ -39,7 +39,7 @@ import { huntingFor, reviewFor, type Reader } from './reading'
 // Two kinds of row are private by what the functions offer rather than by a rule. A session's
 // identings are read only through its own token (and no hunt's database reaches them), so no
 // session sees which idents another has taken on. An ident may be made by any session, which then
-// holds it; no function hands it to another or removes it, so a username someone holds cannot be
+// holds it; no function hands it to another or removes it, so a userlabel someone holds cannot be
 // pulled from under them.
 
 /**
@@ -55,7 +55,7 @@ export const Unscoped = {
   "auth:signIn":           "Convex Auth's own, of the session alone",
   "auth:signOut":          "Convex Auth's own, of the session alone",
   "idents:current":        "Who the session is: asked before any hunt is in play",
-  "idents:perform":        "A username, asserted or retitled, before any hunt is in play: of the actor alone",
+  "idents:perform":        "A userlabel, asserted or retitled, before any hunt is in play: of the actor alone",
   "hunts:list":            "The hunts the actor is on, read through the actor's own huntings: many hunts, none affirmed",
   "hunts:open":            "Finds a hunt by its org and label (or, from an old address, its label alone) and tells the browser its standing there, which is what the browser goes on to affirm",
   "hunts:performOuter":    "A hunt made, or named from outside any quiz: one it names is asked of the actor's claims on it (`claimsFor`)",
@@ -94,7 +94,7 @@ export type PerformClaimsT = ClaimsOf<AffirmsT> & { named: Doc<'quizzes'> | null
  * quiz and realm when they are affirmed, and every one of `queries`, which come back beside the
  * claims under their own names. Then, in order, each turned away as a denial when it fails:
  *
- * * Nobody who has asserted no username has claims on any hunt (`notIdentified`)
+ * * Nobody who has asserted no userlabel has claims on any hunt (`notIdentified`)
  * * The browser is the ident it says
  * * ...and stands on the hunt as it says: its hunting's role, or a stranger with none
  * * The quiz it names is of the hunt
@@ -110,7 +110,7 @@ export type PerformClaimsT = ClaimsOf<AffirmsT> & { named: Doc<'quizzes'> | null
  * @param queries - Reads the decision needs beside the evidence, made in the same round; `{}` for none.
  * @returns The claims, and what `queries` read.
  * @throws `Approve.NotApprovedError` when an affirm is not borne out: `notIdentified` for an
- *   actor who has asserted no username, `notPermitted` for anything else.
+ *   actor who has asserted no userlabel, `notPermitted` for anything else.
  *
  * @example const claims = await affirmForHunt(ctx.db, affirms, ctx.actor, {})                 // => { ...actor, hunt_id, standing: 'smith', quiz_id, quiz }
  * @example const { question } = await affirmForHunt(ctx.db, affirms, ctx.actor, { question: ctx.db.get('questions', question_id) })
@@ -137,7 +137,7 @@ export async function affirmForHunt<AT extends AffirmableT, QQ extends PendingT>
 /**
  * The claims of `actor` on `hunt_id`, from its hunting there, for a request that affirms nothing:
  * one that finds its hunt by label (`hunts.open`), or an outer hunt action naming a hunt. One read;
- * none for an actor who has asserted no username, a stranger to every hunt.
+ * none for an actor who has asserted no userlabel, a stranger to every hunt.
  *
  * @param db - The function's database.
  * @param hunt_id - Which hunt.
@@ -225,7 +225,7 @@ export async function affirmReadReviews(db: Reader, affirms: QuizAffirmsT, actor
  *
  * @param actor - Who is acting.
  * @param action - What they did to the library.
- * @throws `Approve.NotApprovedError` when the policy says no: `notIdentified` before any username,
+ * @throws `Approve.NotApprovedError` when the policy says no: `notIdentified` before any userlabel,
  *   `notPermitted` for one who is no admin.
  *
  * @example affirmLibraryAction(ctx.actor, { kind: 'move_widget', label: 'dumdum', onto_idx: 0 })
@@ -264,7 +264,7 @@ export async function affirmPerform(db: Reader, affirms: AffirmsT, actor: Actor.
  *
  * @param actor - Who is acting.
  * @param action - What they did.
- * @throws `Approve.NotApprovedError` when the policy says no: `notIdentified` for retitle_ident before any username.
+ * @throws `Approve.NotApprovedError` when the policy says no: `notIdentified` for retitle_ident before any userlabel.
  *
  * @example affirmUserAction(ctx.actor, { kind: 'retitle_ident', title: 'Flip' })
  */
@@ -282,7 +282,7 @@ export function affirmUserAction(actor: Actor.ActorT, action: UserActionT): void
  * @param actor - Who is acting.
  * @param action - What they did.
  * @throws `Approve.NotApprovedError` when the policy says no: `notIdentified` for new_hunt before
- *   any username, `notPermitted` for a hunt they do not smith.
+ *   any userlabel, `notPermitted` for a hunt they do not smith.
  *
  * @example await affirmOuterHuntAction(ctx.db, ctx.actor, action)
  */

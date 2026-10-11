@@ -11,8 +11,8 @@ import { deleteQuiz, insertHunt, updateHunt, type Writer } from './quiz_writing'
 /**
  * Make a fresh hunt under `label`: one realm, `home`, holding one blank quiz of the same label,
  * with the ident `actor` is as its smith, and its org (`orglabel`). An actor who has asserted no
- * username is refused, since a hunt nobody is on is a hunt nobody can open. So is one hunt more
- * than their org may hold (`PA.HuntsPerOrg`), so no one username takes up the app's room; and
+ * userlabel is refused, since a hunt nobody is on is a hunt nobody can open. So is one hunt more
+ * than their org may hold (`PA.HuntsPerOrg`), so no one userlabel takes up the app's room; and
  * whatever `makeHuntFor` refuses.
  *
  * @returns The hunt's row id.
@@ -145,7 +145,7 @@ export async function deleteHunt(db: Writer, hunt_id: Id<'hunts'>): Promise<void
  * (`authorize`).
  *
  * @param db - The mutation's database.
- * @param actor - Who the visitor is now; anonymous until they have asserted a username.
+ * @param actor - Who the visitor is now; anonymous until they have asserted a userlabel.
  * @param action - What the visitor did.
  * @returns The id of the hunt made or changed.
  * @throws A refusal when the action cannot be carried out; nothing is written.

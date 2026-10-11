@@ -1201,7 +1201,7 @@ describe("hunts.perform", () => {
       expect(await reviewsIn(tt, quiz_id)).to.have.length(1)
     })
 
-    it("refuses a session that has asserted no username, writing nothing", async () => {
+    it("refuses a session that has asserted no userlabel, writing nothing", async () => {
       const { act, read, tt } = await seed(huntOf(['1', 'a']))
       const quiz_id = openOf(await read())._id
       await expectRefusal(act({ kind: 'open_review', quiz_id }, await signedIn(tt)), 'notIdentified')
@@ -1428,7 +1428,7 @@ describe("hunts.perform", () => {
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
-    it("refuses a session that has asserted no username", async () => {
+    it("refuses a session that has asserted no userlabel", async () => {
       const { tt, act, quiz_id, first } = await reviewed()
       await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } }, await signedIn(tt)), 'notIdentified')
       expect(await reviewingsIn(tt)).to.deep.eq([])
@@ -1842,7 +1842,7 @@ describe("hunts.list", () => {
     expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
   })
 
-  it("lists nothing for a session that has asserted no username, or a request with no session", async () => {
+  it("lists nothing for a session that has asserted no userlabel, or a request with no session", async () => {
     const tt = openTester()
     await seedHunt(tt, Hunt.blank('quiet_otter'))
     const session = await signedIn(tt)

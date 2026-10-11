@@ -69,9 +69,9 @@ export const Loalnumbar   = { re: /^[a-z0-9_]*$/,            msg: 'should have o
 export const Plain        = { re: /^[A-Za-z0-9 ]*$/, msg: 'should have only plain letters, numbers, and the occasional space' } as const satisfies Patternbag
 
 export const Label      = { re: /^[a-z](_?[a-z0-9])+$/, min: 2, max: 40, msg: 'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
-/** A username -- an ident's label: label-shaped, and long enough to be a name someone chose rather than an initial */
+/** A userlabel -- an ident's label: label-shaped, and long enough to be a name someone chose rather than an initial */
 export const Userlabel  = { re: /^[a-z](_?[a-z0-9])+$/, min: 6, max: 24, msg: 'should be 6 to 24 plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
-/** A username as far as it has been typed: empty, or what typing on could still make a `Userlabel` -- every character one it keeps, with at most a trailing underscore or too few characters between it and done */
+/** A userlabel as far as it has been typed: empty, or what typing on could still make a `Userlabel` -- every character one it keeps, with at most a trailing underscore or too few characters between it and done */
 export const Userbegun  = { re: /^(?:[a-z](?:_?[a-z0-9])*_?)?$/, max: Userlabel.max, msg: 'should be plain lowercase letters/_/numbers, with a letter first and no __ in a row' } as const satisfies Patternbag
 export const Dashlabel  = { re: /^[a-z][a-z0-9_-]*$/,   min: 1, max: 25, msg: 'should have only plain lowercase letters/_/-/numbers with a letter first' } as const satisfies Patternbag
 export const Handleish  = { re: /^[a-z][a-z0-9_]*$/,    min: 1, max: 36, msg: 'should have only lowercase plain letters/_/numbers with a letter first' } as const satisfies Patternbag
@@ -342,7 +342,7 @@ export const RealmsPerHunt      = { min: 1, max: 99 } as const
 export const HuntingsPerHunt    = { min: 0, max: 999 } as const
 /** Hunts in the whole app: roomy enough for a whole e2e run's, each spec making its own */
 export const HuntsInApp         = { min: 0, max: 999 } as const
-/** Hunts one org may make, a tenth of the app's: roomy for a person, but no one username fills the app */
+/** Hunts one org may make, a tenth of the app's: roomy for a person, but no one userlabel fills the app */
 export const HuntsPerOrg        = { min: 0, max: 99 } as const
 
 //

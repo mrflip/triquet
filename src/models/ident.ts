@@ -6,11 +6,11 @@ import * as PA from '../lib/vv/patterns'
 
 export const IdentValidators = Validator(({ obj, userlabel, titleish, stamps, zid }) => {
   const identLabel = userlabel
-    .describe('What a person types to become this ident (their username), and what others add them to a hunt by. Unique across the app: a new one is made inside the write that looks it up, so two sessions asserting one new label at once make one ident between them.')
+    .describe('What a person types to become this ident (their userlabel), and what others add them to a hunt by. Unique across the app: a new one is made inside the write that looks it up, so two sessions asserting one new label at once make one ident between them.')
   const title = titleish.min(1)
     .describe('What the ident is called on screen.')
   const user_id = zid('users').nullable()
-    .describe('The session that claimed this username, and the only one that may assert it; null for an ident nobody has claimed yet, which the next session to assert it claims.')
+    .describe('The session that claimed this userlabel, and the only one that may assert it; null for an ident nobody has claimed yet, which the next session to assert it claims.')
 
   const row = obj({
     label: identLabel,
@@ -18,7 +18,7 @@ export const IdentValidators = Validator(({ obj, userlabel, titleish, stamps, zi
     user_id,
     ...stamps,
   })
-    .describe('One ident: a persona in the app, a username held by the session that claimed it.')
+    .describe('One ident: a persona in the app, a userlabel held by the session that claimed it.')
 
   return { identLabel, title, user_id, row }
 })
@@ -99,7 +99,7 @@ export class Ident implements IdentT {
 
   /**
    * An ident as it is named on screen in full: its title, then its label written `@label`, which
-   * marks it as the username someone types rather than a word of prose.
+   * marks it as the userlabel someone types rather than a word of prose.
    *
    * @param ident - The ident to name.
    * @returns Its title and its label.

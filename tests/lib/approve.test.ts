@@ -56,7 +56,7 @@ function reviewBy(ident_id: Id<'idents'>, phase: ReviewPhase, of_hunt_id = hunt_
 
 describe('Approve.mayReadHunt', () => {
   const Cases: [Standing, Approve.VerdictT, string][] = [
-    ['anonymous', 'notIdentified', 'nobody who has asserted no username'],
+    ['anonymous', 'notIdentified', 'nobody who has asserted no userlabel'],
     ['smith',     'allow',         'a smith of the hunt'],
     ['reviewer',  'allow',         'a reviewer of the hunt'],
     ['stranger',  'notPermitted',  'nobody else'],
@@ -70,7 +70,7 @@ describe('Approve.mayReadHunt', () => {
 
 describe('Approve.mayExportHunt', () => {
   const Cases: [Standing, Approve.VerdictT, string][] = [
-    ['anonymous', 'notIdentified', 'nobody who has asserted no username'],
+    ['anonymous', 'notIdentified', 'nobody who has asserted no userlabel'],
     ['smith',     'allow',         'a smith of the hunt'],
     ['reviewer',  'notPermitted',  'nobody else: not a reviewer of the hunt'],
     ['stranger',  'notPermitted',  'nobody else: not a stranger to it'],
@@ -84,7 +84,7 @@ describe('Approve.mayExportHunt', () => {
 
 describe('Approve.mayChangeHunt', () => {
   const Cases: [Standing, Approve.VerdictT, string][] = [
-    ['anonymous', 'notIdentified', 'nobody who has asserted no username'],
+    ['anonymous', 'notIdentified', 'nobody who has asserted no userlabel'],
     ['smith',     'allow',         'a smith of the hunt'],
     ['reviewer',  'notPermitted',  'nobody else: a reviewer'],
     ['stranger',  'notPermitted',  'nobody else: a stranger'],
@@ -99,7 +99,7 @@ describe('Approve.mayChangeHunt', () => {
 describe('Approve.mayReviseQuiz', () => {
   const Cases: [Standing, { locked: boolean } | null, Approve.VerdictT, string][] = [
     // one case per guard, in order:
-    ['anonymous', Unlocked, 'notIdentified', 'nobody who has asserted no username'],
+    ['anonymous', Unlocked, 'notIdentified', 'nobody who has asserted no userlabel'],
     ['reviewer',  Unlocked, 'notPermitted',  'only a smith of the hunt: not a reviewer'],
     ['stranger',  Unlocked, 'notPermitted',  'only a smith of the hunt: not a stranger'],
     ['smith',     null,     'allow',         "a quiz that is gone is the write's to refuse, as it would be for anyone"],
@@ -127,7 +127,7 @@ describe('Approve.mayWriteReview', () => {
 describe('Approve.mayReadReview', () => {
   const Cases: [ReviewPolicyT, Standing, ReviewPolicyT | null, Approve.VerdictT, string][] = [
     // one case per guard, in order:
-    [reviewBy(alice_id, 'draft'),                 'anonymous', null,                           'notIdentified', 'nobody who has asserted no username'],
+    [reviewBy(alice_id, 'draft'),                 'anonymous', null,                           'notIdentified', 'nobody who has asserted no userlabel'],
     [reviewBy(alice_id, 'draft', other_hunt_id),  'smith',     null,                           'notPermitted',  "claims on another hunt say nothing of this one, not even of one's own"],
     [reviewBy(alice_id, 'draft'),                 'reviewer',  reviewBy(alice_id, 'draft'),    'allow',         "one's own review, while one is on its hunt"],
     [reviewBy(bob_id, 'draft'),                   'smith',     null,                           'notPermitted',  'nobody else reads a review that is not shared, not even a smith'],
@@ -150,7 +150,7 @@ describe('Approve.mayReadReview', () => {
 
 describe('Approve.mayChangeMembership', () => {
   const Cases: [Standing, Actor.IdentRefT, Approve.VerdictT, string][] = [
-    ['anonymous', { ident_id: bob_id },              'notIdentified', 'nobody who has asserted no username'],
+    ['anonymous', { ident_id: bob_id },              'notIdentified', 'nobody who has asserted no userlabel'],
     ['reviewer',  { ident_id: bob_id },              'notPermitted',  'only a smith of the hunt: not a reviewer'],
     ['stranger',  { ident_label: 'bob_reviews' },    'notPermitted',  'only a smith of the hunt: not a stranger'],
     ['smith',     { ident_id: alice_id },            'ownHunting',    'nobody changes their own place on it, named by id'],
@@ -166,7 +166,7 @@ describe('Approve.mayChangeMembership', () => {
 })
 
 describe('Approve.mayReadLibrary', () => {
-  it('nobody who has asserted no username', () => {
+  it('nobody who has asserted no userlabel', () => {
     expect(Approve.mayReadLibrary(Actor.anonymous)).to.eq('notIdentified')
   })
 
@@ -183,7 +183,7 @@ function nobodyIsAdmin(): void {
 describe('Approve.mayChangeLibrary', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('nobody who has asserted no username', () => {
+  it('nobody who has asserted no userlabel', () => {
     expect(Approve.mayChangeLibrary(Actor.anonymous)).to.eq('notIdentified')
   })
 
@@ -210,21 +210,21 @@ describe('Approve.mayCountUsage', () => {
 describe('Approve.mayReadBackfills', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('nobody who has asserted no username, an admin, and nobody else', () => {
+  it('nobody who has asserted no userlabel, an admin, and nobody else', () => {
     const verdicts = [Approve.mayReadBackfills(Actor.anonymous), Approve.mayReadBackfills(Alice)]
     nobodyIsAdmin()
     expect([...verdicts, Approve.mayReadBackfills(Alice)]).to.deep.eq(['notIdentified', 'allow', 'notPermitted'])
   })
 })
 
-describe('Approve.mayAssertUsername', () => {
+describe('Approve.mayAssertUserlabel', () => {
   it('anyone', () => {
-    expect(Approve.mayAssertUsername()).to.eq('allow')
+    expect(Approve.mayAssertUserlabel()).to.eq('allow')
   })
 })
 
 describe('Approve.mayRetitleIdent and Approve.mayMakeHunt', () => {
-  it('nobody who has asserted no username', () => {
+  it('nobody who has asserted no userlabel', () => {
     expect([Approve.mayRetitleIdent(Actor.anonymous), Approve.mayMakeHunt(Actor.anonymous)]).to.deep.eq(['notIdentified', 'notIdentified'])
   })
 

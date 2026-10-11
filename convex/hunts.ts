@@ -16,7 +16,7 @@ const { userlabel, label, zid, zod } = ValidatorKit
 
 /**
  * The hunts the asking actor is on, as the hunts list shows them, each with its role there and
- * the org it is addressed under, in the order they were made. None for an actor who has asserted no username. It spans hunts, and
+ * the org it is addressed under, in the order they were made. None for an actor who has asserted no userlabel. It spans hunts, and
  * so holds the whole database (`Unscoped` in `authorize.ts`), needing no rule: it reads the
  * actor's own huntings, and only the hunts those name.
  */
@@ -77,7 +77,7 @@ export const whole = zHuntQuery({
  * for their own review, anyone on it. What it writes, it writes only to that hunt.
  *
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`) when the action cannot be
- *   carried out (`notIdentified` for an actor who has asserted no username, `notPermitted` for an
+ *   carried out (`notIdentified` for an actor who has asserted no userlabel, `notPermitted` for an
  *   affirm that is not so or an action its ident may not take, `quizLocked` for a change to a
  *   locked quiz, `ownHunting` for a change to one's own place on the hunt), or `{ ZodError }` when
  *   an argument is not valid; nothing is written.
@@ -100,7 +100,7 @@ export const perform = zHuntMutation({
  *
  * @returns The hunt made or changed.
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`: `notSignedIn` for a request
- *   with no session, `notIdentified` for a session that has asserted no username, `notPermitted`
+ *   with no session, `notIdentified` for a session that has asserted no userlabel, `notPermitted`
  *   for a hunt its ident may not change), or `{ ZodError }` for an argument that is not valid;
  *   nothing is written.
  */

@@ -14,7 +14,7 @@ import { present } from '../support/present'
 import { callerOf, huntHolding, identified, openTester, putOn, refusedAs, seedHunt, signedIn, wholeHunt, type Session, type Tester } from '../support/convex'
 import { expectSound } from '../support/soundness'
 
-/** Assert the username `label` as the session `by` (the bare tester for no session), through the public function */
+/** Assert the userlabel `label` as the session `by` (the bare tester for no session), through the public function */
 async function assume(by: Session | Tester, label: string, title = '') {
   return await callerOf(by).mutation(api.idents.perform, { action: { kind: 'assume_ident', label, title } })
 }
@@ -77,7 +77,7 @@ describe('idents.perform: assume_ident', () => {
     expect([again, idents.map((row) => row.title), identings.length]).to.deep.eq([first, ['Flip'], 2])
   })
 
-  it('claims an ident nobody holds yet, made before usernames were held', async () => {
+  it('claims an ident nobody holds yet, made before userlabels were held', async () => {
     const tt = openTester()
     await tt.run(async (ctx) => { await ctx.db.insert('idents', { label: 'old_timer', title: 'Old Timer', user_id: null }) })
     const session = await signedIn(tt)
@@ -86,20 +86,20 @@ describe('idents.perform: assume_ident', () => {
     expect(idents.map((row) => row.user_id)).to.deep.eq([session.user_id])
   })
 
-  it('refuses a username another session holds, saying what to do instead, and writes nothing', async () => {
+  it('refuses a userlabel another session holds, saying what to do instead, and writes nothing', async () => {
     const tt = openTester()
     const [mine, theirs] = [await signedIn(tt), await signedIn(tt)]
     await assume(mine, 'flip_kromer', 'Flip')
     const ante = await identLabelled(tt, 'flip_kromer')
     const err = await rejectionOf(assume(theirs, 'flip_kromer', 'Not Flip'))
-    expect([failurekindOf(err), noticeOf(err)]).to.deep.eq(['usernameClaimed', RefusalNotices.usernameClaimed])
-    expect(noticeOf(err)).to.match(/different one.*create an account on the device/)
+    expect([failurekindOf(err), noticeOf(err)]).to.deep.eq(['userlabelClaimed', RefusalNotices.userlabelClaimed])
+    expect(noticeOf(err)).to.match(/different one.*the browser where you first chose it/)
     expect(await identLabelled(tt, 'flip_kromer')).to.deep.eq(ante)
     const identings = await allOf(tt, 'identings')
     expect(identings.map((row) => row.user_id)).to.deep.eq([mine.user_id])
   })
 
-  it('leaves one holder when a second session asserts a new username the first just took', async () => {
+  it('leaves one holder when a second session asserts a new userlabel the first just took', async () => {
     const tt = openTester()
     const [mine, theirs] = [await signedIn(tt), await signedIn(tt)]
     const pending = [assume(mine, 'fresh_name'), assume(theirs, 'fresh_name')]
@@ -109,7 +109,7 @@ describe('idents.perform: assume_ident', () => {
     expect(idents.map((row) => row.label)).to.deep.eq(['fresh_name'])
   })
 
-  it('lets one session hold two usernames, the newer being who it is now', async () => {
+  it('lets one session hold two userlabels, the newer being who it is now', async () => {
     const tt = openTester()
     const session = await signedIn(tt)
     await assume(session, 'flip_kromer')
@@ -161,7 +161,7 @@ describe('idents.current', () => {
     expect(actor.ident_id).to.eq(ident._id)
   })
 
-  it('is null for a session that has asserted no username, and for a request with no session', async () => {
+  it('is null for a session that has asserted no userlabel, and for a request with no session', async () => {
     const tt = openTester()
     await identified(tt, 'flip_kromer')
     const session = await signedIn(tt)
@@ -189,7 +189,7 @@ describe('idents.perform: retitle_ident', () => {
     await expectSound(tt)
   })
 
-  it('refuses a session that has asserted no username, or a request with no session, writing nothing', async () => {
+  it('refuses a session that has asserted no userlabel, or a request with no session, writing nothing', async () => {
     const tt = openTester()
     const session = await signedIn(tt)
     expect([await refusedAs(retitle(session, 'Otto')), await refusedAs(retitle(tt, 'Otto'))]).to.deep.eq(['notIdentified', 'notSignedIn'])
@@ -218,7 +218,7 @@ describe('hunts.performOuter: new_hunt', () => {
     await expectSound(tt)
   })
 
-  it('refuses a session that has asserted no username, or a request with no session, writing nothing', async () => {
+  it('refuses a session that has asserted no userlabel, or a request with no session, writing nothing', async () => {
     const tt = openTester()
     const session = await signedIn(tt)
     expect([await refusedAs(makeHunt(tt, 'loud_heron', session)), await refusedAs(makeHunt(tt, 'loud_heron', tt))]).to.deep.eq(['notIdentified', 'notSignedIn'])
@@ -323,7 +323,7 @@ describe('hunts.performOuter: retitle_hunt and relabel_hunt', () => {
     expect(await held()).to.deep.eq(ante)
   })
 
-  it('refuses a session that has asserted no username', async () => {
+  it('refuses a session that has asserted no userlabel', async () => {
     const { tt, perform } = await smithed()
     const pending = perform({ kind: 'retitle_hunt', title: 'Mine now' }, await signedIn(tt))
     expect(await refusedAs(pending)).to.eq('notIdentified')

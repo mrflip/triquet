@@ -67,7 +67,7 @@ export const ValidatorKit = {
    * @example labelAllowing(new Set(['min'])).parse('max')  // throws
    */
   labelAllowing: (allowed: ReadonlySet<string>) => CK.labelshape.refine((val) => PA.isUnreserved(val, allowed), PA.Unreserved.msg).describe('simple label, or one of a few allowed'),
-  /** A username -- an ident's label: label-shaped, 6 to 24 characters, since it is a name a person chose and types to become; never a reserved word, top-level ones included */
+  /** A userlabel -- an ident's label: label-shaped, 6 to 24 characters, since it is a name a person chose and types to become; never a reserved word, top-level ones included */
   userlabel:  CK.userlabel,
   /** Epoch milliseconds */
   timestamp: Z.int().positive(),

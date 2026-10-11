@@ -64,10 +64,10 @@ effort, and a shallow clone may list no commits.
   own for them, set on the deployment (the Convex dashboard, or `npx convex env set`), never in
   Doppler's app configs: `JWT_PRIVATE_KEY` and `JWKS`, a key pair minted for that deployment alone
   (`scripts/convex_auth_keys` shows how), and `SITE_URL`, the web app's address. Without them no
-  browser can sign in, and so none can assert a username. Preview deployments take theirs from
+  browser can sign in, and so none can assert a userlabel. Preview deployments take theirs from
   the project's default environment variables for previews. A fourth names the admins, who may
-  change the widget library: `TRIQUET_ADMINS`, usernames parted by commas or spaces (`*` for
-  every username, which only a local backend should have). Unset, nobody is an admin. Production:
+  change the widget library: `TRIQUET_ADMINS`, userlabels parted by commas or spaces (`*` for
+  every userlabel, which only a local backend should have). Unset, nobody is an admin. Production:
   `./scripts/doppledo prd_janitor npx convex env set TRIQUET_ADMINS mrflip`. Previews take it from
   the same defaults; a local backend gets `*` from `scripts/convex_dev` unless `TRIQUET_ADMINS` is
   in its environment.
@@ -342,7 +342,7 @@ A Coach's steps, in order:
    the new one serves. A row that slipped in names itself in the build log; clear it and redeploy.
 3. **Deploy**: merge.
 4. **Backfill**: `./scripts/doppledo prd_janitor npx convex run migrations:run '{"fn": "migrations:backfillIdentClaims"}'`.
-   Every ident made before is then claimed by nobody, and the first session to assert its username
+   Every ident made before is then claimed by nobody, and the first session to assert its userlabel
    holds it from then on: that is how each person gets theirs back, and also how someone else could
    get there first.
 

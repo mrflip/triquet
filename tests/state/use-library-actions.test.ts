@@ -15,7 +15,7 @@ describe('libraryDenialOf', () => {
     expect(libraryDenialOf(Alice, Move)).to.eq(null)
   })
 
-  it('refuses one who has asserted no username, as the server would', () => {
+  it('refuses one who has asserted no userlabel, as the server would', () => {
     expect(libraryDenialOf(Actor.anonymous, { kind: 'delete_widget', label: 'dumdum' })).to.eq('notIdentified')
   })
 

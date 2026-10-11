@@ -102,8 +102,9 @@ beneath everything: any layer may import its types, `api` and `Doc` among them.)
   editors and readouts; `panels/` sit below the grid. Hooks that only serve a view (`use-draft`,
   `use-reorder`) live beside it.
 * `src/state/` -- the browser's side of the data: the hooks that subscribe to the server's queries
-  and call its mutations (`use-hunt`, `use-ident`, `use-hunts-list`, `use-account-actions`), the
-  browser key, the asking and bots hooks, and the quiz history mirror with its commit scheduler.
+  and call its mutations (`use-hunt`, `use-ident`, `use-hunts-list`, `use-user-actions`,
+  `use-outer-hunt-actions`), the browser key, the asking and bots hooks, and the quiz history
+  mirror with its commit scheduler.
 * `convex/` -- the server, and the whole of it:
   `schema.ts` (derived from the row validators), one file per noun of public functions,
   `reading.ts` (indexed reads), `writing/` (the actions a mutation carries out), `authorize.ts`

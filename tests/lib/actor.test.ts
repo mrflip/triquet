@@ -6,7 +6,7 @@ const user_id  = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
 const ident_id = 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>
 
 describe('Actor.anonymous', () => {
-  it('is the one actor of a request that has asserted no username, and cannot be changed', () => {
+  it('is the one actor of a request that has asserted no userlabel, and cannot be changed', () => {
     expect(Actor.anonymous).to.deep.eq({ kind: 'anonymous' })
     expect(Object.isFrozen(Actor.anonymous)).to.be.true
   })
@@ -20,15 +20,15 @@ describe('Actor.asIdent', () => {
 
 const AdminCases: [string | undefined, string, boolean, string][] = [
   // regular usage:
-  ['mrflip',         'mrflip',        true,  'the one username named'],
+  ['mrflip',         'mrflip',        true,  'the one userlabel named'],
   ['mrflip, ada_l',  'ada_l',         true,  'one of several, parted by a comma and a space'],
   ['mrflip,ada_l',   'ada_l',         true,  'one of several, parted by a comma alone'],
   ['mrflip ada_l',   'ada_l',         true,  'one of several, parted by a space alone'],
-  ['*',              'anyone_at_all', true,  'every username, as a local backend has it'],
+  ['*',              'anyone_at_all', true,  'every userlabel, as a local backend has it'],
   // who is not:
-  ['mrflip',         'ada_l',         false, 'a username not named'],
-  ['mrflip',         'mrflip_two',    false, 'a username the named one begins'],
-  ['mrflip',         'mrfli',         false, 'a username that begins the named one'],
+  ['mrflip',         'ada_l',         false, 'a userlabel not named'],
+  ['mrflip',         'mrflip_two',    false, 'a userlabel the named one begins'],
+  ['mrflip',         'mrfli',         false, 'a userlabel that begins the named one'],
   ['mr*',            'mrflip',        false, 'a star inside a name, which is no pattern'],
   // naming nobody:
   [undefined,        'mrflip',        false, 'unset'],

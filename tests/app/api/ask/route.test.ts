@@ -151,7 +151,7 @@ describe('POST /api/ask', () => {
     fetched.mockResolvedValue(Response.json({ type: 'error', error: { type: 'permission_error', message: 'nope' } }, { status: 403 }))
     const answer = await POST(askOf('Hint: Think a dozen minus five', 'careful', 4000))
     const reply = await answer.json() as { failurekind: string }
-    expect(reply.failurekind).to.eq('accountOff')
+    expect(reply.failurekind).to.eq('keyRefused')
     expect(logged).toHaveBeenCalledOnce()
     expect(logged.mock.calls[0]?.[0]).to.match(/^Triquet: could not answer an ask of the careful tier — Error: 403 .*permission_error/)
   })

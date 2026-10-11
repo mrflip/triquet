@@ -60,7 +60,7 @@ const LabelDrawsMax = 9
  * dialogs would, in the order given. The e2e suite's way in to a quiz that is not about the way
  * in: the ident is the one its worker's browsers hold, and the address is where they go. Unlike
  * `new_hunt`, it makes one however many its ident has made (`makeHuntFor`): a worker makes every
- * hunt of its tests, and a run on one worker makes more than one username may.
+ * hunt of its tests, and a run on one worker makes more than one userlabel may.
  * Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production never has.
  *
  * Internal, never public: acting as whichever ident an argument names is for a holder of the

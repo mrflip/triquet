@@ -17,7 +17,7 @@ import { Validator } from './validator'
 /** Where each hunt's repository lives, one directory per hunt, named by the id that never moves */
 export const RepoRoot = '/hunts'
 
-/** Who every commit is attributed to. There are no accounts here, and nothing leaves the browser. */
+/** Who every commit is attributed to: the app, never a person, and nothing leaves the browser. */
 export const GitAuthor = { name: 'Triquet', email: 'triquet@localhost' } as const
 
 /**

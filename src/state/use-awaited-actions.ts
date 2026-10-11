@@ -27,7 +27,7 @@ export type AwaitedActionsHandle<DNA> = {
 export type PerformingT<DNA> = (args: { action: DNA }) => Promise<unknown>
 
 /**
- * What a visitor can do outside any quiz, by `perform` -- assert a username, make a hunt --
+ * What a visitor can do outside any quiz, by `perform` -- assert a userlabel, make a hunt --
  * carried out one at a time, with a sentence rather than a code when one fails. The hooks for each
  * noun (`useUserActions`, `useOuterHuntActions`) make their mutation and hand it here.
  *

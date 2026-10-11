@@ -78,7 +78,7 @@ export class Review implements ReviewRowT {
   /**
    * Whether the claimed actor wrote `review` and is on its hunt now. In order:
    *
-   * * Nobody who has asserted no username wrote it
+   * * Nobody who has asserted no userlabel wrote it
    * * Nobody else's review is theirs
    * * Claims on another hunt say nothing of this one
    * * The writer, while a member of its hunt
@@ -87,7 +87,7 @@ export class Review implements ReviewRowT {
    */
   static isActiveOwner(review: Pick<ReviewRowT, 'hunt_id' | 'ident_id'>, claims: Actor.HuntClaimsT): boolean {
     /* eslint-disable unicorn/prefer-combined-guards -- one guard per rule, each beside its rule, as notes/policy_approve.md asks */
-    if (Actor.isAnonymous(claims))           { return false } // Nobody who has asserted no username wrote it
+    if (Actor.isAnonymous(claims))           { return false } // Nobody who has asserted no userlabel wrote it
     if (review.ident_id !== claims.ident_id) { return false } // Nobody else's review is theirs
     if (review.hunt_id !== claims.hunt_id)   { return false } // Claims on another hunt say nothing of this one
     /* eslint-enable unicorn/prefer-combined-guards */
@@ -96,7 +96,7 @@ export class Review implements ReviewRowT {
 
   /**
    * The review of `reviews` that `actor` wrote; null when they wrote none, or have asserted no
-   * username.
+   * userlabel.
    *
    * @param reviews - Reviews of one quiz.
    * @param actor - Who is asking.
