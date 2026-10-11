@@ -15,7 +15,7 @@
  *
  *   ./scripts/doppledo dev_claude scripts/convex_dev agent node scripts/convex-migrations.ts run
  */
-import { execFileSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { z } from 'zod'
 
@@ -117,13 +117,18 @@ export async function awaitBackfills(waiter: Waiter, limitSeconds: number): Prom
 /**
  * What the convex CLI prints for running `fn` with `args` on the deployment its environment names,
  * parsed as JSON. Run from `cwd` (this checkout, unless told otherwise), with `env` over the
- * process's.
+ * process's. What the CLI says on stderr reaches the terminal, unless `quiet`, when it goes into
+ * the error thrown instead (for a probe whose failure means something).
  */
-export function convexRun(fn: string, args?: Record<string, unknown>, opts: { cwd?: string, env?: Record<string, string | undefined> } = {}): unknown {
+export function convexRun(fn: string, args?: Record<string, unknown>, opts: { cwd?: string, env?: Record<string, string | undefined>, quiet?: boolean } = {}): unknown {
   const argv = ['exec', 'convex', 'run', fn, ...(args ? [JSON.stringify(args)] : [])]
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- the pnpm this checkout already runs
-  const printed = execFileSync('pnpm', argv, { cwd: opts.cwd, env: { ...process.env, ...opts.env }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] })
-  return printed.trim() === '' ? null : JSON.parse(printed)
+  const ran = spawnSync('pnpm', argv, { cwd: opts.cwd, env: { ...process.env, ...opts.env }, encoding: 'utf8', stdio: ['ignore', 'pipe', opts.quiet ? 'pipe' : 'inherit'] })
+  if (ran.status !== 0) {
+    const said = opts.quiet ? (ran.stderr || '').trim().split('\n', 3).slice(0, 2).join(' ') : 'see above'
+    throw new Error(`convex run ${fn} failed (exit ${String(ran.status)}): ${said}`)
+  }
+  return ran.stdout.trim() === '' ? null : JSON.parse(ran.stdout)
 }
 
 /** What a run of the backfills came to */
