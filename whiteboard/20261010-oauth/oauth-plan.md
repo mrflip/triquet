@@ -110,6 +110,14 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
    provider and signs nobody in, so it is not the "fake Google" the ground rules forbid. But it is
    a way past sealing on test backends, so its reviewer and thread 9 check its gate.
 
+8. **"Signed in with Google" is one predicate: the user is not anonymous** (`users.isAnonymous`
+   false; the actor's `anonymous`), as sealing already reads it (thread 3). Threads 4 and 5 run
+   side by side, and both need it: 4 for the admin flag and grants, 5 for admin counting at all.
+   Only thread 5's upgrade (a Google account joining) clears the flag in production; e2e's
+   `testing:vouchFor` clears it only where `TRIQUET_CLEARABLE=yes`. Thread 5 owns the predicate's
+   home (beside `Actor.ofUser`); thread 4 reads the user's flag directly if 5 has not landed, and
+   switches to the predicate at catch-up.
+
 ## The Coach's guidance during the sprint
 
 * **2026-10-11: an anonymous (sealed) user may not delete a hunt.** "No new hunt, no delete hunt

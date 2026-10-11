@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: 7, 2, 1 and 8 landed (#226-#229); 3 landing (2026-10-11).**
+**Status: 7, 2, 1, 8 and 3 landed (#226-#230); 4 and 5 underway (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -9,9 +9,9 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 |---|--------|--------|--------|----|
 | 1 | `split_account`: free the words "account" and "username" | landed #228 | `20261011-split_account` | [#228](https://github.com/mrflip/triquet/pull/228) |
 | 2 | `clear_people`: delete production's people, keep its hunts | landed #227 | `20261011-clear_people` | [#227](https://github.com/mrflip/triquet/pull/227) |
-| 3 | `converge`: users and huntships, everywhere | landing (full e2e) | `20261011-converge` | |
-| 4 | `adopt_script`: give a user a userlabel, admin, and hunts | pending (3) | | |
-| 5 | `google_signin`: the provider, the patch, the merge | pending (3) | | |
+| 3 | `converge`: users and huntships, everywhere | landed #230 | `20261011-converge` | [#230](https://github.com/mrflip/triquet/pull/230) |
+| 4 | `adopt_script`: give a user a userlabel, admin, and hunts | underway | `20261011-adopt_script` | |
+| 5 | `google_signin`: the provider, the patch, the merge | underway | `20261011-google_signin` | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
@@ -49,6 +49,12 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   full run), no flakes. Its title ends "(merge after the clear)": idents are not grandfathered.
   Left: the check names hunts only (an ident with a reserved label and no hunt goes unlisted;
   moot once thread 3 drops idents); the script's "stays writable" wording, fixed at landing.
+* **Thread 3, #230**, stacked on #229; merge only after the clear. *Reviews:* first `flagged`
+  (an anonymous smith could relabel its sandbox), fixed by the worker; second `clean`. Left for
+  thread 6: hide the Label field and the delete button from a sealed user (`mayOffer`). Then, on
+  the Coach's word, `mayDeleteHunt` refuses a sealed user (`sealedDelete`); that change landed
+  after the second review, unreviewed: **thread 9 covers it**. Full e2e 299/299, no flakes (one
+  real failure before, in `routing.spec.ts`, fixed: the spec now vouches for its smith).
 * **Thread 1's notes for thread 3** (`thread-1-split_account.md`): move the `hunts.performOuter`
   tests to `hunts.test.ts`; sealing goes in `mayMakeHunt` and `newHunt`; "anonymous" means two
   things today (Convex Auth's `isAnonymous`, no proof; and the actor's `{ kind: 'anonymous' }`,
