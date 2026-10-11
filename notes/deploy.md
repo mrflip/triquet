@@ -253,6 +253,24 @@ command against their own lane's backend (`./scripts/doppledo dev_claude scripts
 <role> scripts/<command>`) and in convex-test, and never run it under a production config, not
 even dry.
 
+### Checking the reserved list against production
+
+The reserved list (`src/lib/vv/patterns.ts`, `ReservedToplevelGroups` and the prefixes beside it)
+keeps a new hunt's label and a userlabel being claimed from the words for the app's own pages and
+people. It governs only new labels: a hunt or an org named before a word joined the list keeps
+it, at its address, and stays writable, since a hunt's row holds its label and org to their shape
+and the words every label is kept from alone. After the list grows, see what it leaves standing:
+
+```
+./scripts/doppledo prd_janitor scripts/check_reserved
+```
+
+It reads every hunt (`check_reserved:refused`) and names each one whose label or org the list
+would refuse were it made now, as `~org/label`, saying which of the two. It writes nothing, and
+behind the guard it names the deployment it reached first; `--deployment` changes nothing but which
+deployment it insists on. A hunt it names needs nothing done: it is there to tell you who holds a
+word now kept, if you want to ask them to move.
+
 ### Clearing production's people (the OAuth sprint, October 2026)
 
 Production keeps its hunts and loses its people (the Coach, 2026-10-11): the sprint makes Convex

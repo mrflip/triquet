@@ -77,6 +77,14 @@ security expert who knows what questions to ask.
   site (`*OAuthstate`, `*OAuthpkce`, `*OAuthnonce`, `*RedirectTo`, fifteen minutes each); and that
   nothing goes to a bot unasked. Code that changes any of these
   changes the policy, and its date, in the same PR.
+* 2026-10-11 (oauth sprint, thread 8): the reserved list keeps a new hunt label or userlabel from
+  passing for the app, its pages, its roles, Google or the bot (`PA.ReservedToplevelGroups`, and
+  the prefixes `google`, `triquet`, `admin`, `support`, `official`, `verif`, `secur`, `login`,
+  `help`). It is matched exactly against labels, which hold only lowercase ASCII letters, digits
+  and underscores, so near spellings (`go0gle`, `triquett`) pass. It governs only a label being
+  made or claimed: a hunt row's label and org are held to their shape and the words every label is
+  kept from (`CK.heldUserlabel`), so a hunt or org named before a word was kept keeps it, and
+  `scripts/check_reserved` names them.
 * 2026-10-11 (oauth sprint, thread 2): `clear_people:clearBatch` (`convex/clear_people.ts`), an
   internal mutation, deletes every row of Convex Auth's tables (`users`, `authAccounts`,
   `authSessions`, `authRefreshTokens`, `authVerifiers`, `authVerificationCodes`,
