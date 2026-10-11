@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-11. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `/sprint oath YOLO`, "plan and execute the sprint described in
 whiteboard/20261010-oauth", which is `20261011-oauth_preplan.md` beside this file.
-**Status: planned; threads 1, 2 and 7 underway.** `oauth-progress.md`, beside this file, is newer
+**Status: paused (2026-10-11): thread 5's second review left a significant finding for the Coach (`human/20261011-sprint_oauth_paused.md`). Threads 1, 2, 3, 4, 7, 8 landed (#226-#231); 5 waits in its worktree; 6 and 9 not started.** `oauth-progress.md`, beside this file, is newer
 than this plan wherever the two disagree.
 
 The earlier plan in this file (three threads, an app-made hand-off, 2026-10-10) is superseded and
@@ -117,6 +117,18 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
    `testing:vouchFor` clears it only where `TRIQUET_CLEARABLE=yes`. Thread 5 owns the predicate's
    home (beside `Actor.ofUser`); thread 4 reads the user's flag directly if 5 has not landed, and
    switches to the predicate at catch-up.
+
+9. **Thread 5's login-CSRF finding is fixed in thread 5, not held** (2026-10-11). Its review
+   found that the patch lets a sign-in started in one browser upgrade or merge the starting
+   user when it is finished in another (the victim's), because Convex Auth decides at the
+   callback, before the `?code=` exchange that ties the flow to the starting browser. The worker
+   is directed to keep the Coach's behaviour (upgrade, switch, merge) but decide upgrade and merge
+   only once the finishing browser has proven it is the starting one: at the exchange (a wider
+   patch) or by a claim afterwards. If neither can be made secure without a large rewrite, it
+   reports `blocked`. *Why not pause:* it is code that reaches production only through the
+   Coach's merge and the Coach's keys. Dropping upgrade and merge would reverse the Coach's
+   decision, and the app's own one-time hand-off would reverse the Coach's choice of the patch.
+   **Production's Google keys wait until this is reviewed.**
 
 ## The Coach's guidance during the sprint
 

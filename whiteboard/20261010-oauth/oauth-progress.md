@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: 7, 2, 1, 8, 3 and 4 landed (#226-#231); 5 underway (2026-10-11).**
+**Status: paused (2026-10-11), on thread 5's second review: a decision for the Coach (`human/20261011-sprint_oauth_paused.md`). 7, 2, 1, 8, 3 and 4 landed (#226-#231).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -11,7 +11,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 2 | `clear_people`: delete production's people, keep its hunts | landed #227 | `20261011-clear_people` | [#227](https://github.com/mrflip/triquet/pull/227) |
 | 3 | `converge`: users and huntships, everywhere | landed #230 | `20261011-converge` | [#230](https://github.com/mrflip/triquet/pull/230) |
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | landed #231 | `20261011-adopt_script` | [#231](https://github.com/mrflip/triquet/pull/231) |
-| 5 | `google_signin`: the provider, the patch, the merge | underway | `20261011-google_signin` | |
+| 5 | `google_signin`: the provider, the patch, the merge | blocked: second review flagged; waits for the Coach in its worktree | `20261011-google_signin` | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
@@ -190,6 +190,55 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   sprint, saying the command in chat first and relaying its output whole. No worker runs it, and
   nothing in this sprint's run does. `--smith-all` also reaches anonymous sandboxes; production
   holds none at adoption time, as everyone is cleared first.
+
+* **What thread 5 built, for threads 6 and 9** (`thread-5-google_signin.md`):
+  - **The predicate** is `Actor.isSignedInWithGoogle(user)`, beside `Actor.ofUser`; `admin`
+    counts only when it holds; `convex/adopt.ts` uses it.
+  - **The one start** for both of thread 6's doors: `useGoogleSignIn()` in
+    `src/state/use-google-sign-in.ts` returns `{ offered, start }`; `offered` (from the new
+    `auth:offered` query) waits for the session.
+  - **The pending name choice:** the merged-away user keeps its handle (so nobody takes it) and is
+    marked `users.merged = { into_user_id, account_id }`; `nameChoiceFor(db, user_id)` in
+    `convex/reading.ts` reads it in one indexed lookup. **Thread 6:** settle it with
+    `User.relabelled` (the held-handle rule, which the merge uses), not `relabelUser`, which holds a
+    new handle to the claim rules and would refuse a since-reserved merged handle.
+  - **Decided beyond the table:** a known Google user holding no handle takes the anonymous user's
+    handle and title outright, with no choice; the merged-away user is taken off the sandbox.
+    Nothing is decided by email; two Google accounts sharing one email stay two users.
+  - **`forgetSession` (`e2e/support.ts`) now leaves for `/privacy` first**, so an in-flight token
+    refresh cannot write the forgotten session back. That explains the `routing.spec.ts` flake
+    thread 4 saw.
+  - *Review, first pass (flagged, significant):* **login CSRF through the patch's
+    `authUserId`.** The sign-in route signs any verifier id from any browser, verifiers never
+    expire, and `createOrUpdateUser` runs at the callback, before the `?code=` exchange. So a
+    victim finishing an attacker's sign-in link upgrades the attacker's anonymous user with the
+    victim's Google account (takeover), or merges the attacker's sandbox into the victim. Directed
+    fix (plan, YOLO 9): decide upgrade and merge only once the finishing browser proves it is the
+    starting one. The reviewer's fix kept: the merge test counts every refresh token. Minor:
+    `nameChoiceFor` returns the first by userlabel, not the earliest, as its doc says; `convex_dev`
+    discards only stdout of `env set`; a merged-away user's verifier rows stay.
+    **Fixed** (`eb893732`): upgrade and merge are decided at the `?code=` exchange, where only
+    the starting browser holds both code and verifier. The patch now goes beyond #306 (`dist/`
+    only): no session at the callback; the verifier's session handed over at the exchange in a
+    second `createOrUpdateUser` call; a code shown with the wrong verifier is spent. Our code:
+    `accountUserAtCallback` (links the account to its own user or a new `users.provisional` one)
+    and `userAtExchange` (decides the table; folds a provisional user into an upgraded anonymous
+    one). Upstream #306 has the same hole: commenting there is for the Coach. **Thread 6:**
+    `nameChoiceFor` returns the first merged-away user *by userlabel* (doc corrected, behaviour
+    kept). **Thread 9:** the 8-digit code lives 2 minutes, unthrottled.
+  - *Second review (flagged, significant):* the CSRF as reported is closed. But **a verifier is a
+    never-expiring bearer credential for its starting session**: the sign-in route re-signs any
+    verifier that exists, so whoever learns a victim's verifier id (history, localStorage, maybe
+    logs) can finish with their own Google account and upgrade or merge the victim's anonymous
+    user into it. Recommended: hand the session on only from a recently made verifier, and
+    delete a verifier wherever its code dies. Fixes kept: `adopt` refuses a provisional user;
+    `notes/security.md` states the guess window rightly (the link's maker can land the victim
+    on `/privacy`, leaving the code unspent its whole 2 minutes). Minor: a `callbacks.redirect`
+    limited to synced pages, or a throttle, would close that window; provisional users and
+    orphaned verifiers are never swept. **The Coach decides** (no third review).
+  - **A near miss with the ground rule:** the first draft of the e2e spec followed the 302 to
+    Google's real sign-in page (Playwright's `page.route` does not catch a server redirect).
+    Nothing signed in; the spec now reads the 302 without following it. Reported to the Coach.
 
 ## Convex Auth, as installed (checked 2026-10-10)
 
