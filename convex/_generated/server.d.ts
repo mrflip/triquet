@@ -34,8 +34,8 @@ type Env = {
   readonly JWKS: string | undefined;
   readonly JWT_PRIVATE_KEY: string | undefined;
   readonly SITE_URL: string | undefined;
-  readonly TRIQUET_ADMINS: string | undefined;
   readonly TRIQUET_CLEARABLE: "yes" | undefined;
+  readonly TRIQUET_EVERYONE_ADMIN: "yes" | undefined;
 };
 
 /**
