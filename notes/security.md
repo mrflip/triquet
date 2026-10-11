@@ -149,12 +149,36 @@ security expert who knows what questions to ask.
   already has. Left: the code is 8 digits and lives 2 minutes, and guesses at it are not throttled,
   so the link's maker, holding the verifier, can guess at it (or use it, if it leaks) until the
   clicker's browser presents it. The link's maker chooses where that browser lands (the sign-in
-  route's `redirectTo`, any path on the site), and a page outside `(synced)` (`/privacy`,
-  `/terms`, `/about`) runs no Convex client and never presents it, so the maker can always have
-  the whole 2 minutes. A provisional user whose exchange never came stays, holding its account,
+  route's `redirectTo`), and a page outside `(synced)` (`/privacy`, `/terms`, `/about`) runs no
+  Convex client and never presents it: closed since by the redirect rule (the next entry), so the
+  clicker's browser presents it, and spends it, as it lands. A provisional user whose exchange never came stays, holding its account,
   until that account signs in again; `adopt` refuses one. The patch's exact lines:
   `notes/stack.md`, *Authentication*. The callback is Google's redirect to the deployment, carrying
   no token; the PR's browser-chosen `scope` is not carried.
+* 2026-10-11 (oauth sprint, thread 5, the Coach's word after its second review): **a verifier is
+  bounded, and a refused exchange changes nothing.** A verifier is a bearer credential for the
+  session that started it: whoever learns its id (a history, local storage, a log) could finish a
+  sign-in of their own with it, and the sign-in route re-signs any verifier still there. So:
+  - the exchange hands the starting session on only from a verifier made within
+    `SIGN_IN_START_MAX_AGE_MS` (15 minutes) and still there, and otherwise refuses the exchange
+    whole;
+  - a verifier is deleted wherever its code dies: at the exchange, finished or refused; when its
+    code is presented with the wrong verifier, or has expired; when a later callback for the same
+    account replaces its code. Verifiers of sign-ins never finished at Google stay, unbounded in
+    number but useless past the bound (no sweep: `whiteboard/TODO.md`);
+  - Convex Auth's `redirect` callback (`returnUrlFor`, `convex/auth.ts`) sends a browser back only
+    to a relative path of a page that opens the database (`Routes.isSyncedPath`: the
+    `src/app/(synced)/` routes), never another site or a page without Convex Auth's provider, so
+    the code is exchanged, and spent, the moment the clicker's browser lands: the guess window at
+    the 8-digit code closes then, not at its 2 minutes;
+  - a refused or failed exchange leaves the browser exactly as it was: no row of its user changes
+    (tested for stale, wrong-verifier and expired codes, upgrade and merge alike), and the patched
+    client keeps the session it had stored rather than signing out (the DOM test,
+    `use-session.dom.test.tsx`). The tab then says the sign-in did not finish
+    (`useGoogleSignInOutcome`): it compares a SHA-256 fingerprint of its session's token, kept in
+    its own session storage as it left (never the token), with the token it came back on, and
+    clears any verifier Convex Auth left in local storage. A provisional user a refused sign-in
+    leaves has no session, and the account's next finished sign-in folds it away or keeps it.
 * 2026-10-11 (oauth sprint, thread 5): a Google sign-in's user is decided, at the code's exchange,
   by whose the account is and whose the starting browser was (`userForGoogle`,
   `convex/writing/user_actions.ts`), never by email: Convex Auth's default linking by verified email is off with our

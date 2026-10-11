@@ -464,3 +464,12 @@ headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (abo
   `prd_janitor` command on thread 2's guard (find a user by userlabel or Google email, as thread
   4's does; delete its user, accounts, sessions and huntships; leave hunts others are on) would
   make the promise a procedure. The in-app way is *Not in this sprint* (the pre-plan).
+
+## From oauth sprint, thread 5: google_signin
+
+* **No sweep of dead sign-ins.** A Google sign-in abandoned at Google leaves its `authVerifiers` row,
+  and one refused at the exchange may leave a `provisional` user holding its account (no session,
+  no handle; the account's next finished sign-in folds it away or keeps it). Both are harmless (a
+  verifier past `SIGN_IN_START_MAX_AGE_MS` hands on nothing), but they accumulate. A scheduled
+  sweep (Convex crons) of verifiers past the bound, and of provisional users with no session older
+  than a day, was left out: no crons in the oauth sprint (the Coach, 2026-10-11).

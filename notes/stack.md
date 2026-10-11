@@ -252,9 +252,17 @@ Settled; reach for these before writing the equivalent.
     2. **At the code's exchange** (`mutations/verifyCodeAndSignIn.js`), for an OAuth account, once
        the code and the verifier the browser kept have matched: the verifier's session is handed
        to `createOrUpdateUser` (asked a second time, `type: 'verification'`, empty profile), and
-       the verifier deleted.
-    3. **An OAuth code presented with the wrong verifier is spent** (the same file), so a code
-       leaked from the browser Google sent it to cannot be used by the verifier's holder.
+       the verifier deleted. A verifier gone, or made more than `SIGN_IN_START_MAX_AGE_MS` (15
+       minutes, named and explained in that file) before the exchange, refuses the exchange whole.
+    3. **A verifier dies with its code** (the same file, and `userOAuth.js`): a code presented
+       with the wrong verifier is spent with its verifier, so a code leaked from the browser Google
+       sent it to cannot be used by the verifier's holder; an expired code's verifier is deleted;
+       and a code replaced at a later callback for the same account takes its verifier with it.
+    4. **A refused or failed exchange keeps the browser's session** (`dist/react/client.js`):
+       upstream clears the stored tokens when the exchange answers no tokens, signing the browser
+       out (our `useSession` would then sign it in afresh as a new anonymous user, stranding the old
+       one), and leaves `isLoading` true for ever when it throws. Both now keep the session stored
+       before the round trip.
     The PR's other half, a browser-chosen `scope`, is left out. **Upstream needs the same fix:**
     #306 as written lets a link to someone's sign-in attach the clicker's account to them. **Drop
     the patch only when a release decides at the exchange** (not merely when it carries #306),
