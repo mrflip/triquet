@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import { api, internal } from '../../convex/_generated/api'
+import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { GoogleScope, googleKeyed } from '../../convex/auth'
-import { anonymousSession, googleUser, openTester, type SessionTester, type Tester } from '../support/convex'
+import { GoogleProfile as Profile, anonymousSession, googleCallback, googleUser, openTester, signInWithGoogle, type Tester } from '../support/convex'
 import { present } from '../support/present'
 
 // Google's keys, on this test's deployment, before `convex/auth.ts` is first loaded (hoisted above
@@ -16,27 +16,6 @@ vi.hoisted(() => {
 })
 afterAll(() => { vi.unstubAllEnvs() })
 
-/** What Google sends of one person, as Convex Auth's Google provider hands it on */
-const Profile = { email: 'flip@example.com', name: 'Flip Kromer', image: 'https://lh3.googleusercontent.com/a/flip' }
-
-/**
- * A Google sign-in carried through Convex Auth's own `store`, as its routes would carry it, past
- * the part only Google can do: the browser `by` starts it (a verifier, holding its session, if it
- * has one), the sign-in route signs it, and the callback, once Google has said who the person is,
- * hands the account and profile to `userOAuth`, which calls our `createOrUpdateUser`. Nothing
- * reaches Google.
- *
- * @param by - The browser starting the sign-in: a session's caller, or the bare tester (no session).
- * @param sub - Google's account id for the person.
- */
-async function signInWithGoogle(tt: Tester, by: SessionTester | Tester, sub: string): Promise<void> {
-  const verifier: unknown = await by.mutation(internal.auth.store, { args: { type: 'verifier' } })
-  if (typeof verifier !== 'string') { throw new TypeError('Convex Auth made no verifier') }
-  const signature = `signature-of-${verifier}`
-  await tt.mutation(internal.auth.store, { args: { type: 'verifierSignature', verifier, signature } })
-  await tt.mutation(internal.auth.store, { args: { type: 'userOAuth', provider: 'google', providerAccountId: sub, profile: Profile, signature } })
-}
-
 /** The user Google's account `sub` belongs to, and every user there is */
 async function accountUser(tt: Tester, sub: string): Promise<{ user_id: Id<'users'> | undefined, users: number }> {
   return await tt.run(async (ctx) => {
@@ -47,13 +26,23 @@ async function accountUser(tt: Tester, sub: string): Promise<{ user_id: Id<'user
 }
 
 describe('a Google sign-in, through Convex Auth', () => {
-  it("hands our createOrUpdateUser the signing-in browser's user (the patch), so an anonymous browser is upgraded in place", async () => {
+  it("hands our createOrUpdateUser the starting browser's user at the code's exchange (the patch), so an anonymous browser is upgraded in place", async () => {
     const tt = openTester()
     const anon = await anonymousSession(tt)
-    await signInWithGoogle(tt, anon.as, 'google-sub-flip')
+    expect(await signInWithGoogle(tt, anon, 'google-sub-flip')).to.eq(anon.user_id)
     expect(await accountUser(tt, 'google-sub-flip')).to.deep.eq({ user_id: anon.user_id, users: 1 })
     const user = present(await tt.run(async (ctx) => await ctx.db.get('users', anon.user_id)))
     expect([user.isAnonymous, user.email]).to.deep.eq([false, Profile.email])
+  })
+
+  it("hands it no browser's user at Google's callback (the patch), where nothing proves which browser came back: a new account gets a provisional user", async () => {
+    const tt = openTester()
+    const anon = await anonymousSession(tt)
+    await googleCallback(tt, anon, 'google-sub-flip')
+    const { user_id, users } = await accountUser(tt, 'google-sub-flip')
+    expect([user_id === anon.user_id, users]).to.deep.eq([false, 2])
+    const provisional = present(await tt.run(async (ctx) => await ctx.db.get('users', present(user_id))))
+    expect(provisional.provisional).to.be.true
   })
 
   it('makes a new user for a browser with no session', async () => {
@@ -66,7 +55,7 @@ describe('a Google sign-in, through Convex Auth', () => {
   it("returns a known account's user to a browser signed in with Google as another, merging nobody", async () => {
     const tt = openTester()
     const [alice, bob] = [await googleUser(tt, 'alice_google'), await googleUser(tt, 'bob_google')]
-    await signInWithGoogle(tt, bob.as, 'google-sub-alice_google')
+    await signInWithGoogle(tt, bob, 'google-sub-alice_google')
     expect(await accountUser(tt, 'google-sub-alice_google')).to.deep.eq({ user_id: alice.user_id, users: 2 })
   })
 

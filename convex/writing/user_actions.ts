@@ -110,7 +110,8 @@ export async function performUser(db: Writer, user_id: Id<'users'>, actor: Actor
  *
  * * Anonymous: a returning account's own user, or for a new account (every browser's first
  *   visit), a new anonymous user, holding no userlabel until it takes one.
- * * Google: as `userForGoogle` says, from whose the account is and whose the browser was.
+ * * Google: as `userForGoogle` says, in two steps, from whose the account is and, once the
+ *   browser has proved it started the sign-in, whose the browser was.
  * * Anything else: refused, as no other provider is offered.
  *
  * @param db - The sign-in's database, running the triggers.
@@ -129,37 +130,77 @@ export async function userForSignIn(db: Writer, signIn: SignInDNA): Promise<Id<'
 }
 
 /**
- * The user a Google sign-in is signed in as, by whose the account is (`existingUserId`: known, or
- * new) and whose the browser was as it started (`authUserId`: anonymous, signed in with Google, or
- * no session). Nothing is decided by email: two Google accounts sharing one are two users. In
- * order:
+ * The user a Google sign-in is signed in as, decided in two steps, as Convex Auth asks twice.
+ *
+ * * **At Google's callback** (`oauth`), the account is linked to a user, and nothing more: nothing
+ *   there proves that the browser Google sent back is the one that started the sign-in (a link to
+ *   the deployment's sign-in address works from any browser), so nothing of the starting browser's
+ *   user is read or written (`accountUserAtCallback`).
+ * * **At the code's exchange** (`verification`), the finishing browser has proved it started the
+ *   sign-in: it holds the verifier it kept, and the code Google sent it. Only now is the starting
+ *   browser's user (`authUserId`) weighed, and upgraded, merged or switched from
+ *   (`userAtExchange`).
+ *
+ * Nothing is decided by email: two Google accounts sharing one are two users.
+ *
+ * @returns The user's row id.
+ * @throws For a Google sign-in asked at a step that is neither.
+ */
+async function userForGoogle(db: Writer, signIn: SignInT): Promise<Id<'users'>> {
+  if (signIn.type === 'oauth') { return await accountUserAtCallback(db, signIn) }
+  if (signIn.type === 'verification') { return await userAtExchange(db, signIn) }
+  throw new Error(`A Google sign-in is not asked for its user at ${String(signIn.type)}`)
+}
+
+/**
+ * The user Google's callback links the account to: a known account's own user, its email, name
+ * and picture brought up to date with what Google sent; or, for a new account, a new provisional
+ * user holding them (`User.provisional`), which the exchange keeps or folds away. The browser that
+ * started the sign-in is never asked about here.
+ *
+ * @returns The user's row id.
+ */
+async function accountUserAtCallback(db: Writer, { existingUserId, profile }: SignInT): Promise<Id<'users'>> {
+  if (existingUserId === null) { return await db.insert('users', User.provisional(profile)) }
+  await db.patch('users', existingUserId, User.fromGoogle(profile))
+  return existingUserId
+}
+
+/**
+ * The user a Google sign-in ends with, once the browser has proved it started it: by whose the
+ * account is (its user, provisional for an account new at the callback) and whose the browser was
+ * as it started (`authUserId`: anonymous, signed in with Google, or no session). In order:
  *
  * * A new account, from an anonymous browser: **upgrade in place**. The account joins that user,
- *   which is no longer anonymous, keeping its userlabel, its sandbox and its sessions.
- * * A new account, from a browser signed in with Google or with no session: a new user, signed in
- *   with Google, holding no userlabel. (Linking a second Google account to a user is not done.)
+ *   which takes what Google sent and is no longer anonymous, keeping its userlabel, its sandbox and
+ *   its sessions; the provisional user, which nobody was ever signed in as, is deleted.
+ * * A new account, from a browser signed in with Google or with no session: the provisional user
+ *   is kept, a new user holding no userlabel. (Linking a second Google account to a user is not
+ *   done.)
  * * A known account, from its own user's browser, one signed in with Google as another user (two
  *   Google users are never merged), no session, or an anonymous user holding no userlabel: the
  *   account's user, which the browser switches to.
  * * A known account, from an anonymous browser holding a userlabel: **merge** (`mergeInto`). The
  *   account's user carries on.
  *
- * Every sign-in brings the user's email, name and picture up to date with what Google sent.
- *
- * @returns The user's row id.
+ * @returns The user's row id; Convex Auth moves the account to it.
  */
-async function userForGoogle(db: Writer, signIn: SignInT): Promise<Id<'users'>> {
-  const { existingUserId, authUserId, profile } = signIn
-  const browser = authUserId === null ? null : await db.get('users', authUserId)
+async function userAtExchange(db: Writer, { existingUserId, authUserId }: SignInT): Promise<Id<'users'>> {
+  if (existingUserId === null) { throw new Error('A Google sign-in reaches its exchange with its account linked') }
+  const [account, browser] = await Promise.all([db.get('users', existingUserId), authUserId === null ? null : db.get('users', authUserId)])
+  if (account === null) { throw new Error('A Google sign-in reaches its exchange with its account\'s user there') }
   const anonymous = browser !== null && User.isAnonymous(browser)
-  if (existingUserId === null) {
-    if (! anonymous) { return await db.insert('users', User.fromGoogle(profile)) } // a new user
-    await db.patch('users', browser._id, User.fromGoogle(profile))                 // upgrade in place
+  if (account.provisional === true) {
+    if (! anonymous) {                                                             // a new user
+      await db.patch('users', account._id, { provisional: undefined })
+      return account._id
+    }
+    await db.patch('users', browser._id, User.fromGoogle(UserValidators.googleProfile(account))) // upgrade in place
+    await db.delete('users', account._id)
     return browser._id
   }
-  await db.patch('users', existingUserId, User.fromGoogle(profile))
-  if (anonymous && browser.userlabel !== undefined) { await mergeInto(db, browser, browser.userlabel, existingUserId) }
-  return existingUserId
+  if (anonymous && browser.userlabel !== undefined) { await mergeInto(db, browser, browser.userlabel, account._id) }
+  return account._id
 }
 
 /**

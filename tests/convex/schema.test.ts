@@ -79,7 +79,7 @@ const Absentable: Partial<Record<TableNames, string[]>> = {
   hunts:   ['wheel', ...Stamps],
   quizzes: ['recap_template', ...Stamps],
   columns: ['align', 'formula', 'template', 'readout', 'collapsed', ...Stamps],
-  users:   ['name', 'image', 'email', 'emailVerificationTime', 'phone', 'phoneVerificationTime', 'isAnonymous', 'userlabel', 'title', 'admin', 'merged', ...Stamps],
+  users:   ['name', 'image', 'email', 'emailVerificationTime', 'phone', 'phoneVerificationTime', 'isAnonymous', 'userlabel', 'title', 'admin', 'merged', 'provisional', ...Stamps],
 }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */

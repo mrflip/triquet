@@ -32,9 +32,11 @@ export const UserValidators = Validator(({ obj, str, num, bool, zid, userlabel, 
     existingUserId: zid('users').nullable()
       .describe('The user of the account signed in to, for a returning account; null for a new one.'),
     authUserId:     zid('users').nullable().default(null)
-      .describe("The user the browser was signed in as when it started the sign-in (our patch of Convex Auth, upstream's PR #306); null when it had no session, or the session is gone."),
+      .describe("The user the browser was signed in as when it started the sign-in (our patch of Convex Auth, after upstream's PR #306), handed on only at the code's exchange; null at Google's callback, with no session, or when the session is gone."),
     provider:       obj({ id: str })
       .describe('The provider signed in with, by its id: `anonymous` or `google`.'),
+    type:           str.optional()
+      .describe("Where in the sign-in Convex Auth asks: for Google, `oauth` at Google's callback, where nothing proves which browser finished, and `verification` at the code's exchange, where the browser has proved it is the one that started (our patch)."),
     profile:        googleProfile.default({})
       .describe('What the provider sent, as far as a user keeps any of it.'),
   })
@@ -63,6 +65,8 @@ export const UserValidators = Validator(({ obj, str, num, bool, zid, userlabel, 
     admin:                 bool.optional()
       .describe('Whether the user looks after what belongs to no hunt (the library): set only from the command line, absent for no. Read in one place, as the actor is built (`Actor.ofUser`), and counted only for a user signed in with Google.'),
     merged:                merged.optional(),
+    provisional:           bool.optional()
+      .describe("Set on a user a new Google account's sign-in made at Google's callback, until the browser finishing it proves it started it, at the code's exchange: then it is kept, or, for an anonymous browser, folded into that browser's user and deleted. Nobody is ever signed in as a provisional user."),
     ...stamps,
   })
     .describe('One user: what a session is signed in as, holding its userlabel, title and admin flag beside the fields Convex Auth keeps. Never a person: one person may hold several.')
@@ -207,6 +211,17 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    */
   static fromGoogle(profile: GoogleProfileT): UserRowT {
     return UserValidators.row({ ...UserValidators.googleProfile(profile), isAnonymous: false })
+  }
+
+  /**
+   * The row of the user a new Google account's sign-in makes at Google's callback: signed in with
+   * Google, holding what Google sent, and provisional until the browser finishing the sign-in
+   * proves it started it (`userForSignIn`).
+   *
+   * @example User.provisional({ email: 'flip@example.com' })  // => { isAnonymous: false, email: 'flip@example.com', provisional: true }
+   */
+  static provisional(profile: GoogleProfileT): UserRowT {
+    return { ...this.fromGoogle(profile), provisional: true }
   }
 
   /**

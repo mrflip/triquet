@@ -13,13 +13,17 @@
  *   in) holding the userlabel `label`, on no hunt: a stranger; `anonymousUser(tt, label)` -- an
  *   anonymous user holding `label`, sealed in its sandbox; `anonymousSession(tt)` -- an anonymous
  *   user holding no userlabel; the bare `tt` -- no session at all. `callerOf` takes any of them.
+ * * `signInWithGoogle(tt, by, sub)` -- a Google sign-in carried through Convex Auth's own `store`,
+ *   started and finished by `by`; `googleCallback` and `exchangeCode`, its two steps, for a test
+ *   that stops between them or finishes in another browser. Only in a test file that stubs
+ *   Google's keys before `convex/auth.ts` loads (`vi.hoisted`).
  * * `refusedAs`, `expectRefusal` -- what a refused call said, and the assertion on it.
  */
 import { convexTest, type TestConvex } from 'convex-test'
 import { ConvexError } from 'convex/values'
 import { expect } from 'vitest'
 import * as Z from 'zod'
-import { api } from '../../convex/_generated/api'
+import { api, internal } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
 import { huntshipFor, libraryOf, realmsOf, wholeHuntOf } from '../../convex/reading'
@@ -340,4 +344,62 @@ export async function refusedAs(pending: Promise<unknown>): Promise<string> {
  */
 export async function expectRefusal(pending: Promise<unknown>, failurekind: string): Promise<void> {
   expect(await refusedAs(pending)).to.eq(failurekind)
+}
+
+/** What Google sends of one person in a test's Google sign-in, unless it says otherwise */
+export const GoogleProfile = { email: 'flip@example.com', name: 'Flip Kromer', image: 'https://lh3.googleusercontent.com/a/flip' }
+
+/** What the code's exchange answers: the user and session it signed the browser in as, or null */
+const Exchanged = Z.object({ userId: Z.string() }).nullable()
+
+/** A Google sign-in as far as Google's callback: the starting browser's verifier, and the code the callback made for the browser it sent back */
+export type GoogleCallbackT = { verifier: string, code: string }
+
+/**
+ * A Google sign-in carried through Convex Auth's own `store` as far as Google's callback, as its
+ * routes would carry it, past the part only Google can do, nothing reaching Google. The browser
+ * `by` starts it (a verifier, holding its session, if it has one); the sign-in route signs that
+ * verifier; the callback, once Google has said who the person is (`sub`), hands the account and
+ * profile to `userOAuth`, which asks our `createOrUpdateUser` the first time and makes a code. The
+ * test file must stub Google's keys before `convex/auth.ts` loads.
+ *
+ * @param by - The browser starting the sign-in: a session, or the bare tester (no session).
+ * @param sub - Google's account id for the person.
+ * @param profile - What Google sends.
+ *
+ * @example const { verifier, code } = await googleCallback(tt, anon, 'google-sub-flip')
+ */
+export async function googleCallback(tt: Tester, by: Session | Tester, sub: string, profile: Record<string, unknown> = GoogleProfile): Promise<GoogleCallbackT> {
+  const verifier = Z.string().parse(await callerOf(by).mutation(internal.auth.store, { args: { type: 'verifier' } }))
+  const signature = `signature-of-${verifier}`
+  await tt.mutation(internal.auth.store, { args: { type: 'verifierSignature', verifier, signature } })
+  const code = Z.string().parse(await tt.mutation(internal.auth.store, { args: { type: 'userOAuth', provider: 'google', providerAccountId: sub, profile, signature } }))
+  return { verifier, code }
+}
+
+/**
+ * A browser exchanging `code` for a session, as Convex Auth's provider does when it comes back
+ * from Google (`verifyCodeAndSignIn`), presenting `verifier`: the one it kept, if it started the
+ * sign-in, or none. This asks our `createOrUpdateUser` the second time.
+ *
+ * @returns The user the browser is signed in as; null when the exchange is refused.
+ *
+ * @example await exchangeCode(tt, code, verifier)  // => the user's id
+ */
+export async function exchangeCode(tt: Tester, code: string, verifier: string | undefined): Promise<Id<'users'> | null> {
+  const exchanged = Exchanged.parse(await tt.mutation(internal.auth.store, { args: { type: 'verifyCodeAndSignIn', params: { code }, verifier, generateTokens: false, allowExtraProviders: false } }))
+  return exchanged === null ? null : exchanged.userId as Id<'users'>
+}
+
+/**
+ * A whole Google sign-in, started and finished by the browser `by` (`googleCallback`, then
+ * `exchangeCode` with the verifier it kept).
+ *
+ * @returns The user the browser is signed in as; null when the exchange is refused.
+ *
+ * @example const user_id = await signInWithGoogle(tt, anon, 'google-sub-flip')
+ */
+export async function signInWithGoogle(tt: Tester, by: Session | Tester, sub: string, profile: Record<string, unknown> = GoogleProfile): Promise<Id<'users'> | null> {
+  const { verifier, code } = await googleCallback(tt, by, sub, profile)
+  return await exchangeCode(tt, code, verifier)
 }

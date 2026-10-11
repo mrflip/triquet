@@ -6,9 +6,18 @@ import { triggers } from '../../../convex/triggers'
 import { relabelUser, userForSignIn } from '../../../convex/writing/user_actions'
 import { Hunt } from '../../../src/models/hunt'
 import type { SignInDNA } from '../../../src/models/user'
-import { anonymousSession, anonymousUser, expectRefusal, googleUser, openTester, seedHunt, type Session, type Tester } from '../../support/convex'
+import {
+  GoogleProfile as Profile, anonymousSession, anonymousUser, exchangeCode, expectRefusal, googleCallback, googleUser, openTester, seedHunt, signInWithGoogle, type Session, type Tester,
+} from '../../support/convex'
 import { present } from '../../support/present'
 import { expectSound } from '../../support/soundness'
+
+// Google's keys, before `convex/auth.ts` loads (hoisted above the imports), so its provider list
+// holds Google, as a keyed deployment's does. Placeholders: nothing here reaches Google.
+vi.hoisted(() => {
+  vi.stubEnv('AUTH_GOOGLE_ID', 'test-google-client-id')
+  vi.stubEnv('AUTH_GOOGLE_SECRET', 'test-google-client-secret')
+})
 
 /** The user a sign-in comes to, as Convex Auth's `createOrUpdateUser` would be asked for it, through the database the triggers run on */
 async function signedInAs(tt: Tester, signIn: SignInDNA): Promise<Id<'users'>> {
@@ -35,16 +44,13 @@ async function choiceOf(tt: Tester, user_id: Id<'users'>): Promise<Doc<'users'> 
   return await tt.run(async (ctx) => await nameChoiceFor(ctx.db, user_id))
 }
 
-/** What Google sends of one person, as Convex Auth's Google provider hands it on */
-const Profile = { email: 'flip@example.com', name: 'Flip Kromer', image: 'https://lh3.googleusercontent.com/a/flip' }
+/** Google's account id for a person whose account no user has yet */
+const NewSub = 'google-sub-new'
 
-/**
- * A Google sign-in as Convex Auth asks `createOrUpdateUser` for it: to the account of
- * `existingUserId` (null for a new account), from a browser signed in as `authUserId` (null for
- * none).
- */
-function googleSignIn(existingUserId: Id<'users'> | null, authUserId: Id<'users'> | null, profile: Record<string, unknown> = Profile): SignInDNA {
-  return { existingUserId, authUserId, provider: { id: 'google' }, profile }
+/** The user the Google account `sub` belongs to, if any */
+async function accountUser(tt: Tester, sub: string): Promise<Id<'users'> | undefined> {
+  const account = await tt.run(async (ctx) => await ctx.db.query('authAccounts').withIndex('providerAndAccountId', (cvx) => cvx.eq('provider', 'google').eq('providerAccountId', sub)).unique())
+  return account?.userId
 }
 
 /** A user signed in with Google holding no userlabel yet, with its Google account: how a Google sign-in from a browser with no session leaves one */
@@ -179,12 +185,12 @@ describe('userForSignIn, with a new Google account', () => {
     const tt = openTester()
     const anon = await anonymousUser(tt, 'anon_alice')
     const sandbox_id = await sandboxOf(anon)
-    expect(await signedInAs(tt, googleSignIn(null, anon.user_id))).to.eq(anon.user_id)
+    expect(await signInWithGoogle(tt, anon, NewSub)).to.eq(anon.user_id)
     const user = await userRow(tt, anon.user_id)
-    expect([user.isAnonymous, user.userlabel, user.email, user.name, user.image]).to.deep.eq([false, 'anon_alice', Profile.email, Profile.name, Profile.image])
-    expect(await usersIn(tt)).to.have.lengthOf(1)
+    expect([user.isAnonymous, user.userlabel, user.email, user.name, user.image, user.provisional]).to.deep.eq([false, 'anon_alice', Profile.email, Profile.name, Profile.image, undefined])
+    const users = await usersIn(tt)
+    expect([await accountUser(tt, NewSub), users.length]).to.deep.eq([anon.user_id, 1])
     expect(await membersByLabel(tt, sandbox_id)).to.deep.eq([['anon_alice', 'smith']])
-    expect(await sessionsOf(tt, anon.user_id)).to.deep.eq([1, 0])
     const current = present(await anon.as.query(api.users.current, {}))
     expect(current.actor.anonymous).to.be.false
     await expectSound(tt)
@@ -193,7 +199,7 @@ describe('userForSignIn, with a new Google account', () => {
   it('upgrades an anonymous browser holding no userlabel in place, too', async () => {
     const tt = openTester()
     const anon = await anonymousSession(tt)
-    expect(await signedInAs(tt, googleSignIn(null, anon.user_id))).to.eq(anon.user_id)
+    expect(await signInWithGoogle(tt, anon, NewSub)).to.eq(anon.user_id)
     const [user] = await userRows(tt, anon.user_id)
     expect(user?.isAnonymous).to.be.false
     expect(await usersIn(tt)).to.have.lengthOf(1)
@@ -201,16 +207,16 @@ describe('userForSignIn, with a new Google account', () => {
 
   it('makes a new user, signed in with Google and holding no userlabel, for a browser with no session', async () => {
     const tt = openTester()
-    const user = await userRow(tt, await signedInAs(tt, googleSignIn(null, null)))
-    expect([user.isAnonymous, user.userlabel, user.email, user.name]).to.deep.eq([false, undefined, Profile.email, Profile.name])
-    expect([user.created_at, user.updated_at]).to.deep.eq([Math.floor(user._creationTime), Math.floor(user._creationTime)])
+    const user = await userRow(tt, present(await signInWithGoogle(tt, tt, NewSub)))
+    expect([user.isAnonymous, user.userlabel, user.email, user.name, user.provisional]).to.deep.eq([false, undefined, Profile.email, Profile.name, undefined])
+    expect(user.created_at).to.eq(Math.floor(user._creationTime))
   })
 
   it('makes a new user for a browser signed in with Google as another user, which it leaves as it was: a second Google account is never linked', async () => {
     const tt = openTester()
     const alice = await googleUser(tt, 'alice_google')
     const ante = await userRow(tt, alice.user_id)
-    const user_id = await signedInAs(tt, googleSignIn(null, alice.user_id))
+    const user_id = present(await signInWithGoogle(tt, alice, NewSub))
     expect(user_id).not.to.eq(alice.user_id)
     const [made, aliceNow] = await userRows(tt, user_id, alice.user_id)
     expect([made?.userlabel, aliceNow]).to.deep.eq([undefined, ante])
@@ -221,7 +227,7 @@ describe('userForSignIn, with a new Google account', () => {
     const alice = await googleUser(tt, 'alice_google')
     const [aliceAnte] = await userRows(tt, alice.user_id)
     const shared = present(aliceAnte?.email)
-    const user_id = await signedInAs(tt, googleSignIn(null, null, { ...Profile, email: shared }))
+    const user_id = present(await signInWithGoogle(tt, tt, NewSub, { ...Profile, email: shared }))
     expect(user_id).not.to.eq(alice.user_id)
     const [made, aliceNow] = await userRows(tt, user_id, alice.user_id)
     expect([made?.email, aliceNow?.userlabel]).to.deep.eq([shared, 'alice_google'])
@@ -230,7 +236,7 @@ describe('userForSignIn, with a new Google account', () => {
 
   it('keeps only the email, name and picture of what Google sends', async () => {
     const tt = openTester()
-    const user = await userRow(tt, await signedInAs(tt, googleSignIn(null, null, { ...Profile, locale: 'en', given_name: 'Flip', emailVerified: true, admin: true, userlabel: 'mrflip' })))
+    const user = await userRow(tt, present(await signInWithGoogle(tt, tt, NewSub, { ...Profile, locale: 'en', given_name: 'Flip', emailVerified: true, admin: true, userlabel: 'mrflip' })))
     expect(Object.keys(user).filter((field) => ! field.startsWith('_')).toSorted((aa, bb) => aa.localeCompare(bb))).to.deep.eq(['created_at', 'email', 'image', 'isAnonymous', 'name', 'updated_at'])
   })
 })
@@ -239,8 +245,8 @@ describe('userForSignIn, with a known Google account', () => {
   it("returns the account's user to its own browser, or a browser with no session, bringing what Google sent up to date", async () => {
     const tt = openTester()
     const alice = await googleUser(tt, 'alice_google')
-    expect(await signedInAs(tt, googleSignIn(alice.user_id, alice.user_id))).to.eq(alice.user_id)
-    expect(await signedInAs(tt, googleSignIn(alice.user_id, null, { ...Profile, name: 'Alice Anew' }))).to.eq(alice.user_id)
+    expect(await signInWithGoogle(tt, alice, 'google-sub-alice_google')).to.eq(alice.user_id)
+    expect(await signInWithGoogle(tt, tt, 'google-sub-alice_google', { ...Profile, name: 'Alice Anew' })).to.eq(alice.user_id)
     const user = await userRow(tt, alice.user_id)
     expect([user.userlabel, user.name, user.email, user.isAnonymous]).to.deep.eq(['alice_google', 'Alice Anew', Profile.email, false])
     expect(await usersIn(tt)).to.have.lengthOf(1)
@@ -250,7 +256,7 @@ describe('userForSignIn, with a known Google account', () => {
     const tt = openTester()
     const [alice, bob] = [await googleUser(tt, 'alice_google'), await googleUser(tt, 'bob_google')]
     const bobAnte = await userRow(tt, bob.user_id)
-    expect(await signedInAs(tt, googleSignIn(alice.user_id, bob.user_id))).to.eq(alice.user_id)
+    expect(await signInWithGoogle(tt, bob, 'google-sub-alice_google')).to.eq(alice.user_id)
     expect(await userRow(tt, bob.user_id)).to.deep.eq(bobAnte)
     const [aliceNow] = await userRows(tt, alice.user_id)
     expect([aliceNow?.merged, await sessionsOf(tt, bob.user_id)]).to.deep.eq([undefined, [1, 0]])
@@ -261,7 +267,7 @@ describe('userForSignIn, with a known Google account', () => {
     const alice = await googleUser(tt, 'alice_google')
     const anon = await anonymousSession(tt)
     const anonAnte = await userRow(tt, anon.user_id)
-    expect(await signedInAs(tt, googleSignIn(alice.user_id, anon.user_id))).to.eq(alice.user_id)
+    expect(await signInWithGoogle(tt, anon, 'google-sub-alice_google')).to.eq(alice.user_id)
     expect(await userRow(tt, anon.user_id)).to.deep.eq(anonAnte)
     expect(await choiceOf(tt, alice.user_id)).to.be.null
   })
@@ -276,13 +282,13 @@ async function merging() {
   await refreshed(tt, anon.user_id)
   const alice = await googleUser(tt, 'alice_google')
   const account = present(await tt.run(async (ctx) => await ctx.db.query('authAccounts').withIndex('userIdAndProvider', (cvx) => cvx.eq('userId', alice.user_id).eq('provider', 'google')).unique()))
-  return { tt, anon, sandbox_id, alice, account_id: account._id }
+  return { tt, anon, sandbox_id, alice, account_id: account._id, sub: 'google-sub-alice_google' }
 }
 
 describe('userForSignIn, merging an anonymous browser holding a userlabel into a known Google account', () => {
   it("carries the account's user on, made smith of the sandbox in the anonymous user's place, the sandbox keeping its address", async () => {
-    const { tt, anon, sandbox_id, alice } = await merging()
-    expect(await signedInAs(tt, googleSignIn(alice.user_id, anon.user_id))).to.eq(alice.user_id)
+    const { tt, anon, sandbox_id, alice, sub } = await merging()
+    expect(await signInWithGoogle(tt, anon, sub)).to.eq(alice.user_id)
     const sandbox = present(await tt.run(async (ctx) => await ctx.db.get('hunts', sandbox_id)))
     expect(await membersByLabel(tt, sandbox_id)).to.deep.eq([['alice_google', 'smith']])
     expect([sandbox.orglabel, sandbox.label]).to.deep.eq(['anon_alice', 'anon_alice'])
@@ -290,18 +296,19 @@ describe('userForSignIn, merging an anonymous browser holding a userlabel into a
   })
 
   it("marks the anonymous user merged, never deleting it, and deletes its sessions and their refresh tokens, and no one else's", async () => {
-    const { tt, anon, alice, account_id } = await merging()
+    const { tt, anon, alice, account_id, sub } = await merging()
     expect([await sessionsOf(tt, anon.user_id), await refreshTokensIn(tt)]).to.deep.eq([[1, 1], 1])
-    await signedInAs(tt, googleSignIn(alice.user_id, anon.user_id))
+    await signInWithGoogle(tt, anon, sub)
     const gone = await userRow(tt, anon.user_id)
     expect([gone.merged, gone.isAnonymous]).to.deep.eq([{ into_user_id: alice.user_id, account_id }, true])
-    expect([await sessionsOf(tt, anon.user_id), await sessionsOf(tt, alice.user_id), await refreshTokensIn(tt)]).to.deep.eq([[0, 0], [1, 0], 0])
+    // Alice's own session, and the one the exchange signed the merged browser in with
+    expect([await sessionsOf(tt, anon.user_id), await sessionsOf(tt, alice.user_id), await refreshTokensIn(tt)]).to.deep.eq([[0, 0], [2, 0], 0])
     expect(await anon.as.query(api.users.current, {})).to.be.null
   })
 
   it("records the name choice, the account's user's handle standing until it is made, and the browser's held from everyone else", async () => {
-    const { tt, anon, alice } = await merging()
-    await signedInAs(tt, googleSignIn(alice.user_id, anon.user_id))
+    const { tt, anon, alice, sub } = await merging()
+    await signInWithGoogle(tt, anon, sub)
     const choice = present(await choiceOf(tt, alice.user_id))
     expect([choice._id, choice.userlabel, choice.title]).to.deep.eq([anon.user_id, 'anon_alice', 'Alice of the Sandbox'])
     const [aliceNow] = await userRows(tt, alice.user_id)
@@ -314,7 +321,7 @@ describe('userForSignIn, merging an anonymous browser holding a userlabel into a
     const tt = openTester()
     const anon = await anonymousUser(tt, 'anon_bob')
     const alice = await googleUser(tt, 'alice_google')
-    await signedInAs(tt, googleSignIn(alice.user_id, anon.user_id))
+    await signInWithGoogle(tt, anon, 'google-sub-alice_google')
     const choice = await choiceOf(tt, alice.user_id)
     expect(choice?._id).to.eq(anon.user_id)
     expect(await sessionsOf(tt, anon.user_id)).to.deep.eq([0, 0])
@@ -325,7 +332,7 @@ describe('userForSignIn, merging an anonymous browser holding a userlabel into a
     const anon = await anonymousUser(tt, 'anon_alice')
     const sandbox_id = await sandboxOf(anon)
     const heir_id = await googleUnlabelled(tt)
-    expect(await signedInAs(tt, googleSignIn(heir_id, anon.user_id))).to.eq(heir_id)
+    expect(await signInWithGoogle(tt, anon, 'google-sub-nolabel')).to.eq(heir_id)
     const [heir, gone] = [await userRow(tt, heir_id), await userRow(tt, anon.user_id)]
     expect([heir.userlabel, heir.title, gone.userlabel, gone.merged?.into_user_id]).to.deep.eq(['anon_alice', 'Anon Alice', undefined, heir_id])
     expect(await membersByLabel(tt, sandbox_id)).to.deep.eq([['anon_alice', 'smith']])
@@ -334,12 +341,74 @@ describe('userForSignIn, merging an anonymous browser holding a userlabel into a
   })
 
   it('never merges a Google user away: its browser is switched, as from any user signed in with Google', async () => {
-    const { tt, anon, alice } = await merging()
-    await signedInAs(tt, googleSignIn(alice.user_id, anon.user_id))
+    const { tt, anon, alice, sub } = await merging()
+    await signInWithGoogle(tt, anon, sub)
     const bob = await googleUser(tt, 'bob_google')
-    expect(await signedInAs(tt, googleSignIn(bob.user_id, alice.user_id))).to.eq(bob.user_id)
+    expect(await signInWithGoogle(tt, alice, 'google-sub-bob_google')).to.eq(bob.user_id)
     const rows = await userRows(tt, alice.user_id, bob.user_id)
     expect(rows.map((row) => row.merged)).to.deep.eq([undefined, undefined])
+  })
+})
+
+describe('userForSignIn, when the browser finishing a Google sign-in did not start it', () => {
+  // The attack: a browser starts a sign-in and sends its link to someone, whose browser finishes
+  // it at Google with their own account. Their browser holds the code Google sent it, but not the
+  // verifier the starting browser kept, which holds the code's starter alone.
+
+  it('touches nothing of the starting browser\'s user at Google\'s callback, for a new account or a known one', async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_mallory')
+    await googleUser(tt, 'alice_google')
+    const ante = await userRow(tt, anon.user_id)
+    await googleCallback(tt, anon, NewSub)
+    await googleCallback(tt, anon, 'google-sub-alice_google')
+    expect(await userRow(tt, anon.user_id)).to.deep.eq(ante)
+  })
+
+  it('refuses the upgrade: the starting anonymous user stays anonymous and gets no account, and the code is spent', async () => {
+    const tt = openTester()
+    const mallory = await anonymousUser(tt, 'anon_mallory')
+    const sandbox_id = await sandboxOf(mallory)
+    const ante = await userRow(tt, mallory.user_id)
+    const { verifier, code } = await googleCallback(tt, mallory, NewSub)
+    expect(await exchangeCode(tt, code, undefined)).to.be.null
+    expect(await userRow(tt, mallory.user_id)).to.deep.eq(ante)
+    expect(await accountUser(tt, NewSub)).not.to.eq(mallory.user_id)
+    expect(await membersByLabel(tt, sandbox_id)).to.deep.eq([['anon_mallory', 'smith']])
+    // The starter, holding its verifier, cannot use a code its browser was never sent, nor this one now
+    expect(await exchangeCode(tt, code, verifier)).to.be.null
+    expect(await userRow(tt, mallory.user_id)).to.deep.eq(ante)
+  })
+
+  it('refuses the merge: the starting anonymous user keeps its sandbox, sessions and handle, and nothing is merged into the account\'s user', async () => {
+    const { tt, anon, sandbox_id, alice, sub } = await merging()
+    const anonAnte = await userRow(tt, anon.user_id)
+    const { code } = await googleCallback(tt, anon, sub)
+    expect(await exchangeCode(tt, code, undefined)).to.be.null
+    const [anonNow, aliceNow] = await userRows(tt, anon.user_id, alice.user_id)
+    expect([anonNow, aliceNow?.userlabel, aliceNow?.merged]).to.deep.eq([anonAnte, 'alice_google', undefined])
+    expect([await membersByLabel(tt, sandbox_id), await sessionsOf(tt, anon.user_id), await choiceOf(tt, alice.user_id)]).to.deep.eq([[['anon_alice', 'smith']], [1, 1], null])
+  })
+
+  it('leaves a new account its provisional user, which a later sign-in from the account holder\'s own anonymous browser folds away', async () => {
+    const tt = openTester()
+    const mallory = await anonymousUser(tt, 'anon_mallory')
+    const { code } = await googleCallback(tt, mallory, NewSub)
+    expect(await exchangeCode(tt, code, undefined)).to.be.null
+    const provisional = present(await accountUser(tt, NewSub))
+    const left = await userRow(tt, provisional)
+    expect(left.provisional).to.be.true
+    const alice = await anonymousUser(tt, 'anon_alice')
+    expect(await signInWithGoogle(tt, alice, NewSub)).to.eq(alice.user_id)
+    expect([await accountUser(tt, NewSub), await tt.run(async (ctx) => await ctx.db.get('users', provisional))]).to.deep.eq([alice.user_id, null])
+  })
+})
+
+describe('userForSignIn, asked at neither step of a Google sign-in', () => {
+  it('refuses, writing nothing', async () => {
+    const tt = openTester()
+    await expect(signedInAs(tt, { existingUserId: null, provider: { id: 'google' }, type: 'credentials' })).rejects.toThrow(/not asked for its user at credentials/)
+    expect(await usersIn(tt)).to.deep.eq([])
   })
 })
 
@@ -351,10 +420,10 @@ describe('the admin flag, through a sign-in', () => {
       const anon = await anonymousUser(tt, 'anon_alice')
       await tt.run(async (ctx) => { await ctx.db.patch('users', anon.user_id, { admin: true }) })
       expect(present(await anon.as.query(api.users.current, {})).actor.admin).to.be.false
-      await signedInAs(tt, googleSignIn(null, anon.user_id))
+      await signInWithGoogle(tt, anon, NewSub)
       expect(present(await anon.as.query(api.users.current, {})).actor.admin).to.be.true
     } finally {
-      vi.unstubAllEnvs()
+      vi.stubEnv('TRIQUET_EVERYONE_ADMIN', 'yes')
     }
   })
 })

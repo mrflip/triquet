@@ -1,3 +1,56 @@
+diff --git a/dist/server/implementation/mutations/userOAuth.js b/dist/server/implementation/mutations/userOAuth.js
+index 7b3ded410b085966b9fe1048e35194ff6cc369ec..72e4f3e9141a27616263e5c2c984c7d43e3c89e0 100644
+--- a/dist/server/implementation/mutations/userOAuth.js
++++ b/dist/server/implementation/mutations/userOAuth.js
+@@ -26,9 +26,12 @@ export async function userOAuthImpl(ctx, args, getProviderOrThrow, config) {
+     if (verifier === null) {
+         throw new Error("Invalid state");
+     }
+-    const { accountId } = await upsertUserAndAccount(ctx, verifier.sessionId ?? null, existingAccount !== null ? { existingAccount } : { providerAccountId }, { type: "oauth", provider: providerConfig, profile }, config);
++    // Patched: the starting session is not handed on here, where nothing proves the browser that
++    // finished at Google started the sign-in; it is handed on at the code's exchange, which does.
++    const { accountId } = await upsertUserAndAccount(ctx, null, existingAccount !== null ? { existingAccount } : { providerAccountId }, { type: "oauth", provider: providerConfig, profile }, config);
+     const code = generateRandomString(8, "0123456789");
+-    await ctx.db.delete(verifier._id);
++    // Patched: kept for the exchange, which reads its session, but signed no longer.
++    await ctx.db.patch(verifier._id, { signature: undefined });
+     const existingVerificationCode = await ctx.db
+         .query("authVerificationCodes")
+         .withIndex("accountId", (q) => q.eq("accountId", accountId))
+diff --git a/dist/server/implementation/mutations/verifyCodeAndSignIn.js b/dist/server/implementation/mutations/verifyCodeAndSignIn.js
+index 7fe5cfa07ec47b11b4c8b8d95ee77282e09d72da..fb501ed6a50f53eadf309903f2509a45a2390366 100644
+--- a/dist/server/implementation/mutations/verifyCodeAndSignIn.js
++++ b/dist/server/implementation/mutations/verifyCodeAndSignIn.js
+@@ -77,6 +77,10 @@ methodProviderId, getProviderOrThrow, allowExtraProviders, config, sessionId) {
+         // Expected: e.g. a magic link opened in a different browser than it was requested
+         // from. Normal sign-in failure.
+         logWithLevel(LOG_LEVELS.INFO, "Invalid verifier");
++        // Patched: an OAuth code is spent by a browser that did not start its sign-in.
++        if (verificationCode.verifier !== undefined) {
++            await ctx.db.delete(verificationCode._id);
++        }
+         return null;
+     }
+     if (verificationCode.expirationTime < Date.now()) {
+@@ -123,7 +127,17 @@ methodProviderId, getProviderOrThrow, allowExtraProviders, config, sessionId) {
+     // Every check passed, so consume the code.
+     await ctx.db.delete(verificationCode._id);
+     let userId = account.userId;
+-    if (!(provider.type === "oauth" || provider.type === "oidc")) {
++    if (provider.type === "oauth" || provider.type === "oidc") {
++        // Patched: the browser has proved it started the sign-in (it holds the verifier, and the
++        // code Google sent it), so the starting session is handed to `createOrUpdateUser` now.
++        const verifierId = verificationCode.verifier === undefined ? null : ctx.db.normalizeId("authVerifiers", verificationCode.verifier);
++        const verifierDoc = verifierId === null ? null : await ctx.db.get(verifierId);
++        if (verifierDoc !== null) {
++            await ctx.db.delete(verifierDoc._id);
++        }
++        ({ userId } = await upsertUserAndAccount(ctx, verifierDoc?.sessionId ?? null, { existingAccount: account }, { type: "verification", provider, profile: {} }, config));
++    }
++    else {
+         ({ userId } = await upsertUserAndAccount(ctx, sessionId, { existingAccount: account }, {
+             type: "verification",
+             provider,
 diff --git a/dist/server/implementation/users.js b/dist/server/implementation/users.js
 index 72e7dade70dc4eefd5c898679bbfe48980e162f5..8278aba5e76d6cdeb14de6650d8ed7c5e99fd00d 100644
 --- a/dist/server/implementation/users.js
@@ -33,39 +86,3 @@ index b0b61e18c168255e975a9dac0599120702ec31b1..32cc2eadaff231abf7f4b6a3d861d0e5
              /**
               * The provider type or "verification" if this callback is called
               * after an email or phone token verification.
-diff --git a/src/server/implementation/users.ts b/src/server/implementation/users.ts
-index cfd958489df9231d3e09ca9a356d33302514aa12..f074afaaa52e7bf7ecf7e3b2f25e2bfcd3a245d8 100644
---- a/src/server/implementation/users.ts
-+++ b/src/server/implementation/users.ts
-@@ -55,10 +55,15 @@ async function defaultCreateOrUpdateUser(
-     args: { ...args, provider: args.provider.id },
-   });
-   const existingUserId = existingAccount?.userId ?? null;
-+  const authUserId =
-+    existingSessionId !== null
-+      ? (await ctx.db.get(existingSessionId))?.userId ?? null
-+      : null;
-   if (config.callbacks?.createOrUpdateUser !== undefined) {
-     logWithLevel(LOG_LEVELS.DEBUG, "Using custom createOrUpdateUser callback");
-     return await config.callbacks.createOrUpdateUser(ctx, {
-       existingUserId,
-+      authUserId,
-       ...args,
-     });
-   }
-diff --git a/src/server/types.ts b/src/server/types.ts
-index b7841a01c3e1d285f8e99d5e75b57d0ca4b11ab7..5f6a8d38041cc5e5544fe835af27738b588fe289 100644
---- a/src/server/types.ts
-+++ b/src/server/types.ts
-@@ -167,6 +167,11 @@ export type ConvexAuthConfig = {
-          * this is the existing user ID linked to that account.
-          */
-         existingUserId: GenericId<"users"> | null;
-+        /**
-+         * If this OAuth flow was started while a user was already signed in,
-+         * this is that authenticated user ID recovered from the saved session.
-+         */
-+        authUserId: GenericId<"users"> | null;
-         /**
-          * The provider type or "verification" if this callback is called
-          * after an email or phone token verification.

@@ -146,6 +146,12 @@ describe('User.fromGoogle', () => {
   })
 })
 
+describe('User.provisional', () => {
+  it('is a user signed in with Google, holding what Google sent, marked provisional', () => {
+    expect(User.provisional({ email: 'flip@example.com' })).to.deep.eq({ isAnonymous: false, email: 'flip@example.com', provisional: true })
+  })
+})
+
 describe('User.mergedInto', () => {
   const into_user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
   const account_id = '10000000000000000000authAccounts' as Id<'authAccounts'>
