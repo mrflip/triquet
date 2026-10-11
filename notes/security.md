@@ -64,3 +64,10 @@ security expert who knows what questions to ask.
   2026-10-09: stopped at 101 ms with `Date.now()` still); its range operator can still allocate ten
   million items in one step (in a Convex mutation, past its 64 MB). A run has five seconds all
   told (`Runner.RunMs`), and a column's own formula as long. A widgeting whose widget is gone takes params held to no reserved word.
+* 2026-10-11 (oauth sprint, thread 7): the privacy policy (`src/content/privacy.md`, served at
+  `/privacy`) is a public statement of what is kept, where, who can read it, and what leaves for
+  Anthropic: among others, that a Google account gives only its email, name, picture and `sub`;
+  that an email is shown to its owner alone; that anyone opening a hunt's address while not on it
+  reads its smiths' names and handles (`NotOnHunt`); that a session lives in the browser's storage
+  and no cookie is set; and that nothing goes to a bot unasked. Code that changes any of these
+  changes the policy, and its date, in the same PR.
