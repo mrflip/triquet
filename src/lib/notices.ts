@@ -133,6 +133,21 @@ export const AskFailureNotices = {
 
 export type AskFailurekind = keyof typeof AskFailureNotices
 
+/** What a Google sign-in that did not finish is headed, when the browser comes back to the app as it was */
+export const GoogleSignInUnfinished = "Google sign-in didn't finish"
+
+/**
+ * What a browser is told when a Google sign-in it started did not finish (cancelled at Google,
+ * started too long ago, or refused), and it is still the user it was: by its handle, when it
+ * holds one. Nothing about it has changed.
+ *
+ * @example googleSignInUnfinishedNotice('flip_kromer')  // => "You're still flip_kromer, as before. Try again."
+ * @example googleSignInUnfinishedNotice(null)           // => "You're still signed in as before. Try again."
+ */
+export function googleSignInUnfinishedNotice(userlabel: string | null): string {
+  return userlabel === null ? "You're still signed in as before. Try again." : `You're still ${userlabel}, as before. Try again.`
+}
+
 /**
  * Why a smith could not add `label` to a hunt: nobody has chosen that handle yet. The refusal
  * `userUnknown` says it of the userlabel refused.

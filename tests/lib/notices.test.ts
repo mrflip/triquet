@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { RefusalNotices, botUnavailableNotice, userUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, widgetingShownNotice } from '../../src/lib/notices'
+import { RefusalNotices, botUnavailableNotice, googleSignInUnfinishedNotice, userUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, widgetingShownNotice } from '../../src/lib/notices'
 
 describe('botUnavailableNotice', () => {
   const Cases: [[string, string], string, string][] = [
@@ -73,3 +73,11 @@ describe('widgetingShownNotice', () => {
     expect(widgetingShownNotice([])).to.eq(RefusalNotices.widgetingShown)
   })
 })
+
+describe('googleSignInUnfinishedNotice', () => {
+  it("tells a browser it is still the handle it was, or still signed in as before when it holds none", () => {
+    expect(googleSignInUnfinishedNotice('flip_kromer')).to.eq("You're still flip_kromer, as before. Try again.")
+    expect(googleSignInUnfinishedNotice(null)).to.eq("You're still signed in as before. Try again.")
+  })
+})
+
