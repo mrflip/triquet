@@ -1,19 +1,19 @@
 # Sprint `oauth`: progress
 
-**Status: thread 2 landing; 1 and 7 in review (2026-10-11).**
+**Status: threads 1, 2 and 7 landing (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
-| 1 | `split_account`: free the words "account" and "username" | in review | `20261011-split_account` | |
+| 1 | `split_account`: free the words "account" and "username" | landing | `20261011-split_account` | |
 | 2 | `clear_people`: delete production's people, keep its hunts | landing | `20261011-clear_people` | |
 | 3 | `converge`: users and huntships, everywhere | pending (1, 2) | | |
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | pending (3) | | |
 | 5 | `google_signin`: the provider, the patch, the merge | pending (3) | | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
-| 7 | `google_pages`: homepage, privacy, terms, contact | in review | `20261011-google_pages` | |
+| 7 | `google_pages`: homepage, privacy, terms, contact | landing | `20261011-google_pages` | |
 | 8 | `reserved_words`: survey and augment the reserved list | pending (a free slot) | | |
 | 9 | `oauth_security`: a strong review | pending (1-8) | | |
 
@@ -30,6 +30,11 @@ Full e2e runs at landing: threads 3 and 5, and every fourth landing (none yet).
   - **Threads 6 and 9:** an email is shown to its owner alone.
   - **Thread 9:** anyone opening a hunt's address without being on it sees its smiths' names and
     handles (`hunts:open`, `NotOnHunt`). The policy says so; review it as a choice, not a leak.
+    *Review (thread 7):* `/h/<label>` looks a label up across every org, and labels are guessable
+    adjective_animal pairs, so a script could list every hunt's smiths. Thread 9 weighs that.
+  - **The policy names one cookie exception** (the review's fix): Convex Auth's Google sign-in
+    sets 15-minute OAuth state, PKCE, nonce and redirect cookies on the Convex site. **Thread 5:**
+    set no other cookie, or change the policy with it.
 * **Stable paths for the policies:** `Routes.privacyPath()` and `Routes.termsPath()` (thread 6
   links them). `SiteFooter` sits in the root layout; leave it there.
 * **The janitor's guard is `scripts/janitor.ts`** (thread 2). A command calls `takeAim(argv)` and
@@ -56,6 +61,10 @@ Full e2e runs at landing: threads 3 and 5, and every fourth landing (none yet).
   - Browser: `useAwaitedActions`, with `useUserActions` and `useOuterHuntActions` over it.
   - Views: `UserMenu` (on screen, "You") and `ShowUser`. Thread 6 grows `UserMenu`.
   - The ask route's `accountOff` failure is `keyRefused`: it meant Anthropic's account.
+  - *Review (thread 1):* clean; the split passes exactly the old checks, action for action.
+    Removing a public function leaves an old tab broken until it reloads (deploy skew). The
+    project has no policy on that; **thread 3**, which renames far more, should say so in its PR
+    the same way, and not build shims.
 * **Deletes go through the triggers** (thread 2): clearing reviews moves a quiz's change signal,
   as any deletion would. Signals are never deleted.
 
