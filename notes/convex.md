@@ -101,10 +101,12 @@ A browser is a Convex Auth session (`convex/auth.ts`): anonymous at first, and s
 Google where the deployment offers it (`auth.offered`, true only with Google's keys set), signed
 in as a user, which takes a userlabel once. Our `createOrUpdateUser` (`userForSignIn` in
 `writing/user_actions.ts`) makes the user, so `users` is ours to write and validate; Convex Auth's
-other tables stay its own, but for a merge's deletion of the merged-away user's sessions. For a
-Google sign-in it decides by whose the account is (`existingUserId`) and whose the signing-in
-browser was (`authUserId`, which our patch of Convex Auth hands it), never by email: a new account
-upgrades an anonymous browser's user in place (clearing `isAnonymous`) or makes a new user; a known
+other tables stay its own, but for a merge's deletion of the merged-away user's sessions. Convex
+Auth asks it twice for a Google sign-in. At Google's callback, where nothing proves which browser
+came back, it only links the account: to its own user, or to a new provisional one. At the code's
+exchange, once the browser has proved it started the sign-in, it decides by whose the account is
+(`existingUserId`) and whose the starting browser was (`authUserId`, which our patch of Convex Auth
+hands it there and nowhere else), never by email: a new account upgrades an anonymous browser's user in place (clearing `isAnonymous`) or makes a new user; a known
 one switches the browser to its user, merging into it an anonymous user that holds a userlabel
 (made smith of its sandbox, the anonymous user marked `merged` and its sessions deleted, a name
 choice left pending: `nameChoiceFor` in `reading.ts`). Two Google users are never merged.

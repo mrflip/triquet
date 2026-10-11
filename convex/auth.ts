@@ -35,8 +35,10 @@ export function googleKeyed(): boolean {
  *
  * The user a sign-in is signed in as is ours to write (`createOrUpdateUser`, `userForSignIn`):
  * through the database the triggers run on, so the row is stamped, and through our row validator.
- * It decides from whose the account is and whose the signing-in browser was (`authUserId`, which
- * our patch of Convex Auth hands it), never from an email.
+ * For Google it is asked twice: at Google's callback, where it only links the account, and at the
+ * code's exchange, where the browser has proved it started the sign-in and the starting browser's
+ * user (`authUserId`, which our patch of Convex Auth hands it there) is upgraded, merged or
+ * switched from. Never from an email.
  *
  * A session lasts as long as the browser keeps it, short of a year unvisited: an anonymous session
  * that ended would strand its user and its userlabel, which no other session may be signed in as,

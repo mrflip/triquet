@@ -197,7 +197,9 @@ can tell.
   which carries on, smith of its sandbox. The user merged away is **merged** (`users.merged`:
   into whom, by which account), never deleted, and nobody is signed in as it again. While it still
   holds its userlabel, the user it merged into has a **name choice** pending (`nameChoiceFor`):
-  which of the two handles to keep. Two users signed in with Google are never merged. *Signed in
+  which of the two handles to keep. All three are decided at the code's exchange, never at
+  Google's callback; a new account's user is **provisional** (`users.provisional`) between the
+  two, kept or folded into the browser's user at the exchange. Two users signed in with Google are never merged. *Signed in
   with Google* is one predicate, `Actor.isSignedInWithGoogle`: the user is not anonymous.
 * **ghosting** -- a userlabel retired by a merge, held reserved until it can be released: a row of
   `ghostings`, appended and never edited, naming the user that held it (`user_id`), the user it

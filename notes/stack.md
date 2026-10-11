@@ -242,13 +242,25 @@ Settled; reach for these before writing the equivalent.
   (`notes/security.md`). Its session keys (`JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL`) live on the
   deployment: `scripts/convex_auth_keys` mints throwaway ones for a local backend, and a Coach sets
   production's (`notes/deploy.md`).
-  - Convex Auth is **patched** (`patches/@convex-dev__auth@0.0.96.patch`) with the `authUserId`
-    half of upstream's PR #306 (https://github.com/get-convex/convex-auth/pull/306, open):
-    `createOrUpdateUser` is handed the user the signing-in browser's session was signed in as,
-    which Convex Auth records on the sign-in's verifier but passes nowhere. The PR's other half, a
-    browser-chosen `scope`, is left out. **Drop the patch when a release carries #306** (rename
-    `authUserId` in `SignInT` if the release names it otherwise); a bump of `@convex-dev/auth`
-    re-cuts it until then. `tests/convex/auth.test.ts` fails without it.
+  - Convex Auth is **patched** (`patches/@convex-dev__auth@0.0.96.patch`, `dist/` only). It starts
+    from the `authUserId` half of upstream's PR #306 (https://github.com/get-convex/convex-auth/pull/306,
+    open): `createOrUpdateUser` is handed the user of the session recorded on the sign-in's
+    verifier, which Convex Auth records but passes nowhere. #306 hands it on at Google's callback,
+    which is open to login CSRF (`notes/security.md`), so the patch adds, beyond #306:
+    1. **At the callback** (`mutations/userOAuth.js`), no session is handed on, and the verifier is
+       kept, its signature cleared, rather than deleted.
+    2. **At the code's exchange** (`mutations/verifyCodeAndSignIn.js`), for an OAuth account, once
+       the code and the verifier the browser kept have matched: the verifier's session is handed
+       to `createOrUpdateUser` (asked a second time, `type: 'verification'`, empty profile), and
+       the verifier deleted.
+    3. **An OAuth code presented with the wrong verifier is spent** (the same file), so a code
+       leaked from the browser Google sent it to cannot be used by the verifier's holder.
+    The PR's other half, a browser-chosen `scope`, is left out. **Upstream needs the same fix:**
+    #306 as written lets a link to someone's sign-in attach the clicker's account to them. **Drop
+    the patch only when a release decides at the exchange** (not merely when it carries #306),
+    and rename `authUserId` and the two steps in `userForGoogle` to match it; a bump of
+    `@convex-dev/auth` re-cuts it until then. `tests/convex/auth.test.ts` and the sign-in tests in
+    `tests/convex/writing/user_actions.test.ts` fail without it.
 
 ### AI
 

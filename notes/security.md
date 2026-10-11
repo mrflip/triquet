@@ -127,16 +127,34 @@ security expert who knows what questions to ask.
   commands) acts only when `--deployment` names the deployment the CLI's environment reaches, by
   the address that deployment reports for itself (its `cloudUrl`, read by `convex function-spec`
   with the same admin key, not the address the CLI connected to); a dry run is the default.
-* 2026-10-11 (oauth sprint, thread 5): Convex Auth 0.0.96 is patched with the `authUserId` half of
-  upstream's open PR #306 (`patches/@convex-dev__auth@0.0.96.patch`): `createOrUpdateUser` is
-  handed the user of the session recorded on the OAuth verifier, which is the session whose token
-  called `auth:signIn` to start the sign-in. The callback that runs it is Google's redirect to the
-  deployment, carrying no token; the verifier is matched to it by the signature of the PKCE
-  verifier and state Convex Auth keeps in its own cookies. The PR's browser-chosen `scope` is not
-  carried.
-* 2026-10-11 (oauth sprint, thread 5): a Google sign-in's user is decided by whose the account
-  is and whose the signing-in browser was (`userForGoogle`, `convex/writing/user_actions.ts`),
-  never by email: Convex Auth's default linking by verified email is off with our
+* 2026-10-11 (oauth sprint, thread 5, after its review): **login CSRF through the starting
+  session, and where the decision is made.** Convex Auth's sign-in route
+  (`/api/auth/signin/google?code=<verifier id>`) signs whatever verifier it is handed, from any
+  browser, and a verifier never expires; Google's callback then finds that verifier by the signature
+  in the finishing browser's cookies. So the browser that finishes at Google is not proven to be
+  the one that started: a browser can start a sign-in and send its link to someone, whose own
+  Google account then completes it. Upstream's PR #306, which we carry, hands the starting session
+  to `createOrUpdateUser` at that callback; deciding there would let the link's maker have the
+  clicker's Google account upgrade its anonymous user (a takeover: it would then be signed in with
+  Google as them) or be merged into from it. **Decision:** our patch hands the starting session on
+  only at the code's exchange, where the browser presents the verifier it kept in its own storage
+  together with the code Google redirected it to, which only the starting browser can both hold.
+  At the callback our code links the account to its own user, or to a new **provisional** user, and
+  reads nothing of the starting browser's; at the exchange it upgrades, merges or switches
+  (`userForGoogle`, `accountUserAtCallback`, `userAtExchange`). A code presented with the wrong
+  verifier is spent, so a code leaked from the clicker's address bar, history or a server log
+  cannot then be used with the link's verifier. Shape chosen over a claim after the exchange
+  (proof of the old session carried across the redirect): smaller, atomic (no moment signed in as
+  the wrong user, no claim left unmade), and it uses the proof Convex Auth already has. Left: the
+  code is 8 digits and lives 2 minutes, and guesses at it are not throttled, so the link's maker,
+  holding the verifier, could guess at it until the clicker's browser lands on the app and spends
+  it by presenting its own verifier (at once, unless that browser never runs the app's script); a provisional user whose exchange never came stays,
+  holding its account, until that account signs in again. The patch's exact lines:
+  `notes/stack.md`, *Authentication*. The callback is Google's redirect to the deployment, carrying
+  no token; the PR's browser-chosen `scope` is not carried.
+* 2026-10-11 (oauth sprint, thread 5): a Google sign-in's user is decided, at the code's exchange,
+  by whose the account is and whose the starting browser was (`userForGoogle`,
+  `convex/writing/user_actions.ts`), never by email: Convex Auth's default linking by verified email is off with our
   `createOrUpdateUser`, and two Google accounts sharing an email are two users. A new account from
   an anonymous browser joins that user and clears its `isAnonymous` (unsealing it); from a Google
   user's browser, or none, it makes a new user. A known account switches the browser to its user;
@@ -145,6 +163,8 @@ security expert who knows what questions to ask.
   marked `merged` (never deleted), keeps its userlabel reserved until a name choice is settled, and
   every one of its sessions and their refresh tokens is deleted by our code. A Google user is never
   merged away. A Google user holding no handle takes the anonymous user's handle and title outright.
+  An upgrade deletes the provisional user the callback made, which nobody was ever signed in as.
+  The merged user's other unfinished sign-ins' verifiers stay (no index finds them by session).
 * 2026-10-11 (oauth sprint, thread 5): an admin must be signed in with Google
   (`Actor.isSignedInWithGoogle`: the user is not anonymous): `Actor.ofUser` counts an anonymous
   user's `admin` flag for nothing. Not by email, because a Google account's email can change and a
