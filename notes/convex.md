@@ -29,8 +29,8 @@ up the same way (`pnpm db:up --role <role>`), or simply emptied and pushed again
 
 ## Stamps
 
-Every row of ours the app writes (`StampedTables` in `convex/stamping.ts`: every table but
-`identings`, whose rows are appended and never edited) carries `created_at` and `updated_at`, epoch
+Every row of ours the app writes (`StampedTables` in `convex/stamping.ts`: every table, `users`
+among them, but `ghostings`, whose rows are appended and never edited) carries `created_at` and `updated_at`, epoch
 milliseconds, for forensics. They are written in one place, by a trigger (convex-helpers'
 `Triggers`): every mutation `convex/functions.ts` builds, public or internal, holds a database
 wrapped by `triggers.wrapDB`, and an ESLint rule (`triquet/convex-mutations-through-triggers`)
@@ -85,30 +85,41 @@ decision is one parallel round of `.get`/`.first`, with no read waiting on anoth
 which hunt a row is of. The copies:
 
 The rule: **a copy is written when its row is, and never changes after**, since nothing moves
-between parents (a quiz does not change hunts, an ident's label is fixed). The one exception is
-`huntings.ident_title`: retitling an ident (`retitleIdent`) rewrites it on every hunting the ident
-has, a fan-out bounded by the hunts one ident is on. A copy that would need upkeep beyond that is
+between parents (a quiz does not change hunts, a userlabel is set once). The one exception is
+`huntships.usertitle`: retitling a user (`retitleUser`) rewrites it on every huntship the user
+has, a fan-out bounded by the hunts one user is on. (Thread 6's `relabelUser`, settling a merge's
+name choice, rewrites `huntships.userlabel` the same way; a hunt's `orglabel` is an address, never
+a copy, and never changes.) A copy that would need upkeep beyond that is
 not added; a new one goes in this table, and in `Copies` in `tests/support/soundness.ts`, which
 `expectSound` checks against its source. A reviewing does not copy its review's `phase`, which
 changes: whatever needs it reads the review.
 
 ## Who is asking
 
-A browser is a Convex Auth session (`convex/auth.ts`; anonymous for now), and asserts a userlabel
-on top of it. No function takes an argument saying who is asking: the builders in
-`convex/functions.ts` (`zQuery`, `zMutation`) build it once per request (`askerOf`: the session,
-if Convex Auth still holds it, its user, the newest identing, the ident) and hand it to every
-handler as `ctx.actor` (`src/lib/actor.ts`: anonymous, or an ident) and `ctx.user_id` (the
-session's user, null with no session). A builder layered over these calls `askerOf` rather than
-reading identity a second way. Tests call as a session: `identified(tt, label)` and `signedIn(tt)`
-in `tests/support/convex.ts`.
+A browser is a Convex Auth session (`convex/auth.ts`; anonymous for now), signed in as a user,
+which takes a userlabel once. Our `createOrUpdateUser` (`userForSignIn` in `writing/user_actions.ts`)
+makes the user, so `users` is ours to write and validate; Convex Auth's other tables stay its own.
+No function takes an argument saying who is asking: the builders in `convex/functions.ts`
+(`zQuery`, `zMutation`) build it once per request (`askerOf`: the session, if Convex Auth still
+holds it, and its user's row) and hand it to every handler as `ctx.actor` (`Actor.ofUser` in
+`src/lib/actor.ts`: unlabelled, or the user with its userlabel, title, admin flag and whether it is
+anonymous) and `ctx.user_id` (the session's user, null with no session). The admin flag is read
+there and nowhere else. A builder layered over these calls `askerOf` rather than reading identity a
+second way. Tests call as a session, each helper named for the kind of user it makes:
+`googleUser(tt, label)` (its Google account row seeded, never signed in to), `anonymousUser(tt,
+label)` and `anonymousSession(tt)` (no userlabel), in `tests/support/convex.ts`.
+
+An anonymous user is **sealed** in its sandbox, and sealing is policy like everything else
+(`Actor.isSealed`, asked by `Approve.mayMakeHunt`, `mayChangeMembership`, `mayJoinHunt` and
+`mayWriteReview`). The one way past it is a named write, `smithOfSandbox`
+(`writing/huntship_actions.ts`), for a user signed in with Google carrying a sandbox on.
 
 Who may do what is decided in one place and gathered in another. `src/lib/approve.ts` holds every
 policy, a non-async `may…` function deciding from the claims it is handed, reachable by key
 through `Approve.may`, `Approve.must` and `Approve.verdictOn`; its dispatch table gives every
 action kind its policy, and a kind without a row fails to compile. `convex/authorize.ts` holds the
 `affirm…` functions that read the evidence and build the claims, and decide nothing. A request
-about a hunt carries the browser's **affirms** (its ident, the hunt, its standing there, the quiz
+about a hunt carries the browser's **affirms** (its user, the hunt, its standing there, the quiz
 on screen), and `affirmForHunt` checks them all in one parallel round of reads (`EST.allKeyed`),
 with whatever else the decision needs read beside them; a stale or forged affirm is a denial like
 any other. A denial is thrown (`Approve.NotApprovedError`): a mutation's `refusingInvalid` turns it
@@ -116,7 +127,7 @@ into a refusal of its kind, and a query wraps its work in `emptyIfDenied` (`func
 answers with its empty value, since a watch that throws takes the page down. Business code in
 `writing/` is handed the claims, trusts them, and takes the rows they carry (the quiz on screen,
 its realm) rather than reading them again. A quiz's lock is policy (`Approve.mayReviseQuiz`), not
-the write's. The browser asks the same policies of the same claims: `idents.current` hands a
+the write's. The browser asks the same policies of the same claims: `users.current` hands a
 session the actor the server builds for it, and a screen's views decide what to offer from
 claims built on it (`notes/views.md`, *What a view offers*).
 
@@ -126,10 +137,12 @@ and `zHuntMutation` run its `affirm` on the plain database, then hand its handle
 per table in `convex/policy_rules.ts`. A row of another hunt reads as absent and a write to one
 throws, so a function that forgets a check still cannot reach another hunt. A query's rules
 differ from a mutation's only for reviews: a query shows the ones its reader may read
-(`Approve.mayReadReview`), a mutation sees them all to count and delete them. Identings and Convex
-Auth's tables are not reachable through it; idents are read, never written. The two facts a write
-must know across hunts (a hunt label's holder, a widget worked anywhere) are asked of the
-**census** (`ctx.census`) instead. The library belongs to no hunt, and no hunt's function writes
+(`Approve.mayReadReview`), a mutation sees them all to count and delete them. `users` (whose rows
+hold an email), `ghostings` and Convex Auth's own tables are not reachable through it. What a
+function must know beyond its hunt (a hunt label's holder, a widget worked anywhere, who a user
+is) is asked of the **census** (`ctx.census`, a hunt's query's as well as its mutation's), which
+answers with an id, a yes, or a user's face (`UserFaceT`: userlabel, title, anonymous or not),
+never a row. The library belongs to no hunt, and no hunt's function writes
 it: changing it is an admin's act (`Approve.mayChangeLibrary`, and `Actor.isAdmin`, the one place
 that says who an admin is), on a mutation of its own, `widgets.perform`, built by
 `zLibraryMutation`, whose database reaches the library's widgets and nothing of any hunt
@@ -143,11 +156,13 @@ of it, a reviewer what a review needs (the answer included: the review screen's 
 shield, not a security rule). A change to who is sent what is an edit to that list. The whole hunt
 (`hunts.whole`, the export) is a smith's alone (`Approve.mayExportHunt`).
 
-Convex Auth's tables (`users`, `authSessions`, `authAccounts` and the rest) are spread into
+Convex Auth's own tables (`authSessions`, `authAccounts` and the rest) are spread into
 `convex/schema.ts` as it ships them (`authTables`): they are its own, written only by it, and not
-derived from a row validator of ours. `tests/convex/schema.test.ts` leaves them out. The one
-exception was the OAuth sprint's clear of production's people (`notes/deploy.md`, *Clearing
-production's people*), which deleted them all, and went with the tables it emptied.
+derived from a row validator of ours. `tests/convex/schema.test.ts` leaves them out. Its `users` is
+ours since the OAuth sprint's thread 3: inlined from `UserValidators.row`, keeping Convex Auth's
+fields and its `email` and `phone` indexes by the names it queries them by. The one exception to
+leaving its own tables alone was the sprint's clear of production's people (`notes/deploy.md`,
+*Clearing production's people*), which deleted them all, and went with the tables it emptied.
 
 ## Convex's own guidelines
 

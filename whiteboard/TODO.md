@@ -435,9 +435,10 @@ headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (abo
 * **O1, the ask route answers any POST** on the server's Anthropic key (Opus tier, `max_tokens` as
   asked): no session, no rate limit. *Coach, 2026-10-08:* once there is OAuth, asking becomes
   bring-your-own-key.
-* **O3, unheld legacy idents.** An ident nobody holds goes to the first session asserting it
-  (`claimFor`), and `hunts.open` tells anyone a hunt's smiths' usernames. Close out unheld idents;
-  name smiths only to a session with a username.
+* ~~**O3, unheld legacy idents.**~~ *Struck by the oauth sprint's thread 3 (2026-10-11):* idents are
+  gone, and with them the ident nobody held (`claimFor`); a userlabel is now a user's, set once,
+  and free only while nothing holds it (`holderOfUserlabel`). Its other half stands: `hunts.open`
+  tells anyone with a userlabel a hunt's smiths' handles, which thread 9 (`oauth_security`) weighs.
 * **O9, info.** An image may be any `https` address, the viewer's own network included.
 
 ## From perf_improvements sprint, thread 1: spine_test_split

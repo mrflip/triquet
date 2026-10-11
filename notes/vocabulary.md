@@ -145,73 +145,75 @@ words above.
 
 ## Who and where
 
-The oauth sprint (`whiteboard/20261010-oauth/`, whose pre-plan is the authority) makes the ident
-and the user one and adds Google sign-in. Its words are here; where the code does not say so yet,
-the entry names the sprint's thread that makes it. A user, an account and a session are never a
-person: one person may hold several of each, and nothing here can tell.
+The oauth sprint (`whiteboard/20261010-oauth/`, whose pre-plan is the authority) made the ident
+and the user one (thread 3) and adds Google sign-in (threads 5 and 6). Its words are here; where
+the code does not say so yet, the entry names the sprint's thread that makes it. A user, an
+account and a session are never a person: one person may hold several of each, and nothing here
+can tell.
 
 * **account** -- one way in: a row of Convex Auth's `authAccounts`, anonymous or (thread 5) one
   Google account, belonging to exactly one user. Our own code says it of nothing else: what was
   once named for accounts is user actions and outer hunt actions (below). Another service's
   account (Anthropic's, GitHub's, Convex's) is that service's word, never ours.
-* **user** -- a row of Convex Auth's `users`: what a session is signed in as, and what an ident's
-  `user_id` points at. From thread 3 it is the persona itself, holding its userlabel, its title
-  and its `admin` flag, and the ident is gone.
-* **session** -- a Convex Auth sign-in, anonymous for now: what a browser is to the server. It
-  gives a `users` row id (`user_id`), and is kept in the browser's storage, so a browser is the
-  same session visit after visit. A session says nothing of who someone is; its userlabel does.
+* **user** -- a row of `users`: what a session is signed in as, and the persona in the app,
+  holding its userlabel, its `title` and its `admin` flag beside the fields Convex Auth keeps
+  (`email`, `name`, `isAnonymous`). Convex Auth's table name, but ours to write: our
+  `createOrUpdateUser` (`userForSignIn`) makes one, through `UserValidators.row`
+  (`src/models/user.ts`). What everything that says who points at (`user_id`). Replaced the
+  **ident** and the **identing**, both gone with thread 3. A user is shown to anyone else only as
+  its **face** (`UserFaceT`: userlabel, title, anonymous or not), never with its email.
+* **session** -- a Convex Auth sign-in: what a browser is to the server. It gives a `users` row id
+  (`user_id`), and is kept in the browser's storage, so a browser is the same session visit after
+  visit. A session says nothing of who someone is; its user's userlabel does.
 * **anonymous** -- a user signed in with no proof, by Convex Auth's Anonymous provider
-  (`isAnonymous`), as every browser is at first; on screen, *anonymous*, beside *signed in with
-  Google*. From thread 3 it is sealed: a userlabel and one sandbox, no other hunt, no reviews. Not
-  the actor's `anonymous` kind, which is a request whose session has asserted no userlabel
-  (*actor*).
-* **userlabel** -- an ident's label, what a person types to become it (`PA.Userlabel`,
+  (`isAnonymous`, `User.isAnonymous`, the actor's `anonymous`), as every browser is at first; on
+  screen, *anonymous*, beside *signed in with Google*. An anonymous user is **sealed** in its
+  sandbox (`Actor.isSealed`): it may take a userlabel and make its one sandbox, and may not be put
+  on any other hunt, bring anyone onto its own, or review. Each refusal says "Sign in with Google
+  to ..." (`sealedHunts`, `sealedMembers`, `sealedJoin`, `sealedReview`). Never the actor's
+  `unlabelled` kind, which is a user holding no userlabel yet, anonymous or not (*actor*).
+* **userlabel** -- a user's label, what a person types to become it (`PA.Userlabel`,
   `ValidatorKit.userlabel`): 6 to 24 characters of the label alphabet, unique across the app, its
-  own word as `orglabel` is. Never "username", a word banned from code, notes, notice keys and
-  test names. From thread 3 a user holds it, and it is free only while no user holds it, no
-  ghosting holds it, and no hunt carries it as its `orglabel`.
+  own word as `orglabel` is, and chosen once (`userlabelSet`). It is **free** only while no user
+  holds it, no ghosting holds it, and no hunt carries it as its `orglabel` (`holderOfUserlabel`);
+  only the command line gives out one that only an address holds (thread 4). Never "username", a
+  word banned from code, notes, notice keys and test names. `User.labelFor` makes one from a name.
 * **handle** -- what the screen calls a userlabel: the one word a visitor reads for it ("Handle",
   "That handle is kept for the app's own use"). Not a row's drag handle, which the screen also
   has, nor STYLE.md's `handle` tag.
-* **ident** -- who someone is in the app, named by a global userlabel a person types to become it: 6
-  to 24 characters of the label alphabet, made from the name typed beside it until it is typed in
-  itself. Held by the session that claimed it (`user_id`), and asserted by no other: no password,
-  but no taking on another's either. One made before sessions held userlabels is unclaimed
-  (`user_id` null) until a session asserts it. Has a `title` for display: the name typed at the
-  front door, or its label titleized; retitling it never relabels it. Never deleted, and its label
-  never changes. Becomes the user, thread 3.
-* **identing** -- one session asserting one ident, by the session's `user_id`. The session's
-  newest identing is its current ident; that row, not browser storage, is what "logged in" means.
-  Gone in thread 3: choosing a userlabel is then one write to the user.
-* **huntship** -- (thread 3) a user's place on one hunt, with its role: what replaces the hunting,
-  copying the user's `userlabel` and `usertitle`. At most one per hunt and user.
-* **sandbox** -- (thread 3) the one hunt an anonymous user may make: labelled with its own
-  userlabel, so at `~label/label`, with no other member. Its address stays when a merge hands it
-  to a user signed in with Google.
-* **ghosting** -- (threads 5 and 6) a userlabel retired by a merge, held reserved until it can be
-  released: a row of `ghostings`, appended and never edited, naming the user that held it, the
-  user it merged into, and the account whose sign-in caused it. The Coach's word.
+* **huntship** -- a user's place on one hunt, with its role (`huntships`, `src/models/huntship.ts`),
+  copying the user's `userlabel` and `usertitle` (`notes/convex.md`, *Denormalized fields*). At
+  most one per hunt and user: putting someone on again changes their role. A **member** of a hunt
+  is a user with a huntship on it. A hunt's maker is its first smith, and nobody changes their own
+  huntship: another smith does. Replaced the **hunting**.
+* **sandbox** -- the one hunt an anonymous user may make: labelled with its own userlabel, so at
+  `~label/label` (`Hunt.isSandbox`), with no other member. Its address stays when a merge hands it
+  to a user signed in with Google (`smithOfSandbox`, thread 5).
+* **ghosting** -- a userlabel retired by a merge, held reserved until it can be released: a row of
+  `ghostings`, appended and never edited, naming the user that held it (`user_id`), the user it
+  merged into (`into_user_id`), and the account whose sign-in caused it (`account_id`). The
+  table is thread 3's, and the free-userlabel check reads it; threads 5 and 6 write it. The
+  Coach's word.
 * **user action**, **outer hunt action** -- what a visitor does outside any quiz, each kind on a
-  mutation of its own: as themselves, asserting or retitling a userlabel (`idents.perform`,
+  mutation of its own: as themselves, taking a userlabel or retitling themselves (`users.perform`,
   `writing/user_actions.ts`); or to a hunt they make or name, making, retitling, relabelling,
   rebranching it or arranging its categories (`hunts.performOuter`, `performOuterHunt` in
   `writing/hunt_actions.ts`). An outer hunt action names its hunt by id where a hunt action from
   inside a quiz affirms it (`hunts.perform`), and the browser waits on either before it moves on
   (`useAwaitedActions`).
 * **actor** -- who a request is from, as a tagged value built once per request and handed to
-  every function as `ctx.actor` (`src/lib/actor.ts`): `{ kind: 'anonymous' }` when no userlabel
-  has been asserted (signed in or not), or `{ kind: 'ident', user_id, ident_id, ident_label }`.
-  A tagged value rather than `null`, so that "anonymous" is a state with a name
-  (`Actor.isAnonymous`). A variable, field or parameter named `actor` is the whole tagged value;
-  one that holds an id or a label of the one acting is named for what it holds (`ident_id`,
-  `user_id`, `ident_label`), and `acting_ident_id` where it must be told apart from another ident
-  in the same scope.
-* **standing** -- an actor's place on one hunt: `'smith'` or `'reviewer'` by its hunting, or
+  every function as `ctx.actor` (`src/lib/actor.ts`, `Actor.ofUser`): `{ kind: 'unlabelled' }`
+  while the session's user holds no userlabel (or there is no session), or `{ kind: 'user',
+  user_id, userlabel, usertitle, admin, anonymous }`. A tagged value rather than `null`, so that
+  "nobody has said who they are" is a state with a name (`Actor.isUnlabelled`). A variable, field
+  or parameter named `actor` is the whole tagged value; one that holds an id or a label of the one
+  acting is named for what it holds (`user_id`, `userlabel`), and `acting_user_id` where it must
+  be told apart from another user in the same scope.
+* **standing** -- an actor's place on one hunt: `'smith'` or `'reviewer'` by its huntship, or
   `'stranger'` (`Actor.HuntStandingVals`). A named value rather than a null role, so that "not on
-  the hunt" is a state with a name. An actor who has asserted no userlabel is a stranger to every
-  hunt.
+  the hunt" is a state with a name. An actor without a userlabel is a stranger to every hunt.
 * **affirms** -- what a browser says is true of itself on a hunt, sent with every request about
-  it: `{ ident_id, hunt_id, standing }`, and where the request is about a quiz, its `quiz_id`, and
+  it: `{ user_id, hunt_id, standing }`, and where the request is about a quiz, its `quiz_id`, and
   for an action, the quiz's `realm_id` too (`ActionValidators.huntAffirms`, `quizAffirms`,
   `affirms`). Each is something the browser already holds from the hunt it opened
   (`useAffirms`). The server believes none of it until it has checked it (`affirmForHunt`): a
@@ -220,8 +222,8 @@ person: one person may hold several of each, and nothing here can tell.
   `ActorT & { hunt_id, standing }` (`Actor.HuntClaimsT`, built by `Actor.claimsOn`), and with a
   quiz on screen, that quiz's row (`Actor.QuizClaimsT`). On the server, the affirms once checked,
   with the rows read to check them (`ClaimsOf` in `convex/authorize.ts`). In the browser, what it
-  holds of itself on the hunt it has open, built the same way from the actor `idents.current` hands
-  it (`useIdent`) and the hunt it read (`useHunt`'s `claims`). Code handed claims trusts them.
+  holds of itself on the hunt it has open, built the same way from the actor `users.current` hands
+  it (`useMe`) and the hunt it read (`useHunt`'s `claims`). Code handed claims trusts them.
   Named `claims`, the whole object, never one of its fields.
 * **policy**, **verdict** -- a policy is a non-async `may…` function in `src/lib/approve.ts`
   (`mayReadReview`, `mayChangeMembership`) that decides from the evidence it is handed and reads
@@ -244,10 +246,13 @@ person: one person may hold several of each, and nothing here can tell.
   The functions that hold the whole database instead are named in `Unscoped`
   (`convex/authorize.ts`). Not a widget's `scope`.
 * **admin** -- one who looks after what belongs to no hunt: the library. Changing it is an admin's
-  act (`Approve.mayChangeLibrary`). Who is an admin is the deployment's `TRIQUET_ADMINS` to say
-  (`Actor.namesAdmin`), decided on the server as it builds the actor; policies ask `Actor.isAdmin`.
-* **census** -- what a write must know across every hunt, asked of the whole database and
-  answered with an id or a yes, never a row: whose a hunt label is, whether a widget is worked
+  act (`Approve.mayChangeLibrary`). Who is an admin is the user's own `admin` flag, set only from
+  the command line (thread 4), read once as the actor is built (`Actor.ofUser`); a local backend
+  makes every user one (`TRIQUET_EVERYONE_ADMIN`). No environment variable lists admins. Thread 5
+  makes the flag count only for a user signed in with Google. Policies ask `Actor.isAdmin`.
+* **census** -- what a function about one hunt must know beyond it, asked of the whole database
+  and answered with an id, a yes, or a user's face, never a row: whose a hunt label is, whether a
+  widget is worked
   anywhere (`CensusT` in `convex/reading.ts`). A hunt's mutation, and the library's, holds one
   beside its scoped database.
 * **affirm…** -- an async function in `convex/authorize.ts` (`affirmPerform`,
@@ -260,8 +265,8 @@ person: one person may hold several of each, and nothing here can tell.
   global, and exports on its own. Its label is unique within its org; should two of one org share
   one, the earlier-made wins.
 * **org** -- the scope a hunt is addressed under and its label is unique within, the `~pat_smith`
-  of `/~pat_smith/spring_hunt`: for now always an ident label, so every userlabel is its own org.
-  A hunt names its org in its **orglabel** (`hunts.orglabel`), its maker's ident label, copied
+  of `/~pat_smith/spring_hunt`: for now always a userlabel, so every userlabel is its own org.
+  A hunt names its org in its **orglabel** (`hunts.orglabel`), its maker's userlabel, copied
   when it was made and never changed: not when its maker is retitled, leaves, or changes role.
   Every hunt has one. The address's slot is `org` (`Routes.HuntLabels`, `HuntListingT.org`); the
   stored field is `orglabel`. An address naming another org finds no hunt there; an old one
@@ -276,12 +281,8 @@ person: one person may hold several of each, and nothing here can tell.
   `!playtest`. Replaced the **act** of September 2026 (`?act=smith`, `?act=review`), which old
   addresses still carry and are moved from. See `notes/decisions/urls.md`.
 * **smith** -- someone making a hunt's quizzes; **reviewer** -- someone playtesting them. Each
-  is a **role** on a hunt, held by a hunting.
-* **hunting** -- one ident's place on one hunt, with a role; a **member** of a hunt is an ident
-  with a hunting on it. One per (hunt, ident): putting someone on again changes their role. A
-  hunt's maker is its first smith, and nobody changes their own hunting: another smith does.
-  The hunts list shows one's own hunts, its links opening each quiz in the mode one's role works in.
-  Becomes the huntship, thread 3.
+  is a **role** on a hunt, held by a huntship (above). The hunts list shows one's own hunts, its
+  links opening each quiz in the mode one's role works in.
 * **workspace** -- retired in September 2026: what one account held, before hunts held quizzes
   and addresses said which was open. Nothing reads one now.
 
@@ -368,7 +369,7 @@ person: one person may hold several of each, and nothing here can tell.
     Sheets, the questions alone, the LL export), but kept in the quiz's own ball and table, with
     its viz. An import that brings in a question archives the quiz's untouched blank questions.
 * **stamps** (`created_at`, `updated_at`) -- when a row was made and last edited, in epoch
-  milliseconds; equal until its first edit. Every table of ours but the identings carries them,
+  milliseconds; equal until its first edit. Every table of ours but the ghostings carries them,
   written by the database's trigger alone (`convex/stamping.ts`), never typed or imported. The
   balls and tables write a hunt's, quiz's, question's, review's and verdict's for people, as
   ISO-8601 in UTC (`2026-10-05T09:30:00.000Z`). A question **untouched** since it was made has
@@ -409,7 +410,7 @@ than one kind of player. Begun by the categories sprint, October 2026
 * **persona** -- one of three imagined players, **Masie**, **Artie** and **Poppy**, who sit
   outside the wheel at the triangle's corners: slots 0, 8 and 16, which hold Math & Econ, Art and
   Pop Music on the default wheel (`src/models/persona.ts`). A persona keeps their slot whatever is
-  put in it, so arranging the wheel changes what they know. Not an ident: nobody becomes one.
+  put in it, so arranging the wheel changes what they know. Not a user: nobody becomes one.
 * **estimate** -- one guess at what a question draws on: a category, or null for **no category
   in particular**, and a **difficulty**, `easy`, `medium` (the default) or `hard`
   (`src/models/estimate.ts`). A question's estimates list each category once, or are a lone
@@ -449,7 +450,7 @@ than one kind of player. Begun by the categories sprint, October 2026
   instead, scoped where it must be (`quizlabel-questionlabel` as a selector id).
 * **label** -- a freeform-string-derived identifier a person can read, type and paste back:
   lowercase letters, digits, underscore; letter first. Unique among siblings, not globally;
-  idents and hunts have no parent, so theirs are global.
+  users and hunts have no parent, so theirs are global.
   Labels are what URLs, formulas, exports, git paths and column sources use, because people
   export, edit and re-import -- so many things refer by label where an id would be easier.
   A label is minted when its row is made (`quiet_otter`), and is the row's one label: relabelling
@@ -571,8 +572,8 @@ that way; the model bots were called players until September 2026.
 
 ## Playtesting
 
-* **review** -- one ident's review of one quiz: an overall note and a **phase**. One per (quiz,
-  ident); opened the moment a reviewer first sees the review screen, upserted from there.
+* **review** -- one user's review of one quiz: an overall note and a **phase**. One per (quiz,
+  user); opened the moment a reviewer first sees the review screen, upserted from there.
 * **phase** -- how far a review has come: `empty` (nothing written), `draft` (the reviewer is
   still working), or `shared` (the smiths can see it). Nothing moves a review back to `empty`;
   sharing and withdrawing move it between `draft` and `shared` only, and sharing is live, not a
@@ -603,7 +604,7 @@ lines between them, and these are here so they are findable beside the rest.
 * **facet** -- what one watch covers: a set of rows that change together and are shown
   together. One watch per facet.
 * **screen hook** -- the one hook that owns a screen's watches and hands props down (`useHunt`,
-  `useQuiz`, `useHuntsList`, `useIdent`). Components never watch.
+  `useQuiz`, `useHuntsList`, `useMe`). Components never watch.
 * **change signal** -- a quiz's last-changed time, one small row per quiz (`signals`), moved by a
   trigger at every write to the quiz's files, at most once a grain (`SignalGrainMs`). A smith's
   browser watches every quiz's signal, and fetches a quiz it does not have on screen only once its

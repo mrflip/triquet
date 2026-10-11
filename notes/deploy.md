@@ -68,15 +68,16 @@ effort, and a shallow clone may list no commits.
   own for them, set on the deployment (the Convex dashboard, or `npx convex env set`), never in
   Doppler's app configs: `JWT_PRIVATE_KEY` and `JWKS`, a key pair minted for that deployment alone
   (`scripts/convex_auth_keys` shows how), and `SITE_URL`, the web app's address. Without them no
-  browser can sign in, and so none can assert a userlabel. Preview deployments take theirs from
-  the project's default environment variables for previews. A fourth names the admins, who may
-  change the widget library: `TRIQUET_ADMINS`, userlabels parted by commas or spaces (`*` for
-  every userlabel, which only a local backend should have). Unset, nobody is an admin. Production:
-  `./scripts/doppledo prd_janitor npx convex env set TRIQUET_ADMINS mrflip`. Previews take it from
-  the same defaults; a local backend gets `*` from `scripts/convex_dev` unless `TRIQUET_ADMINS` is
-  in its environment. A fifth, `EXPOSE_INTERNAL_STATS_TO_ALL`, shows `/stats`'s backfills to
-  everyone rather than to an admin alone: `true` (`./scripts/doppledo prd_janitor npx convex env set
-  EXPOSE_INTERNAL_STATS_TO_ALL true`); `false` or unset, they stay an admin's, and any other value is refused.
+  browser can sign in, and so none can take a userlabel. Preview deployments take theirs from
+  the project's default environment variables for previews. No variable names the admins, who may
+  change the widget library: a user is one when its own `admin` flag says so, set only from the
+  command line (the OAuth sprint's adopt command, thread 4). A local backend makes every user an
+  admin (`TRIQUET_EVERYONE_ADMIN=yes`, set by `scripts/convex_dev`); production and previews never
+  set it. A `TRIQUET_ADMINS` left on a deployment from before is read by nothing, and may be unset
+  (`./scripts/doppledo prd_janitor npx convex env remove TRIQUET_ADMINS`). Another,
+  `EXPOSE_INTERNAL_STATS_TO_ALL`, shows `/stats`'s backfills to everyone rather than to an admin
+  alone: `true` (`./scripts/doppledo prd_janitor npx convex env set EXPOSE_INTERNAL_STATS_TO_ALL
+  true`); `false` or unset, they stay an admin's, and any other value is refused.
 * **GitHub Actions** (`.github/workflows/ci.yml`) typechecks, lints, tests, builds and runs e2e
   (against the optimized build) on every pull request and every push to `main`, and checks that
   `convex/_generated/` was committed as the functions regenerate it. Every job runs against a local backend or none; CI
@@ -314,6 +315,16 @@ The `converge` thread deletes `scripts/clear_people` and `convex/clear_people.ts
 they empty, and keeps the guard. So step 3's clear runs from a checkout of `main` as step 2 left
 it, holding the script, before the remaining threads merge: once `converge` is on `main`, the
 script is no longer there to run (`git switch --detach <step 2's merge>` brings it back).
+
+`converge` is a schema step with no backfill and no tightening: it drops `idents`, `identings`
+and `huntings`, adds `huntships` and `ghostings`, gives `reviews` and `reviewings` a required
+`user_id`, and makes `users` ours (our row validator, Convex Auth's fields kept). Its push fits
+only a deployment the clear left empty of people; one row of them left (a visit between the clear
+and the push) and Convex refuses the push, naming it, and production keeps serving the step before:
+clear again and redeploy. A browser still running the bundle from before the push is turned away
+by the functions it calls (`idents:*` are gone) until it reloads, and its session is gone with
+the clear anyway. A Coach's own local backends (`dev`, `e2e`) refuse the new schema too:
+`scripts/convex_reset <role>` empties one, or `scripts/convex_dev <role> --reset`.
 
 ## History
 

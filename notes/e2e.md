@@ -81,18 +81,21 @@ afresh every run and refuses to start while anything holds its port, so an earli
 tested in its place. CI runs the suite against the build too, on the `e2e` role's port, backend
 and build directory, with `TRIQUET_E2E_SERVER=built` choosing the server: the mode travels apart
 from the role. A spec must pass under both servers. Each test's browser context holds its worker's session, with a fresh hunt of which the worker's
-ident is the smith; the session is handed on from test to test, since each page that opens on it
+user is the smith, vouched for as no longer anonymous (`vouchFor`, through `testing:vouchFor`:
+what signing in with Google would leave it, since nothing automated signs in to Google); the session is handed on from test to test, since each page that opens on it
 spends its refresh token (`KeptSessionT` in support). Specs share one database, and a worker's
-tests share one ident, so find rows and pages by your own labels and titles, never by position or
-by the hunts an ident is on, and never change who the page's session is. A second visitor is the
-fixture's `friend`: a page in a browser of its own, signed in as a second ident each worker says
-it is once (`friendLabel`), its session handed on from test to test as the worker's own is. The
+tests share one user, so find rows and pages by your own labels and titles, never by position or
+by the hunts a user is on, and never change who the page's session is. A second visitor is the
+fixture's `friend`: a page in a browser of its own, signed in as a second user each worker says
+it is once (`friendLabel`), vouched for as the first is, its session handed on from test to test as the worker's own is. The
 friend is on no hunt of the test's, a stranger to it, until put on one: by the backend,
 `putOnHunt(huntOf(page), friendLabel, 'reviewer')` (`e2e/admin.ts`, through `testing:putOnHunt`),
 or through the Members panel (`addMember`) in a spec about the panel. A visitor nobody has seen,
 or one whose own way in is what the spec is about, is `otherVisitor(browser)`: a browser context
-with no session, closed after the test, who says who they are with `assumeIdent`. A context made
-any other way inherits the worker's session.
+with no session, closed after the test, who says who they are with `assumeUserlabel`: an
+anonymous user, sealed in its sandbox until the spec vouches for it (`vouchFor`). One browser that
+more than one user has used forgets its session with `forgetSession`, as *Sign out* will. A
+context made any other way inherits the worker's session.
 The grid is `grid(page)`, the table named *Questions*: the page holds other tables.
 
 A change lands one round trip after the author makes it: the screen shows it once the server

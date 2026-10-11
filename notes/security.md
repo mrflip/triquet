@@ -24,11 +24,31 @@ security expert who knows what questions to ask.
   to recheck's verdict (`lib/redos.ts`) where a mutation writes it, and refused unless recheck calls
   it `safe` within 200 ms; past that it is trusted and never checked again, nor timeboxed as it
   runs. Its source is at most 200 characters, its flags `i`, `m`, `s` and `u` only.
-* `Actor.isAdmin` is an equality check on the userlabel, against the deployment's `TRIQUET_ADMINS`
-  (production: `mrflip`), made on the server as it builds the actor and carried to the browser;
-  `*` makes every userlabel an admin, which `scripts/convex_dev` sets on every local backend.
-* The first user to claim a userlabel becomes that user: an ident nobody holds goes to the first
-  session to assert it (`claimFor`, `convex/writing/user_actions.ts`).
+* 2026-10-11 (oauth sprint, thread 3): `Actor.isAdmin` reads the user's own `admin` flag, set only
+  from the command line (thread 4), once, as the server builds the actor (`Actor.ofUser`), and is
+  carried to the browser. No variable lists admins; `TRIQUET_EVERYONE_ADMIN=yes` makes every user
+  an admin, anonymous ones included, and `scripts/convex_dev` sets it on every local backend
+  (production never has it, and a `TRIQUET_ADMINS` left set there is read by nothing). Until thread
+  5, an anonymous user's flag counts as a Google user's does.
+* 2026-10-11 (oauth sprint, thread 3): the first user to take a free userlabel holds it for good
+  (`assumeUserlabel`, `convex/writing/user_actions.ts`), with no password: a session is what holds
+  its user. A userlabel is free only while no user, no ghosting, and no hunt's `orglabel` holds it,
+  so nobody takes the handle a hunt's address carries (`holderOfUserlabel`).
+* 2026-10-11 (oauth sprint, thread 3): an anonymous user is sealed by policy (`Actor.isSealed`):
+  one hunt, its sandbox (`~label/label`); never put on another hunt (`mayJoinHunt`, asked by the
+  write once it has found the user by userlabel, so the refusal tells a smith that handle is
+  anonymous); never adding anyone to its own; never reviewing. Sealing reads Convex Auth's
+  `isAnonymous` on the user row, which only our `createOrUpdateUser` writes (and thread 5's Google
+  sign-in clears). `smithOfSandbox` is the one write past sealing, for a user signed in with Google.
+* 2026-10-11 (oauth sprint, thread 3): no hunt's scoped database reaches `users` (a row holds its
+  email), `ghostings`, or Convex Auth's own tables; a function learns of another user only its face
+  (`UserFaceT`: userlabel, title, anonymous or not) through the census, and `users.current` hands
+  a session its own user without its email.
+* 2026-10-11 (oauth sprint, thread 3): `testing:vouchFor`, an internal mutation refused on any
+  deployment without `TRIQUET_CLEARABLE=yes`, marks a user no longer anonymous, standing in for a
+  Google sign-in so e2e can test what sealing keeps from anonymous users. It is no provider and
+  signs nobody in; production never has the flag. `ValidatorKit.zid` takes convex-test's own ids
+  of Convex Auth's tables (`<20 digits>authAccounts`), which a deployment never mints.
 * 2026-10-08: field, recap and prompt templates are LiquidJS (`lib/liquidry.ts`): a field or
   recap template is written by any smith of a quiz and run in every smith's browser; a prompt is
   written by an admin and rendered in the browser of whoever asks. LiquidJS calls a function it finds as an own property of what it reads;
