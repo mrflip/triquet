@@ -33,7 +33,7 @@ test('a change the server refuses raises an alarm on screen, far from the field,
 
 test('a refusal shown beside the field it was about raises no alarm', async ({ page }) => {
   const members = await openPanel(page, 'Members')
-  await members.getByLabel('Ident label').fill('nobody_answers_to_this')
+  await members.getByLabel('Their handle').fill('nobody_answers_to_this')
   await members.getByRole('button', { name: 'Add' }).click()
   await expect(members.getByText(userUnknownNotice('nobody_answers_to_this'))).toBeVisible()
   // No window is needed: the field's notice and an alarm, were there one, are set in the same

@@ -3,9 +3,9 @@ import * as Labelmaker from '../src/lib/labelmaker'
 import type * as Routes from '../src/lib/routes'
 import { namesFor, type QuestionField, type QuestionView } from '../src/models/column'
 import * as Z from 'zod'
-import { runAsAdmin } from './admin'
+import { runAsAdmin, vouchFor } from './admin'
 
-/** Where the fixture's page begins by default: its worker's ident's fresh hunt, open on its quiz */
+/** Where the fixture's page begins by default: its worker's user's fresh hunt, open on its quiz */
 export const FreshHunt = 'fresh hunt'
 
 /**
@@ -25,8 +25,9 @@ export type LayoutT = {
 const NoStorage = { cookies: [], origins: [] }
 
 /**
- * The session a worker's fresh hunts are made under: the ident it said it was at the front door,
- * and the browser storage that holds it as the worker's last test left it.
+ * The session a worker's fresh hunts are made under: the userlabel its user took at the front door,
+ * vouched for as no longer anonymous (`vouchFor`: what signing in with Google would leave it), and
+ * the browser storage that holds it as the worker's last test left it.
  *
  * The storage is handed on from test to test, not copied from the front door each time. A page
  * opening on a session it already holds exchanges its refresh token for a new one, and Convex
@@ -52,20 +53,22 @@ const TokenExchangeMs = 5000
  * ago, open on its quiz with its grid on screen (`startAt` is `FreshHunt` unless a spec says
  * otherwise), so a spec begins with the thing it is about rather than with a way in. The hunt is
  * made by the backend (`testing:makeHunt`) rather than through the hunts list, laid out as the
- * spec asks (`test.use({ layout })`), for an ident each worker says it is once, at the front door;
- * every page of that worker's begins in that session. Specs share one database, and a worker's
- * tests share one ident, so each finds its rows by its own labels and titles, never by the hunts
- * an ident is on.
+ * spec asks (`test.use({ layout })`), for a user each worker says it is once, at the front door, and
+ * vouches for as no longer anonymous, so it is sealed in no sandbox; every page of that worker's
+ * begins in that session. Specs share one database, and a worker's tests share one user, so each
+ * finds its rows by its own labels and titles, never by the hunts a user is on.
  *
  * `startAt` as a path goes there instead, in a session of its own, and waits for the grid. A spec
  * that must stub a route before the first load, or is about the way in itself, says
  * `test.use({ startAt: null })` and goes there itself, in a fresh anonymous session
- * (`startHunt(page)` is the way in through the front door and the hunts list).
+ * (`startHunt(page)` is the way in through the front door and the hunts list, to an anonymous
+ * user's sandbox).
  *
  * `friend` is a second visitor kept the same way: a page in a browser of its own, open on nothing
- * yet, signed in as a second ident each worker says it is once (`friendLabel`), on no hunt of the
- * test's until a spec puts it on one (`putOnHunt`, in admin). A spec about a second visitor's way
- * in, or that needs a visitor nobody has seen, walks the front door with `otherVisitor`.
+ * yet, signed in as a second user each worker says it is once (`friendLabel`), vouched for as the
+ * first is, on no hunt of the test's until a spec puts it on one (`putOnHunt`, in admin). A spec
+ * about a second visitor's way in, or that needs a visitor nobody has seen, walks the front door
+ * with `otherVisitor`, as an anonymous user until the spec vouches for it.
  */
 export const test = base.extend<{ startAt: string | null, layout: LayoutT, friend: Page, friendLabel: string }, { keptSession: KeptSessionT, keptFriend: KeptSessionT }>({
   startAt:     [FreshHunt, { option: true }],
@@ -132,12 +135,14 @@ test.afterEach(async () => {
 })
 
 /**
- * Say who a browser of the worker's own is at the front door, once, and keep the session it is
- * left holding: what a worker's kept sessions begin as (`KeptSessionT`).
+ * Say who a browser of the worker's own is at the front door, once, vouch for its user as no
+ * longer anonymous, and keep the session it is left holding: what a worker's kept sessions begin
+ * as (`KeptSessionT`).
  */
 async function sessionMadeAtFrontDoor(browser: Browser, baseURL: string | undefined): Promise<KeptSessionT> {
   const context = await browser.newContext({ baseURL, storageState: NoStorage })
-  const label = await assumeIdent(await context.newPage())
+  const label = await assumeUserlabel(await context.newPage())
+  await vouchFor(label)
   const storageState = await context.storageState()
   await context.close()
   return { label, storageState }
@@ -176,9 +181,26 @@ function refreshTokenIn(storage: StorageT): string | null {
   return entries.find((entry) => entry.name.startsWith(RefreshTokenKey))?.value ?? null
 }
 
+/** What every key Convex Auth keeps a session under, in local storage, begins with: its tokens and verifier */
+const ConvexAuthKey = '__convexAuth'
+
 /**
- * A page in a browser of its own: another visitor, signed in as nobody until they say who they are
- * (`assumeIdent`), on the same database. For a spec about a visitor's own way in, or that needs one
+ * Forget the session `page`'s browser holds, as signing out will (thread 6's *Sign out*): its
+ * next page signs in afresh, a new anonymous user holding no userlabel, while what else the
+ * browser keeps (the hunt histories) stays. For a spec about one browser that more than one user
+ * has used: a handle is chosen once, so there is no becoming someone else.
+ */
+export async function forgetSession(page: Page): Promise<void> {
+  await page.evaluate((prefix) => {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(prefix)) { localStorage.removeItem(key) }
+    }
+  }, ConvexAuthKey)
+}
+
+/**
+ * A page in a browser of its own: another visitor, signed in as an anonymous user holding no
+ * userlabel until they say who they are (`assumeUserlabel`), on the same database. For a spec about a visitor's own way in, or that needs one
  * no other test has seen; `friend` is quicker where neither matters.
  */
 export async function otherVisitor(browser: Browser): Promise<Page> {
@@ -416,8 +438,8 @@ export async function columnAdded(page: Page, source: string): Promise<void> {
 const CollisionCode = 'OptimisticConcurrencyControlFailure'
 
 /**
- * Have the backend make a hunt for the ident labelled `label`, laid out as `layout` says, and open
- * its quiz: the fixture's way in, for a page whose session already holds that ident.
+ * Have the backend make a hunt for the user holding the userlabel `label`, laid out as `layout`
+ * says, and open its quiz: the fixture's way in, for a page whose session is that user's.
  *
  * Making a hunt reads every hunt (the app caps how many it holds), so two made at once collide,
  * and Convex gives up on one after retrying it a few times; with every worker making a hunt a
@@ -428,7 +450,7 @@ async function enterFreshHunt(page: Page, label: string, layout: LayoutT): Promi
   const made: { address: string, refusal: Error | null } = { address: '', refusal: null }
   await expect(async () => {
     try {
-      made.address = Z.string().startsWith('/').parse(await runAsAdmin('testing:makeHunt', { ident: label, widgetings: layout.widgetings ?? [], columns: layout.columns ?? [] }))
+      made.address = Z.string().startsWith('/').parse(await runAsAdmin('testing:makeHunt', { userlabel: label, widgetings: layout.widgetings ?? [], columns: layout.columns ?? [] }))
     } catch (err) {
       if (! String(err).includes(CollisionCode)) {
         made.refusal = err as Error
@@ -453,8 +475,8 @@ export async function stubAsk(page: Page, reply: unknown, status = 200): Promise
   })
 }
 
-/** A fresh ident label no other spec will use: specs share one database, and every ident in it */
-export function freshIdentLabel(): string {
+/** A fresh userlabel no other spec will use: specs share one database, and every user in it */
+export function freshUserlabel(): string {
   return `tester_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`
 }
 
@@ -471,12 +493,13 @@ export function freshWidgetLabel(stem: string): string {
 }
 
 /**
- * Say who this browser is at the front door, and wait to be sent on to the hunts.
+ * Say who this browser is at the front door, and wait to be sent on to the hunts: its user, an
+ * anonymous one, takes the userlabel `label`.
  *
- * @param label - The ident to become; a fresh one when omitted.
- * @returns The ident's label.
+ * @param label - The userlabel to take; a fresh one when omitted.
+ * @returns The userlabel.
  */
-export async function assumeIdent(page: Page, label = freshIdentLabel()): Promise<string> {
+export async function assumeUserlabel(page: Page, label = freshUserlabel()): Promise<string> {
   await page.goto('/')
   await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
   await page.getByRole('button', { name: `Log in as ${label}` }).click()
@@ -484,7 +507,7 @@ export async function assumeIdent(page: Page, label = freshIdentLabel()): Promis
   return label
 }
 
-/** Where a new hunt's quiz is worked on: under its maker's org, its hunt and quiz share a label, in the realm `home` */
+/** Where a new hunt's quiz is worked on: under its maker's org, its hunt and quiz share a label, in the realm `home`; an anonymous maker's, its sandbox, labelled as its org is */
 export const NewHuntUrl = /\/~[a-z0-9_]+\/([a-z0-9_]+)\/quizzes\/home\/\1\/!edit$/
 
 /** Make a hunt from the hunts list, and wait until its quiz is on screen */
@@ -495,24 +518,24 @@ export async function newHunt(page: Page): Promise<void> {
 }
 
 /**
- * A fresh browser's way in to a quiz: say who it is, make a hunt, and open the hunt's quiz.
- * What every spec about the grid starts from.
+ * A fresh browser's way in to a quiz: say who it is, make a hunt (its anonymous user's sandbox,
+ * `~label/label`), and open the hunt's quiz.
  *
- * @returns The ident's label.
+ * @returns The userlabel.
  */
 export async function startHunt(page: Page): Promise<string> {
-  const label = await assumeIdent(page)
+  const label = await assumeUserlabel(page)
   await newHunt(page)
   return label
 }
 
 /**
- * As a smith with the hunt's quiz on screen, put the ident labelled `label` on the hunt as
- * `role`, through the members panel, and wait until the panel lists them.
+ * As a smith with the hunt's quiz on screen, put the user holding the userlabel `label` on the hunt
+ * as `role`, through the members panel, and wait until the panel lists them.
  */
 export async function addMember(page: Page, label: string, role: 'Smith' | 'Reviewer'): Promise<void> {
   const members = await openPanel(page, 'Members')
-  await members.getByLabel('Ident label').fill(label)
+  await members.getByLabel('Their handle').fill(label)
   await members.getByRole('combobox', { name: 'Role' }).click()
   await page.getByRole('option', { name: role }).click()
   await members.getByRole('button', { name: 'Add' }).click()

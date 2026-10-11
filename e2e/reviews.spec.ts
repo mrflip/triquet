@@ -1,13 +1,13 @@
 import type { Page } from '@playwright/test'
-import { putOnHunt } from './admin'
-import { addColumns, assumeIdent, expect, fillRows, huntOf, openPanel, otherVisitor, quizPathOf, test, waitUntilSaved } from './support'
+import { putOnHunt, vouchFor } from './admin'
+import { addColumns, assumeUserlabel, expect, fillRows, huntOf, openPanel, otherVisitor, quizPathOf, test, waitUntilSaved } from './support'
 
 // These are about a second visitor reviewing the first's hunt: the smith begins at the fixture's
 // fresh hunt, and the reviewer is the fixture's friend, put on it by the backend (the Members
 // panel's own way is routing's).
 
 /**
- * The visitor `reviewer`, whose ident is labelled `label`, put on the hunt `smith` has open as a
+ * The visitor `reviewer`, whose user holds the userlabel `label`, put on the hunt `smith` has open as a
  * reviewer, following a link naming no mode and landing on the playtest.
  */
 async function enterReview(smith: Page, reviewer: Page, label: string): Promise<Page> {
@@ -122,9 +122,12 @@ test.describe('a review', () => {
     await first.getByRole('button', { name: 'Share with the smiths' }).click()
     await expect(first.getByText('Shared with the smiths.')).toBeVisible()
 
-    // The second is a visitor nobody has seen, who says who they are at the front door.
+    // The second is a visitor nobody has seen, who says who they are at the front door, vouched
+    // for as signed in with Google: an anonymous user reviews nothing.
     const stranger = await otherVisitor(browser)
-    const second = await enterReview(page, stranger, await assumeIdent(stranger))
+    const strangerLabel = await assumeUserlabel(stranger)
+    await vouchFor(strangerLabel)
+    const second = await enterReview(page, stranger, strangerLabel)
     await expect(second.getByText('Share your review to see what the other reviewers have shared.')).toBeVisible()
     await expect(second.getByText('The first reviewer liked it.')).toBeHidden()
 

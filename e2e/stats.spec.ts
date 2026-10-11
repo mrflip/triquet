@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module'
 import type { Locator, Page } from '@playwright/test'
 import { version as convexVersion } from 'convex'
-import { assumeIdent, expect, test } from './support'
+import { assumeUserlabel, expect, test } from './support'
 
 // The stats page's backfills are an admin's here (a local backend leaves EXPOSE_INTERNAL_STATS_TO_ALL unset), and it is about no hunt, so each test goes there itself.
 test.use({ startAt: null, permissions: ['clipboard-read', 'clipboard-write'] })
@@ -20,7 +20,7 @@ function factOf(page: Page, label: string): Locator {
 }
 
 test('names the build and what the browser runs, says it is connected, and shows an admin the backfills', { tag: '@smoke' }, async ({ page }) => {
-  await assumeIdent(page)
+  await assumeUserlabel(page)
   await page.goto('/stats')
   await expect(page).toHaveTitle('Stats — Triquet')
   await expect(page.getByRole('heading', { name: 'Stats', level: 1 })).toBeVisible()
@@ -53,7 +53,7 @@ test('tells a browser that has not said who it is nothing of the backfills', asy
 })
 
 test('offers all of it as compact JSON in a box that can be dragged taller, and copies it from beside the heading too', async ({ page }) => {
-  await assumeIdent(page)
+  await assumeUserlabel(page)
   await page.goto('/stats')
   await expect(page.getByRole('table', { name: 'Backfills' })).toBeVisible()
   const box = page.getByRole('textbox', { name: 'Stats as JSON' })

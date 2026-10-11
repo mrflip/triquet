@@ -1,7 +1,7 @@
 import { expect, test as setup } from '@playwright/test'
 import * as UU from '../src/lib/useful'
 import * as Environment from './environment'
-import { freshIdentLabel } from './support'
+import { freshUserlabel } from './support'
 
 /*
  * Before any spec runs: that the suite has what it needs. Playwright runs this file as the
@@ -29,7 +29,7 @@ setup('opens the app, so no spec pays for compiling its pages', async ({ page })
   // this is quick. Every spec opens a quiz, and those about the way in pass through the other two.
   setup.setTimeout(300_000)
   await page.goto('/')
-  const label = freshIdentLabel()
+  const label = freshUserlabel()
   await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
   await page.getByRole('button', { name: `Log in as ${label}` }).click()
   await expect(page.getByRole('button', { name: '+ New hunt' })).toBeVisible({ timeout: 120_000 })
