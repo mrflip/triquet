@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: 7, 2 and 1 landed (#226, #227, #228); 3 and 8 underway (2026-10-11).**
+**Status: 7, 2 and 1 landed (#226, #227, #228); 3 underway, 8 landing (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -14,10 +14,18 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 5 | `google_signin`: the provider, the patch, the merge | pending (3) | | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
-| 8 | `reserved_words`: survey and augment the reserved list | underway | `20261011-reserved_words` | |
+| 8 | `reserved_words`: survey and augment the reserved list | landing (full e2e) | `20261011-reserved_words` | |
 | 9 | `oauth_security`: a strong review | pending (1-8) | | |
 
-Full e2e runs at landing: threads 3 and 5, and every fourth landing. So far every landing's `--touched` ran the whole suite: 7 (299/299), 2 (293/293), 1 (299/299), no flakes.
+Full e2e runs at landing: threads 3 and 5, and every fourth landing (thread 8 carries the fourth). So far every landing's `--touched` ran the whole suite: 7 (299/299), 2 (293/293), 1 (299/299), no flakes.
+
+## Merging, revised
+
+*Orchestrator (2026-10-11), newer than the plan's *Merging, for the Coach*:* **thread 8 merges
+in the second step, after the clear**, not the first. Its review found idents are not
+grandfathered: an ident whose label is newly reserved is locked out of its own hunts once its
+session ends. That matters only while idents exist in production, so merge 8 no earlier than
+thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge #228.
 
 ## Reviews of landed threads
 
@@ -90,6 +98,14 @@ Full e2e runs at landing: threads 3 and 5, and every fourth landing. So far ever
     the same way, and not build shims.
 * **Deletes go through the triggers** (thread 2): clearing reviews moves a quiz's change signal,
   as any deletion would. Signals are never deleted.
+
+* **The reserved list governs new labels only** (thread 8, not yet landed). Hunt rows validate
+  `label` with `CK.label` and `orglabel` with `CK.heldUserlabel` (shape plus the words every label
+  avoids); the full list applies where a label is made (`HuntValidators.newLabel`). **Thread 3:**
+  the user's `userlabel` and the huntship's copy use `CK.heldUserlabel`; choosing one uses
+  `CK.userlabel` (sent to thread 3 directly, 2026-10-11). **Threads 3 and 6:** the one predicate is
+  `Labelmaker.isReserved(word, { toplevel: true })`, which agrees word for word with `CK.userlabel`.
+  No npm package: both candidates are unmaintained (2018, 2019).
 
 ## Convex Auth, as installed (checked 2026-10-10)
 

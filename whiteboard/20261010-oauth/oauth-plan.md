@@ -77,8 +77,9 @@ and `.claude/agents/thread-worker.md`. What is particular to this sprint:
 
 The pre-plan merges production in two steps: first threads 1 and 2, then, after the clear,
 everything else at once. The spine lands threads in the order they finish, so **every PR
-beneath thread 3's in the stack** can go in the first step: 7 and 8 are safe there too (pages,
-and the reserved list for new labels only). Thread 3's PR and everything above it waits for the
+beneath thread 3's in the stack** can go in the first step, except thread 8: *Orchestrator
+(revised 2026-10-11):* its review found idents are not grandfathered, so thread 8 merges no
+earlier than the clear. See `oauth-progress.md`, *Merging, revised*. Thread 3's PR and everything above it waits for the
 clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
 
 ## Decisions taken in YOLO
