@@ -8,7 +8,7 @@
  * for the ref's head. A refused push, or a backfill that stops, stops the program with Convex's
  * words; the deployment is left serving the last step whole.
  *
- *   node scripts/deploy.ts [--dry-run] [--to <ref>] [--from <sha>] [--wait <seconds>] [--snapshot <path>]
+ *   node scripts/deploy.ts [--dry-run] [--to <ref>] [--from <sha>] [--wait <seconds>] [--snapshot <path>] [--verify <role>]
  *   node scripts/deploy.ts --role <role> [...]                 a local role's backend, from data/convex-<role>/cli.env
  *   node scripts/deploy.ts --role <role> --rehearse <zip> [...] import a snapshot into the role at the step it was taken at, then walk it
  *
@@ -23,7 +23,10 @@
  * every step. `--from <sha>` names the step the target's rows stand at when its table is empty or
  * says something this history does not hold (the first run on production). A target already
  * serving the head whose backfills never finished has them finished and recorded, not re-walked.
- * Before walking a cloud deployment the program takes a snapshot (`convex export`, to `--snapshot`
+ * `--verify <role>` checks the table's word before anything is pushed: the step it names is pushed
+ * to that local role (emptied if its rows refuse the step), and the role's function spec (`convex
+ * function-spec`: every function's path, kind, visibility and argument shape) must equal the
+ * target's, or the program stops; a disposable role (`e2e`) is the one to name. Before walking a cloud deployment the program takes a snapshot (`convex export`, to `--snapshot`
  * or data/snapshots/), which also leaves one to restore from in the dashboard. When it has landed
  * the head and `TRIQUET_DEPLOY_HOOK_URL` is set, it posts to it: Vercel's deploy hook, so the
  * pages are built once the functions they talk to are in place.
@@ -32,6 +35,7 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { z } from 'zod'
 import { convexRun, DefaultLimitSeconds, runBackfills, subjectOf, type StepT } from './convex-migrations.ts'
@@ -54,6 +58,7 @@ export interface Asked {
   snapshot: string | undefined
   role:     Role | undefined
   rehearse: string | undefined
+  verify:   Role | undefined
 }
 
 /** The migrations table's newest row, as `deploying:newest` answers */
@@ -66,17 +71,18 @@ const ExportedStep = z.object({ sha: FullSha, subject: z.string(), pushed_at: z.
 /** A stop with a reason for the person running the program, printed without a stack */
 export class DeployStop extends Error {}
 
-const Usage = 'Usage: node scripts/deploy.ts [--dry-run] [--to <ref>] [--from <sha>] [--wait <seconds>] [--snapshot <path>] [--role <role> [--rehearse <zip>]]'
+const Usage = 'Usage: node scripts/deploy.ts [--dry-run] [--to <ref>] [--from <sha>] [--wait <seconds>] [--snapshot <path>] [--verify <role>] [--role <role> [--rehearse <zip>]]'
 
 /**
  * The command line, parsed.
  *
- * @example argsOf(['--dry-run', '--to', 'origin/main'])  // => { dryRun: true, to: 'origin/main', from: undefined, wait: 300, snapshot: undefined, role: undefined, rehearse: undefined }
+ * @example argsOf(['--dry-run', '--to', 'origin/main'])  // => { dryRun: true, to: 'origin/main', from: undefined, wait: 300, snapshot: undefined, role: undefined, rehearse: undefined, verify: undefined }
  * @example argsOf(['--role', 'agent', '--rehearse', 'prd.zip'])  // => { ..., role: 'agent', rehearse: 'prd.zip' }
  * @example argsOf(['--rehearse', 'prd.zip'])  // throws: --rehearse needs --role
+ * @example argsOf(['--role', 'agent', '--verify', 'agent'])  // throws: --verify wants a role other than the target
  */
 export function argsOf(argv: readonly string[]): Asked {
-  const asked: Asked = { dryRun: false, to: undefined, from: undefined, wait: DefaultLimitSeconds, snapshot: undefined, role: undefined, rehearse: undefined }
+  const asked: Asked = { dryRun: false, to: undefined, from: undefined, wait: DefaultLimitSeconds, snapshot: undefined, role: undefined, rehearse: undefined, verify: undefined }
   const rest = [...argv]
   const taking = (flag: string) => {
     const given = rest.shift()
@@ -89,12 +95,9 @@ export function argsOf(argv: readonly string[]): Asked {
     '--from':     () => { asked.from = FullSha.parse(taking('--from'), { error: () => '--from wants a full forty-digit sha' }) },
     '--wait':     () => { asked.wait = z.coerce.number().positive().parse(taking('--wait')) },
     '--snapshot': () => { asked.snapshot = taking('--snapshot') },
-    '--role':     () => {
-      const given = taking('--role')
-      if (! (Roles as readonly string[]).includes(given)) { throw new DeployStop(`--role wants one of ${Roles.join(', ')}, not ${given}.`) }
-      asked.role = given as Role
-    },
+    '--role':     () => { asked.role = roleOf('--role', taking('--role')) },
     '--rehearse': () => { asked.rehearse = taking('--rehearse') },
+    '--verify':   () => { asked.verify = roleOf('--verify', taking('--verify')) },
   }
   while (rest.length > 0) {
     const flag = rest.shift() ?? ''
@@ -103,7 +106,14 @@ export function argsOf(argv: readonly string[]): Asked {
     take()
   }
   if (asked.rehearse !== undefined && asked.role === undefined) { throw new DeployStop('--rehearse needs --role: a snapshot is only ever imported into a local role.') }
+  if (asked.verify !== undefined && asked.verify === asked.role) { throw new DeployStop('--verify wants a role other than the target: it is pushed to, and emptied if need be.') }
   return asked
+}
+
+/** The role `given` names for `flag`, or a stop naming the roles there are */
+function roleOf(flag: string, given: string): Role {
+  if (! (Roles as readonly string[]).includes(given)) { throw new DeployStop(`${flag} wants one of ${Roles.join(', ')}, not ${given}.`) }
+  return given as Role
 }
 
 /**
@@ -158,8 +168,35 @@ export function newestExported(jsonl: string): z.infer<typeof ExportedStep> | nu
   return rows.toSorted((aa, bb) => bb.pushed_at - aa.pushed_at)[0] ?? null
 }
 
+/** One function of a deployment's spec, as `convex function-spec` lists it: a function by identifier, or an HTTP action by method and path */
+const SpecFunction = z.looseObject({ identifier: z.string().optional(), method: z.string().optional(), path: z.string().optional() })
+const Spec = z.object({ functions: z.array(SpecFunction) })
+export type SpecT = z.infer<typeof Spec>
+
+/** What one entry of a spec is known by: its identifier, or `METHOD /path` for an HTTP action */
+const specKeyOf = (fn: z.infer<typeof SpecFunction>) => fn.identifier ?? `${fn.method ?? ''} ${fn.path ?? ''}`
+
+/**
+ * The functions on which two deployments' specs differ: present in one alone, or shaped
+ * differently (its kind, visibility, arguments or returns), by identifier (an HTTP action by its
+ * method and path), sorted. Empty when the two deployments hold the same functions.
+ *
+ * @example specDiff({ functions: [fnA] }, { functions: [fnA] })  // => []
+ * @example specDiff({ functions: [fnA, fnB] }, { functions: [fnA] })  // => ['b.js:two']
+ * @example specDiff({ functions: [jwks] }, { functions: [] })  // => ['GET /.well-known/jwks.json']
+ */
+export function specDiff(one: SpecT, two: SpecT): string[] {
+  const byId = (spec: SpecT) => new Map(spec.functions.map((fn) => [specKeyOf(fn), fn]))
+  const [ones, twos] = [byId(one), byId(two)]
+  const identifiers = new Set([...ones.keys(), ...twos.keys()])
+  return [...identifiers].filter((identifier) => ! isDeepStrictEqual(ones.get(identifier), twos.get(identifier))).toSorted(alphabetically)
+}
+
 /** A sha as the program prints it */
 const short = (sha: string) => sha.slice(0, 8)
+
+/** For sorting names into a stable order */
+const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)
 
 /** Lines describing a plan, for a dry run and for the start of a real one */
 export function describePlan(plan: Plan): string[] {
@@ -186,11 +223,15 @@ function gitOk(cwd: string, ...args: string[]): boolean {
   return spawnSync('git', args, { cwd, encoding: 'utf8' }).status === 0
 }
 
-/** Runs `pnpm exec convex <args>` in `cwd` with `env`, its output to the terminal; a failure throws */
-function convexCli(cwd: string, env: Record<string, string | undefined>, ...args: string[]): void {
+/** Runs `pnpm exec convex <args>` in `cwd` with `env`, its output to the terminal; whether it succeeded */
+function convexCliOk(cwd: string, env: Record<string, string | undefined>, ...args: string[]): boolean {
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- the pnpm this checkout already runs
-  const ran = spawnSync('pnpm', ['exec', 'convex', ...args], { cwd, env: { ...process.env, ...env }, encoding: 'utf8', stdio: 'inherit' })
-  if (ran.status !== 0) { throw new DeployStop(`convex ${args.join(' ')} failed (exit ${String(ran.status)}): see above.`) }
+  return spawnSync('pnpm', ['exec', 'convex', ...args], { cwd, env: { ...process.env, ...env }, encoding: 'utf8', stdio: 'inherit' }).status === 0
+}
+
+/** As `convexCliOk`, but a failure throws */
+function convexCli(cwd: string, env: Record<string, string | undefined>, ...args: string[]): void {
+  if (! convexCliOk(cwd, env, ...args)) { throw new DeployStop(`convex ${args.join(' ')} failed: see above.`) }
 }
 
 /** A target deployment: how the convex CLI is pointed at it, and how its code is pushed */
@@ -211,26 +252,48 @@ function cloudTarget(env: NodeJS.ProcessEnv): Target {
   return { label, env: {}, push: ['deploy', '--typecheck', 'disable', '--codegen', 'disable'], isRole: false }
 }
 
-/** A local role's backend, from its cli.env, started if it is not answering */
+/** A local role's backend, from its cli.env, started if it is not answering (and made, on its first start) */
 async function roleTarget(root: string, role: Role, cleanup: (() => void)[]): Promise<Target> {
   const clienv = path.join(root, 'data', `convex-${role}`, 'cli.env')
-  if (! fs.existsSync(clienv)) { throw new DeployStop(`No ${path.relative(root, clienv)}: start the ${role} backend once first (scripts/convex_backend ${role}).`) }
-  const env: Record<string, string | undefined> = { CONVEX_DEPLOY_KEY: undefined, CONVEX_DEPLOYMENT: undefined }
-  for (const line of fs.readFileSync(clienv, 'utf8').split('\n')) {
-    const eq = line.indexOf('=')
-    if (eq === -1) { continue }
-    const envname = line.slice(0, eq)
-    if (envname === 'CONVEX_SELF_HOSTED_URL' || envname === 'CONVEX_SELF_HOSTED_ADMIN_KEY') { env[envname] = line.slice(eq + 1) }
+  if (! fs.existsSync(clienv)) {
+    process.stdout.write(`The ${role} role has no backend yet: starting one.\n`)
+    startBackend(root, role, cleanup)
+    await until(() => Promise.resolve(fs.existsSync(clienv)), `the ${role} backend to write ${path.relative(root, clienv)}`)
   }
+  const env = envOf(clienv)
   const url = env.CONVEX_SELF_HOSTED_URL ?? ''
   if (! /^http:\/\/127\.0\.0\.1:\d+$/.test(url)) { throw new DeployStop(`${path.relative(root, clienv)} names ${url || 'no backend'}, not a local one: refusing.`) }
   if (! await answering(url)) {
-    const child = spawn(path.join(root, 'scripts', 'convex_backend'), [role], { cwd: root, stdio: 'ignore', detached: false })
-    cleanup.push(() => { child.kill() })
-    for (let tries = 0; tries < 60 && ! await answering(url); tries += 1) { await sleep(1000) }
-    if (! await answering(url)) { throw new DeployStop(`The ${role} backend did not answer at ${url}.`) }
+    startBackend(root, role, cleanup)
+    await until(() => answering(url), `the ${role} backend to answer at ${url}`)
   }
   return { label: `the ${role} role's backend at ${url}`, env, push: ['dev', '--once', '--typecheck', 'disable', '--codegen', 'disable', '--tail-logs', 'disable'], isRole: true }
+}
+
+/** The CLI's environment for a role's backend, from its cli.env (read line by line, never sourced: the admin key holds a `|`), with no cloud deployment named */
+function envOf(clienv: string): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = { CONVEX_DEPLOY_KEY: undefined, CONVEX_DEPLOYMENT: undefined }
+  for (const line of fs.readFileSync(clienv, 'utf8').split('\n')) {
+    const eq = line.indexOf('=')
+    const envname = line.slice(0, Math.max(eq, 0))
+    if (envname === 'CONVEX_SELF_HOSTED_URL' || envname === 'CONVEX_SELF_HOSTED_ADMIN_KEY') { env[envname] = line.slice(eq + 1) }
+  }
+  return env
+}
+
+/** Waits up to a minute, a second at a time, for `ready`; a stop names `what` was waited for */
+async function until(ready: () => Promise<boolean>, what: string): Promise<void> {
+  for (let tries = 0; tries < 60; tries += 1) {
+    if (await ready()) { return }
+    await sleep(1000)
+  }
+  throw new DeployStop(`Gave up waiting for ${what}.`)
+}
+
+/** Starts the role's backend (scripts/convex_backend), to be stopped on the way out */
+function startBackend(root: string, role: Role, cleanup: (() => void)[]): void {
+  const child = spawn(path.join(root, 'scripts', 'convex_backend'), [role], { cwd: root, stdio: 'ignore' })
+  cleanup.push(() => { child.kill() })
 }
 
 /** Whether a backend answers at `url` */
@@ -356,6 +419,40 @@ function sayIndented(lines: readonly string[]): void {
   process.stdout.write(`${indented}\n`)
 }
 
+/** The target's function spec, as the CLI prints it */
+function specOf(root: string, env: Record<string, string | undefined>): SpecT {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path -- the pnpm this checkout already runs
+  const ran = spawnSync('pnpm', ['exec', 'convex', 'function-spec'], { cwd: root, env: { ...process.env, ...env }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  if (ran.status !== 0) { throw new DeployStop(`convex function-spec failed: ${ran.stderr.trim().split('\n', 1)[0] ?? ''}`) }
+  return Spec.parse(JSON.parse(ran.stdout))
+}
+
+/**
+ * Checks the target holds the functions of the step its table says it stands at: that step is
+ * pushed to the `verify` role, emptied first, and the two function specs must agree.
+ *
+ * @throws When they differ, naming the functions that do.
+ */
+async function verified(root: string, target: Target, standsAt: string, verify: Role, cleanup: (() => void)[]): Promise<void> {
+  process.stdout.write(`Verifying: pushing ${short(standsAt)} to the ${verify} role and comparing its functions with the target's.\n`)
+  const role = await roleTarget(root, verify, cleanup)
+  const scratch = worktreeAt(root, standsAt, cleanup)
+  if (! convexCliOk(scratch, role.env, ...role.push)) {
+    // Its rows refuse the step's schema: empty it (which its own functions do), and push again.
+    process.stdout.write(`  The ${verify} role's rows do not fit ${short(standsAt)}: emptying it and pushing again.\n`)
+    convexCli(root, role.env, 'env', 'set', 'TRIQUET_CLEARABLE', 'yes')
+    const emptied = spawnSync(path.join(root, 'scripts', 'convex_reset'), [verify], { cwd: root, env: { ...process.env, ...role.env }, stdio: 'inherit' })
+    if (emptied.status !== 0) { throw new DeployStop(`Could not empty the ${verify} role to verify against.`) }
+    convexCli(scratch, role.env, ...role.push)
+  }
+  cleanup.pop()?.()
+  const differing = specDiff(specOf(root, role.env), specOf(root, target.env))
+  if (differing.length > 0) {
+    throw new DeployStop(`${target.label} does not hold the functions of ${short(standsAt)}, which its table says it stands at. Differing: ${differing.join(', ')}. Say where it really stands with --from <sha>, or look before walking.`)
+  }
+  process.stdout.write(`Verified: ${target.label} holds ${short(standsAt)}'s functions.\n`)
+}
+
 /** Where the target stands, and what the program will do about it */
 async function surveyed(root: string, target: Target, asked: Asked, cleanup: (() => void)[]): Promise<{ to: string, head: StepT, plan: Plan }> {
   const to = asked.to ?? (asked.role === undefined ? 'origin/main' : 'HEAD')
@@ -370,6 +467,7 @@ async function surveyed(root: string, target: Target, asked: Asked, cleanup: (()
   if (! gitOk(root, 'merge-base', '--is-ancestor', standsAt, head.sha)) {
     throw new DeployStop(`The target stands at ${short(standsAt)}, which is not in ${to}'s history: this checkout cannot walk it forward. If you know better, say so with --from <sha>.`)
   }
+  if (asked.verify !== undefined) { await verified(root, target, standsAt, asked.verify, cleanup) }
   const standing = from === undefined ? mark : { sha: from, backfilled_at: from === mark?.sha ? mark.backfilled_at : null }
   return { to, head, plan: planOf(standing, stepsBetween(root, standsAt, head.sha), head) }
 }

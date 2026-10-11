@@ -10,10 +10,13 @@ const Head  = { sha: ShaC, subject: 'ui: the rows line up' }
 
 describe('argsOf', () => {
   it("reads the flags, with the wait defaulting to the runner's limit", () => {
-    expect(Deploy.argsOf(['--dry-run', '--to', 'origin/main'])).to.deep.equal({ dryRun: true, to: 'origin/main', from: undefined, wait: 300, snapshot: undefined, role: undefined, rehearse: undefined })
+    expect(Deploy.argsOf(['--dry-run', '--to', 'origin/main'])).to.deep.equal({ dryRun: true, to: 'origin/main', from: undefined, wait: 300, snapshot: undefined, role: undefined, rehearse: undefined, verify: undefined })
   })
   it("takes a role and a snapshot to rehearse", () => {
     expect(Deploy.argsOf(['--role', 'agent', '--rehearse', 'prd.zip', '--wait', '30'])).to.include({ role: 'agent', rehearse: 'prd.zip', wait: 30 })
+  })
+  it("takes a role to verify against", () => {
+    expect(Deploy.argsOf(['--verify', 'e2e']).verify).to.equal('e2e')
   })
   it("takes a full sha for --from", () => {
     expect(Deploy.argsOf(['--from', ShaA]).from).to.equal(ShaA)
@@ -22,6 +25,8 @@ describe('argsOf', () => {
     [['--rehearse', 'prd.zip'],      /needs --role/,        'a rehearsal with no role'],
     [['--from', '84de1bb'],          /forty/,               'an abbreviated sha'],
     [['--role', 'prod'],             /one of dev, agent/,   'a role that is not one'],
+    [['--verify', 'prod'],           /one of dev, agent/,   'a verifying role that is not one'],
+    [['--role', 'agent', '--verify', 'agent'], /other than the target/, 'verifying against the target itself'],
     [['--to'],                       /needs a value/,       'a flag with no value'],
     [['--to', '--dry-run'],          /needs a value/,       'a flag whose value is another flag'],
     [['--yolo'],                     /Usage.*what is --yolo/, 'a flag nobody knows'],
@@ -91,5 +96,25 @@ describe('newestExported', () => {
   })
   it("is null for an empty table", () => {
     expect(Deploy.newestExported('')).to.be.null
+  })
+})
+
+describe('specDiff', () => {
+  const fnA = { identifier: 'a.js:one', functionType: 'Query', visibility: { kind: 'public' }, args: { type: 'object', value: {} }, returns: null }
+  const fnB = { identifier: 'b.js:two', functionType: 'Mutation', visibility: { kind: 'internal' }, args: { type: 'object', value: {} }, returns: null }
+  it("finds nothing between two specs holding the same functions, whatever the order", () => {
+    expect(Deploy.specDiff({ functions: [fnA, fnB] }, { functions: [fnB, fnA] })).to.deep.equal([])
+  })
+  it("names a function one spec alone holds", () => {
+    expect(Deploy.specDiff({ functions: [fnA, fnB] }, { functions: [fnA] })).to.deep.equal(['b.js:two'])
+  })
+  it("knows an HTTP action by its method and path", () => {
+    const jwks = { functionType: 'HttpAction', method: 'GET', path: '/.well-known/jwks.json' }
+    expect(Deploy.specDiff({ functions: [jwks] }, { functions: [] })).to.deep.equal(['GET /.well-known/jwks.json'])
+    expect(Deploy.specDiff({ functions: [jwks, fnA] }, { functions: [fnA, jwks] })).to.deep.equal([])
+  })
+  it("names a function whose shape differs", () => {
+    const changed = { ...fnA, args: { type: 'object', value: { label: { fieldType: { type: 'string' }, optional: false } } } }
+    expect(Deploy.specDiff({ functions: [fnA] }, { functions: [changed] })).to.deep.equal(['a.js:one'])
   })
 })
