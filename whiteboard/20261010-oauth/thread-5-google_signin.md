@@ -5,18 +5,34 @@ Branch `20261011-google_signin`, PR filed at landing; see the report. Caught up 
 its one failure a race in `forgetSession` now fixed (below); the spec alone 8/8 since. The new
 spec run without Google keys, as CI runs it: offered `false`, the redirect test skipped.
 
+**Review (flagged: login CSRF), fixed** in `9c896f7e`, on the orchestrator's directive. Deciding at
+Google's callback through `authUserId` let anyone's sign-in link have the clicker's Google account
+upgrade (take over) or merge into the link-maker's anonymous user. Now Google's callback only links
+the account (to its own user, or a new **provisional** one), and the upgrade, merge or switch is
+decided at the `?code=` exchange, where the browser has proved it started the sign-in (it holds
+the verifier it kept and the code Google sent it). The patch grew for it. Chosen over "a claim
+after the exchange": smaller, atomic, and it reuses Convex Auth's own proof. The attack, the
+decision, why, and what is left: `notes/security.md` (the entry on login CSRF); the patch's exact
+lines: `notes/stack.md`, *Authentication*. After the fix: justify green, convex-test 775/775 (the
+attack tests among them), the Google spec 5/5; no full e2e since.
+
 * **Built**:
-  - **The patch**: `patches/@convex-dev__auth@0.0.96.patch` (in `pnpm-workspace.yaml`), the
-    `authUserId` half of upstream's PR #306: `createOrUpdateUser` gets the user of the session
-    recorded on the OAuth verifier. `notes/stack.md` says to drop it when a release carries #306.
+  - **The patch**: `patches/@convex-dev__auth@0.0.96.patch` (in `pnpm-workspace.yaml`, `dist/`
+    only): the `authUserId` half of upstream's PR #306, handed on at the code's exchange rather
+    than the callback; the verifier kept, unsigned, until then; an OAuth code spent by a wrong
+    verifier. `notes/stack.md` says when to drop it (not merely when #306 ships).
   - **The provider**: `convex/auth.ts` lists `Google` only where `googleKeyed()` (both
     `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`, declared in `convex.config.ts`), with
     `GoogleScope = 'openid email profile'` set explicitly. **`auth:offered`** (in `Unscoped`)
     answers `{ google }`.
   - **The table**: `userForSignIn` (`convex/writing/user_actions.ts`) validates what Convex Auth
-    hands over (`UserValidators.signIn`), then for Google `userForGoogle`: new account and
+    hands over (`UserValidators.signIn`), then for Google `userForGoogle`, in two steps by its
+    `type`: at the callback (`oauth`), `accountUserAtCallback` links the account to its user or
+    a new `provisional` one (`User.provisional`); at the exchange (`verification`),
+    `userAtExchange` decides: new account and
     anonymous browser, upgrade in place (`User.fromGoogle`: `isAnonymous: false`, email, name,
-    image); new account otherwise, a new user; known account, switch, or `mergeInto` when the
+    image; the provisional user deleted); new account otherwise, the provisional user kept;
+    known account, switch, or `mergeInto` when the
     browser's anonymous user holds a userlabel. Every Google sign-in refreshes email, name and
     picture. Nothing reads an email.
   - **The merge** (`mergeInto`): the account's user is made smith of the sandbox
@@ -26,7 +42,8 @@ spec run without Google keys, as CI runs it: offered `false`, the redirect test 
   - **The pending name choice**, for thread 6: the merged-away user **keeps its userlabel** (so
     nobody else can take it) and its title. `nameChoiceFor(db, user_id)` (`convex/reading.ts`, one
     indexed read on `users.by_merged_into` = `['merged.into_user_id', 'userlabel']`) answers the
-    earliest merged-away user still holding a userlabel, or null. Thread 6 settles it by taking
+    merged-away user still holding a userlabel **whose userlabel comes first alphabetically** (the
+    index's order; not the earliest, as an earlier draft said), or null. Thread 6 settles it by taking
     that userlabel off the merged user: into a ghosting (`userlabel`, `user_id` = merged user,
     `into_user_id`, `account_id`, all on the `merged` mark), or onto the carrying user. Either way
     the next pending choice, if any, comes up by itself.
@@ -59,8 +76,8 @@ spec run without Google keys, as CI runs it: offered `false`, the redirect test 
      with nothing to choose. The table did not cover it.
   3. **The merged-away user is taken off its sandbox.** Nobody can be signed in as it again, so
      it would be a dead member beside its heir.
-  4. **Only the `authUserId` half of #306** is patched in: its `scope` override would let a browser
-     ask Google for more than the privacy policy says.
+  4. **Only the `authUserId` half of #306** is patched in, moved to the exchange (the review): its
+     `scope` override would let a browser ask Google for more than the privacy policy says.
   5. **`emailVerificationTime` is not written**: Convex Auth's default Google profile drops
      `email_verified`, and nothing needs it. The row keeps email, name, image only; anything else
      Google sends is dropped by `UserValidators.googleProfile` before a write.
@@ -103,7 +120,12 @@ spec run without Google keys, as CI runs it: offered `false`, the redirect test 
   - Clear the merged user's `userlabel` before the carrying user takes it (`by_userlabel` is
     read with `.first()`, and two holders at once would break the free check).
   - The button reads `useGoogleSignIn()`; both doors call its `start`.
+  - Nothing of the browser's user is decided until the `?code=` exchange: a door's view after the
+    round trip reads the result from `users.current`, never anything the callback wrote.
+  - The merged user's other unfinished sign-ins' `authVerifiers` stay (no index finds them by
+    session); the starting one is deleted by the patched exchange. It has no `authVerificationCodes`.
 
-* **For the Coach**: set production's two keys before the clear (`notes/deploy.md`, step 1, path
+* **For the Coach**: upstream's PR #306 has the same login CSRF as written (its own example
+  links at the callback); worth a comment there, which is yours to make. Set production's two keys before the clear (`notes/deploy.md`, step 1, path
   A). CI never tests the redirect (no Google keys there, by the sprint's rule); local runs under
   `dev_e2e` do.
