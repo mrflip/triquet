@@ -1,243 +1,526 @@
-# OAuth: Google sign-in beside the anonymous session
+# OAuth: one user, huntships, and Google sign-in
 
-Sprint plan, 2026-10-10. Mode: **normal** (interactive). Review level: **medium**. At most **3**
-threads at once. Issued by the Coach (Flip), in chat.
-**Status: superseded (2026-10-11) by `20261011-oauth_preplan.md`, which the Coach will hand to `/sprint`. No thread cut.**
-`oauth-progress.md`, beside this file, is newer than this plan wherever the two disagree.
+Sprint plan, 2026-10-11. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
+Issued by the Coach (Flip): `/sprint oath YOLO`, "plan and execute the sprint described in
+whiteboard/20261010-oauth", which is `20261011-oauth_preplan.md` beside this file.
+**Status: planned; threads 1, 2 and 7 underway.** `oauth-progress.md`, beside this file, is newer
+than this plan wherever the two disagree.
 
-## The Coach's request, verbatim
+The earlier plan in this file (three threads, an app-made hand-off, 2026-10-10) is superseded and
+is in git's history; nothing below depends on it.
 
-> google oauth normal interactive mode.
->
-> 1. make a whiteboard file describing how to sign up for a key that I can use for a few hundred
->    people (i.e. not just a friends and beta testers key). If there will be big steps to getting
->    the one I want describe also what to do for the other kind. (I've already done parts of this).
->    - I do not have a custom domain or paid plan at vercel. If vercel, doppler or convex offer
->      integrations that will simplify this, describe them; I may choose to do that in place of the
->      barely ten minutes to get the other keys.
->
-> 2. make a thread plan for adding oauth according to the traditional method.
->    - if it involves new features of convex (eg workers) that we're not using already, go ahead
->      and just let me know what they are.
->    - if it involves a tighter coupling to server side code, pause and let me know -- I'm hoping
->      to remain client-first as long as reasonable.
->
-> As always, no heroics, and strive to be library first following standard best practices
+## The authority
 
-Item 1 is `google-oauth-keys.md`, beside this file, written by the orchestrator while planning.
-Item 2 is the threads below.
-
-## What "the traditional method" comes to here
-
-Convex Auth's own Google provider (`@auth/core/providers/google`), the authorization-code flow
-with PKCE and state, run by Convex Auth on the deployment's HTTP actions. The browser calls
-`signIn('google', { redirectTo })`; Convex Auth's action sends it to Google. Google returns to
-`<deployment>.convex.site/api/auth/callback/google`, where Convex Auth exchanges the code,
-upserts the user and account, and redirects to `SITE_URL` with a one-time `?code=`. The React
-provider we already mount (`ConvexAuthProvider`) trades that for a session.
-
-**Client-first holds.**
-* No Next.js route handler, no middleware, and not `@convex-dev/auth/nextjs`, which is only for
-  server rendering, which we do not do.
-* The pages stay static. The only server in the flow is Convex's HTTP actions, which already
-  serve Convex Auth's JWKS (`convex/http.ts`).
-* The one thing that would step toward the server is path C's optional Vercel rewrite, in the
-  keys file. No thread here takes it.
-
-**No new Convex features.** We already use HTTP actions, Convex Auth and its tables. What is new:
-
-* Two deployment environment variables, `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
-* One app table, `handoffs`, in thread 2 (a new table, so no migration).
-* No crons, no workers, no components, no Node actions.
+**`20261011-oauth_preplan.md` is the Coach's spec.** Every worker reads it whole before anything
+else: *What the Coach decided*, *The models and their names*, *Where and when each name changes*
+and *Production* bind every thread, not only the one that names them. Its thread texts are
+quoted verbatim below, each followed by the orchestrator's gloss. Where a gloss and the pre-plan
+disagree, the pre-plan wins, unless `oauth-progress.md` records why it no longer does.
 
 ## Read first
 
-Beyond CLAUDE.md and its auto-loads:
+Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `notes/convex.md`,
+`notes/views.md`):
 
-* `google-oauth-keys.md`, beside this file: what the Coach will set up, and where previews and
-  dev stand.
-* `notes/convex.md`, *Who is asking*, all of it, and `convex/_generated/ai/guidelines.md`.
-* `notes/stack.md`, *Authentication*. Google "joins `Anonymous` in the list".
-* `notes/deploy.md`, the paragraph on Convex Auth's keys (around line 58) and *Sessions (dbpolicy
-  thread 1)*: the pattern the Coach's steps follow.
-* `notes/security.md`, and `notes/guidelines.md` before designing the hand-off's entrypoints.
-* The code:
-  - `convex/auth.ts`, `convex/auth.config.ts`, `convex/http.ts`, `convex/convex.config.ts`
-    (declared env).
-  - `convex/functions.ts` (`askerOf`), `convex/idents.ts`, `convex/writing/account_actions.ts`
-    (`assumeIdent`, `claimFor`), and `convex/authorize.ts` (`Unscoped`).
-  - `src/state/use-session.ts`, `use-ident.ts`, `use-account-actions.ts`, and
-    `src/app/providers.tsx`.
-  - `src/components/IdentGate.tsx`, and `src/lib/notices.ts` (`usernameClaimed`, which already
-    says "create an account on the device where you first chose it").
-  - `scripts/convex_dev`, `scripts/convex_auth_keys`, `scripts/lanes.ts`.
-* Convex Auth as installed (0.0.96), not from memory:
-  - `node_modules/@convex-dev/auth/dist/server/oauth/convexAuth.js` (the callback URL).
-  - `.../implementation/users.js` (account linking by verified email, and what
-    `createOrUpdateUser` is and is not handed).
-  - `.../react/client.js` (how `?code=` is consumed, and `isLoading` held through it).
+* `20261011-oauth_preplan.md`, whole.
+* `notes/vocabulary.md` and `STYLE.md`, before naming anything. The pre-plan's names (account,
+  user, session, userlabel, handle, huntship, ghosting, sandbox) win over anything older.
+* `notes/guidelines.md`, before designing an entrypoint or a row validator.
+* `notes/queries_hooks_and_subscriptions.md`, before adding a query, a state hook or a `useQuery`.
+* `notes/convex.md`, *Who is asking*, and `convex/_generated/ai/guidelines.md`.
+* `notes/deploy.md`, *Schema pushes: the two modes*: threads 2, 3 and 4. Thread 3 drops tables.
+* `notes/security.md`: every thread adds to it where it makes a security decision.
+* Background, read when your thread touches the subject:
+  - `oauth-progress.md`, *Convex Auth, as installed*: what 0.0.96 does and does not do.
+  - `convex-auth-v2.md`: why we stay on v1. Thread 5.
+  - `google-oauth-keys.md`: the keys and path A. Threads 5 and 7.
+  - `identity-names.md`: the naming work. The pre-plan's names win.
+* Convex Auth as installed, not from memory: `node_modules/@convex-dev/auth/dist/server/`
+  (`implementation/users.js`, `oauth/`), and `.../react/client.js`.
 
 ## Ground rules
 
-`notes/git_hygiene.md` (*The spine*, *A thread, start to finish*, *Sprints*) and
-`.claude/agents/thread-worker.md`. Particular to this sprint:
+`notes/git_hygiene.md`, `notes/git_hygiene-laptop.md` (*A thread, start to finish*, *Sprints*),
+and `.claude/agents/thread-worker.md`. What is particular to this sprint:
 
-* **Nothing automated signs in to Google**, ever: no test account, no stored Google credential in
-  any config an agent or CI reads. Tests stop at the redirect (its URL's `client_id`,
-  `redirect_uri`, `scope`, `code_challenge`), and the hand-off is proven in convex-test, over
-  sessions made with `signedIn(tt)` and their kin.
+* **No agent touches production.** Threads 2, 4 and 8 write commands meant for
+  `./scripts/doppledo prd_janitor ...`. They prove them on their own lane's local backend and in
+  convex-test, and never run them under a production config, not even as a dry run. Running
+  them is the Coach's step (*Production*, in the pre-plan).
+* **Nothing automated signs in to Google**, ever. No test account, and no Google credential in any
+  config an agent or CI reads, beyond the dev client's ID and secret that Doppler already holds
+  for local backends. Tests stop at the redirect: they intercept it and read its URL, and never
+  follow it. The merge rules are proven in convex-test.
 * **No provider that signs anyone in without proof** may exist on a deployment that could serve
-  people: no "fake Google" credentials provider, gated or not. If a thread finds it cannot test
-  without one, it stops and asks.
-* **Google is offered only where configured.** A deployment without `AUTH_GOOGLE_ID` lists only
-  `Anonymous`, and the browser hides the button: previews, e2e and agent backends, unless a
-  Doppler config hands a dev client to a local one.
-* **Convex Auth's tables stay its own** (`notes/convex.md`): we read `users` for the email and
-  name it stores, and never write them. Moving who holds an ident is our write, to our tables.
-* **The private key, client secrets and any Google profile** never go in a log, a refusal, a
-  test fixture or a chat. A Google cred's email is shown only to sessions of the principal it belongs to.
+  people: no "fake Google" credentials provider, gated or not. A thread that finds it cannot test
+  without one reports `blocked`.
+* **Google is offered only where configured.** A deployment without `AUTH_GOOGLE_ID` and
+  `AUTH_GOOGLE_SECRET` lists only Anonymous, and the browser shows no button.
+* **The words.** "Username" is banned from new text from the first commit of every thread: the
+  word is `userlabel` in code, and "handle" on screen. "Account" in our own code means only
+  Convex Auth's `authAccounts`. A user, an account and a session are not a person; never write
+  as if they were.
+* **Convex Auth's tables.** From thread 3 on, `users` is ours to write: a custom
+  `createOrUpdateUser` writes it, through the Zod row validator in `src/models/user.ts`. The other
+  `auth*` tables stay Convex Auth's. The one exception is thread 2's clear, which deletes them all
+  (`notes/security.md` gets an entry).
+* **`convex/_generated/` conflicts are regenerated, never hand-merged.** Threads 1, 2, 4, 5 and 8
+  each add or move Convex functions, so landings will meet there. Push to your lane's backend
+  (`scripts/convex_dev`) and commit what it writes.
+* **Hard things go to `whiteboard/TODO.md`**, under a section headed
+  `## From oauth sprint, thread N: <label>`, and into the report. No heroics.
+* **Prove with `pnpm e2e --touched`.** Most threads touch `convex/` or `src/models/` and so reach
+  the whole suite anyway. The orchestrator asks for a full run at landing where *Which proof*
+  says to: thread 3 (schema), thread 5 (a dependency patch), and every fourth landing.
+
+## Merging, for the Coach
+
+The pre-plan merges production in two steps: first threads 1 and 2, then, after the clear,
+everything else at once. The spine lands threads in the order they finish, so **every PR
+beneath thread 3's in the stack** can go in the first step: 7 and 8 are safe there too (pages,
+and the reserved list for new labels only). Thread 3's PR and everything above it waits for the
+clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
+
+## Decisions taken in YOLO
+
+*Orchestrator:*
+
+1. **Sprint name and place.** The Coach's `oath` is read as `oauth`, and the sprint runs in the
+   existing `whiteboard/20261010-oauth/` they named. This file was rewritten in place.
+2. **The spine started over.** The spine's one commit merged as #224 under a new SHA, so on the
+   Coach's "rebase on main", `pnpm restack` put the main checkout back on `main` at `29850126`.
+   Every thread is cut from there.
+3. **Thread 2's clear stays a command, not a backfill.** `notes/deploy.md` empties a table with a
+   backfill, which runs by itself when the PR merges. The Coach chose a command run by hand, with
+   a dry run, after an export (*Production*). That choice stands.
+4. **The deployment guard is shared.** Threads 2, 4 and 8 each run a command under
+   `prd_janitor`. Thread 2 builds the dry-run default and the flag naming the target deployment
+   as one small helper in `scripts/`, which 4 and 8 reuse. Thread 3 keeps the helper when it
+   deletes thread 2's command.
+5. **The name choice after a merge.** Thread 5 records a pending name choice, shaped for thread 6.
+   Thread 6 builds the mutation that settles it (`relabelUser`, per the pre-plan's rename table)
+   and writes the ghosting.
 
 ## The threads
 
-| # | Thread | Depends on | Coach's call needed |
-| --- | --- | --- | --- |
-| 1 | `oauth_google`: Google joins Anonymous | nothing | no |
-| 2 | `oauth_handoff`: the username comes along | thread 1 | yes: the hand-off is hand-rolled |
-| 3 | `oauth_privacy`: a privacy page | nothing | only if wanted |
+| # | Thread | Depends on |
+|---|---|---|
+| 1 | `split_account`: free the words "account" and "username" | nothing |
+| 2 | `clear_people`: a command that deletes production's people and keeps its hunts | nothing |
+| 3 | `converge`: users and huntships, everywhere | 1, 2 |
+| 4 | `adopt_script`: give a user a userlabel, admin, and hunts | 3 |
+| 5 | `google_signin`: the provider, the patch, the merge | 3 |
+| 6 | `google_ui`: signing in, from both doors | 5, 8 |
+| 7 | `google_pages`: homepage, privacy, terms, contact | nothing |
+| 8 | `reserved_words`: survey and augment the reserved list | nothing |
+| 9 | `oauth_security`: a strong review | everything above |
 
-### 1. `oauth_google`: Google joins Anonymous
+**Order.** 1, 2 and 7 start at once. 8 starts when the first of them lands. 3 is cut once 1 and
+2 have landed; then 4 and 5 run side by side; then 6, once 5 and 8 have landed; then 9.
 
-*The Coach's text:* "make a thread plan for adding oauth according to the traditional method", the
-provider half.
+### 1. `split_account`: free the words "account" and "username"
 
-**What it touches.**
-* `convex/auth.ts`: `Google` in the providers list, only when the deployment has
-  `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`, both declared optional in `convex/convex.config.ts`.
-* A way for the browser to know whether Google is offered, so the button shows only where it
-  works. A small public query is the likely shape: in `Unscoped`, with why.
-* `src/state/use-session.ts`.
-  - The anonymous sign-in must not race the `?code=` exchange on return. Convex Auth holds
-    `isLoading` through it, which `useSession` already waits on. Prove it with a test, don't
-    assume it.
-  - A Google session is "ready" like any other.
-* The view, MUI components:
-  - "Sign in with Google" where a visitor takes a username (`IdentGate`), and in whatever menu
-    the header offers a signed-in session.
-  - Who you are signed in as (the email, shown only to its owner) and *Sign out*, which leaves
-    the browser on a fresh anonymous session.
-  - `redirectTo` is the path the visitor was on, relative, so `SITE_URL`'s rule holds.
-* `scripts/convex_dev` sets `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` on a local backend when the
-  Doppler config it runs under has them (the Coach's dev client), beside the throwaway JWT keys.
-* Tests:
-  - convex-test for the gated provider list and the query.
-  - A unit test that `useSession` does not sign in anonymously while a code is being exchanged.
-  - e2e on a backend given a dummy client ID: the button shows, and clicking it heads for
-    `accounts.google.com` with the expected parameters. Intercept the navigation, never follow
-    it.
-* Documents:
-  - `notes/stack.md`, *Authentication*.
-  - `notes/deploy.md`: the Coach's steps, pointing at `google-oauth-keys.md`'s path A.
-  - `notes/env_vars_tokens_and_keys.md`.
-  - `notes/security.md`: what we store from Google (email, name, picture, in Convex Auth's
-    `users`), and that Convex Auth links accounts by verified email by default.
+*The Coach's text:*
 
-**Depends on:** nothing.
+> * **Split** our `account`-named dispatch and policy code by noun, with no behaviour change and no
+>   rewrite of what the functions do:
+>   - claiming and retitling a userlabel (`assumeIdent`, `retitleIdent`) go to
+>     `writing/user_actions.ts`, behind a user-action union and dispatcher;
+>   - making a hunt, and retitling, relabelling or arranging the categories of one, join
+>     `writing/hunt_actions.ts` and the hunt-action union.
+>   - The browser's `use-account-actions` splits the same way.
+> * **Ban "username":**
+>   - it becomes `userlabel` in code, documents, notice keys and test names;
+>   - on screen it becomes "handle", in every notice and label a visitor reads.
+> * **Grep says what is left.** No `account` remains in our own code but where it means Convex
+>   Auth's.
+> * `notes/vocabulary.md` gains the new nouns: account, user, session, userlabel, handle, huntship,
+>   ghosting, sandbox, anonymous.
+>
+> *Depends on:* nothing. *Look-ahead:* thread 3 rewrites what moved into `user_actions.ts`. Keep
+> this thread to moves and names, so thread 3's diff stays about meaning.
 
-**Look-ahead.**
-* Thread 2 hooks in exactly where this thread starts the redirect, and right after the return.
-  Keep the start of the sign-in in one function (in `src/state/`), so thread 2 can add a step
-  before it.
-* What a session signed in with a Google cred is called on screen is still its ident's title, not
-  the Google account's name. The username stays the app's identity; a Google cred only proves which principal holds it.
+*Orchestrator's gloss.*
 
-### 2. `oauth_handoff`: the username comes along
+* **Touches:**
+  - `convex/writing/account_actions.ts`, moving to `user_actions.ts` and into `hunt_actions.ts`;
+  - `convex/writing/perform.ts`, `convex/functions.ts`, `convex/authorize.ts`;
+  - `src/models/actions.ts` (the unions), `src/lib/approve.ts`, `src/lib/actor.ts`,
+    `src/lib/notices.ts` (the keys), `src/lib/vv/patterns.ts` (prose only);
+  - `src/state/use-account-actions.ts`, `src/state/shown.tsx`;
+  - the views named for accounts: `AccountMenu.tsx`, `ShowAccount.tsx` and the components that
+    use them, plus `IdentGate.tsx`'s on-screen words;
+  - the tests and e2e specs that follow, and `notes/vocabulary.md`. About 50 files say
+    "username".
+* **Depends on:** nothing.
+* **Look-ahead:**
+  - Name the views by what they show: a menu of the person's own user is not an "account" menu.
+    Thread 6 grows that menu into *signed in as …* and *Sign out*.
+  - Make each move a commit of its own, before any edit, so `git log --follow` and thread 3's
+    diff both read cleanly.
+  - Thread 8 edits the reserved lists in `src/lib/vv/patterns.ts` beside you. Change only that
+    file's prose there.
+  - Idents stay idents until thread 3. Rename only "account" and "username" here.
 
-*The Coach's text:* as for thread 1, the half that keeps what people already have.
+### 2. `clear_people`: delete production's people, keep its hunts
 
-**The problem.**
-* Today a browser's anonymous user holds its usernames (`idents.user_id`). Signing in with Google
-  makes a session for a **different** user, the Google one.
-* Convex Auth 0.0.96 does record the anonymous session that started the sign-in (on its
-  verifier), but hands it to no callback. Its upstream "upgrade anonymous" is not there.
-* Without help, every existing username would stay stranded with an anonymous session nobody can
-  reach from a second device. That is the "anonymous here, signed in there" collision
-  `notes/stack.md` deferred to now.
+*The Coach's text:*
 
-**The proposed mechanism: a one-time hand-off.** It is small and hand-rolled, so it needs the
-Coach's yes (CLAUDE.md, *Library first*, step 3). See *For the Coach*.
-1. Just before the redirect, a browser whose anonymous session holds an ident calls
-   `idents.offerHandoff`. The server writes a `handoffs` row: the anonymous user, a SHA-256 of a
-   random secret it makes with Web Crypto, and an expiry about ten minutes out. It returns the
-   secret, which the browser keeps in `sessionStorage`.
-2. Back from Google, the new session calls `idents.takeHandoff(secret)`. That one mutation:
-   - finds the row by hash and checks its expiry;
-   - moves every ident the anonymous user holds to the Google user, appending identings so the
-     ident the browser was on stays current;
-   - deletes the row.
-3. Any failure (expired, already taken, no row) is said plainly, and nothing moves.
-4. An offer replaces that user's earlier one, so there is at most one row per user and no cron.
+> * **An internal mutation** that deletes, in batches, every row of:
+>   - `users`, `authAccounts`, `authSessions`, `authRefreshTokens`, `authVerifiers`,
+>     `authVerificationCodes`, `authRateLimits`;
+>   - `idents`, `identings`, `huntings`, `reviews`, `reviewings`.
+>
+>   Hunts, realms, quizzes, questions, widgetings, columns, widgeteds, signals and the library are
+>   untouched.
+> * **A script that drives it**, run as `./scripts/doppledo prd_janitor scripts/clear_people`:
+>   - a **dry run by default**, printing each table's count;
+>   - it acts only with a flag naming the deployment it is aimed at, so it cannot be pointed at the
+>     wrong one by accident;
+>   - it repeats until nothing is left, and says what it deleted.
+> * **Written against today's schema**, since it runs before thread 3's push. Thread 3 then deletes
+>   it along with the tables it empties.
+> * `notes/deploy.md` gains the Coach's steps (*Production*, above).
+> * **Tests** on a local backend: the people go, the hunts stay, and a second run deletes nothing.
+>
+> *Depends on:* nothing. It must reach production before thread 3 does.
 
-The secret proves only what the anonymous session token in the same browser's storage already
-proves. It is no weaker, and it lives minutes, not a year.
+*Orchestrator's gloss.*
 
-**What it touches.**
-* `src/models/` (a `handoff` row validator) and `convex/schema.ts`: a new table, so no
-  migration. `convex/_generated/` is regenerated.
-* `convex/idents.ts` and `convex/writing/account_actions.ts` (next to `claimFor`), and
-  `convex/authorize.ts` (`Unscoped`, with why).
-* `tests/support/soundness.ts` if any copy is involved; there should be none.
-* The browser's sign-in function from thread 1, and a step after the return.
-* `src/lib/notices.ts`: `usernameClaimed` says "sign in with Google on the device where you first
-  chose it".
-* Documents:
-  - `notes/security.md`, an entry for the hand-off.
-  - `notes/stack.md`, *Hand-rolled on purpose*, with the Coach's yes.
-  - `notes/convex.md`, *Who is asking*, a paragraph on who holds an ident once Google is in.
-* Tests in convex-test:
-  - the happy path;
-  - expired, reused, wrong and foreign secrets;
-  - a Google user who already holds idents (they keep both, and the browser's current one wins);
-  - two tabs racing to take one hand-off.
+* **Touches:**
+  - a new `convex/` module holding the internal mutation and an internal count query;
+  - `scripts/clear_people`, with its guard as a helper in `scripts/`;
+  - `notes/deploy.md` and `notes/security.md` (this deletes Convex Auth's tables, the one
+    exception to leaving them alone);
+  - tests: convex-test for the mutation, and a unit test of the script's guard.
+* **Depends on:** nothing.
+* **Look-ahead:**
+  - Threads 4 and 8 run commands under `prd_janitor` too (*Decisions taken in YOLO*, 4). Build the
+    dry-run default and the flag naming the target deployment as one helper they can reuse. It
+    checks the flag against the deployment the key actually names, not against a string the
+    caller typed twice.
+  - Thread 3 deletes this command but keeps the helper.
+  - Prove it on your own lane's backend only. Never run it under a production config.
 
-**Depends on:** thread 1.
+### 3. `converge`: users and huntships, everywhere
 
-**Look-ahead.** Whiteboard TODO's **O3** (unheld legacy idents go to the first session asserting
-them) sits right beside this. Do not fix it here; note in the report whether Google sign-in
-changes its answer.
+*The Coach's text:*
 
-### 3. `oauth_privacy` (only if wanted): a privacy page
+> The heaviest thread.
+>
+> * **The schema changes in one step.**
+>   - The `users` table is inlined in `convex/schema.ts`, keeping Convex Auth's fields and indexes
+>     (`email`, `phone`), from a new `src/models/user.ts` row validator.
+>   - `huntships` and `ghostings` are added.
+>   - `reviews` and `reviewings` take a required `user_id`.
+>   - `idents`, `identings` and `huntings` are dropped.
+>   - Production's rows are gone by then (*Production*), so no backfill and no tighten. A local
+>     backend is reset (`scripts/convex_reset`).
+> * **The app runs on the new model.**
+>   - `askerOf` builds the actor from the user's own `userlabel` and `title`.
+>   - `Approve`'s policies and the `affirm…` functions speak `user_id` and huntships.
+>   - Copies follow the copies rule.
+>   - Row-level security rules move to the new tables.
+>   - The browser's hooks and views follow.
+> * **The custom `createOrUpdateUser` lands here, unpatched:**
+>   - anonymous sign-in inserts an anonymous user with no userlabel;
+>   - a returning account returns its user.
+>   - (Google arrives in 5.)
+> * **A userlabel is free** only if no user holds it, no ghosting holds it, and no hunt carries it as
+>   `orglabel` (*The models*, above). Only thread 4's command may give out one that only an
+>   address holds.
+> * **Admin becomes the user's `admin` flag**, read when the actor is built. No environment
+>   variable lists admins in production; a local backend keeps "everyone is an admin".
+> * **Sealing is policy** (`Approve`). An anonymous user:
+>   - may take a userlabel;
+>   - may make exactly one hunt, its sandbox, labelled with its own userlabel;
+>   - may not be added to any hunt, nor add anyone to its sandbox;
+>   - may not review.
+>
+>   The refusals say "sign in with Google to …" (the button arrives in 6; until then the notice
+>   only says it is coming).
+> * **No identings.** Choosing a userlabel is one write to the user.
+> * **Thread 2's clearing function and script are deleted**, with the tables they empty.
+>
+> *Depends on:* 1, 2. *Look-ahead:*
+> * Thread 5's merge needs a function, *make this user smith of that sandbox*, that bypasses
+>   sealing only for the Google user. Write it as a named write in `writing/`, not inline.
+> * Thread 6 needs "suggest a userlabel from a name" (`Ident.labelFor` today), kept as a pure
+>   function on `User`.
 
-*The orchestrator's addition, not the Coach's text.*
+*Orchestrator's gloss.*
 
-**What it touches.** A static `/privacy` page: what we store (username, title, quizzes; with
-Google, the email, name and picture Google sends), who sees it, how to have it deleted. It is
-linked from `/about` and the footer, so Google's branding page has a privacy-policy URL on the
-app's own domain.
+* **Touches** nearly everything that says ident or hunting:
+  - `convex/schema.ts` and `convex/` throughout;
+  - `src/models/` (`ident.ts`, `identing.ts` and `hunting.ts` give way to `user.ts`, `huntship.ts`
+    and `ghosting.ts`);
+  - `src/lib/actor.ts` and `approve.ts`;
+  - `src/state/use-ident.ts`, `IdentGate.tsx` and their callers;
+  - `tests/support/`, `e2e/`, `scripts/convex_dev` (`TRIQUET_ADMINS`);
+  - `notes/convex.md`, `notes/vocabulary.md`, `notes/security.md`.
+* **The schema push** is a schema step (`notes/deploy.md`). It drops three tables and reshapes
+  two, with no backfill, because production is cleared by thread 2's command first. Say so in the
+  PR's description, with the Coach's steps, and make the title name the clear as a precondition.
+  Reset your lane's backends; e2e backends are made fresh.
+* **`convex/_generated/`** goes in a commit of its own.
+* **Depends on:** 1 and 2.
+* **Look-ahead:**
+  - The two named functions in the Coach's text (smith-of-sandbox, and `User`'s label
+    suggestion).
+  - Name the test helpers so thread 5 can add a Google-user helper beside the anonymous ones.
+  - Thread 4 sets the `admin` flag; thread 5 makes it count only for a user signed in with Google.
+    Keep where the actor reads the flag in one place.
+  - Thread 8's reserved list is read through `Labelmaker.isReserved`, if it has landed. The
+    free-userlabel check calls that, not a copy.
+  - Whiteboard TODO's **O3** (unheld legacy idents) dies with idents: strike it there, saying why.
+  - Keep thread 2's guard helper when you delete its command.
+* **Proof:** a full e2e run at landing.
 
-Run it only if the console refuses to publish without one, or the Coach wants it anyway.
+### 4. `adopt_script`: give a user a userlabel, admin, and hunts
 
-**Depends on:** nothing; it can run beside thread 1.
+*The Coach's text:*
 
-## Order
+> * **An internal mutation**, which can:
+>   - find a user, by `_id`, by userlabel, or by the Google email of its account (for a one-time
+>     lookup with the Coach watching; never a standing rule);
+>   - set its userlabel, past the address rule (the command line is trusted);
+>   - set or clear its `admin` flag;
+>   - grant it a role on one hunt by address (`~org/hunt`), or on every hunt.
+>
+>   The user must be signed in with Google for the admin flag or any grant. The mutation is
+>   idempotent and never lowers a role, and it returns what it changed.
+> * **A script wrapping it**, with a dry run that says what it would do:
+>   - in production: `./scripts/doppledo prd_janitor scripts/adopt --email <the Coach's> --userlabel
+>     mrflip --admin --smith-all`;
+>   - in dev, against a local backend.
+> * `notes/deploy.md` gains it, in the Coach's steps.
+>
+> *Depends on:* 3. Can run beside 5.
 
-Thread 1, with thread 3 beside it if wanted. Then thread 2.
+*Orchestrator's gloss.*
 
-Production gains Google sign-in when the Coach merges thread 1 and sets the two keys. The
-hand-off follows with thread 2. Until thread 2 is merged, someone who already holds a username
-should not sign in with Google, or they will find it held by their anonymous self. So the Coach
-may prefer to merge 1 and 2 together.
+* **Touches:** a new `convex/` module, `scripts/adopt` (on thread 2's guard helper),
+  `notes/deploy.md`, convex-test.
+* **Depends on:** 3.
+* **Look-ahead:**
+  - "Signed in with Google" is a fact thread 5 makes possible: on thread 3's model, a user with
+    an account whose provider is `google`. Test it with a seeded Google account row; never with a
+    sign-in.
+  - Thread 5 lands beside you, so agree with its definition through the progress document, or
+    read it from 5's code if 5 lands first.
+  - Use thread 3's role grant and huntship writes, not a second copy of them.
+
+### 5. `google_signin`: the provider, the patch, the merge
+
+*The Coach's text:*
+
+> * **`pnpm patch`** `@convex-dev/auth`, carrying PR #306's change: `createOrUpdateUser` is handed
+>   the signing-in session's user. List it in `notes/stack.md`, with the PR, and a note to drop
+>   the patch when a release carries it.
+> * **The Google provider** joins Anonymous only where `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are
+>   set on the deployment. A query tells the browser whether Google is offered.
+> * **`scripts/convex_dev`** sets those two on a local backend, from the same names in the Doppler
+>   config it runs under. All three dev configs carry them: a web client in Google project
+>   1034248949886, which accepts `http://127.0.0.1:3500` and `:3501`'s
+>   `/api/auth/callback/google` (checked 2026-10-11).
+> * **`createOrUpdateUser`**, for an OAuth sign-in:
+>
+>   | The account is | The signing-in browser's user is | Then |
+>   |---|---|---|
+>   | new | anonymous | **upgrade in place**: the account joins that user, which is no longer anonymous |
+>   | new | signed in with Google, or none | a new user. Linking a second Google account is a later, explicit action |
+>   | known | anonymous with nothing (no userlabel) | switch to the account's user |
+>   | known | anonymous, with a userlabel | **merge**: the account's user continues; it is made smith of the sandbox, if there is one; a pending name choice is recorded (thread 6 asks it); until answered, the account's user's handle stands |
+>   | known | signed in with Google as another user | switch. **Never merge two Google users** |
+>
+>   A merged-away user is never deleted: it is marked, its sessions deleted, and its userlabel goes
+>   into `ghostings` once the name choice is settled.
+> * **Admins must be signed in with Google:** an anonymous user's `admin` flag counts for nothing.
+> * **Tests:**
+>   - convex-test for every row of the table, for the refusals, and for admin needing Google;
+>   - e2e up to the redirect (the URL's `client_id`, `redirect_uri` and `scope`, intercepted, never
+>     followed).
+>   - Nothing automated signs in to Google.
+> * **Documents:** `notes/stack.md` (*Authentication*, the patch), `notes/deploy.md` (production's
+>   two keys, path A), `notes/security.md` (the merge rules, the patch, the admin flag and why not
+>   email, what we store from Google), `notes/convex.md` (*Who is asking*).
+>
+> *Depends on:* 3.
+
+*Orchestrator's gloss.*
+
+* **Touches:**
+  - `package.json` and `patches/` (the `pnpm patch`);
+  - `convex/auth.ts`, `convex/convex.config.ts` (the two keys, declared optional);
+  - `scripts/convex_dev`;
+  - a public query in `Unscoped`, saying why;
+  - `src/state/use-session.ts` and a sign-in function in `src/state/`;
+  - convex-test and an e2e spec;
+  - the four notes the Coach names.
+* **The ports in the Coach's text** (3500, 3501) are the Coach's own lanes. An agent's lane has
+  other ports, which the dev client does not accept. That is fine, since nothing follows the
+  redirect; but do not add an agent's ports to the client, and do not hand-set `SITE_URL`
+  (`scripts/lanes.ts` owns ports).
+* **Account linking by verified email** is Convex Auth's default for OAuth. Decide, write down and
+  test what it does beside the table above. Two Google accounts with one email must never merge
+  two users.
+* **Depends on:** 3.
+* **Look-ahead (thread 6):**
+  - Keep the start of a Google sign-in in one function in `src/state/`, which both of 6's doors
+    call.
+  - Shape the pending name choice so 6 can read it with one query and settle it with one mutation.
+  - The query that says whether Google is offered is what 6's button reads.
+* **Proof:** a full e2e run at landing (it patches a dependency).
+
+### 6. `google_ui`: signing in, from both doors
+
+*The Coach's text:*
+
+> * **From the first screen**, before a handle:
+>   - "Sign in with Google" beside choosing a handle;
+>   - after the round trip, the person is offered a handle prepared from their Google name or the
+>     part of their email before the @, through the same pure function as today, checked against
+>     taken, retired and reserved userlabels;
+>   - they confirm or edit it.
+> * **As an anonymous user:** "Sign in with Google to keep `mrflip` on every device", where the
+>   sealing refusals point.
+> * **The merge's name choice:**
+>   - "This browser was `mrflip`; your Google account is `flippy`. Keep which?";
+>   - choosing the anonymous handle relabels and retitles the user, and rewrites its huntships'
+>     copies;
+>   - addresses never change.
+> * **Signed in:**
+>   - a menu shows the email to its owner, and *Sign out*;
+>   - *Sign out* warns that the browser goes back to having no handle.
+> * **The button follows Google's sign-in branding guidelines**: Google's own "G" mark and wording.
+>   Brand verification checks this. It is an MUI `Button` with Google's published asset, not
+>   Google's JavaScript library, which serves a different flow.
+> * MUI components, per `notes/views.md`.
+>
+> *Depends on:* 5, and 8 (suggestions must skip reserved words).
+
+*Orchestrator's gloss.*
+
+* **Touches:**
+  - the gate (`UserlabelGate`, after thread 3) and the user menu from thread 1;
+  - a dialog for the name choice;
+  - the settling mutation, `relabelUser` (*Decisions taken in YOLO*, 5), and its ghosting write;
+  - the sealing notices in `src/lib/notices.ts`;
+  - Google's "G" asset under `public/`;
+  - e2e up to the redirect, and convex-test for the settling mutation.
+* **Depends on:** 5 and 8.
+* **Look-ahead:**
+  - Thread 9 reviews what a browser can learn of another user. The email shows only in the
+    owner's own menu, and comes from a query that returns it to its owner alone.
+  - Thread 7's footer is on every page. Do not move it.
+
+### 7. `google_pages`: what Google asks a public app to have
+
+*The Coach's text:*
+
+> * **A homepage** Google can link: `/about`, made to describe what Triquet is and does, in a sentence
+>   or two above the fold, and to link the privacy policy and terms. It must be public and
+>   prerendered, with no sign-in in front of it.
+> * **`/privacy`**, in plain language:
+>   - what we store: a handle and title; quizzes and what is written in them; for a Google account,
+>     the email, name and picture Google sends, and no other Google data;
+>   - who sees what (a handle and title to a hunt's members; an email to its owner alone);
+>   - that a session is kept in the browser's storage;
+>   - that a question asked of a bot is sent to Anthropic;
+>   - how to have one's data deleted: by asking the contact address, until an in-app way exists;
+>   - the date it last changed.
+> * **`/terms`**: short and plain. The service as it is, the person's content theirs, no abuse, and
+>   the right to remove what breaks the rules.
+> * **A contact**: `info@triquet.me` (the Coach, 2026-10-11), in the policy and the footer.
+> * **A footer** on every page linking About, Privacy and Terms.
+> * **Static pages:** markdown content rendered as the app's other documents are, and prerendered.
+> * **The wording is a draft for the Coach to approve.** The thread says so in its report, and
+>   writes no legal claims beyond what the app does. It reads the code to make the policy true
+>   (what is stored, where, who can read it).
+> * **`google-oauth-keys.md`** gains the exact URLs to enter on Google's branding page.
+>
+> *Depends on:* nothing; can run beside 1 and 2.
+
+*Orchestrator's gloss.*
+
+* **Touches:**
+  - `src/app/about/`, and new `src/app/privacy/` and `src/app/terms/`, outside the `(synced)`
+    group, so no Convex client is in front of them;
+  - their markdown;
+  - a footer component in the root layout;
+  - e2e (new spec files go in `SpecCorners`);
+  - `google-oauth-keys.md`.
+* **Depends on:** nothing.
+* **Look-ahead:**
+  - Thread 8 reserves `privacy` and `terms` as top-level words. Name the routes exactly so.
+  - The policy describes the app as it will be once Google sign-in ships (the pre-plan's model),
+    not as it is today: say so in the draft, and keep it true to the pre-plan's decisions.
+  - Thread 6's sign-in screen may link the policy, so give it a stable path.
+
+### 8. `reserved_words`: survey and augment the reserved list
+
+*The Coach's text:*
+
+> A userlabel is now also an address (`/~label/…`) and a sandbox's hunt label.
+>
+> * **Survey** what `PA.ReservedLabels` and `PA.ReservedToplevel` (`src/lib/vv/patterns.ts`, read
+>   through `Labelmaker.isReserved`) hold today, against:
+>   - every top-level route in `src/app/` (`about`, `api`, `c`, `h`, `my`, `stats`, and the coming
+>     `privacy` and `terms`);
+>   - the words a userlabel should not be: `admin`, `support`, `root`, `triquet`, `google`,
+>     `anonymous`, `handle`, the names of roles, and the like.
+> * **Library first.** A maintained reserved-usernames list on npm (their word) may do most of this.
+>   Weigh one against a list of our own, per `notes/stack.md`.
+> * **Grandfathering.** Existing hunt labels and `orglabel`s stay valid; the list governs new ones.
+>   Write a read-only check, for the Coach to run against production (`prd_janitor`), that names
+>   any `orglabel` or hunt label the new list would refuse.
+>
+> *Depends on:* nothing; can run beside 1 and 2. Lands before 6.
+
+*Orchestrator's gloss.*
+
+* **Touches:**
+  - `src/lib/vv/patterns.ts` (`ReservedLabelGroups`, `ReservedToplevelGroups`, and the prefixes
+    and forms beside them);
+  - `src/lib/labelmaker.ts` (or wherever `isReserved` lives) and its tests;
+  - perhaps a package (`notes/stack.md` says when one may simply be installed);
+  - a read-only internal query and a script for the check.
+* **Depends on:** nothing.
+* **Look-ahead:**
+  - Thread 3's free-userlabel check, and thread 6's suggestions, both ask "is this userlabel
+    reserved?". Give them one predicate for userlabels, if the existing one does not already
+    answer that exactly.
+  - The check's script runs under `prd_janitor` (read-only): reuse thread 2's guard helper if 2
+    has landed. Otherwise, write the script so it can adopt the helper later, and note that in
+    your thread file.
+  - Grandfathering means existing rows still pass validation when read, and when written back
+    unchanged. Make sure a reserved word added now cannot make an existing hunt unwritable.
+
+### 9. `oauth_security`: a strong review
+
+*The Coach's text:*
+
+> Review the sign-in path, the patch, `createOrUpdateUser`'s table, sealing, the admin flag, the
+> clear and adopt commands, the claim rules, and what a browser can learn about another user (email
+> above all). Fix what is certain. Note the rest in `whiteboard/TODO.md` and `notes/security.md`.
+>
+> *Depends on:* everything above.
+
+*Orchestrator's gloss.*
+
+* **Touches** whatever it finds.
+* **How:** the worker reads the sprint's diff as a whole, `29850126..` the top, and the patch
+  under `patches/`, using the `convex-reviewer` and `security-review` skills where they fit, with
+  a hand read of every public function's authorization.
+* **The review of this thread** is of its fixes, as for any thread.
+* **Depends on:** threads 1 to 8 landed.
 
 ## For the Coach
 
-1. **The hand-off is hand-rolled** (thread 2). Yes, or the alternative?
-   - The alternative: Google sign-in becomes required to take a new username, and the handful of
-     usernames already held anonymously are reassigned once, by hand, with an internal mutation
-     run from the dashboard.
-   - That alternative needs no token, but every new visitor must sign in with Google before
-     doing anything, which gives up the anonymous first visit we chose in October.
-2. **Which key path**: A (publish now, unbranded) is recommended; see `google-oauth-keys.md`.
-   Path C's Vercel-rewrite variant would be the one step toward the server, and needs your word
-   before anyone builds it.
-3. **Thread 3**, the privacy page: wanted?
-4. **Bring-your-own-key asking** (TODO, O1: "once there is OAuth, asking becomes
-   bring-your-own-key") is not in this sprint. Say if you want it planned as a thread 4.
+The pre-plan's *For the Coach* stands: export production and set its two Google keys before the
+clear; approve the privacy and terms wording when thread 7 lands. Also:
+
+1. **The merge order** above (*Merging, for the Coach*): everything beneath thread 3's PR can
+   merge in the first step.
+2. **Your own local backends** (the `dev` and `e2e` roles in the main checkout) will refuse thread
+   3's schema once you pull it. `scripts/convex_reset dev` empties one; no agent touches them.

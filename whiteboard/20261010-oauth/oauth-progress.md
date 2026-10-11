@@ -1,80 +1,46 @@
 # Sprint `oauth`: progress
 
-**Status: paused. The plan is superseded by `20261011-oauth_preplan.md` (2026-10-11), awaiting the Coach. No thread cut.**
+**Status: threads 1, 2 and 7 underway (2026-10-11).**
 
-Mirrored live at https://claude.ai/code/artifact/89643f81-3e20-48c4-9cde-ef9268d7a1c6 (the files here win).
-
-The running handoff. Newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
+The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
-| -- | Keys guide (the Coach's item 1) | written by the orchestrator: `google-oauth-keys.md` | -- | -- |
-| 1 | `oauth_google`: Google joins Anonymous | pending | | |
-| 2 | `oauth_handoff`: the username comes along | pending (needs the Coach's yes on the mechanism) | | |
-| 3 | `oauth_privacy`: a privacy page | pending (only if wanted) | | |
+| 1 | `split_account`: free the words "account" and "username" | underway | `20261011-split_account` | |
+| 2 | `clear_people`: delete production's people, keep its hunts | underway | `20261011-clear_people` | |
+| 3 | `converge`: users and huntships, everywhere | pending (1, 2) | | |
+| 4 | `adopt_script`: give a user a userlabel, admin, and hunts | pending (3) | | |
+| 5 | `google_signin`: the provider, the patch, the merge | pending (3) | | |
+| 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
+| 7 | `google_pages`: homepage, privacy, terms, contact | underway | `20261011-google_pages` | |
+| 8 | `reserved_words`: survey and augment the reserved list | pending (a free slot) | | |
+| 9 | `oauth_security`: a strong review | pending (1-8) | | |
 
-## What we know so far
+Full e2e runs at landing: threads 3 and 5, and every fourth landing (none yet).
 
-*Orchestrator:*
+## What the threads have taught
 
-* **The spine started over.** The spine through #218 merged under new SHAs (rebased on GitHub),
-  so the main checkout was put back on `main` at `origin/main` (`a9a35002`) with the Coach's
-  word, before anything was written. Every thread is cut from there.
-* **Convex Auth 0.0.96 sets the callback URL** to
-  `(CUSTOM_AUTH_SITE_URL ?? CONVEX_SITE_URL) + /api/auth/callback/<provider>`.
-* **Convex Auth 0.0.96 records the signing-in session but does not pass it on.** The verifier
-  holds the session that started an OAuth sign-in, and `upsertUserAndAccount` is handed it, but
-  neither the default `createOrUpdateUser` nor a custom one sees it. Hence thread 2.
+*Orchestrator:* nothing yet.
+
+## Convex Auth, as installed (checked 2026-10-10)
+
+*Orchestrator:* the evidence behind the pre-plan's choices. It was checked against the source,
+not from memory.
+
+* **Which line we are on.** `@convex-dev/auth` 0.0.96 is npm's `latest` (2026-09-30), the head of
+  `main` ("the current stable release (v1)"), in maintenance mode. v2 is an alpha rewrite on the
+  `reboot` branch; see `convex-auth-v2.md`.
+* **The callback URL** is `(CUSTOM_AUTH_SITE_URL ?? CONVEX_SITE_URL) + /api/auth/callback/<provider>`.
+* **The signing-in session is recorded but not passed on.** The OAuth verifier holds the
+  session that started the sign-in (`verifier.sessionId`), and `upsertUserAndAccount` is handed it.
+  But neither the default `createOrUpdateUser` nor a custom one sees it. The callback runs in
+  the HTTP action Google redirects to, which carries no bearer token, so `getAuthUserId(ctx)`
+  there is null. Upstream PR #306 hands it on; thread 5 carries that change as a `pnpm patch`.
 * **Accounts are linked by verified email by default.** An OAuth or OIDC provider counts as
-  verifying unless `allowDangerousEmailAccountLinking: false`. Anonymous users have no email, so
-  there is nothing to collide with today.
-* **The React provider holds `isLoading` true while it exchanges `?code=`.** It also strips the
-  code from the URL with `replaceURL`. `useSession` waits on `isLoading`, so it should not race;
-  thread 1 proves it.
-
-### Anonymous to Google: checked against the latest Convex Auth (the Coach asked, 2026-10-10)
-
-*Orchestrator:* the Coach had heard from other agents that upgrading an anonymous user was
-straightforward. Checked at the source on 2026-10-10:
-
-* **Which line we are on.** `@convex-dev/auth` 0.0.96 is npm's `latest` (2026-09-30) and the head
-  of the repo's default branch, `main`, which its README calls "the current stable release (v1)".
-  That is what we pin.
-* **v2 is a rewrite in progress.** It lives on the `reboot` branch, published as
-  `2.0.0-alpha.2` under the `alpha` tag (2026-09-16), and was still landing commits on
-  2026-10-09. It is rebuilt as Convex components: the app writes `createUser` and `onSignIn`
-  mutations. Not for us yet.
-* **v1 docs.** *Advanced → Account linking* links accounts only by verified email or phone, or
-  through a custom `createOrUpdateUser`. That callback is handed `existingUserId`, the user of the
-  *account* being signed in to, never the session that started the sign-in. The page carries a
-  commented-out line, "This is required when you configure anonymous sign-in", with nothing
-  under it.
-* **v1 code.** The OAuth verifier records the signing-in session (`verifier.sessionId`), and
-  `upsertUserAndAccount` receives it, but it is passed to neither the default nor the custom
-  callback. The callback runs in the HTTP action Google redirects to, which carries no bearer
-  token, so `getAuthUserId(ctx)` there is null.
-* **v2 alpha.** `CreateUserFn` is handed `{ provider: { name, accountId, profile } }`, and
-  `OnSignInFn` that plus `userId`. Neither carries the current session. The v2 *Anonymous* doc
-  says nothing about upgrading.
-* **Upstream.** Issue get-convex/convex-auth#231, "Transfer Anonymous to OAuth user"
-  (better-auth's anonymous plugin, which has this, is the model it cites), is open with no
-  answer.
-
-**Conclusion.** "Straightforward" holds for libraries that ship it (better-auth's `linkAccount`).
-In Convex Auth, the session needed is captured internally and then dropped. Thread 2's options
-stand as planned:
-
-1. The app's own one-time hand-off.
-2. Google required to take a username.
-3. A one-line `pnpm patch` handing `existingSessionId` to `createOrUpdateUser`. This is the
-   smallest code, but it means patching a pinned dependency, and taking over user creation for
-   every provider. Not recommended.
-
-### Names for who is asking
-
-*Orchestrator:* `identity-names.md`, beside this file, is being settled with the Coach in its own
-live doc (https://claude.ai/code/artifact/48666255-cdcb-444d-9c41-034c8d1d91dd). The proposed
-words are **cred** (`authAccounts`), **principal** (`users`, never a person), **session**, plus
-our ident, label and identing. Read it before writing any plan text or code about sign-in; the
-plan will be rewritten in its words once they are settled.
+  verifying unless `allowDangerousEmailAccountLinking: false`. A custom `createOrUpdateUser` takes
+  over that decision, so thread 5 decides it explicitly.
+* **The React provider holds `isLoading` true while it exchanges `?code=`**, and strips the code
+  from the URL. `useSession` waits on `isLoading`, so it should not race an anonymous sign-in.
+  Thread 5 proves it.
+* **Upstream issue #231**, "Transfer Anonymous to OAuth user", is open with no answer.
