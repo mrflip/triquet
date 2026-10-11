@@ -87,9 +87,10 @@ which hunt a row is of. The copies:
 The rule: **a copy is written when its row is, and never changes after**, since nothing moves
 between parents (a quiz does not change hunts, a userlabel is set once). The one exception is
 `huntships.usertitle`: retitling a user (`retitleUser`) rewrites it on every huntship the user
-has, a fan-out bounded by the hunts one user is on. (Thread 6's `relabelUser`, settling a merge's
-name choice, rewrites `huntships.userlabel` the same way; a hunt's `orglabel` is an address, never
-a copy, and never changes.) A copy that would need upkeep beyond that is
+has, a fan-out bounded by the hunts one user is on. `relabelUser` (`writing/user_actions.ts`),
+the one write that changes a userlabel once set, rewrites `huntships.userlabel` and `usertitle` the
+same way: the command line's `adopt:perform` calls it, and a merge's name choice will. A hunt's
+`orglabel` is an address, never a copy, and never changes. A copy that would need upkeep beyond that is
 not added; a new one goes in this table, and in `Copies` in `tests/support/soundness.ts`, which
 `expectSound` checks against its source. A reviewing does not copy its review's `phase`, which
 changes: whatever needs it reads the review.

@@ -176,7 +176,7 @@ can tell.
   `ValidatorKit.userlabel`): 6 to 24 characters of the label alphabet, unique across the app, its
   own word as `orglabel` is, and chosen once (`userlabelSet`). It is **free** only while no user
   holds it, no ghosting holds it, and no hunt carries it as its `orglabel` (`holderOfUserlabel`);
-  only the command line gives out one that only an address holds (thread 4). Never "username", a
+  only the command line gives out one that only an address holds (`scripts/adopt`). Never "username", a
   word banned from code, notes, notice keys and test names. `User.labelFor` makes one from a name.
 * **handle** -- what the screen calls a userlabel: the one word a visitor reads for it ("Handle",
   "That handle is kept for the app's own use"). Not a row's drag handle, which the screen also
@@ -247,7 +247,7 @@ can tell.
   (`convex/authorize.ts`). Not a widget's `scope`.
 * **admin** -- one who looks after what belongs to no hunt: the library. Changing it is an admin's
   act (`Approve.mayChangeLibrary`). Who is an admin is the user's own `admin` flag, set only from
-  the command line (thread 4), read once as the actor is built (`Actor.ofUser`); a local backend
+  the command line (`scripts/adopt`), read once as the actor is built (`Actor.ofUser`); a local backend
   makes every user one (`TRIQUET_EVERYONE_ADMIN`). No environment variable lists admins. Thread 5
   makes the flag count only for a user signed in with Google. Policies ask `Actor.isAdmin`.
 * **census** -- what a function about one hunt must know beyond it, asked of the whole database

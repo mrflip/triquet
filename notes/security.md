@@ -30,6 +30,15 @@ security expert who knows what questions to ask.
   an admin, anonymous ones included, and `scripts/convex_dev` sets it on every local backend
   (production never has it, and a `TRIQUET_ADMINS` left set there is read by nothing). Until thread
   5, an anonymous user's flag counts as a Google user's does.
+* 2026-10-11 (oauth sprint, thread 4): `adopt:perform` (`convex/adopt.ts`), an internal mutation
+  run by `scripts/adopt` under `prd_janitor` behind the janitor's guard, sets a user's `admin` flag,
+  gives it a userlabel that only a hunt's `orglabel` holds (past the rule that keeps an address's
+  userlabel unclaimable; never one another user or a ghosting holds), and puts it on any hunt or
+  every hunt as smith or reviewer, past that hunt's smiths (`grantHuntship`). It finds the user by
+  id, userlabel, or the `email` on its row (refused unless exactly one user has it), and refuses
+  the flag and any grant to an anonymous user. The deploy key is what vouches for it; it has no
+  environment check. The guard checks the deployment once; each `convex run` after picks it again
+  from the environment (thread 2's note).
 * 2026-10-11 (oauth sprint, thread 3): the first user to take a free userlabel holds it for good
   (`assumeUserlabel`, `convex/writing/user_actions.ts`), with no password: a session is what holds
   its user. A userlabel is free only while no user, no ghosting, and no hunt's `orglabel` holds it,

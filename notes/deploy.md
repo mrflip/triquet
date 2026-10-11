@@ -71,7 +71,7 @@ effort, and a shallow clone may list no commits.
   browser can sign in, and so none can take a userlabel. Preview deployments take theirs from
   the project's default environment variables for previews. No variable names the admins, who may
   change the widget library: a user is one when its own `admin` flag says so, set only from the
-  command line (the OAuth sprint's adopt command, thread 4). A local backend makes every user an
+  command line (`scripts/adopt`, *Adopting a user*, below). A local backend makes every user an
   admin (`TRIQUET_EVERYONE_ADMIN=yes`, set by `scripts/convex_dev`); production and previews never
   set it. A `TRIQUET_ADMINS` left on a deployment from before is read by nothing, and may be unset
   (`./scripts/doppledo prd_janitor npx convex env remove TRIQUET_ADMINS`). Another,
@@ -272,6 +272,37 @@ behind the guard it names the deployment it reached first; `--deployment` change
 deployment it insists on. A hunt it names needs nothing done: it is there to tell you who holds a
 word now kept, if you want to ask them to move.
 
+### Adopting a user
+
+Some things only the command line may give a user: the admin flag (no variable names admins), a
+userlabel that a hunt's address holds (`~mrflip/…` keeps `mrflip` from being claimed in the app),
+and a place on a hunt without its smiths adding them. `scripts/adopt` gives them, to one user:
+
+```
+./scripts/doppledo prd_janitor scripts/adopt --email <address> --userlabel mrflip --admin --smith-all
+```
+
+* **Which user**, one way: `--email <address>` (the one user whose row holds that email, as Google
+  sent it; refused when none does, or more than one, which it names), `--holding <userlabel>`, or
+  `--id <user id>`. An email is for a lookup you are watching, once: it is no standing way to name
+  a user, since an address can change hands. Once it holds a userlabel, name it by that.
+* **What to give it**, any of: `--userlabel <userlabel>` (refused when another user or a ghosting
+  holds it, or it is not a userlabel one may claim; a hunt's address holding it is no bar, and
+  the user's huntships' copies follow), `--title <title>`, `--admin` or `--no-admin`, and a role on
+  hunts, never lowering one it holds: `--smith <~org/hunt>`, `--reviewer <~org/hunt>` (each as often
+  as needed), `--smith-all`, `--reviewer-all`. Only a user signed in with Google (not anonymous) is
+  made an admin or put on a hunt.
+
+It stands behind the guard: the first run is dry, and says who it found and what it would change
+(`adopt:plan`, which writes nothing); the second, with `--deployment`, changes it in one transaction
+(`adopt:perform`) and says what it changed. Run again, it changes nothing more, and says how much of
+what was asked the user holds already. A refusal changes nothing, and says why.
+
+On a local backend it runs the same way, under `scripts/convex_dev`: `./scripts/doppledo
+dev_<you> scripts/convex_dev dev scripts/adopt --holding <userlabel> --smith ~org/hunt`. Every user
+of a local backend is an admin already (`TRIQUET_EVERYONE_ADMIN`), and one that has not signed in
+with Google is anonymous, so is put on no hunt, unless `testing:vouchFor` has vouched for it.
+
 ### Clearing production's people (the OAuth sprint, October 2026)
 
 Production keeps its hunts and loses its people (the Coach, 2026-10-11): the sprint makes Convex
@@ -308,8 +339,14 @@ The Coach's steps, in order:
      redeploy.
 4. **Sign in with Google**, with any handle or none (`mrflip` is held by hunts' addresses, so it
    cannot be claimed in the app).
-5. **Adopt**: the orchestrator runs the sprint's adopt command, on the Coach's word at the time,
-   giving that user `mrflip`, admin, and smith of every hunt.
+5. **Adopt** (*Adopting a user*, above), on the Coach's word at the time, said in chat before it
+   runs, its output relayed whole: give the user the Coach signed in as `mrflip`, admin, and smith
+   of every hunt.
+   - `./scripts/doppledo prd_janitor scripts/adopt --email <the Coach's> --userlabel mrflip --admin
+     --smith-all`: a dry run. Check that the user it found is the Coach's (no userlabel, or the one
+     they chose, and signed in with Google), and the deployment's name is production's.
+   - The same, with `--deployment <that name>`: the adoption. Reload the app: the handle is
+     `mrflip`, and every hunt is in the list.
 
 The `converge` thread deletes `scripts/clear_people` and `convex/clear_people.ts` with the tables
 they empty, and keeps the guard. So step 3's clear runs from a checkout of `main` as step 2 left
