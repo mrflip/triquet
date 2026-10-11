@@ -1,6 +1,7 @@
 import Google from '@auth/core/providers/google'
 import { Anonymous } from '@convex-dev/auth/providers/Anonymous'
 import { convexAuth } from '@convex-dev/auth/server'
+import * as Routes from '../src/lib/routes'
 import { env } from './_generated/server'
 import { zQuery } from './functions'
 import { triggers } from './triggers'
@@ -25,6 +26,26 @@ export const GoogleScope = 'openid email profile'
  */
 export function googleKeyed(): boolean {
   return Boolean(env.AUTH_GOOGLE_ID) && Boolean(env.AUTH_GOOGLE_SECRET)
+}
+
+/**
+ * The address a sign-in sends the browser back to: `redirectTo`, a path of this app's that opens
+ * the database (`Routes.isSyncedPath`), on the app's own address (`SITE_URL`). Only such a page
+ * mounts Convex Auth's provider, which exchanges the `?code=` in the address at once, so a code is
+ * never left lying unspent in a page that would not (and a page of another site is never sent
+ * one). Convex Auth's `redirect` callback.
+ *
+ * @param redirectTo - Where the browser asked to come back to, as it started the sign-in.
+ * @returns The absolute address.
+ * @throws For anywhere else, or a deployment with no `SITE_URL`: the sign-in goes no further.
+ *
+ * @example returnUrlFor('/~pat_smith/quiet_otter')  // => 'https://triquet.vercel.app/~pat_smith/quiet_otter'
+ */
+export function returnUrlFor(redirectTo: string): string {
+  if (! Routes.isSyncedPath(redirectTo)) { throw new Error(`A sign-in comes back only to a page that opens the database, not ${redirectTo}`) }
+  const site = env.SITE_URL
+  if (! site) { throw new Error('This deployment has no SITE_URL to send a sign-in back to') }
+  return `${site.replace(/\/$/, '')}${redirectTo}`
 }
 
 /**
@@ -54,6 +75,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     inactiveDurationMs: 365 * DayMs,
   },
   callbacks: {
+    redirect:           ({ redirectTo }) => Promise.resolve(returnUrlFor(redirectTo)),
     createOrUpdateUser: async (ctx, signIn) => await userForSignIn(triggers.wrapDB(ctx).db, signIn),
   },
 })

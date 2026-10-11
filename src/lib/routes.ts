@@ -55,6 +55,38 @@ export function termsPath(): string {
 }
 
 /**
+ * The first segments of the app's own pages that open the database, the routes under
+ * `src/app/(synced)/` but an org's address, which begins `~`. Every other page (About, Privacy,
+ * Terms) shows without it.
+ */
+export const SyncedToplevel: readonly string[] = ['c', 'h', 'my', 'stats']
+
+/**
+ * Whether `path` names a page of this app that opens the database (`src/app/(synced)/`), and so
+ * finishes a sign-in sent back to it: a path from the root, its first segment an org's (`~…`), one
+ * of `SyncedToplevel`, or none (the front door). An address of another site, one beginning `//`,
+ * and anything not a path are not.
+ *
+ * @param path - Where a sign-in is to come back to.
+ *
+ * @example isSyncedPath('/~pat_smith/quiet_otter?x=1')  // => true
+ * @example isSyncedPath('/')                            // => true
+ * @example isSyncedPath('/privacy')                     // => false
+ * @example isSyncedPath('https://example.com/my/hunts') // => false
+ * @example isSyncedPath('//example.com/my/hunts')       // => false
+ */
+export function isSyncedPath(path: string): boolean {
+  if (! path.startsWith('/') || path.startsWith('//') || path.includes('\\')) { return false }
+  const url = new URL(path, PathBase)
+  if (url.origin !== PathBase) { return false }
+  const [, first = ''] = url.pathname.split('/', 2)
+  return first === '' || first.startsWith('~') || SyncedToplevel.includes(first)
+}
+
+/** An origin no path of ours could name, to read a path against */
+const PathBase = 'https://app.invalid'
+
+/**
  * Where an org's hunts are listed: those of them the visitor is on.
  *
  * @example orgPath('pat_smith')  // => '/~pat_smith'

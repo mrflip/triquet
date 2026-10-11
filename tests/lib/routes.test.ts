@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as Routes from '../../src/lib/routes'
 
@@ -119,3 +121,45 @@ describe('Routes.thenFrom', () => {
     })
   }
 })
+
+/** The directories in `dir`, by name */
+function dirsOf(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+}
+
+describe("Routes.isSyncedPath", () => {
+  const Cases: [string, boolean, string][] = [
+    // pages that open the database:
+    ['/~pat_smith/quiet_otter?x=1',            true,  'a hunt, under its org'],
+    ['/~pat_smith',                            true,  "an org's hunts"],
+    ['/',                                      true,  'the front door'],
+    ['/?then=%2Fmy%2Fhunts',                   true,  'the front door, sending on'],
+    ['/my/hunts',                              true,  'the hunts'],
+    ['/h/quiet_otter',                         true,  'an old hunt address'],
+    ['/stats',                                 true,  'the stats'],
+    // pages that do not, and what is no page of ours:
+    ['/privacy',                               false, 'the privacy policy, which opens no database'],
+    ['/about',                                 false, 'About'],
+    ['/api/ask',                               false, 'a route handler'],
+    ['/favicon.ico',                           false, 'a file'],
+    ['https://example.com/my/hunts',           false, 'another site'],
+    ['//example.com/my/hunts',                 false, 'another site, without its scheme'],
+    [String.raw`/\example.com`,               false, 'a backslash a browser may read as a slash'],
+    ['my/hunts',                               false, 'a path not from the root'],
+    ['',                                       false, 'nothing'],
+  ]
+  for (const [where, expected, describes] of Cases) {
+    it(`is ${String(expected)} for ${describes}`, () => {
+      expect(Routes.isSyncedPath(where)).to.eq(expected)
+    })
+  }
+
+  it("names every page under src/app/(synced)/ but an org's, and none outside it", () => {
+    const app = path.join(import.meta.dirname, '..', '..', 'src', 'app')
+    const synced = dirsOf(path.join(app, '(synced)')).filter((dirname) => ! dirname.startsWith('['))
+    const outside = dirsOf(app).filter((dirname) => ! dirname.startsWith('('))
+    expect(synced.toSorted((aa, bb) => aa.localeCompare(bb))).to.deep.eq([...Routes.SyncedToplevel].toSorted((aa, bb) => aa.localeCompare(bb)))
+    expect(outside.filter((dirname) => Routes.isSyncedPath(`/${dirname}`))).to.deep.eq([])
+  })
+})
+

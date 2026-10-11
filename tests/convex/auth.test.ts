@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { GoogleScope, googleKeyed } from '../../convex/auth'
+import { GoogleScope, googleKeyed, returnUrlFor } from '../../convex/auth'
 import { GoogleProfile as Profile, anonymousSession, googleCallback, googleUser, openTester, signInWithGoogle, type Tester } from '../support/convex'
 import { present } from '../support/present'
 
@@ -93,3 +93,43 @@ describe('the providers, on a deployment without Google', () => {
     }
   })
 })
+
+describe('returnUrlFor, the redirect callback', () => {
+  const Sent: [string, string, string][] = [
+    ['/~pat_smith/quiet_otter?x=1',   'http://localhost:3099/~pat_smith/quiet_otter?x=1', 'a hunt, on the app'],
+    ['/',                             'http://localhost:3099/',                           'the front door'],
+  ]
+  for (const [redirectTo, expected, describes] of Sent) {
+    it(`sends back to ${describes}`, () => {
+      expect(returnUrlFor(redirectTo)).to.eq(expected)
+    })
+  }
+
+  const Refused: [string, string][] = [
+    ['/privacy',                       'a page that opens no database, where a code would lie unspent'],
+    ['/about',                         'About, likewise'],
+    ['https://example.com/my/hunts',   'another site'],
+    ['//example.com/my/hunts',         'another site, without its scheme'],
+    ['http://localhost:3099/my/hunts', 'even the app, written absolute: only a path is taken'],
+  ]
+  for (const [redirectTo, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => returnUrlFor(redirectTo)).to.throw(/comes back only to a page that opens the database/)
+    })
+  }
+
+  it("governs Google's callback route: a page that opens the database is where it sends the browser, any other it refuses", async () => {
+    // Nothing reaches Google: its discovery document is refused, so the callback fails its sign-in and sends the browser back
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('No network in a unit test')))
+    try {
+      const tt = openTester()
+      const callback = async (redirectTo: string) => await tt.fetch('/api/auth/callback/google', { headers: { Cookie: `googleRedirectTo=${encodeURIComponent(redirectTo)}` }, redirect: 'manual' })
+      const sent = await callback('/my/hunts')
+      expect([sent.status, sent.headers.get('Location')]).to.deep.eq([302, 'http://localhost:3099/my/hunts'])
+      await expect(callback('/privacy')).rejects.toThrow(/comes back only to a page that opens the database/)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
