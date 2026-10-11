@@ -1,19 +1,19 @@
 # Sprint `oauth`: progress
 
-**Status: threads 1, 2 and 7 underway (2026-10-11).**
+**Status: thread 2 landing; 1 and 7 in review (2026-10-11).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
-| 1 | `split_account`: free the words "account" and "username" | underway | `20261011-split_account` | |
-| 2 | `clear_people`: delete production's people, keep its hunts | underway | `20261011-clear_people` | |
+| 1 | `split_account`: free the words "account" and "username" | in review | `20261011-split_account` | |
+| 2 | `clear_people`: delete production's people, keep its hunts | landing | `20261011-clear_people` | |
 | 3 | `converge`: users and huntships, everywhere | pending (1, 2) | | |
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | pending (3) | | |
 | 5 | `google_signin`: the provider, the patch, the merge | pending (3) | | |
 | 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
-| 7 | `google_pages`: homepage, privacy, terms, contact | underway | `20261011-google_pages` | |
+| 7 | `google_pages`: homepage, privacy, terms, contact | in review | `20261011-google_pages` | |
 | 8 | `reserved_words`: survey and augment the reserved list | pending (a free slot) | | |
 | 9 | `oauth_security`: a strong review | pending (1-8) | | |
 
@@ -21,7 +21,43 @@ Full e2e runs at landing: threads 3 and 5, and every fourth landing (none yet).
 
 ## What the threads have taught
 
-*Orchestrator:* nothing yet.
+*Orchestrator:*
+
+* **The privacy policy binds later threads** (thread 7). It is written to be true today and once
+  Google ships, with every Google claim conditional. What it promises:
+  - **Thread 5** keeps only the email, name, picture and Google's account identifier, and asks
+    Google only for `openid email profile`.
+  - **Threads 6 and 9:** an email is shown to its owner alone.
+  - **Thread 9:** anyone opening a hunt's address without being on it sees its smiths' names and
+    handles (`hunts:open`, `NotOnHunt`). The policy says so; review it as a choice, not a leak.
+* **Stable paths for the policies:** `Routes.privacyPath()` and `Routes.termsPath()` (thread 6
+  links them). `SiteFooter` sits in the root layout; leave it there.
+* **The janitor's guard is `scripts/janitor.ts`** (thread 2). A command calls `takeAim(argv)` and
+  gets `{ aim, rest }`. With no `--deployment` it is a dry run. It acts only when the flag matches
+  the deployment `convex function-spec` actually reaches: the `*.convex.cloud` subdomain, or host
+  and port locally. It also exports `aim.said`, `dryRunCoda(aim)` and `stopOrThrow`. Threads 4 and 8
+  build on it; `notes/deploy.md`, *Commands run by hand on production*, is where they add their
+  steps.
+  - *Review (thread 2):* the guard checks the deployment once, by reading its own `cloudUrl`
+    with the same admin key the action uses. Each later `convex run` picks the deployment again
+    from the environment. That matters only without a deploy key, if `.env.local` changes during
+    the run. **Threads 4 and 8:** if the shared `convexRun` is yours to touch, pin the URL and
+    admin key there for every run; otherwise leave it, and note it.
+* **Thread 3 deletes thread 2's command** and keeps the guard, its test, and that deploy.md
+  section. `thread-2-clear_people.md` lists exactly which files and lines go.
+* **What thread 1 renamed** (thread 3 builds on it; details in `thread-1-split_account.md`):
+  - User actions: the `userAction` union, `performUser` in `writing/user_actions.ts`,
+    `affirmUserAction`, on the public mutation `idents.perform`.
+  - **Two hunt unions, not one.** Making a hunt, and retitling, relabelling, rebranching or
+    arranging one from outside a quiz, are the `outerHuntAction` union: `performOuterHunt` in
+    `writing/hunt_actions.ts`, `affirmOuterHuntAction`, on `hunts.performOuter`. The existing
+    `huntAction` must carry a quiz's affirms on the scoped `hunts.perform`, and `new_hunt` has no
+    hunt to affirm, so joining them would have changed behaviour.
+  - Browser: `useAwaitedActions`, with `useUserActions` and `useOuterHuntActions` over it.
+  - Views: `UserMenu` (on screen, "You") and `ShowUser`. Thread 6 grows `UserMenu`.
+  - The ask route's `accountOff` failure is `keyRefused`: it meant Anthropic's account.
+* **Deletes go through the triggers** (thread 2): clearing reviews moves a quiz's change signal,
+  as any deletion would. Signals are never deleted.
 
 ## Convex Auth, as installed (checked 2026-10-10)
 
