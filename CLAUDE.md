@@ -13,7 +13,7 @@ a second layer of puzzle that is revealed as the first solutions start coming in
 store, edit and refine the question text, and also to assess questions for fairness and difficulty/
 
 Production holds quizzes people are writing. A change to a row's shape that rows already written
-would not fit ships with a migration: `notes/deploy.md`, *Schema pushes*.
+would not fit ships with a migration: `notes/deploy.md`, *Schema pushes: the two modes*.
 
 **Storage is Convex**, since September 2026. Rows, not a tree; row ids are internal and things
 are referred to by label; Zod validates every function's arguments and every row written, never
@@ -88,7 +88,7 @@ Wherever you are: never pass a port or a Convex URL by hand (`scripts/lanes.ts` 
 path in this repo's documents and in a handoff is relative to the checkout's root, `git rev-parse
 --show-toplevel`.
 
-A change under `convex/` regenerates `convex/_generated/`, which is committed: push it to your backend (`scripts/convex_dev`) and commit what it writes, a large regeneration in a commit of its own. A schema push refuses documents that no longer fit: a local backend is emptied and pushed again, and production is migrated (`notes/deploy.md`).
+A change under `convex/` regenerates `convex/_generated/`, which is committed: push it to your backend (`scripts/convex_dev`) and commit what it writes, a large regeneration in a commit of its own. A schema push refuses documents that no longer fit: a local backend is caught up step by step (`pnpm deploy --role`) or emptied and pushed again, and production is migrated (`notes/deploy.md`).
 
 ## Architecture
 

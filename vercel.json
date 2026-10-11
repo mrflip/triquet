@@ -4,5 +4,8 @@
     "deploymentEnabled": {
       "20*": false
     }
+  },
+  "github": {
+    "autoJobCancelation": false
   }
 }
