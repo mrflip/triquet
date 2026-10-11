@@ -40,7 +40,7 @@ type PlanT = {
  * nothing else here or in the app finds a user by one.
  *
  * @returns The user as it stands, what `perform` would change, and how much of what was asked it holds already.
- * @throws When the user is not found (or an email names more than one), the userlabel is held by another user or a ghosting, an anonymous user is to be an admin or put on a hunt, a user with no userlabel is put on one, or a hunt named is not there.
+ * @throws When the user is not found (or an email names more than one), it is provisional (a Google sign-in not yet finished), the userlabel is held by another user or a ghosting, an anonymous user is to be an admin or put on a hunt, a user with no userlabel is put on one, or a hunt named is not there.
  *
  * @example npx convex run adopt:plan '{"find": {"email": "pat@example.com"}, "userlabel": "mrflip", "admin": true, "grants": [{"role": "smith", "hunts": "every"}]}'
  *   // => { user: { user_id, userlabel: null, title: null, anonymous: false, admin: false }, changes: [{ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0 }, { kind: 'admin', to: true }, { kind: 'huntship', org: 'mrflip', hunt: 'quiet_otter', role: 'smith', from: null }], kept: 0 }
@@ -80,6 +80,8 @@ export const perform = zInternalMutation({
 /** What an adoption of `request` will write, every check made; nothing is written */
 async function planFor(db: Reader, request: AdoptionT): Promise<PlanT> {
   const user = await userFound(db, request.find)
+  // A provisional user's next finished sign-in, from an anonymous browser, deletes it and all it was given
+  if (user.provisional === true) { throw new ConvexError(`The user ${userline(user)} is provisional: its owner began signing in with Google and did not finish. Have them sign in with Google again, then adopt the user they are.`) }
   const relabel = await relabelFor(db, user, request)
   const userlabel = relabel?.userlabel ?? user.userlabel
   const signedIn = Actor.isSignedInWithGoogle(user)

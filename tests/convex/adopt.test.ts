@@ -4,6 +4,7 @@ import type { Id } from '../../convex/_generated/dataModel'
 import { membersOf } from '../../convex/reading'
 import type { AdoptionDNA } from '../../src/models/adoption'
 import { Hunt } from '../../src/models/hunt'
+import { User } from '../../src/models/user'
 import { anonymousSession, anonymousUser, googleUser, openTester, seedHunt, type Session, type Tester } from '../support/convex'
 import { present } from '../support/present'
 import { expectSound, heldIn } from '../support/soundness'
@@ -157,6 +158,15 @@ describe('adopt:perform, finding the user', () => {
     const ante = await heldIn(tt)
     const pending = adopted(tt, { find: { email: CoachEmail }, admin: true })
     await expect(pending).rejects.toThrow(new RegExp(String.raw`More than one user has the email flip@example\.com.*${one.user_id} \(no userlabel\), ${two.user_id} \(no userlabel\)`))
+    expect(await heldIn(tt)).to.deep.eq(ante)
+  })
+
+  it('refuses a provisional user, a Google sign-in not yet finished, by its email or its id; nothing is written', async () => {
+    const tt = openTester()
+    const user_id = await tt.run(async (ctx) => await ctx.db.insert('users', User.provisional({ email: CoachEmail })))
+    const ante = await heldIn(tt)
+    await expect(adopted(tt, CoachAdoption)).rejects.toThrow(new RegExp(String.raw`The user ${user_id} \(no userlabel\) is provisional`))
+    await expect(planned(tt, { find: { user_id }, admin: true })).rejects.toThrow(/is provisional/)
     expect(await heldIn(tt)).to.deep.eq(ante)
   })
 
