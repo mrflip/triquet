@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { Box, Card, CardActionArea, Chip, Link, Stack, Typography } from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
 import AboutTriquet from '../content/about.md'
-import styles from './workbench.module.css'
+import { ProsePage } from './ProsePage'
 
 /** Which of the brand's grounds a piece is shown on, whatever the page's own theme */
 type Groundkind = 'light' | 'dark'
@@ -59,8 +59,7 @@ const OtherFiles: readonly string[] = [
 /** What Triquet is, and its brand kit laid out to look at, each piece a click from downloading */
 export function About() {
   return (
-    <Box component="main" className={styles.page} sx={{ maxWidth: 880, mx: 'auto' }}>
-      <Typography variant="h4" component="h1" gutterBottom>About Triquet</Typography>
+    <ProsePage title="About Triquet">
       <AboutTriquet />
       <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 1 }}>Brand assets</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Click any piece to download it.</Typography>
@@ -82,7 +81,7 @@ export function About() {
           ))}
         </Stack>
       </Stack>
-    </Box>
+    </ProsePage>
   )
 }
 

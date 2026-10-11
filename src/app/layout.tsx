@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
+import { Box } from '@mui/material'
 import InitColorSchemeScript from '@mui/material/InitColorSchemeScript'
 import { FontVariables } from './fonts'
 import { Providers } from './providers'
 import { DarkPalette, LightPalette, paletteCss } from './palette'
+import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
 import './globals.css'
 
@@ -39,8 +41,12 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       <body>
         <InitColorSchemeScript attribute="data-theme" defaultMode="system" />
         <Providers>
-          <SiteHeader />
-          {children}
+          {/* A column the height of the window at least, so the footer sits at its foot on a short page */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
+            <SiteHeader />
+            <Box sx={{ flex: 1 }}>{children}</Box>
+            <SiteFooter />
+          </Box>
         </Providers>
       </body>
     </html>

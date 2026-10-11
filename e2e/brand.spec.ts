@@ -60,6 +60,13 @@ test.describe('the about page', () => {
     await expect(page.getByRole('heading', { name: 'About Triquet' })).toBeVisible()
   })
 
+  test('links the privacy policy and the terms, as the homepage Google links', async ({ page }) => {
+    await page.goto('/about')
+    const main = page.getByRole('main')
+    await expect(main.getByRole('link', { name: 'privacy policy' })).toHaveAttribute('href', '/privacy')
+    await expect(main.getByRole('link', { name: 'terms of use' })).toHaveAttribute('href', '/terms')
+  })
+
   test('downloads a brand asset when it is clicked', async ({ page }) => {
     await page.goto('/about')
     const downloading = page.waitForEvent('download')
