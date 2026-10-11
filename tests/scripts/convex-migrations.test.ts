@@ -30,6 +30,30 @@ describe('lineFor', () => {
   })
 })
 
+describe('stepOfBuild', () => {
+  it("takes the commit and the first line of its message from Vercel's variables", () => {
+    expect(ConvexMigrations.stepOfBuild({ VERCEL_GIT_COMMIT_SHA: '84de1bb0c2a1f5e6d7b8a9c0d1e2f3a4b5c6d7e8', VERCEL_GIT_COMMIT_MESSAGE: 'Jsonballs (#126)\n\nEvery resource…' }))
+      .to.deep.equal({ sha: '84de1bb0c2a1f5e6d7b8a9c0d1e2f3a4b5c6d7e8', subject: 'Jsonballs (#126)' })
+  })
+  it("is null where Vercel names no commit", () => {
+    expect(ConvexMigrations.stepOfBuild({})).to.be.null
+  })
+})
+
+describe('subjectOf', () => {
+  const SubjectCases: [string, string, string][] = [
+    ['Jsonballs (#126)\n\nEvery resource…', 'Jsonballs (#126)', 'the first line of a message with a body'],
+    ['  feat: one line  ',                     'feat: one line',   'a one-line message, trimmed'],
+    ['',                                       '(no subject)',     'an empty message'],
+    ['\n\nbody only',                          '(no subject)',     'a message whose first line is blank'],
+  ]
+  for (const [message, subject, blurb] of SubjectCases) {
+    it(blurb, () => {
+      expect(ConvexMigrations.subjectOf(message)).to.equal(subject)
+    })
+  }
+})
+
 describe('isProductionBuild', () => {
   it("is true for Vercel's production build alone", () => {
     expect([{ VERCEL_ENV: 'production' }, { VERCEL_ENV: 'preview' }, {}].map((env) => ConvexMigrations.isProductionBuild(env))).to.deep.equal([true, false, false])
