@@ -8,20 +8,21 @@
  * for the ref's head. A refused push, or a backfill that stops, stops the program with Convex's
  * words; the deployment is left serving the last step whole.
  *
- *   node scripts/deploy.ts [--dry-run] [--to <ref>] [--from <sha>] [--wait <seconds>] [--snapshot <path>] [--verify <role>]
+ *   node scripts/deploy.ts [--dry-run] [--to <ref>] [--from <rev>] [--wait <seconds>] [--snapshot <path>] [--verify <role>]
  *   node scripts/deploy.ts --role <role> [...]                 a local role's backend, from data/convex-<role>/cli.env
  *   node scripts/deploy.ts --role <role> --rehearse <zip> [...] import a snapshot into the role at the step it was taken at, then walk it
  *
  * With no `--role`, the target is the deployment the convex CLI's environment names, so production
  * is reached only through its janitor config, and `--to` defaults to `origin/main` (fetched first):
  *
- *   ./scripts/doppledo prd_janitor pnpm deploy --dry-run
- *   ./scripts/doppledo prd_janitor pnpm deploy
+ *   ./scripts/doppledo prd_janitor pnpm db:up --dry-run
+ *   ./scripts/doppledo prd_janitor pnpm db:up
  *
  * With `--role`, `--to` defaults to `HEAD`, the checkout as committed (what is uncommitted comes
  * with the next `pnpm dev`). Stop the role's dev server first: its watch would push the head over
- * every step. `--from <sha>` names the step the target's rows stand at when its table is empty or
- * says something this history does not hold (the first run on production). A target already
+ * every step. `--from <rev>` (a sha, short or long, or any ref) names the step the target's rows
+ * stand at when its table is empty or says something this history does not hold (the first run
+ * on production); given both, `--from` wins, and the program says so. A target already
  * serving the head whose backfills never finished has them finished and recorded, not re-walked.
  * `--verify <role>` checks the table's word before anything is pushed: the step it names is pushed
  * to that local role (emptied if its rows refuse the step), and the role's function spec (`convex
@@ -71,13 +72,15 @@ const ExportedStep = z.object({ sha: FullSha, subject: z.string(), pushed_at: z.
 /** A stop with a reason for the person running the program, printed without a stack */
 export class DeployStop extends Error {}
 
-const Usage = 'Usage: node scripts/deploy.ts [--dry-run] [--to <ref>] [--from <sha>] [--wait <seconds>] [--snapshot <path>] [--verify <role>] [--role <role> [--rehearse <zip>]]'
+const Usage = 'Usage: node scripts/deploy.ts [--dry-run] [--to <ref>] [--from <rev>] [--wait <seconds>] [--snapshot <path>] [--verify <role>] [--role <role> [--rehearse <zip>]]'
 
 /**
  * The command line, parsed.
  *
  * @example argsOf(['--dry-run', '--to', 'origin/main'])  // => { dryRun: true, to: 'origin/main', from: undefined, wait: 300, snapshot: undefined, role: undefined, rehearse: undefined, verify: undefined }
  * @example argsOf(['--role', 'agent', '--rehearse', 'prd.zip'])  // => { ..., role: 'agent', rehearse: 'prd.zip' }
+ * @example argsOf(['--from', '198f993']).from  // => '198f993', resolved against the checkout later
+ * @example argsOf(['--from', '198f993']).from  // => '198f993', resolved against the checkout later
  * @example argsOf(['--rehearse', 'prd.zip'])  // throws: --rehearse needs --role
  * @example argsOf(['--role', 'agent', '--verify', 'agent'])  // throws: --verify wants a role other than the target
  */
@@ -92,7 +95,7 @@ export function argsOf(argv: readonly string[]): Asked {
   const flags: Record<string, () => void> = {
     '--dry-run':  () => { asked.dryRun = true },
     '--to':       () => { asked.to = taking('--to') },
-    '--from':     () => { asked.from = FullSha.parse(taking('--from'), { error: () => '--from wants a full forty-digit sha' }) },
+    '--from':     () => { asked.from = taking('--from') },
     '--wait':     () => { asked.wait = z.coerce.number().positive().parse(taking('--wait')) },
     '--snapshot': () => { asked.snapshot = taking('--snapshot') },
     '--role':     () => { asked.role = roleOf('--role', taking('--role')) },
@@ -399,7 +402,7 @@ async function rehearseFrom(root: string, target: Target, zip: string, from: str
   const listed = spawnSync('unzip', ['-p', zip, 'schema_steps/documents.jsonl'], { encoding: 'utf8' })
   const exported = listed.status === 0 ? newestExported(listed.stdout) : null
   const at = exported?.sha ?? from
-  if (at === undefined) { throw new DeployStop(`${zip} holds no schema_steps table (it was taken before the table existed): say which step its rows stand at with --from <sha>.`) }
+  if (at === undefined) { throw new DeployStop(`${zip} holds no schema_steps table (it was taken before the table existed): say which step its rows stand at with --from <rev>.`) }
   const named = exported ? ` (${exported.subject})` : ' (--from)'
   process.stdout.write(`Rehearsal: the snapshot stands at ${short(at)}${named}. Pushing that step to the role, then importing over everything it holds.\n`)
   const scratch = worktreeAt(root, at, cleanup)
@@ -448,7 +451,7 @@ async function verified(root: string, target: Target, standsAt: string, verify: 
   cleanup.pop()?.()
   const differing = specDiff(specOf(root, role.env), specOf(root, target.env))
   if (differing.length > 0) {
-    throw new DeployStop(`${target.label} does not hold the functions of ${short(standsAt)}, which its table says it stands at. Differing: ${differing.join(', ')}. Say where it really stands with --from <sha>, or look before walking.`)
+    throw new DeployStop(`${target.label} does not hold the functions of ${short(standsAt)}, which its table says it stands at. Differing: ${differing.join(', ')}. Say where it really stands with --from <rev>, or look before walking.`)
   }
   process.stdout.write(`Verified: ${target.label} holds ${short(standsAt)}'s functions.\n`)
 }
@@ -458,14 +461,15 @@ async function surveyed(root: string, target: Target, asked: Asked, cleanup: (()
   const to = asked.to ?? (asked.role === undefined ? 'origin/main' : 'HEAD')
   if (to.startsWith('origin/')) { git(root, 'fetch', '--quiet', 'origin', to.slice('origin/'.length)) }
   const head = stepAt(root, to)
-  let {from} = asked
-  if (asked.rehearse !== undefined && ! asked.dryRun) { from = await rehearseFrom(root, target, asked.rehearse, asked.from, cleanup) }
+  let from = asked.from === undefined ? undefined : stepAt(root, asked.from).sha
+  if (asked.rehearse !== undefined && ! asked.dryRun) { from = await rehearseFrom(root, target, asked.rehearse, from, cleanup) }
   const { mark, said } = markOf(root, target)
   process.stdout.write(`${said}\n`)
+  if (from !== undefined && mark !== null && from !== mark.sha) { process.stdout.write(`Taking --from ${short(from)} over the recorded ${short(mark.sha)}.\n`) }
   const standsAt = from ?? mark?.sha
-  if (standsAt === undefined) { throw new DeployStop('Nothing says which step the target\'s rows stand at: say so with --from <sha> (production\'s /stats names the commit it serves).') }
+  if (standsAt === undefined) { throw new DeployStop('Nothing says which step the target\'s rows stand at: say so with --from <rev> (production\'s /stats names the commit it serves).') }
   if (! gitOk(root, 'merge-base', '--is-ancestor', standsAt, head.sha)) {
-    throw new DeployStop(`The target stands at ${short(standsAt)}, which is not in ${to}'s history: this checkout cannot walk it forward. If you know better, say so with --from <sha>.`)
+    throw new DeployStop(`The target stands at ${short(standsAt)}, which is not in ${to}'s history: this checkout cannot walk it forward. If you know better, say so with --from <rev>.`)
   }
   if (asked.verify !== undefined) { await verified(root, target, standsAt, asked.verify, cleanup) }
   const standing = from === undefined ? mark : { sha: from, backfilled_at: from === mark?.sha ? mark.backfilled_at : null }

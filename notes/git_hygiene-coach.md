@@ -16,7 +16,7 @@ for the next PR once one merges. It stops, pushing nothing, on anything a person
 - a conflict;
 - a schema change, a new backfill, a `(Serial Deploy …)` title, or a description that says "before
   merging": merge it by hand, in order, and let its build finish (serial mode), or merge the stack
-  whole and run `pnpm deploy` after (yeet mode; `notes/deploy.md`, *Schema pushes: the two modes*);
+  whole and run `pnpm db:up` after (yeet mode; `notes/deploy.md`, *Schema pushes: the two modes*);
 - a draft, a fork, or a base other than `main`;
 - two stacks on one PR, or a line partly on the spine;
 - a `main` whose ruleset requires no checks, where auto-merge would merge before CI ran.

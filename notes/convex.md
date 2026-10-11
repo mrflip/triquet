@@ -25,7 +25,7 @@ function, watch, fetch, facet, screen hook). Row ids are Convex's `_id` and inte
 label. Zod validates every function's arguments and every row written, never rows read back. A
 change to a row shape that rows already written would not fit is a migration on production
 (`convex/migrations.ts`, and `notes/deploy.md` for the order of steps); a local backend is caught
-up the same way (`pnpm deploy --role <role>`), or simply emptied and pushed again.
+up the same way (`pnpm db:up --role <role>`), or simply emptied and pushed again.
 
 ## Stamps
 
