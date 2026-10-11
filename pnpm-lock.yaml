@@ -163,6 +163,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
+  '@convex-dev/auth@0.0.96': 9a7a03b65b822a7d711b5bcac025e749df51ced807eb2d7a71b468a8f6f954dc
   zod@4.6.5: 4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e
 
 importers:
@@ -183,7 +184,7 @@ importers:
         version: 0.41.1
       '@convex-dev/auth':
         specifier: 0.0.96
-        version: 0.0.96(@auth/core@0.41.1)(convex@1.46.0(react@19.3.0))(react@19.3.0)
+        version: 0.0.96(patch_hash=9a7a03b65b822a7d711b5bcac025e749df51ced807eb2d7a71b468a8f6f954dc)(@auth/core@0.41.1)(convex@1.46.0(react@19.3.0))(react@19.3.0)
       '@convex-dev/migrations':
         specifier: 0.3.6
         version: 0.3.6(convex-helpers@0.1.124(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.3.0))(react@19.3.0)(typescript@6.0.3)(zod@4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e)))(convex@1.46.0(react@19.3.0))
@@ -4481,7 +4482,7 @@ snapshots:
       hashery: 1.5.1
       keyv: 5.6.0
 
-  '@convex-dev/auth@0.0.96(@auth/core@0.41.1)(convex@1.46.0(react@19.3.0))(react@19.3.0)':
+  '@convex-dev/auth@0.0.96(patch_hash=9a7a03b65b822a7d711b5bcac025e749df51ced807eb2d7a71b468a8f6f954dc)(@auth/core@0.41.1)(convex@1.46.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@auth/core': 0.41.1
       '@oslojs/crypto': 1.0.1
