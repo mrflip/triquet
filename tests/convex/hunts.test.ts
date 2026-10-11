@@ -4,12 +4,14 @@ import * as Z from 'zod'
 import { ConvexError } from 'convex/values'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { quizForLabel, quizzesOf, reviewsOf } from '../../convex/reading'
+import { huntForLabel, quizForLabel, quizzesOf, realmsOf, reviewsOf } from '../../convex/reading'
 import * as Exporting from '../../src/lib/exporting'
 import * as Runner from '../../src/lib/formulary/runner'
 import * as Importing from '../../src/lib/importing'
 import * as PA from '../../src/lib/vv/patterns'
 import * as UU from '../../src/lib/useful'
+import * as Wheel from '../../src/lib/wheel'
+import { mintId } from '../../src/lib/ids'
 import { noticeOf } from '../../src/lib/refusals'
 import { RefusalNotices } from '../../src/lib/notices'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -18,12 +20,14 @@ import { defaultLayout } from '../../src/models/layout'
 import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
 import type { HuntActionDNA } from '../../src/models/actions'
+import type { WheelT } from '../../src/models/category'
+import { HomeRealmLabel } from '../../src/models/realm'
 import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
 import type { EstimatesDNA } from '../../src/models/estimate'
 import type { EntryConfigT } from '../../src/models/widget'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
-import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seeded, type Seen, type Session, type Tester, sortAction } from '../support/convex'
+import { affirmsOf, anonymousSession, anonymousUser, callerOf, expectRefusal, googleUser, huntHolding, openOf, openTester, putOn, refusedAs, seedHunt, sortAction, wholeHunt, type Seeded, type Seen, type Session, type Tester } from '../support/convex'
 import { SeedOrg } from '../support/seed'
 import { Here } from '../support/places'
 
@@ -151,7 +155,7 @@ async function reviewsIn(tt: Tester, quiz_id: string) {
 /** Every reviewing the rows hold, oldest first, as what was said about which question (what it copies of its review, `expectSound` checks, and its stamps are left out) */
 async function reviewingsIn(tt: Tester) {
   const rows = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
-  return rows.map((row) => _.omit(row, ['_id', '_creationTime', 'review_id', 'hunt_id', 'quiz_id', 'ident_id', 'created_at', 'updated_at']))
+  return rows.map((row) => _.omit(row, ['_id', '_creationTime', 'review_id', 'hunt_id', 'quiz_id', 'user_id', 'created_at', 'updated_at']))
 }
 
 /** The ids of the open quiz's questions, in order */
@@ -1171,7 +1175,7 @@ describe("hunts.perform", () => {
       const quiz_id = openOf(await read())._id
       await act({ kind: 'open_review', quiz_id }, member)
       const reviews = await reviewsIn(tt, quiz_id)
-      expect(reviews.map((review) => [review.ident_id, review.overall, review.phase])).to.deep.eq([[member.ident_id, '', 'empty']])
+      expect(reviews.map((review) => [review.user_id, review.overall, review.phase])).to.deep.eq([[member.user_id, '', 'empty']])
     })
 
     it("is idempotent: opening it again writes nothing new", async () => {
@@ -1190,7 +1194,7 @@ describe("hunts.perform", () => {
       await act({ kind: 'open_review', quiz_id }, alice)
       await act({ kind: 'open_review', quiz_id }, bob)
       const reviews = await reviewsIn(tt, quiz_id)
-      expect(reviews.map((review) => review.ident_id)).to.deep.eq([alice.ident_id, bob.ident_id])
+      expect(reviews.map((review) => review.user_id)).to.deep.eq([alice.user_id, bob.user_id])
     })
 
     it("works on a locked quiz, since reviewing one is the point", async () => {
@@ -1201,24 +1205,23 @@ describe("hunts.perform", () => {
       expect(await reviewsIn(tt, quiz_id)).to.have.length(1)
     })
 
-    it("refuses a session that has asserted no userlabel, writing nothing", async () => {
+    it("refuses a user holding no userlabel, writing nothing", async () => {
       const { act, read, tt } = await seed(huntOf(['1', 'a']))
       const quiz_id = openOf(await read())._id
-      await expectRefusal(act({ kind: 'open_review', quiz_id }, await signedIn(tt)), 'notIdentified')
+      await expectRefusal(act({ kind: 'open_review', quiz_id }, await anonymousSession(tt)), 'notIdentified')
       expect(await reviewsIn(tt, quiz_id)).to.deep.eq([])
     })
 
-    it("reviews as the ident the session asserted last, and turns away a browser still affirming the one before", async () => {
-      const { act, read, tt, open, join } = await seed(huntOf(['1', 'a']))
-      const alice = await join('alice_reviews', 'reviewer')
-      const otherself = await alice.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
-      await putOn(tt, open.hunt_id, otherself, 'reviewer')
+    it("reviews as the session's own user, and turns away a browser affirming another's", async () => {
+      const { read, tt, open, join } = await seed(huntOf(['1', 'a']))
+      const [alice, bob] = [await join('alice_reviews', 'reviewer'), await join('bob_reviews', 'reviewer')]
       const quiz_id = openOf(await read())._id
-      await expectRefusal(act({ kind: 'open_review', quiz_id }, alice), 'notPermitted')
-      const { action: affirms } = await affirmsOf(tt, { ident_id: otherself }, open)
-      await alice.as.mutation(api.hunts.perform, { affirms, action: { kind: 'open_review', quiz_id } })
+      const { action: forged } = await affirmsOf(tt, alice, open)
+      await expectRefusal(bob.as.mutation(api.hunts.perform, { affirms: forged, action: { kind: 'open_review', quiz_id } }), 'notPermitted')
+      const { action: affirms } = await affirmsOf(tt, bob, open)
+      await bob.as.mutation(api.hunts.perform, { affirms, action: { kind: 'open_review', quiz_id } })
       const reviews = await reviewsIn(tt, quiz_id)
-      expect(reviews.map((review) => review.ident_id)).to.deep.eq([otherself])
+      expect(reviews.map((review) => review.user_id)).to.deep.eq([bob.user_id])
     })
   })
 
@@ -1314,8 +1317,8 @@ describe("hunts.perform", () => {
       await act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 90 } }, bob)
       const reviewings = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
       const reviews = await reviewsIn(tt, quiz_id)
-      const rateBy = new Map(reviewings.map((reviewing) => [reviews.find((review) => review._id === reviewing.review_id)?.ident_id, reviewing.get_rate]))
-      expect([rateBy.get(reviews[0]?.ident_id), rateBy.get(reviews[1]?.ident_id)]).to.deep.eq([10, 90])
+      const rateBy = new Map(reviewings.map((reviewing) => [reviews.find((review) => review._id === reviewing.review_id)?.user_id, reviewing.get_rate]))
+      expect([rateBy.get(reviews[0]?.user_id), rateBy.get(reviews[1]?.user_id)]).to.deep.eq([10, 90])
     })
 
     it("moves an empty review to draft", async () => {
@@ -1428,9 +1431,9 @@ describe("hunts.perform", () => {
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
-    it("refuses a session that has asserted no userlabel", async () => {
+    it("refuses a user holding no userlabel", async () => {
       const { tt, act, quiz_id, first } = await reviewed()
-      await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } }, await signedIn(tt)), 'notIdentified')
+      await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } }, await anonymousSession(tt)), 'notIdentified')
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
   })
@@ -1764,8 +1767,8 @@ describe("hunts.perform, at the caps", () => {
     await tt.run(async (ctx) => {
       const reviewers = Array.from({ length: 999 }, (_unused, idx) => `reviewer_${String(idx)}`)
       for (const label of reviewers) {
-        const ident_id = await ctx.db.insert('idents', { label, title: 'Reviewer', user_id: null })
-        await ctx.db.insert('reviews', { hunt_id: open.hunt_id, quiz_id: open.quiz_id, ident_id, overall: '', phase: 'empty' })
+        const user_id = await ctx.db.insert('users', { userlabel: label, title: 'Reviewer' })
+        await ctx.db.insert('reviews', { hunt_id: open.hunt_id, quiz_id: open.quiz_id, user_id, overall: '', phase: 'empty' })
       }
     })
     const member = await join('one_more_reviewer', 'reviewer')
@@ -1808,11 +1811,11 @@ describe("hunts.perform, at the door", () => {
 describe("hunts.list", () => {
   it("lists the hunts one is on, titled, in the order they were made, with its realms' quizzes by label", async () => {
     const tt = openTester()
-    const alice = await identified(tt, 'alice_smiths')
+    const alice = await googleUser(tt, 'alice_smiths')
     const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Second', 'zebra_crossing'), Quiz.blank('Under', 'alpha_under'), Quiz.blank('First', 'alpha')]), label: 'quiet_otter', title: '' })
     const heron = await seedHunt(tt, { ...huntHolding([Quiz.blank('Only')]), label: 'loud_heron', title: 'The Heron Hunt' })
-    await putOn(tt, heron.open.hunt_id, alice.ident_id, 'smith')
-    await putOn(tt, otter.open.hunt_id, alice.ident_id, 'reviewer')
+    await putOn(tt, heron.open.hunt_id, alice.user_id, 'smith')
+    await putOn(tt, otter.open.hunt_id, alice.user_id, 'reviewer')
     const hunts = await alice.as.query(api.hunts.list, {})
     expect(hunts.map((hunt) => [hunt.label, hunt.title, hunt.role, hunt.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.title)])])).to.deep.eq([
       ['quiet_otter', 'Quiet Otter', 'reviewer', [['home', ['First', 'Under', 'Second']]]],
@@ -1822,30 +1825,31 @@ describe("hunts.list", () => {
 
   it("leaves out the hunts one is not on", async () => {
     const tt = openTester()
-    const alice = await identified(tt, 'alice_smiths')
-    const bob = await identified(tt, 'bob_reviews')
+    const alice = await googleUser(tt, 'alice_smiths')
+    const bob = await googleUser(tt, 'bob_reviews')
     const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Mine')]), label: 'quiet_otter' })
     await seedHunt(tt, { ...huntHolding([Quiz.blank('Nobody\'s')]), label: 'loud_heron' })
-    await putOn(tt, otter.open.hunt_id, alice.ident_id, 'smith')
+    await putOn(tt, otter.open.hunt_id, alice.user_id, 'smith')
     const listed = await alice.as.query(api.hunts.list, {})
     expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
     expect(await bob.as.query(api.hunts.list, {})).to.deep.eq([])
   })
 
-  it("lists the hunts of the ident the session asserted last", async () => {
+  it("lists the hunts of the session's own user, and none of another's", async () => {
     const tt = openTester()
-    const alice = await identified(tt, 'alice_smiths')
-    const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Her other self\'s')]), label: 'quiet_otter' })
-    const otherself = await alice.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
-    await putOn(tt, otter.open.hunt_id, otherself, 'reviewer')
+    const [alice, bob] = [await googleUser(tt, 'alice_smiths'), await googleUser(tt, 'bob_smiths')]
+    const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Otter\'s')]), label: 'quiet_otter' })
+    const heron = await seedHunt(tt, { ...huntHolding([Quiz.blank('Heron\'s')]), label: 'loud_heron' })
+    await putOn(tt, otter.open.hunt_id, alice.user_id, 'reviewer')
+    await putOn(tt, heron.open.hunt_id, bob.user_id, 'reviewer')
     const listed = await alice.as.query(api.hunts.list, {})
     expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
   })
 
-  it("lists nothing for a session that has asserted no userlabel, or a request with no session", async () => {
+  it("lists nothing for a user holding no userlabel, or a request with no session", async () => {
     const tt = openTester()
     await seedHunt(tt, Hunt.blank('quiet_otter'))
-    const session = await signedIn(tt)
+    const session = await anonymousSession(tt)
     expect([await session.as.query(api.hunts.list, {}), await tt.query(api.hunts.list, {})]).to.deep.eq([[], []])
   })
 })
@@ -1869,15 +1873,15 @@ describe("hunts.open", () => {
   it("says who is on it, titled, in the order they were put on it", async () => {
     const tt = openTester()
     const { open, smith } = await seedHunt(tt, Hunt.blank('quiet_otter'))
-    const bob = await identified(tt, 'bob_reviews')
-    const alice = await identified(tt, 'alice_smiths')
-    await putOn(tt, open.hunt_id, alice.ident_id, 'smith')
-    await putOn(tt, open.hunt_id, bob.ident_id, 'reviewer')
+    const bob = await googleUser(tt, 'bob_reviews')
+    const alice = await googleUser(tt, 'alice_smiths')
+    await putOn(tt, open.hunt_id, alice.user_id, 'smith')
+    await putOn(tt, open.hunt_id, bob.user_id, 'reviewer')
     const hunt = await shown('quiet_otter', bob)
-    expect(hunt.members.map((member) => [member.label, member.title, member.role, member.ident_id])).to.deep.eq([
-      ['seed_smith', 'Seed Smith', 'smith', smith.ident_id],
-      ['alice_smiths', 'Alice Smiths', 'smith', alice.ident_id],
-      ['bob_reviews', 'Bob Reviews', 'reviewer', bob.ident_id],
+    expect(hunt.members.map((member) => [member.label, member.title, member.role, member.user_id])).to.deep.eq([
+      ['seed_smith', 'Seed Smith', 'smith', smith.user_id],
+      ['alice_smiths', 'Alice Smiths', 'smith', alice.user_id],
+      ['bob_reviews', 'Bob Reviews', 'reviewer', bob.user_id],
     ])
   })
 
@@ -1894,7 +1898,7 @@ describe("hunts.open", () => {
     const { join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     await join('alice_smiths', 'smith')
     await join('bob_reviews', 'reviewer')
-    const carol = await identified(tt, 'carol_strays')
+    const carol = await googleUser(tt, 'carol_strays')
     const refused = { why: 'notOnHunt', hunt: null, smiths: [{ label: 'seed_smith', title: 'Seed Smith' }, { label: 'alice_smiths', title: 'Alice Smiths' }] }
     expect(await carol.as.query(api.hunts.open, { orglabel: SeedOrg, hunt_label: 'quiet_otter' })).to.deep.eq(refused)
     expect(await tt.query(api.hunts.open, { orglabel: SeedOrg, hunt_label: 'quiet_otter' })).to.deep.eq(refused)
@@ -1912,8 +1916,8 @@ describe("hunts.open", () => {
     const { open, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const alice = await join('alice_smiths', 'smith')
     await tt.run(async (ctx) => {
-      const maker = await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', open.hunt_id)).first()
-      if (maker) { await ctx.db.delete('huntings', maker._id) }
+      const maker = await ctx.db.query('huntships').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', open.hunt_id)).first()
+      if (maker) { await ctx.db.delete('huntships', maker._id) }
     })
     const hunt = await shown('quiet_otter', alice)
     expect(hunt.org).to.eq(SeedOrg)
@@ -2041,7 +2045,7 @@ describe("hunts.whole", () => {
     const tt = openTester()
     const { open, smith, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const bob = await join('bob_reviews', 'reviewer')
-    const carol = await identified(tt, 'carol_strays')
+    const carol = await googleUser(tt, 'carol_strays')
     const [smiths, bobs, carols] = [await affirmsOf(tt, smith, open), await affirmsOf(tt, bob, open), await affirmsOf(tt, carol, open)]
     const read = await smith.as.query(api.hunts.whole, { affirms: smiths.hunt })
     expect(read?.label).to.eq('quiet_otter')
@@ -2058,5 +2062,334 @@ describe("hunts.whole", () => {
     expect(await bob.as.query(api.hunts.whole, { affirms: { ...bobs, standing: 'smith' } })).to.be.null
     expect(await bob.as.query(api.hunts.whole, { affirms })).to.be.null
     expect(await smith.as.query(api.hunts.whole, { affirms })).to.not.be.null
+  })
+})
+
+/** Make a hunt labelled `label` through the public function, as the session `by`, or as a fresh user's signed in with Google */
+async function makeHunt(tt: Tester, label: string, by?: Session | Tester) {
+  const maker = by ?? await googleUser(tt, `maker_${mintId().slice(-8)}`)
+  return await callerOf(maker).mutation(api.hunts.performOuter, { action: { kind: 'new_hunt', label } })
+}
+
+/** Every row of a table, for the tests that count them */
+async function allOf<TN extends 'hunts' | 'huntships'>(tt: Tester, tablename: TN) {
+  return await tt.run(async (ctx) => await ctx.db.query(tablename).collect())
+}
+
+describe('hunts.performOuter: new_hunt', () => {
+  it('makes a hunt with one realm, home, holding one blank quiz under the hunt\'s own label and title', async () => {
+    const tt = openTester()
+    const hunt_id = present(await makeHunt(tt, 'loud_heron'))
+    const hunt = await wholeHunt(tt, present(await tt.run(async (ctx) => await huntForLabel(ctx.db, 'loud_heron')))._id)
+    const [realm] = hunt.realms
+    const [quiz] = present(realm).quizzes
+    expect(hunt._id).to.eq(hunt_id)
+    expect([hunt.label, present(realm).label, present(quiz).label, present(quiz).title, present(quiz).questions.length])
+      .to.deep.eq(['loud_heron', HomeRealmLabel, 'loud_heron', hunt.title, BlankQuestionQty])
+  })
+
+  it("puts the session's user on the hunt it made, as its smith, its huntship copying its userlabel and title", async () => {
+    const tt = openTester()
+    const alice = await googleUser(tt, 'alice_smiths')
+    const hunt_id = await makeHunt(tt, 'loud_heron', alice)
+    const huntships = await allOf(tt, 'huntships')
+    expect(huntships.map((row) => [row.hunt_id, row.user_id, row.userlabel, row.usertitle, row.role])).to.deep.eq([[hunt_id, alice.user_id, 'alice_smiths', 'Alice Smiths', 'smith']])
+    await expectSound(tt)
+  })
+
+  it('refuses a user holding no userlabel, or a request with no session, writing nothing', async () => {
+    const tt = openTester()
+    const session = await anonymousSession(tt)
+    expect([await refusedAs(makeHunt(tt, 'loud_heron', session)), await refusedAs(makeHunt(tt, 'loud_heron', tt))]).to.deep.eq(['notIdentified', 'notSignedIn'])
+    expect([await allOf(tt, 'hunts'), await allOf(tt, 'huntships')]).to.deep.eq([[], []])
+  })
+
+  it("files the hunt under its maker's org: their userlabel, copied", async () => {
+    const tt = openTester()
+    const alice = await googleUser(tt, 'alice_smiths')
+    await makeHunt(tt, 'loud_heron', alice)
+    const [hunt] = await allOf(tt, 'hunts')
+    expect(hunt?.orglabel).to.eq('alice_smiths')
+    const opening = await alice.as.query(api.hunts.open, { orglabel: 'alice_smiths', hunt_label: 'loud_heron' })
+    expect(opening.hunt?.org).to.eq('alice_smiths')
+  })
+
+  it('refuses a label some hunt of the maker\'s org already answers to', async () => {
+    const tt = openTester()
+    const alice = await googleUser(tt, 'alice_smiths')
+    await makeHunt(tt, 'taken_label', alice)
+    expect(await refusedAs(makeHunt(tt, 'taken_label', alice))).to.eq('labelTaken')
+    expect(await allOf(tt, 'hunts')).to.have.lengthOf(1)
+  })
+
+  it("makes a hunt under a label another org's hunt answers to, each found in its own org", async () => {
+    const tt = openTester()
+    const [alice, bob] = [await googleUser(tt, 'alice_smiths'), await googleUser(tt, 'bob_smiths')]
+    const alices = await makeHunt(tt, 'spring_hunt', alice)
+    const bobs = await makeHunt(tt, 'spring_hunt', bob)
+    const opened = [
+      await alice.as.query(api.hunts.open, { orglabel: 'alice_smiths', hunt_label: 'spring_hunt' }),
+      await bob.as.query(api.hunts.open, { orglabel: 'bob_smiths', hunt_label: 'spring_hunt' }),
+    ]
+    expect(opened.map((opening) => opening.hunt?._id)).to.deep.eq([alices, bobs])
+  })
+
+  it('refuses one hunt more than the app may hold', async () => {
+    const tt = openTester()
+    await tt.run(async (ctx) => {
+      const labels = Array.from({ length: PA.HuntsInApp.max }, (_unused, idx) => `hunt_${String(idx)}`)
+      for (const label of labels) {
+        await ctx.db.insert('hunts', { label, orglabel: 'pat_smith', title: '', branch: 'main' })
+      }
+    })
+    expect(await refusedAs(makeHunt(tt, 'one_too_many'))).to.eq('huntsFull')
+  })
+
+  it("refuses one hunt more than the maker's org may hold, and makes the next org's", async () => {
+    const tt = openTester()
+    const [alice, bob] = [await googleUser(tt, 'alice_smiths'), await googleUser(tt, 'bob_smiths')]
+    await tt.run(async (ctx) => {
+      const labels = Array.from({ length: PA.HuntsPerOrg.max }, (_unused, idx) => `hunt_${String(idx)}`)
+      for (const label of labels) {
+        await ctx.db.insert('hunts', { label, orglabel: 'alice_smiths', title: '', branch: 'main' })
+      }
+    })
+    expect(await refusedAs(makeHunt(tt, 'one_too_many', alice))).to.eq('orgFull')
+    await makeHunt(tt, 'one_too_many', bob)
+    const hunts = await allOf(tt, 'hunts')
+    expect(hunts.filter(({ label }) => label === 'one_too_many').map(({ orglabel }) => orglabel)).to.deep.eq(['bob_smiths'])
+  })
+
+  it('writes the whole hunt in one go: a realm for it, and its quiz in the realm', async () => {
+    const tt = openTester()
+    await makeHunt(tt, 'loud_heron')
+    const realms = await tt.run(async (ctx) => await realmsOf(ctx.db, present(await huntForLabel(ctx.db, 'loud_heron'))._id))
+    expect(realms.map(({ realm, quizzes }) => [realm.label, quizzes.length])).to.deep.eq([[HomeRealmLabel, 1]])
+  })
+})
+
+/** What a smith does to a hunt from outside its quizzes, less the hunt it names */
+type HuntEdit = { kind: 'retitle_hunt', title: string } | { kind: 'relabel_hunt', label: string } | { kind: 'arrange_categories', wheel: WheelT } | { kind: 'rebranch_hunt', branch: string }
+
+/** A hunt with its smith and a reviewer on it, as the hunts list would find it, and how to edit it from there */
+async function smithed() {
+  const tt = openTester()
+  const { open: { hunt_id }, smith, join } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'alice_smiths' })
+  const bob = await join('bob_reviews', 'reviewer')
+  const perform = async (edit: HuntEdit, by: Session | Tester = smith) => await callerOf(by).mutation(api.hunts.performOuter, { action: { ...edit, hunt_id } })
+  const held = async () => present(await tt.run(async (ctx) => await ctx.db.get('hunts', hunt_id)))
+  return { tt, hunt_id, smith, bob, perform, held }
+}
+
+describe('hunts.performOuter: new_hunt, by an anonymous user', () => {
+  it('makes its sandbox: a hunt labelled with its own userlabel, at ~label/label, with it the one smith', async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_alice')
+    const hunt_id = await makeHunt(tt, 'anon_alice', anon)
+    const [hunt] = await allOf(tt, 'hunts')
+    const huntships = await allOf(tt, 'huntships')
+    expect([hunt?._id, hunt?.orglabel, hunt?.label]).to.deep.eq([hunt_id, 'anon_alice', 'anon_alice'])
+    expect(huntships.map((row) => [row.user_id, row.role])).to.deep.eq([[anon.user_id, 'smith']])
+    await expectSound(tt)
+  })
+
+  it('refuses any other hunt, saying signing in with Google makes more, and writes nothing', async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_alice')
+    const err = await refusalOf(makeHunt(tt, 'loud_heron', anon))
+    expect(noticeOf(err)).to.eq(RefusalNotices.sealedHunts)
+    expect(noticeOf(err)).to.match(/^Sign in with Google/)
+    expect([await allOf(tt, 'hunts'), await allOf(tt, 'huntships')]).to.deep.eq([[], []])
+  })
+
+  it('refuses a second sandbox once it has one', async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_alice')
+    await makeHunt(tt, 'anon_alice', anon)
+    expect(await refusedAs(makeHunt(tt, 'anon_alice', anon))).to.eq('sealedHunts')
+    expect(await allOf(tt, 'hunts')).to.have.lengthOf(1)
+  })
+})
+
+describe('hunts.performOuter: retitle_hunt and relabel_hunt', () => {
+  it("lets the hunt's smith retitle it and relabel it, with no quiz open", async () => {
+    const { hunt_id, perform, held } = await smithed()
+    expect(await perform({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })).to.eq(hunt_id)
+    expect(await perform({ kind: 'relabel_hunt', label: 'autumn_hunt' })).to.eq(hunt_id)
+    const hunt = await held()
+    expect([hunt.title, hunt.label]).to.deep.eq(['The Autumn Hunt', 'autumn_hunt'])
+  })
+
+  it('refuses a reviewer on the hunt, and a stranger, writing nothing', async () => {
+    const { tt, bob, perform, held } = await smithed()
+    const carol = await googleUser(tt, 'carol_strays')
+    const ante = await held()
+    const refusals = [
+      await refusedAs(perform({ kind: 'retitle_hunt', title: 'Mine now' }, bob)),
+      await refusedAs(perform({ kind: 'relabel_hunt', label: 'mine_now' }, carol)),
+    ]
+    expect(refusals).to.deep.eq(['notPermitted', 'notPermitted'])
+    expect(await held()).to.deep.eq(ante)
+  })
+
+  it('refuses a user holding no userlabel', async () => {
+    const { tt, perform } = await smithed()
+    const pending = perform({ kind: 'retitle_hunt', title: 'Mine now' }, await anonymousSession(tt))
+    expect(await refusedAs(pending)).to.eq('notIdentified')
+  })
+
+  it('refuses a label another hunt of its org answers to, writing nothing', async () => {
+    const { tt, smith, perform, held } = await smithed()
+    await makeHunt(tt, 'taken_label', smith)
+    expect(await refusedAs(perform({ kind: 'relabel_hunt', label: 'taken_label' }))).to.eq('labelTaken')
+    const hunt = await held()
+    expect(hunt.label).to.eq('quiet_otter')
+  })
+
+  it("takes a label another org's hunt answers to, keeping its own org", async () => {
+    const { tt, perform, held } = await smithed()
+    await makeHunt(tt, 'taken_label')
+    await perform({ kind: 'relabel_hunt', label: 'taken_label' })
+    const hunt = await held()
+    expect([hunt.orglabel, hunt.label]).to.deep.eq(['alice_smiths', 'taken_label'])
+  })
+})
+
+describe('hunts.performOuter: rebranch_hunt', () => {
+  it("lets the hunt's smith put it on another branch, with no quiz open, and everyone on it sees it", async () => {
+    const { hunt_id, smith, bob, perform, held } = await smithed()
+    const before = await held()
+    expect(await perform({ kind: 'rebranch_hunt', branch: 'playtest' })).to.eq(hunt_id)
+    const after = await held()
+    expect([before.branch, after.branch]).to.deep.eq(['main', 'playtest'])
+    for (const by of [smith, bob]) {
+      const opening = await by.as.query(api.hunts.open, { orglabel: 'alice_smiths', hunt_label: 'quiet_otter' })
+      expect(opening.hunt?.branch).to.eq('playtest')
+    }
+  })
+
+  it("refuses a reviewer on the hunt, and a stranger, writing nothing", async () => {
+    const { tt, bob, perform, held } = await smithed()
+    const carol = await googleUser(tt, 'carol_strays')
+    const ante = await held()
+    const refusals = [
+      await refusedAs(perform({ kind: 'rebranch_hunt', branch: 'mine' }, bob)),
+      await refusedAs(perform({ kind: 'rebranch_hunt', branch: 'mine' }, carol)),
+    ]
+    expect(refusals).to.deep.eq(['notPermitted', 'notPermitted'])
+    expect(await held()).to.deep.eq(ante)
+  })
+
+  it("refuses a branch git would not take, writing nothing", async () => {
+    const { perform, held } = await smithed()
+    await expect(perform({ kind: 'rebranch_hunt', branch: 'draft two' })).rejects.toThrow()
+    const hunt = await held()
+    expect(hunt.branch).to.eq('main')
+  })
+})
+
+describe('hunts.performOuter: arrange_categories', () => {
+  // TV in the pool, and Art moved to the top, swapping with Math & Econ.
+  const arranged = Wheel.placed(Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool'), 'art', 0)
+
+  it("lets the hunt's smith arrange its wheel, holes and all, with no quiz open", async () => {
+    const { hunt_id, perform, held } = await smithed()
+    expect(await perform({ kind: 'arrange_categories', wheel: arranged })).to.eq(hunt_id)
+    const hunt = await held()
+    expect(hunt.wheel).to.deep.eq(arranged)
+  })
+
+  it("hands the wheel to everyone on the hunt, where its screens already watch it", async () => {
+    const { smith, bob, perform } = await smithed()
+    await perform({ kind: 'arrange_categories', wheel: arranged })
+    for (const by of [smith, bob]) {
+      const opening = await by.as.query(api.hunts.open, { orglabel: 'alice_smiths', hunt_label: 'quiet_otter' })
+      expect(opening.hunt?.wheel).to.deep.eq(arranged)
+    }
+  })
+
+  it("shows a hunt nobody has arranged with the default wheel, and writes nothing to it", async () => {
+    const { smith, held } = await smithed()
+    const opening = await smith.as.query(api.hunts.open, { orglabel: 'alice_smiths', hunt_label: 'quiet_otter' })
+    expect(opening.hunt?.wheel).to.deep.eq(Wheel.defaultWheel())
+    expect(await held()).not.to.have.property('wheel')
+  })
+
+  it("lets a smith arrange it again, and back to the default", async () => {
+    const { perform, held } = await smithed()
+    await perform({ kind: 'arrange_categories', wheel: arranged })
+    await perform({ kind: 'arrange_categories', wheel: Wheel.defaultWheel() })
+    const hunt = await held()
+    expect(hunt.wheel).to.deep.eq(Wheel.defaultWheel())
+  })
+
+  it("refuses a reviewer on the hunt, and a stranger, writing nothing", async () => {
+    const { tt, bob, perform, held } = await smithed()
+    const carol = await googleUser(tt, 'carol_strays')
+    const ante = await held()
+    const refusals = [
+      await refusedAs(perform({ kind: 'arrange_categories', wheel: arranged }, bob)),
+      await refusedAs(perform({ kind: 'arrange_categories', wheel: arranged }, carol)),
+    ]
+    expect(refusals).to.deep.eq(['notPermitted', 'notPermitted'])
+    expect(await held()).to.deep.eq(ante)
+  })
+
+  it("refuses a wheel that is not one, writing nothing", async () => {
+    const { perform, held } = await smithed()
+    const twice = Wheel.defaultWheel().map((label, idx) => (idx === 1 ? 'math_econ' : label))
+    await expect(perform({ kind: 'arrange_categories', wheel: twice })).rejects.toThrow(/only one slot/)
+    await expect(perform({ kind: 'arrange_categories', wheel: Wheel.defaultWheel().slice(1) })).rejects.toThrow()
+    expect(await held()).not.to.have.property('wheel')
+  })
+})
+
+/** An anonymous user's sandbox, made through the public function, and how to act on its quiz as that user */
+async function sandboxed() {
+  const tt = openTester()
+  const anon = await anonymousUser(tt, 'anon_alice')
+  const hunt_id = await makeHunt(tt, 'anon_alice', anon)
+  const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
+  const realm = present(home)
+  const open = { hunt_id, realm_id: realm.realm._id, quiz_id: present(realm.quizzes[0])._id }
+  const act = async (action: HuntActionDNA) => {
+    const { action: affirms } = await affirmsOf(tt, anon, open)
+    return await anon.as.mutation(api.hunts.perform, { affirms, action })
+  }
+  return { tt, anon, open, act }
+}
+
+describe("hunts.perform, sealing an anonymous user in its sandbox", () => {
+  it("lets it work on its sandbox's quizzes as their smith", async () => {
+    const { tt, open, act } = await sandboxed()
+    await act({ kind: 'retitle_quiz', title: 'My first quiz' })
+    await act({ kind: 'add_question' })
+    const hunt = await wholeHunt(tt, open.hunt_id)
+    const [quiz] = present(hunt.realms[0]).quizzes
+    expect([quiz?.title, quiz?.questions.length]).to.deep.eq(['My first quiz', BlankQuestionQty + 1])
+  })
+
+  it("refuses its bringing anyone onto its sandbox, a user signed in with Google included, saying signing in with Google will", async () => {
+    const { tt, act } = await sandboxed()
+    await googleUser(tt, 'bob_reviews')
+    const err = await refusalOf(act({ kind: 'add_huntship', userlabel: 'bob_reviews', role: 'reviewer' }))
+    expect(noticeOf(err)).to.eq(RefusalNotices.sealedMembers)
+    expect(await allOf(tt, 'huntships')).to.have.lengthOf(1)
+  })
+
+  it("refuses its reviewing, even its own sandbox's quiz", async () => {
+    const { tt, open, act } = await sandboxed()
+    expect(await refusedAs(act({ kind: 'open_review', quiz_id: open.quiz_id }))).to.eq('sealedReview')
+    expect(await reviewsIn(tt, open.quiz_id)).to.deep.eq([])
+  })
+
+  it("refuses its being put on any other hunt, by the smith of it, and puts on a user signed in with Google", async () => {
+    const { act, tt } = await seedHunt(openTester(), Hunt.blank('quiet_otter'))
+    await anonymousUser(tt, 'anon_carol')
+    await googleUser(tt, 'bob_reviews')
+    expect(await refusedAs(act({ kind: 'add_huntship', userlabel: 'anon_carol', role: 'reviewer' }))).to.eq('sealedJoin')
+    await act({ kind: 'add_huntship', userlabel: 'bob_reviews', role: 'reviewer' })
+    const huntships = await allOf(tt, 'huntships')
+    expect(huntships.map((row) => row.userlabel)).to.deep.eq(['seed_smith', 'bob_reviews'])
   })
 })

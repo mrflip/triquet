@@ -154,7 +154,7 @@ interface CornerRule {
  * suite, as do a few files every screen leans on (`use-draft`, `use-session`, `offers.ts`,
  * `postmortem`, `cells/fields` and `cells/markdown`) and those every quiz screen opens through (the
  * synced layout, the quiz's pages, `QuizRoute`, `SiteHeader`, `shown`, `use-address`,
- * `use-ident` and `routes.ts`, and the quiz history mirror `use-hunt` feeds and tracks every write
+ * `use-me` and `routes.ts`, and the quiz history mirror `use-hunt` feeds and tracks every write
  * through: `hunt-mirror`, `hunt-feed`, `hunt-fetching`, `hunt-commits`, `commit-scheduler`,
  * `huntfiles` and `huntgit`, with the history download and its help, `FullHistoryDownload` and
  * `full-history.md`, which every quiz screen's Export tab mounts), and the widgeting planner
@@ -208,7 +208,7 @@ export const SpecCorners: readonly CornerRule[] = [
   { corner: 'the policies',              specs: ['policies'],                                paths: ['src/app/privacy/', 'src/app/terms/', 'src/content/privacy.md', 'src/content/terms.md'] },
   { corner: 'the pages of prose',        specs: ['brand', 'policies'],                       paths: ['src/components/ProsePage.tsx', 'src/mdx-components.tsx'] },
   { corner: 'the hunts',                 specs: [...RoutingSpecs, 'quiz-history'],           paths: ['src/components/HuntsList.tsx', 'src/components/HuntRoute.tsx', 'src/state/use-awaited-actions.ts', 'src/state/use-user-actions.ts', 'src/state/use-outer-hunt-actions.ts', 'src/state/use-hunts-list.ts', 'src/app/(synced)/my/', 'src/app/(synced)/[org]/page.tsx', 'src/app/(synced)/[org]/[hunt]/page.tsx', 'src/app/(synced)/[org]/[hunt]/quizzes/page.tsx'] },
-  { corner: 'the way in and the addresses', specs: RoutingSpecs,                             paths: ['src/app/(synced)/page.tsx', 'src/app/(synced)/h/', 'src/components/IdentGate.tsx', 'src/components/HuntEditModal.tsx', 'src/components/NotOnHunt.tsx', 'src/components/QuizNotFound.tsx'] },
+  { corner: 'the way in and the addresses', specs: RoutingSpecs,                             paths: ['src/app/(synced)/page.tsx', 'src/app/(synced)/h/', 'src/components/UserlabelGate.tsx', 'src/components/HuntEditModal.tsx', 'src/components/NotOnHunt.tsx', 'src/components/QuizNotFound.tsx'] },
 ]
 
 const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [--touched | <playwright args>] | e2e-log | proof [--skip-e2e <reason>] | land [--skip-e2e <reason>] [--into <branch>] | sweep | restack | top'

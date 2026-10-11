@@ -23,7 +23,7 @@ export type AwaitedActionsHandle<DNA> = {
   notice:  string | null
 }
 
-/** A public mutation carrying out one action, as `idents.perform` and `hunts.performOuter` do, made by `useMutation` */
+/** A public mutation carrying out one action, as `users.perform` and `hunts.performOuter` do, made by `useMutation` */
 export type PerformingT<DNA> = (args: { action: DNA }) => Promise<unknown>
 
 /**

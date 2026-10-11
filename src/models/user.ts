@@ -1,95 +1,120 @@
 import type * as Z from 'zod'
+import type { Id } from '../../convex/_generated/dataModel'
 import type * as Actor from '../lib/actor'
 import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 
-export const IdentValidators = Validator(({ obj, userlabel, titleish, stamps, zid }) => {
-  const identLabel = userlabel
-    .describe('What a person types to become this ident (their userlabel), and what others add them to a hunt by. Unique across the app: a new one is made inside the write that looks it up, so two sessions asserting one new label at once make one ident between them.')
+export const UserValidators = Validator(({ obj, str, num, bool, userlabel, titleish, stamps }) => {
+  const label = userlabel
+    .describe('What a person types to become this user (their userlabel, a handle on screen), what others add them to a hunt by, and the org of the hunts they make. Unique across the app, set once, and absent until chosen: a userlabel is free only while no user holds it, no ghosting holds it, and no hunt carries it as its orglabel.')
   const title = titleish.min(1)
-    .describe('What the ident is called on screen.')
-  const user_id = zid('users').nullable()
-    .describe('The session that claimed this userlabel, and the only one that may assert it; null for an ident nobody has claimed yet, which the next session to assert it claims.')
+    .describe('What the user is called on screen: the name typed beside the userlabel, or the userlabel titleized. Set with the userlabel, and changed at will after.')
 
   const row = obj({
-    label: identLabel,
-    title,
-    user_id,
+    // Convex Auth's fields, as `authTables` ships them, kept with its indexes
+    name:                  str.optional()
+      .describe("Convex Auth's: the name a provider that proves who someone is sends (Google). None for an anonymous user."),
+    image:                 str.optional()
+      .describe("Convex Auth's: the address of the picture a provider sends."),
+    email:                 str.optional()
+      .describe("Convex Auth's: the email a provider sends. Shown to its owner alone, never to anyone else."),
+    emailVerificationTime: num.optional()
+      .describe("Convex Auth's: when the email was verified, in epoch milliseconds."),
+    phone:                 str.optional()
+      .describe("Convex Auth's: a phone number, which nothing here asks for."),
+    phoneVerificationTime: num.optional()
+      .describe("Convex Auth's: when the phone was verified, which nothing here does."),
+    isAnonymous:           bool.optional()
+      .describe("Convex Auth's: whether the user was signed in with no proof (the Anonymous provider). An anonymous user is sealed: a userlabel and one sandbox, nothing more (`Approve`)."),
+    // Ours
+    userlabel:             label.optional(),
+    title:                 title.optional(),
+    admin:                 bool.optional()
+      .describe('Whether the user looks after what belongs to no hunt (the library): set only from the command line, absent for no. Read in one place, as the actor is built (`Actor.ofUser`).'),
     ...stamps,
   })
-    .describe('One ident: a persona in the app, a userlabel held by the session that claimed it.')
+    .describe('One user: what a session is signed in as, holding its userlabel, title and admin flag beside the fields Convex Auth keeps. Never a person: one person may hold several.')
 
-  return { identLabel, title, user_id, row }
+  return { userlabel: label, title, row }
 })
 
-export type IdentDNA  = Z.input<typeof IdentValidators.row>
-export type IdentRowT = Z.output<typeof IdentValidators.row>
-/** An ident as anyone is shown it, its holder included: never which session claimed it */
-export type IdentT    = Pick<IdentRowT, 'label' | 'title'> & { _id: string }
-/** Who a session is, as it is told: the ident it took on last, and the actor the server sees in its requests */
-export type CurrentIdentT = { ident: IdentT, actor: Actor.IdentActorT }
+export type UserDNA  = Z.input<typeof UserValidators.row>
+export type UserRowT = Z.output<typeof UserValidators.row>
+/** A user as its holder is shown it: its userlabel and title, and never its email */
+export type UserT    = { _id: string, userlabel: string, title: string }
+/** Who a session is, as it is told: its user, and the actor the server sees in its requests */
+export type CurrentUserT = { user: UserT, actor: Actor.UserActorT }
 
-/** Why what a person typed is not an ident label: no typing on would make it one, it is one still being typed (too short, or ending in an underscore), or it is a word kept for the app's own use */
+/**
+ * A user as anyone else is told of it: its userlabel and title, and whether it is anonymous (which
+ * sealing turns on), and nothing else of its row. What a function that reads another user hands
+ * on, so that an email never leaves its owner's own query.
+ */
+export type UserFaceT = { _id: Id<'users'>, userlabel: string, title: string, anonymous: boolean }
+
+/** Why what a person typed is not a userlabel: no typing on would make it one, it is one still being typed (too short, or ending in an underscore), or it is a word kept for the app's own use */
 export type LabelFlawT = 'shape' | 'unfinished' | 'reserved'
 
-/** A persona in the app, named by a label a person types to become it */
-export class Ident implements IdentT {
-  declare _id:    string
-  declare label: string
-  declare title: string
+/** What a session is signed in as: the persona in the app, named by the userlabel it chose */
+export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous' | 'admin'> {
+  declare _id:          string
+  declare userlabel?:   string
+  declare title?:       string
+  declare isAnonymous?: boolean
+  declare admin?:       boolean
 
   /**
-   * The ident label a name makes: normalized as every label is, and no longer than a `Userlabel`
+   * The userlabel a name makes: normalized as every label is, and no longer than a `Userlabel`
    * may be, the `z` a leading digit gets counted in. Shorter than the minimum is left short, for
-   * the validator to refuse. What the label field beside a name shows until the label is typed in
-   * itself.
+   * the validator to refuse. What the userlabel field beside a name shows until the userlabel is
+   * typed in itself, and what a name a provider sends is suggested as.
    *
    * @param name - Whatever was typed as a name.
    * @returns A label-shaped string, or `''` when nothing was typed.
    *
-   * @example Ident.labelFor('Flip Kromer')  // => 'flip_kromer'
-   * @example Ident.labelFor('2nd Avenue Puzzle Solvers Club')  // => 'z2nd_avenue_puzzle_solve'
+   * @example User.labelFor('Flip Kromer')  // => 'flip_kromer'
+   * @example User.labelFor('2nd Avenue Puzzle Solvers Club')  // => 'z2nd_avenue_puzzle_solve'
    */
   static labelFor(name: string): string {
     return Labelmaker.normalize(name, PA.Userlabel)
   }
 
   /**
-   * What keeps a label, typed as it is, from being an ident label, if anything. Nothing is
-   * repaired: a capital or a space is a flaw, not something to fold away. `shape` is a label no
-   * typing on would make one -- a character no label keeps, a first character that is not a
-   * letter, two underscores in a row, or too many characters. `unfinished` is one typing on could
-   * still finish: too short, nothing typed included, or ending in an underscore. `reserved` is a
-   * word no ident may be (`Labelmaker.isReserved`), which typing on may yet make another word.
+   * What keeps a label, typed as it is, from being a userlabel, if anything. Nothing is repaired:
+   * a capital or a space is a flaw, not something to fold away. `shape` is a label no typing on
+   * would make one -- a character no label keeps, a first character that is not a letter, two
+   * underscores in a row, or too many characters. `unfinished` is one typing on could still
+   * finish: too short, nothing typed included, or ending in an underscore. `reserved` is a word no
+   * userlabel may be (`Labelmaker.isReserved`), which typing on may yet make another word.
    *
-   * @param label - Whatever was typed into a label field.
-   * @returns The flaw, or null when it is an ident label.
+   * @param label - Whatever was typed into a userlabel field.
+   * @returns The flaw, or null when it is a userlabel.
    *
-   * @example Ident.flawIn('flip_kromer')  // => null
-   * @example Ident.flawIn('Flip Kromer')  // => 'shape'
-   * @example Ident.flawIn('flip')         // => 'unfinished'
-   * @example Ident.flawIn('support')      // => 'reserved'
+   * @example User.flawIn('flip_kromer')  // => null
+   * @example User.flawIn('Flip Kromer')  // => 'shape'
+   * @example User.flawIn('flip')         // => 'unfinished'
+   * @example User.flawIn('support')      // => 'reserved'
    */
   static flawIn(label: string): LabelFlawT | null {
     if (label.length > PA.Userbegun.max || ! PA.Userbegun.re.test(label)) { return 'shape' }
     if (Labelmaker.isReserved(label, { toplevel: true })) { return 'reserved' }
-    return IdentValidators.identLabel.safeParse(label).success ? null : 'unfinished'
+    return UserValidators.userlabel.safeParse(label).success ? null : 'unfinished'
   }
 
   /**
-   * The flaw a label field should say of itself now, if any. A `shape` is said at once; an
+   * The flaw a userlabel field should say of itself now, if any. A `shape` is said at once; an
    * `unfinished` or `reserved` label only once the field has been left, as it may still be being
    * typed (`support` on its way to `supporter`); and an empty field says nothing, as nobody has
    * typed anything to be told of.
    *
-   * @param label - Whatever is in the label field.
+   * @param label - Whatever is in the userlabel field.
    * @param left - Whether the field has been left (where the label follows another field, either of them has).
    * @returns The flaw to say, or null.
    *
-   * @example Ident.flawToSay('flip', false)  // => null
-   * @example Ident.flawToSay('flip', true)   // => 'unfinished'
-   * @example Ident.flawToSay('Flip', false)  // => 'shape'
+   * @example User.flawToSay('flip', false)  // => null
+   * @example User.flawToSay('flip', true)   // => 'unfinished'
+   * @example User.flawToSay('Flip', false)  // => 'shape'
    */
   static flawToSay(label: string, left: boolean): LabelFlawT | null {
     const flaw = this.flawIn(label)
@@ -98,42 +123,88 @@ export class Ident implements IdentT {
   }
 
   /**
-   * An ident as it is named on screen in full: its title, then its label written `@label`, which
-   * marks it as the userlabel someone types rather than a word of prose.
+   * A user as it is named on screen in full: its title, then its userlabel written `@label`, which
+   * marks it as the handle someone types rather than a word of prose.
    *
-   * @param ident - The ident to name.
-   * @returns Its title and its label.
+   * @param user - The user to name.
+   * @returns Its title and its userlabel.
    *
-   * @example Ident.byline({ label: 'mrflip', title: 'Mrflip' })  // => 'Mrflip (@mrflip)'
+   * @example User.byline({ userlabel: 'mrflip', title: 'Mrflip' })  // => 'Mrflip (@mrflip)'
    */
-  static byline(ident: Pick<IdentT, 'label' | 'title'>): string {
-    return `${ident.title} (${this.atLabel(ident)})`
+  static byline(user: Pick<UserT, 'userlabel' | 'title'>): string {
+    return `${user.title} (${this.atLabel(user)})`
   }
 
   /**
-   * An ident's label written `@label`, as its byline writes it, for a screen that shows the
+   * A user's userlabel written `@label`, as its byline writes it, for a screen that shows the
    * title some other way (the hunts page, where it is retitled in place).
    *
-   * @param ident - The ident whose label to write.
-   * @returns Its label, after an `@`.
+   * @param user - The user whose userlabel to write.
+   * @returns Its userlabel, after an `@`.
    *
-   * @example Ident.atLabel({ label: 'mrflip' })  // => '@mrflip'
+   * @example User.atLabel({ userlabel: 'mrflip' })  // => '@mrflip'
    */
-  static atLabel(ident: Pick<IdentT, 'label'>): string {
-    return `@${ident.label}`
+  static atLabel(user: Pick<UserT, 'userlabel'>): string {
+    return `@${user.userlabel}`
   }
 
   /**
-   * An ident's row, validated, with a blank title defaulting to its label titleized.
+   * The row of a user signed in anonymously, as `createOrUpdateUser` inserts it: no proof of who
+   * holds it, and no userlabel yet.
    *
-   * @param dna - The label, already normalized; what to call it, where blank means "use the label"; and the session claiming it.
-   * @returns The row to insert.
-   * @throws When the label is not an ident label, or the title is not a title.
-   *
-   * @example Ident.fill({ label: 'flip_kromer', title: '', user_id })  // => { label: 'flip_kromer', title: 'Flip Kromer', user_id }
+   * @example User.anonymous()  // => { isAnonymous: true }
    */
-  static fill(dna: IdentDNA): IdentRowT {
-    const title = dna.title.trim() === '' ? Labelmaker.titleize(dna.label) : dna.title
-    return IdentValidators.row({ ...dna, title })
+  static anonymous(): UserRowT {
+    return UserValidators.row({ isAnonymous: true })
+  }
+
+  /**
+   * What a user's row becomes once it takes `userlabel`: the userlabel, and the title, a blank one
+   * defaulting to the userlabel titleized. The fields to patch, validated.
+   *
+   * @param userlabel - The userlabel, already normalized.
+   * @param title - What to call the user, where blank means "use the userlabel".
+   * @returns The fields to patch onto the row.
+   * @throws When the userlabel is not one, or the title is not a title.
+   *
+   * @example User.labelled('flip_kromer', '')  // => { userlabel: 'flip_kromer', title: 'Flip Kromer' }
+   */
+  static labelled(userlabel: string, title: string): { userlabel: string, title: string } {
+    return { userlabel: UserValidators.userlabel(userlabel), title: this.titleFor(userlabel, title) }
+  }
+
+  /**
+   * The title a user holding `userlabel` takes when given `title`: it as typed, or the userlabel
+   * titleized when blank.
+   *
+   * @throws When the title is not a title.
+   *
+   * @example User.titleFor('flip_kromer', '')      // => 'Flip Kromer'
+   * @example User.titleFor('flip_kromer', 'Flip')  // => 'Flip'
+   */
+  static titleFor(userlabel: string, title: string): string {
+    return UserValidators.title(title.trim() === '' ? Labelmaker.titleize(userlabel) : title)
+  }
+
+  /**
+   * Whether `user` is anonymous: signed in with no proof of who holds it, and so sealed in its
+   * sandbox (`Approve`). Convex Auth's `isAnonymous`, absent for no.
+   *
+   * @example User.isAnonymous({ isAnonymous: true })  // => true
+   * @example User.isAnonymous({})                     // => false
+   */
+  static isAnonymous(user: Pick<UserRowT, 'isAnonymous'>): boolean {
+    return user.isAnonymous === true
+  }
+
+  /**
+   * `user` as anyone else may be told of it (`UserFaceT`): its userlabel, title and whether it is
+   * anonymous. Null for a user that has no userlabel yet, which nobody can name.
+   *
+   * @example User.faceOf({ _id, userlabel: 'flip_kromer', title: 'Flip', email: 'f@example.com' })  // => { _id, userlabel: 'flip_kromer', title: 'Flip', anonymous: false }
+   */
+  static faceOf(user: Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous'> & { _id: Id<'users'> }): UserFaceT | null {
+    if (user.userlabel === undefined) { return null }
+    return { _id: user._id, userlabel: user.userlabel, title: user.title ?? Labelmaker.titleize(user.userlabel), anonymous: this.isAnonymous(user) }
   }
 }

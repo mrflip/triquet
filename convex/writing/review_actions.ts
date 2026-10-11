@@ -7,43 +7,43 @@ import { questionOf, reviewFor, reviewingFor, reviewingsOf, reviewsOf } from '..
 import { updateReview, updateReviewing, type Writer } from './quiz_writing'
 
 /**
- * Open `ident_id`'s review of `quiz`, a quiz of `hunt_id` as read: the empty row the first time,
+ * Open `user_id`'s review of `quiz`, a quiz of `hunt_id` as read: the empty row the first time,
  * nothing the times after. A quiz gone (null), or holding as many reviews as a quiz may, refuses
  * a new one.
  *
  * @param db - The mutation's database.
  * @param hunt_id - The hunt the quiz belongs to.
  * @param quiz - Which quiz, as read.
- * @param ident_id - Who is reviewing it.
+ * @param user_id - Who is reviewing it.
  */
-export async function openReview(db: Writer, hunt_id: Id<'hunts'>, quiz: Doc<'quizzes'> | null, ident_id: Id<'idents'>): Promise<void> {
+export async function openReview(db: Writer, hunt_id: Id<'hunts'>, quiz: Doc<'quizzes'> | null, user_id: Id<'users'>): Promise<void> {
   if (! quiz) { refuse('quizGone') }
-  const [held, reviews] = await Promise.all([reviewFor(db, quiz._id, ident_id), reviewsOf(db, quiz._id)])
+  const [held, reviews] = await Promise.all([reviewFor(db, quiz._id, user_id), reviewsOf(db, quiz._id)])
   if (held) { return }
   if (reviews.length >= PA.ReviewsPerQuiz.max) { refuse('reviewsFull') }
-  await db.insert('reviews', ReviewValidators.row({ hunt_id, quiz_id: quiz._id, ident_id, overall: '', phase: 'empty' }))
+  await db.insert('reviews', ReviewValidators.row({ hunt_id, quiz_id: quiz._id, user_id, overall: '', phase: 'empty' }))
 }
 
 /**
- * Write `ident_id`'s overall note on `quiz_id`, moving an `empty` review to `draft`; a `shared`
+ * Write `user_id`'s overall note on `quiz_id`, moving an `empty` review to `draft`; a `shared`
  * one stays shared, since sharing is live rather than a snapshot. Refused when the review has
  * not been opened.
  */
-export async function setOverall(db: Writer, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>, overall: string): Promise<void> {
-  const held = await reviewFor(db, quiz_id, ident_id)
+export async function setOverall(db: Writer, quiz_id: Id<'quizzes'>, user_id: Id<'users'>, overall: string): Promise<void> {
+  const held = await reviewFor(db, quiz_id, user_id)
   if (! held) { refuse('reviewNotOpened') }
   await updateReview(db, held, { overall, phase: held.phase === 'shared' ? 'shared' : 'draft' })
 }
 
-/** Share or withdraw `ident_id`'s review of `quiz_id`. Refused when it has not been opened. */
-export async function setReviewPhase(db: Writer, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>, phase: Exclude<ReviewPhase, 'empty'>): Promise<void> {
-  const held = await reviewFor(db, quiz_id, ident_id)
+/** Share or withdraw `user_id`'s review of `quiz_id`. Refused when it has not been opened. */
+export async function setReviewPhase(db: Writer, quiz_id: Id<'quizzes'>, user_id: Id<'users'>, phase: Exclude<ReviewPhase, 'empty'>): Promise<void> {
+  const held = await reviewFor(db, quiz_id, user_id)
   if (! held) { refuse('reviewNotOpened') }
   await updateReview(db, held, { phase })
 }
 
 /**
- * Revise `ident_id`'s verdict on one question of `quiz_id` by `patch`, making it the first time;
+ * Revise `user_id`'s verdict on one question of `quiz_id` by `patch`, making it the first time;
  * a field the patch leaves out is left as it was. Picking a question top lowers its meh, and the
  * other way about. An `empty` review moves to `draft`; a `shared` one stays shared. Refused when
  * the review has not been opened, the question is not the quiz's, or the patch picks a question
@@ -51,12 +51,12 @@ export async function setReviewPhase(db: Writer, quiz_id: Id<'quizzes'>, ident_i
  *
  * @param db - The mutation's database.
  * @param quiz_id - Which quiz.
- * @param ident_id - Who is reviewing it.
+ * @param user_id - Who is reviewing it.
  * @param question_id - Which of its questions.
  * @param patch - What the reviewer changed.
  */
-export async function setReviewing(db: Writer, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>, question_id: Id<'questions'>, patch: ReviewingPatch): Promise<void> {
-  const { review, held } = await reviewingPlaceOf(db, quiz_id, ident_id, question_id)
+export async function setReviewing(db: Writer, quiz_id: Id<'quizzes'>, user_id: Id<'users'>, question_id: Id<'questions'>, patch: ReviewingPatch): Promise<void> {
+  const { review, held } = await reviewingPlaceOf(db, quiz_id, user_id, question_id)
   await refuseOverpicked(db, review._id, question_id, patch)
   const settled = Reviewing.unrivalled(patch)
   if (held) {
@@ -81,12 +81,12 @@ async function refuseOverpicked(db: Writer, review_id: Id<'reviews'>, question_i
 }
 
 /**
- * Record that `ident_id` has seen the answer to one question of `quiz_id`: once, and never
+ * Record that `user_id` has seen the answer to one question of `quiz_id`: once, and never
  * cleared. Seeing an answer writes nothing else, so the review keeps its phase. Refused as
  * `setReviewing` is.
  */
-export async function peekAnswer(db: Writer, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>, question_id: Id<'questions'>): Promise<void> {
-  const { review, held } = await reviewingPlaceOf(db, quiz_id, ident_id, question_id)
+export async function peekAnswer(db: Writer, quiz_id: Id<'quizzes'>, user_id: Id<'users'>, question_id: Id<'questions'>): Promise<void> {
+  const { review, held } = await reviewingPlaceOf(db, quiz_id, user_id, question_id)
   if (held?.peeked) { return }
   if (held) {
     await updateReviewing(db, held, { peeked: true })
@@ -100,8 +100,8 @@ export async function peekAnswer(db: Writer, quiz_id: Id<'quizzes'>, ident_id: I
  * question, if any yet. Refused when the review has not been opened, or the question is not the
  * quiz's.
  */
-async function reviewingPlaceOf(db: Writer, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>, question_id: Id<'questions'>): Promise<{ review: Doc<'reviews'>, held: Doc<'reviewings'> | null }> {
-  const [review, question] = await Promise.all([reviewFor(db, quiz_id, ident_id), questionOf(db, quiz_id, question_id)])
+async function reviewingPlaceOf(db: Writer, quiz_id: Id<'quizzes'>, user_id: Id<'users'>, question_id: Id<'questions'>): Promise<{ review: Doc<'reviews'>, held: Doc<'reviewings'> | null }> {
+  const [review, question] = await Promise.all([reviewFor(db, quiz_id, user_id), questionOf(db, quiz_id, question_id)])
   if (! review) { refuse('reviewNotOpened') }
   if (! question) { refuse('questionGone') }
   return { review, held: await reviewingFor(db, review._id, question_id) }

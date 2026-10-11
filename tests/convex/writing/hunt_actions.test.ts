@@ -30,7 +30,7 @@ async function answersTo(tt: Tester, label: string): Promise<Id<'hunts'> | null>
 /** How many rows each table holds that belong to a hunt, one way or another */
 async function rowCounts(tt: Tester) {
   return await tt.run(async (ctx) => {
-    const tablenames = ['hunts', 'realms', 'widgets', 'quizzes', 'widgetings', 'columns', 'questions', 'widgeteds', 'reviews', 'reviewings', 'huntings'] as const
+    const tablenames = ['hunts', 'realms', 'widgets', 'quizzes', 'widgetings', 'columns', 'questions', 'widgeteds', 'reviews', 'reviewings', 'huntships'] as const
     const counts = await Promise.all(tablenames.map(async (tablename) => {
       const rows = await ctx.db.query(tablename).collect()
       return [tablename, rows.length] as const
@@ -124,9 +124,9 @@ describe("hunts.perform: delete_hunt", () => {
     expect(widgeteds).to.eq(1)
 
     await doomed.act({ kind: 'delete_hunt' })
-    const idents = await tt.run(async (ctx) => await ctx.db.query('idents').collect())
+    const users = await tt.run(async (ctx) => await ctx.db.query('users').collect())
     expect(await rowCounts(tt)).to.deep.eq(ante)
-    expect(idents.map((ident) => ident.label)).to.include.members(['seed_smith', 'bob_reviews'])
+    expect(users.map((user) => user.userlabel)).to.include.members(['seed_smith', 'bob_reviews'])
     const { quizzes } = await spared.read()
     expect(quizzes.map((quiz) => quiz.title)).to.deep.eq(['Quiz one', 'Quiz two'])
     await expectSound(tt)

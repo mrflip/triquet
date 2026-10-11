@@ -5,7 +5,6 @@ import { createRoot, type Root } from 'react-dom/client'
 import { QuizRoute } from '../../src/components/QuizRoute'
 import { workbenchOffers } from '../../src/components/offers'
 import { useReorderable } from '../../src/components/use-reorder'
-import * as Actor from '../../src/lib/actor'
 import { AibotFormulary } from '../../src/lib/formulary/aibot'
 import * as Runner from '../../src/lib/formulary/runner'
 import { CellNotices } from '../../src/lib/notices'
@@ -16,6 +15,7 @@ import { ShownProvider } from '../../src/state/shown'
 import type { Id } from '../../convex/_generated/dataModel'
 import { bigHuntFor, bigQuiz, bigReadingsOf } from '../support/big-quiz'
 import { FakeServer, resetFakeServer } from '../support/fake-convex-react'
+import { userActor } from '../support/actors'
 
 /*
  * What one change draws again, on the quiz's screen as a smith works it, for a quiz of forty
@@ -66,8 +66,8 @@ function clearCounts(): void {
 
 const quiz = bigQuiz()
 const { hunt } = bigHuntFor(quiz)
-const ident = { _id: 'idents_smith' as Id<'idents'>, label: 'seed_smith', title: 'Seed Smith' }
-const actor = Actor.asIdent('users_smith' as Id<'users'>, ident, true)
+const user = { _id: 'users_smith' as Id<'users'>, userlabel: 'seed_smith', title: 'Seed Smith' }
+const actor = userActor(user._id, user.userlabel, { admin: true })
 const labels = { hunt: hunt.label, realm: 'home', quiz: quiz.label }
 const AskGuess = 'button[aria-label="Ask Quick-model guess"]'
 
@@ -96,10 +96,10 @@ function readingAfter(was: HeldReadingT, action: SentActionT, widgeting_ids: Rea
 function serve(): () => Promise<void> {
   const { frame, readings } = bigReadingsOf(quiz)
   const held = new Map(readings as Map<string, HeldReadingT>)
-  const current = { ident, actor }
+  const current = { user, actor }
   const opening = { why: null, hunt }
   const reviews: never[] = []
-  FakeServer.answer('idents:current', () => current)
+  FakeServer.answer('users:current', () => current)
   FakeServer.answer('hunts:open', () => opening)
   FakeServer.answer('quizzes:open', () => frame)
   FakeServer.answer('questions:open', (args) => held.get(args.question_id as string))

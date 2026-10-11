@@ -3,7 +3,7 @@ import { api } from '../../convex/_generated/api'
 import * as Actor from '../../src/lib/actor'
 import { SeedWidgets } from '../../src/models/seeds'
 import { Widget } from '../../src/models/widget'
-import { affirmsOf, callerOf, identified, openTester, refusedAs, seedHunt, signedIn } from '../support/convex'
+import { affirmsOf, callerOf, googleUser, openTester, refusedAs, seedHunt, anonymousSession } from '../support/convex'
 import { classicHunt } from '../support/layouts'
 
 /** Nobody is an admin, as `Actor.isAdmin` says on a deployment that names none */
@@ -34,7 +34,7 @@ describe("widgets.library", () => {
   it("is read by any browser that has said who it is, on no hunt at all", async () => {
     const tt = openTester()
     await seedHunt(tt, classicHunt())
-    const stranger = await identified(tt, 'carol_strays')
+    const stranger = await googleUser(tt, 'carol_strays')
     const library = await stranger.as.query(api.widgets.library, {})
     expect(library.map((widget) => widget.label)).to.deep.eq(SeedWidgets.map((widget) => widget.label))
   })
@@ -57,14 +57,14 @@ describe("widgets.library", () => {
 
   it("reads an empty library as empty", async () => {
     const tt = openTester()
-    const flip = await identified(tt, 'flip_kromer')
+    const flip = await googleUser(tt, 'flip_kromer')
     expect(await flip.as.query(api.widgets.library, {})).to.deep.eq([])
   })
 
-  it("is empty for a session that has asserted no userlabel, and for a request with no session", async () => {
+  it("is empty for a user holding no userlabel, and for a request with no session", async () => {
     const tt = openTester()
     await seedHunt(tt, classicHunt())
-    const session = await signedIn(tt)
+    const session = await anonymousSession(tt)
     expect([await session.as.query(api.widgets.library, {}), await tt.query(api.widgets.library, {})]).to.deep.eq([[], []])
   })
 })
@@ -88,15 +88,15 @@ describe("widgets.usage", () => {
     const tt = openTester()
     const { join } = await seedHunt(tt, classicHunt())
     const reviewer = await join('bob_reviews', 'reviewer')
-    const stranger = await identified(tt, 'carol_strays')
+    const stranger = await googleUser(tt, 'carol_strays')
     const usages = await Promise.all([reviewer, stranger].map(async (by) => await by.as.query(api.widgets.usage, { widget_label: 'dumdum' })))
     expect(usages).to.deep.eq([{ widgetings: 1, quizzes: 1, hunts: 1, at_least: false }, { widgetings: 1, quizzes: 1, hunts: 1, at_least: false }])
   })
 
-  it("is null for a session that has asserted no userlabel, and a request with no session", async () => {
+  it("is null for a user holding no userlabel, and a request with no session", async () => {
     const tt = openTester()
     await seedHunt(tt, classicHunt())
-    const session = await signedIn(tt)
+    const session = await anonymousSession(tt)
     const usages = await Promise.all([session, tt].map(async (by) => await callerOf(by).query(api.widgets.usage, { widget_label: 'dumdum' })))
     expect(usages).to.deep.eq([null, null])
   })
@@ -120,7 +120,7 @@ describe("widgets.perform", () => {
     const tt = openTester()
     const { actOnLibrary, join, read } = await seedHunt(tt, classicHunt())
     const reviewer = await join('bob_reviews', 'reviewer')
-    const stranger = await identified(tt, 'carol_strays')
+    const stranger = await googleUser(tt, 'carol_strays')
     await actOnLibrary({ kind: 'add_widget', widget: Shout })
     await actOnLibrary({ kind: 'move_widget', label: 'shout', onto_idx: 0 }, reviewer)
     await actOnLibrary({ kind: 'edit_widget', label: 'shout', patch: { description: 'Loud.' } }, stranger)
@@ -130,15 +130,15 @@ describe("widgets.perform", () => {
 
   it("needs no hunt: a browser on none changes the library", async () => {
     const tt = openTester()
-    const flip = await identified(tt, 'flip_kromer')
+    const flip = await googleUser(tt, 'flip_kromer')
     await flip.as.mutation(api.widgets.perform, { action: { kind: 'add_widget', widget: Shout } })
     expect(await flip.as.query(api.widgets.library, {})).to.deep.eq([Shout])
   })
 
-  it("refuses every action, changing nothing, from a session that has asserted no userlabel, or a request with no session", async () => {
+  it("refuses every action, changing nothing, from a user holding no userlabel, or a request with no session", async () => {
     const tt = openTester()
     const { actOnLibrary, read } = await seedHunt(tt, classicHunt())
-    const session = await signedIn(tt)
+    const session = await anonymousSession(tt)
     const ante = await read()
     for (const action of LibraryActions) {
       expect([await refusedAs(actOnLibrary(action, session)), await refusedAs(actOnLibrary(action, tt))]).to.deep.eq(['notIdentified', 'notIdentified'])

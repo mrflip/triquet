@@ -33,7 +33,7 @@ const ArgRefusalShape = Z.object({ ZodError: Z.array(ArgIssueShape).min(1) })
  * @throws Always.
  *
  * @example if (rows.quiz.locked) { refuse('quizLocked') }
- * @example refuse('identUnknown', identUnknownNotice(ident_label))
+ * @example refuse('userUnknown', userUnknownNotice(userlabel))
  */
 export function refuse(failurekind: Refusalkind, message: string = RefusalNotices[failurekind]): never {
   throw new ConvexError<RefusalT>({ failurekind, message })

@@ -9,7 +9,7 @@ test.describe('the header', () => {
     await page.goto('/about')
     const banner = page.getByRole('banner')
     await banner.getByRole('link', { name: 'Triquet' }).click()
-    await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
+    await expect(page.getByRole('heading', { name: AppNotices.userlabelGateTitle })).toBeVisible()
     // Nobody has said who they are yet: the menu has no name to show.
     const menu = await openUserMenu(page)
     await expect(menu.getByRole('textbox', { name: 'Your name' })).toHaveCount(0)

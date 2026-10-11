@@ -80,7 +80,7 @@ function addCounted(to: CountedT, from: CountedT): void {
 
 /**
  * A stand-in for the Convex client's watches and fetches, calling the query functions as
- * `caller`: a session's tester (`identified(tt, label).as`), or the bare tester.
+ * `caller`: a session's tester (`googleUser(tt, label).as`), or the bare tester.
  *
  * @example const standIn = standInFor(smith.as); watchHunt(standIn.watcher, setup, onReading); await standIn.settle()
  */

@@ -5,7 +5,7 @@ import type { IsoStampsT } from './stamps'
 import type { ColumnT } from '../models/column'
 import type { CategoryLabel } from '../models/category'
 import type { HuntT } from '../models/hunt'
-import type { HuntRole } from '../models/hunting'
+import type { HuntRole } from '../models/huntship'
 import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { RealmT } from '../models/realm'
@@ -60,7 +60,7 @@ export type RealmBodyT = Pick<RealmT, 'label' | 'title'>
 /** One subject category, by its label: its label, its title as its tile shows it, and the slot of the hunt's wheel it holds, or null for one in the pool */
 export type CategoryBodyT = { label: CategoryLabel, title: string, position: number | null }
 
-/** One ident on the hunt, by their label: what they are called, and their role */
+/** One user on the hunt, by their userlabel: what they are called, and their role */
 export type MemberBodyT = { title: string, role: HuntRole }
 
 /** What one widgeting came to for one question, or for the quiz: its exposed fields, never its failure */

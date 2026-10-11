@@ -1,5 +1,5 @@
 import * as Hunt from './hunt_actions'
-import * as Hunting from './hunting_actions'
+import * as Huntship from './huntship_actions'
 import * as Layout from './layout_actions'
 import * as Quiz from './quiz_actions'
 import * as Review from './review_actions'
@@ -19,7 +19,7 @@ import type { Writer } from './quiz_writing'
  * whatever else it needs as it stands, inside the transaction.
  *
  * @param db - The mutation's database, scoped to the claims' hunt.
- * @param census - What spans every hunt: whose a hunt label is.
+ * @param census - What spans every hunt: whose a hunt label is, and who a user is.
  * @param claims - Who is acting, and the quiz on their screen, its realm and hunt, as `affirmPerform` checked them.
  * @param action - What the author did, validated.
  * @throws A refusal, or a Zod error when a row the action comes to is not valid; nothing is written.
@@ -27,7 +27,7 @@ import type { Writer } from './quiz_writing'
  * @example await perform(ctx.db, ctx.census, ctx.claims, action)
  */
 export async function perform(db: Writer, census: CensusT, claims: PerformClaimsT, action: HuntActionT): Promise<void> {
-  const { hunt_id, ident_id, named } = claims
+  const { hunt_id, user_id, named } = claims
   if (isLayoutAction(action)) {
     await Layout.performLayout(db, claims, action)
     return
@@ -56,13 +56,13 @@ export async function perform(db: Writer, census: CensusT, claims: PerformClaims
   case 'new_quiz':            { await Quiz.newQuiz(db, claims, action.label); return }
   case 'delete_quiz':         { await Quiz.deleteQuizFrom(db, claims, named); return }
   case 'set_lock':            { await Quiz.setLock(db, named, action.locked); return }
-  case 'open_review':         { await Review.openReview(db, hunt_id, named, ident_id); return }
-  case 'set_overall':         { await Review.setOverall(db, action.quiz_id, ident_id, action.overall); return }
-  case 'set_review_phase':    { await Review.setReviewPhase(db, action.quiz_id, ident_id, action.phase); return }
-  case 'set_reviewing':       { await Review.setReviewing(db, action.quiz_id, ident_id, action.question_id, action.patch); return }
-  case 'peek_answer':         { await Review.peekAnswer(db, action.quiz_id, ident_id, action.question_id); return }
-  case 'add_hunting':         { await Hunting.addHunting(db, hunt_id, action.ident_label, action.role); return }
-  case 'remove_hunting':      { await Hunting.removeHunting(db, hunt_id, action.ident_id); return }
+  case 'open_review':         { await Review.openReview(db, hunt_id, named, user_id); return }
+  case 'set_overall':         { await Review.setOverall(db, action.quiz_id, user_id, action.overall); return }
+  case 'set_review_phase':    { await Review.setReviewPhase(db, action.quiz_id, user_id, action.phase); return }
+  case 'set_reviewing':       { await Review.setReviewing(db, action.quiz_id, user_id, action.question_id, action.patch); return }
+  case 'peek_answer':         { await Review.peekAnswer(db, action.quiz_id, user_id, action.question_id); return }
+  case 'add_huntship':        { await Huntship.addHuntship(db, census, hunt_id, action.userlabel, action.role); return }
+  case 'remove_huntship':     { await Huntship.removeHuntship(db, hunt_id, action.user_id); return }
   case 'retitle_hunt':        { await Hunt.retitleHunt(db, hunt_id, action.title); return }
   case 'relabel_hunt':        { await Hunt.relabelHunt(db, census, hunt_id, action.label); return }
   case 'delete_hunt':         { await Hunt.deleteHunt(db, hunt_id) }

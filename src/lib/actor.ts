@@ -1,17 +1,23 @@
 import type { Id } from '../../convex/_generated/dataModel'
-import type { HuntRole } from '../models/hunting'
+import type { HuntRole } from '../models/huntship'
 import type { QuizRowT } from '../models/quiz'
+import type { UserRowT } from '../models/user'
 
-/** Who a request is from, before they have asserted a userlabel, signed in or not */
-export type AnonymousActorT = { kind: 'anonymous' }
+/** Who a request is from before its user holds a userlabel, or when it has no session at all */
+export type UnlabelledActorT = { kind: 'unlabelled' }
 
-/** Who a request is from, once their session has asserted a userlabel: the session's user, the ident it took on last, and whether the deployment names that userlabel an admin (`namesAdmin`) */
-export type IdentActorT = {
-  kind:        'ident'
-  user_id:     Id<'users'>
-  ident_id:    Id<'idents'>
-  ident_label: string
-  admin:       boolean
+/**
+ * Who a request is from once its user holds a userlabel: the user, its userlabel and title,
+ * whether it is an admin (`ofUser`), and whether it is anonymous, signed in with no proof, and so
+ * sealed in its sandbox (`Approve`).
+ */
+export type UserActorT = {
+  kind:      'user'
+  user_id:   Id<'users'>
+  userlabel: string
+  usertitle: string
+  admin:     boolean
+  anonymous: boolean
 }
 
 /**
@@ -19,74 +25,82 @@ export type IdentActorT = {
  * `ctx.actor`: a tagged value, so that "nobody has said who they are" is a state with a name
  * rather than a null that might compare equal to another.
  */
-export type ActorT = AnonymousActorT | IdentActorT
+export type ActorT = UnlabelledActorT | UserActorT
 
-/** The actor of a request that has asserted no userlabel: there is only one */
-export const anonymous: AnonymousActorT = Object.freeze({ kind: 'anonymous' })
+/** The actor of a request whose user holds no userlabel: there is only one */
+export const unlabelled: UnlabelledActorT = Object.freeze({ kind: 'unlabelled' })
 
-/**
- * The actor of a session that has asserted a userlabel: the ident it took on last.
- *
- * @param user_id - The session's user.
- * @param ident - The ident it took on last.
- * @param admin - Whether the deployment names its userlabel an admin (`namesAdmin`), as only the server can say.
- *
- * @example Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false)  // => { kind: 'ident', user_id, ident_id, ident_label: 'flip_kromer', admin: false }
- */
-export function asIdent(user_id: Id<'users'>, ident: { _id: Id<'idents'>, label: string }, admin: boolean): IdentActorT {
-  return { kind: 'ident', user_id, ident_id: ident._id, ident_label: ident.label, admin }
-}
-
-/** What in a deployment's list of admins names every userlabel */
-export const EveryUserlabel = '*'
+/** What of a deployment `ofUser` reads beside the user: whether every user of it is an admin, as a local backend's every user is */
+export type DeploymentT = { everyoneAdmin: boolean }
 
 /**
- * Whether `admins`, a deployment's list of admins (its `TRIQUET_ADMINS`), names the userlabel
- * `label`: userlabels parted by commas or spaces, or `*` for every userlabel. Unset or blank names
- * nobody. A local backend sets `*` unless told otherwise (`scripts/convex_dev`); production names
- * its admins outright.
+ * The actor of a request whose user is `user`: unlabelled until it holds a userlabel, and then the
+ * user, with its userlabel and title. **The one place the `admin` flag is read**: a user is an
+ * admin where its row says so, or where the deployment makes everyone one (a local backend:
+ * `TRIQUET_EVERYONE_ADMIN`, which production never has).
  *
- * @example Actor.namesAdmin('mrflip', 'mrflip')            // => true
- * @example Actor.namesAdmin('mrflip, ada_l', 'ada_l')      // => true
- * @example Actor.namesAdmin('mrflip', 'mrflip_two')        // => false
- * @example Actor.namesAdmin('*', 'anyone_at_all')          // => true
- * @example Actor.namesAdmin(undefined, 'mrflip')           // => false
+ * @param user_id - The user's row id.
+ * @param user - Its row.
+ * @param deployment - What the deployment says beside it.
+ *
+ * @example Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', isAnonymous: true }, { everyoneAdmin: false })  // => { kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: true }
+ * @example Actor.ofUser(user_id, { isAnonymous: true }, { everyoneAdmin: true })  // => Actor.unlabelled
  */
-export function namesAdmin(admins: string | undefined, label: string): boolean {
-  const named = new Set((admins ?? '').split(/[\s,]+/).filter((each) => each !== ''))
-  return named.has(EveryUserlabel) || named.has(label)
+export function ofUser(user_id: Id<'users'>, user: Pick<UserRowT, 'userlabel' | 'title' | 'admin' | 'isAnonymous'>, deployment: DeploymentT): ActorT {
+  const { userlabel } = user
+  if (userlabel === undefined) { return unlabelled }
+  return {
+    kind:      'user',
+    user_id,
+    userlabel,
+    usertitle: user.title ?? userlabel,
+    admin:     user.admin === true || deployment.everyoneAdmin,
+    anonymous: user.isAnonymous === true,
+  }
 }
 
 /**
- * Whether `actor` has asserted no userlabel: a request with no session, or one whose session has
- * not yet taken on an ident.
+ * Whether `actor`'s user holds no userlabel: a request with no session, or one whose user has not
+ * yet chosen one.
  *
- * @example if (Actor.isAnonymous(ctx.actor)) { return null }
+ * @example if (Actor.isUnlabelled(ctx.actor)) { return null }
  */
-export function isAnonymous(actor: ActorT): actor is AnonymousActorT {
-  return actor.kind === 'anonymous'
+export function isUnlabelled(actor: ActorT): actor is UnlabelledActorT {
+  return actor.kind === 'unlabelled'
+}
+
+/**
+ * Whether `actor` is sealed: a user signed in with no proof (`anonymous`), who may hold a
+ * userlabel and its one sandbox, and nothing more -- never on another hunt, never adding anyone to
+ * its own, never reviewing. Every sealing policy asks here (`Approve`). An unlabelled actor is not
+ * sealed: it is refused for having no userlabel first.
+ *
+ * @example Actor.isSealed(actor)  // => true, for an anonymous user
+ */
+export function isSealed(actor: ActorT): actor is UserActorT & { anonymous: true } {
+  return actor.kind === 'user' && actor.anonymous
 }
 
 /**
  * Whether `actor` is an admin: one who looks after what belongs to no hunt, the library of widgets
- * every hunt shares. Every policy that turns on it asks here (`Approve.mayChangeLibrary`). Who is
- * an admin is the deployment's to say (`namesAdmin`, over its `TRIQUET_ADMINS`), decided on the
- * server as it builds the actor, and carried on it to the browser, whose offers follow it.
+ * every hunt shares. Every policy that turns on it asks here (`Approve.mayChangeLibrary`). Decided
+ * on the server as it builds the actor (`ofUser`), and carried on it to the browser, whose offers
+ * follow it.
  *
- * @example Actor.isAdmin(actor)  // => true, for a userlabel the deployment names an admin
+ * @example Actor.isAdmin(actor)  // => true, for a user whose row says so
  */
-export function isAdmin(actor: IdentActorT): boolean {
+export function isAdmin(actor: UserActorT): boolean {
   return actor.admin
 }
 
-/** An actor's place on one hunt: a smith or reviewer there, by its hunting, or a stranger to it */
+/** An actor's place on one hunt: a smith or reviewer there, by its huntship, or a stranger to it */
 export const HuntStandingVals = ['smith', 'reviewer', 'stranger'] as const
 export type HuntStanding = typeof HuntStandingVals[number]
 
 /**
  * What the server has verified of an actor on one hunt, and what a policy decides from: who they
- * are, which hunt, and their standing there. An actor who has asserted no userlabel is a stranger
- * to every hunt.
+ * are, which hunt, and their standing there. An actor without a userlabel is a stranger to every
+ * hunt.
  */
 export type HuntClaimsT = ActorT & { hunt_id: Id<'hunts'>, standing: HuntStanding }
 
@@ -100,21 +114,21 @@ export type QuizClaimsT = HuntClaimsT & { quiz: Pick<QuizRowT, 'locked'> | null 
 /** Claims on a hunt held by one of its members: their standing is their role */
 export type MemberClaimsT = HuntClaimsT & { standing: HuntRole }
 
-/** An ident named by an action: by its id, or by the label it chose */
-export type IdentRefT = { ident_id: Id<'idents'> } | { ident_label: string }
+/** A user named by an action: by its id, or by its userlabel */
+export type UserRefT = { user_id: Id<'users'> } | { userlabel: string }
 
 /**
- * The claims of `actor` on `hunt_id`, from its hunting there.
+ * The claims of `actor` on `hunt_id`, from its huntship there.
  *
  * @param actor - Who is asking.
  * @param hunt_id - Which hunt.
- * @param hunting - The actor's hunting on it; null when it has none, as for an actor who has asserted no userlabel.
+ * @param huntship - The actor's huntship on it; null when it has none, as for an actor without a userlabel.
  *
- * @example Actor.claimsOn(actor, hunt_id, { role: 'reviewer' })  // => { ...actor, hunt_id, standing: 'reviewer' }
- * @example Actor.claimsOn(Actor.anonymous, hunt_id, null)        // => { kind: 'anonymous', hunt_id, standing: 'stranger' }
+ * @example Actor.claimsOn(actor, hunt_id, { role: 'reviewer' })   // => { ...actor, hunt_id, standing: 'reviewer' }
+ * @example Actor.claimsOn(Actor.unlabelled, hunt_id, null)        // => { kind: 'unlabelled', hunt_id, standing: 'stranger' }
  */
-export function claimsOn(actor: ActorT, hunt_id: Id<'hunts'>, hunting: { role: HuntRole } | null): HuntClaimsT {
-  return { ...actor, hunt_id, standing: hunting?.role ?? 'stranger' }
+export function claimsOn(actor: ActorT, hunt_id: Id<'hunts'>, huntship: { role: HuntRole } | null): HuntClaimsT {
+  return { ...actor, hunt_id, standing: huntship?.role ?? 'stranger' }
 }
 
 /**
@@ -157,14 +171,14 @@ export function roleOf(claims: HuntClaimsT): HuntRole {
 }
 
 /**
- * Whether `target` names the ident `actor` is, by id or by label. Nobody is an actor who has
- * asserted no userlabel.
+ * Whether `target` names the user `actor` is, by id or by userlabel. Nobody is an actor without a
+ * userlabel.
  *
- * @example Actor.isOneself(actor, { ident_label: actor.ident_label })  // => true
- * @example Actor.isOneself(actor, { ident_id: someone_else_id })        // => false
+ * @example Actor.isOneself(actor, { userlabel: actor.userlabel })  // => true
+ * @example Actor.isOneself(actor, { user_id: someone_else_id })     // => false
  */
-export function isOneself(actor: ActorT, target: IdentRefT): boolean {
-  if (isAnonymous(actor))   { return false }
-  if ('ident_id' in target) { return target.ident_id === actor.ident_id }
-  return target.ident_label === actor.ident_label
+export function isOneself(actor: ActorT, target: UserRefT): boolean {
+  if (isUnlabelled(actor)) { return false }
+  if ('user_id' in target) { return target.user_id === actor.user_id }
+  return target.userlabel === actor.userlabel
 }

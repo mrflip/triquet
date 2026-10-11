@@ -81,7 +81,7 @@ async function widgetingOfAnotherHunt({ tt, open }: Seeded) {
 }
 
 async function titleStale({ tt, smith }: Seeded) {
-  await tt.run(async (ctx) => { await ctx.db.patch('idents', smith.ident_id, { title: 'Renamed Behind Its Back' }) })
+  await tt.run(async (ctx) => { await ctx.db.patch('users', smith.user_id, { title: 'Renamed Behind Its Back' }) })
 }
 
 async function cellAcrossQuizzes({ tt, open }: Seeded) {
@@ -105,7 +105,7 @@ const Breakages: [(seeded: Seeded) => Promise<void>, string, string][] = [
   [huntLabelShared,     'no two hunts, nor two quizzes of a realm, share a label: two hunts',                   'two hunts under one label'],
   [quizOfAnotherHunt,   "quizzes.hunt_id is its realm_id's hunt_id: quizzes",                                    "a quiz whose hunt is not its realm's"],
   [widgetingOfAnotherHunt, "widgetings.hunt_id is its quiz_id's hunt_id: widgetings",                           "a widgeting whose hunt is not its quiz's"],
-  [titleStale,          "huntings.ident_title is its ident_id's title: huntings",                               "a hunting still holding its ident's old title"],
+  [titleStale,          "huntships.usertitle is its user_id's title: huntships",                              "a huntship still holding its user's old title"],
   [cellAcrossQuizzes,   "widgeteds.quiz_id is its widgeting_id's quiz_id: widgeteds",                           "a cell whose widgeting is of another quiz"],
 ]
 
@@ -124,9 +124,12 @@ describe("faultsIn", () => {
     })
   }
 
-  it("lets a null id be: an ident nobody has claimed", async () => {
-    const { tt } = await seeded()
-    await tt.run(async (ctx) => { await ctx.db.insert('idents', { label: 'nobody_yet', title: '', user_id: null }) })
+  it("lets an id into Convex Auth's own tables be, which no test reads back: a ghosting's account", async () => {
+    const { tt, smith } = await seeded()
+    await tt.run(async (ctx) => {
+      const account = present(await ctx.db.query('authAccounts').first())
+      await ctx.db.insert('ghostings', { userlabel: 'old_smith', user_id: smith.user_id, into_user_id: smith.user_id, account_id: account._id })
+    })
     expect(await faultsIn(tt)).to.deep.eq([])
   })
 })

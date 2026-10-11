@@ -5,13 +5,13 @@ import * as PA from '../lib/vv/patterns'
 import { CategoryValidators } from './category'
 import { ColumnValidators } from './column'
 import { HuntValidators } from './hunt'
-import { HuntingValidators } from './hunting'
-import { IdentValidators } from './ident'
+import { HuntshipValidators } from './huntship'
 import { ImportValidators } from './import'
 import { QuestionValidators } from './question'
 import { QuizValidators } from './quiz'
 import { ReviewValidators } from './review'
 import { ReviewingValidators } from './reviewing'
+import { UserValidators } from './user'
 import { WidgetValidators } from './widget'
 import { WidgetedValidators } from './widgeted'
 import { WidgetingValidators } from './widgeting'
@@ -36,7 +36,7 @@ export type QuizRevisionKind = typeof QuizRevisionKindVals[number]
 
 export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool, uint, label, titleish, zid }) => {
   const huntAffirms = obj({
-    ident_id: zid('idents'),
+    user_id:  zid('users'),
     hunt_id:  zid('hunts'),
     standing: oneof(HuntStandingVals),
   })
@@ -95,8 +95,8 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('set_review_phase'),    quiz_id: zid('quizzes'), phase: oneof(['draft', 'shared']) }),
     obj({ kind: lit('set_reviewing'),       quiz_id: zid('quizzes'), question_id: zid('questions'), patch: ReviewingValidators.reviewingPatch }),
     obj({ kind: lit('peek_answer'),         quiz_id: zid('quizzes'), question_id: zid('questions') }),
-    obj({ kind: lit('add_hunting'),         ident_label: IdentValidators.identLabel, role: HuntingValidators.role }),
-    obj({ kind: lit('remove_hunting'),      ident_id: zid('idents') }),
+    obj({ kind: lit('add_huntship'),        userlabel: UserValidators.userlabel, role: HuntshipValidators.role }),
+    obj({ kind: lit('remove_huntship'),     user_id: zid('users') }),
     obj({ kind: lit('retitle_hunt'),        title: titleish }),
     obj({ kind: lit('relabel_hunt'),        label: HuntValidators.newLabel }),
     obj({ kind: lit('delete_hunt') }),
@@ -113,10 +113,10 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     .describe('What an admin can do to the library of widgets every hunt shares, from anywhere: no hunt or quiz need be open.')
 
   const userAction = discrim('kind', [
-    obj({ kind: lit('assume_ident'),  label: IdentValidators.identLabel, title: titleish }),
-    obj({ kind: lit('retitle_ident'), title: IdentValidators.title }),
+    obj({ kind: lit('assume_userlabel'), userlabel: UserValidators.userlabel, title: titleish }),
+    obj({ kind: lit('retitle_user'),     title: UserValidators.title }),
   ])
-    .describe('What a visitor can do as themselves, before any quiz is open: become an ident, or retitle the one they are.')
+    .describe('What a visitor can do as themselves, before any quiz is open: take a userlabel, once, or retitle the user they are.')
 
   const outerHuntAction = discrim('kind', [
     obj({ kind: lit('new_hunt'),      label: HuntValidators.newLabel }),

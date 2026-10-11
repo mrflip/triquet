@@ -10,11 +10,12 @@ import { Column, namesFor, QuestionFieldVals, QuestionViewVals, type QuestionFie
 import { ActionValidators, isLayoutAction } from '../src/models/actions'
 import { AddedColumnWidthPx } from '../src/models/layout'
 import { HomeRealmLabel } from '../src/models/realm'
-import { HuntRoleVals } from '../src/models/hunting'
+import { HuntRoleVals } from '../src/models/huntship'
+import { User } from '../src/models/user'
 import { zInternalMutation } from './functions'
-import { huntInOrg, identForLabel, layoutOf, realmsOf, widgetForLabel, wholeQuizOf } from './reading'
+import { censusOf, huntInOrg, layoutOf, realmsOf, userForUserlabel, widgetForLabel, wholeQuizOf } from './reading'
 import { makeHuntFor } from './writing/hunt_actions'
-import { addHunting } from './writing/hunting_actions'
+import { addHuntship } from './writing/huntship_actions'
 import { addColumn, performLayout } from './writing/layout_actions'
 import type { OpenQuizT, Writer } from './writing/quiz_writing'
 
@@ -51,50 +52,52 @@ export const clearAll = zInternalMutation({
   },
 })
 
-/** How many fresh labels `makeHunt` draws before it gives up on finding one its ident's org has not used */
+/** How many fresh labels `makeHunt` draws before it gives up on finding one its user's org has not used */
 const LabelDrawsMax = 9
 
 /**
- * Make a hunt for the ident labelled `ident`, as its smith, the way the hunts list's *+ New hunt*
- * does (`new_hunt`), and lay out its quiz with `widgetings` and `columns` the way the gear's
- * dialogs would, in the order given. The e2e suite's way in to a quiz that is not about the way
- * in: the ident is the one its worker's browsers hold, and the address is where they go. Unlike
- * `new_hunt`, it makes one however many its ident has made (`makeHuntFor`): a worker makes every
- * hunt of its tests, and a run on one worker makes more than one userlabel may.
- * Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production never has.
+ * Make a hunt for the user holding the userlabel `userlabel`, as its smith, the way the hunts
+ * list's *+ New hunt* does (`new_hunt`), and lay out its quiz with `widgetings` and `columns` the
+ * way the gear's dialogs would, in the order given. The e2e suite's way in to a quiz that is not
+ * about the way in: the user is the one its worker's browsers are signed in as, and the address is
+ * where they go. Unlike `new_hunt`, it makes one however many its user has made, anonymous or not
+ * (`makeHuntFor`): a worker makes every hunt of its tests, and a run on one worker makes more than
+ * one userlabel may. Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production
+ * never has.
  *
- * Internal, never public: acting as whichever ident an argument names is for a holder of the
+ * Internal, never public: acting as whichever user an argument names is for a holder of the
  * deployment's admin key alone.
  *
- * @param ident - The label of the ident to make it for, which a session must already hold.
+ * @param userlabel - The userlabel of the user to make it for, chosen at the front door.
  * @param widgetings - The library's widgets to put to work, each bringing its column, as *+ New widgeting* does.
  * @param columns - The question's own fields and views to show, each in a column at the grid's end, as *+ New column* does.
  * @returns The address of the hunt's quiz, opened to edit.
- * @throws On a deployment that may not be made into, for an ident no session holds, or a widget the library lacks; nothing is written.
+ * @throws On a deployment that may not be made into, for a userlabel no user holds, or a widget the library lacks; nothing is written.
  *
- * @example npx convex run testing:makeHunt '{"ident": "tester_0123abcd", "widgetings": ["dumdum"], "columns": ["hint"]}'
+ * @example npx convex run testing:makeHunt '{"userlabel": "tester_0123abcd", "widgetings": ["dumdum"], "columns": ["hint"]}'
  *   // => '/~tester_0123abcd/quiet_otter/quizzes/home/quiet_otter/!edit', say
  */
 export const makeHunt = zInternalMutation({
   args: {
-    ident:      userlabel,
+    userlabel,
     widgetings: arr(label).default([]),
     columns:    arr(oneof([...QuestionFieldVals, ...QuestionViewVals])).default([]),
   },
   returns: str,
-  handler: async (ctx, { ident: identLabel, widgetings, columns }) => {
+  handler: async (ctx, { userlabel: makerlabel, widgetings, columns }) => {
     if (env.TRIQUET_CLEARABLE !== 'yes') { throw new Error('This deployment is not one to make hunts in by hand: TRIQUET_CLEARABLE is not yes') }
-    const ident = await identForLabel(ctx.db, identLabel)
-    if (! ident?.user_id) { throw new Error(`No session holds the ident ${identLabel}: say who you are at the front door first`) }
-    const hunt = await freshHuntLabel(ctx.db, ident.label)
-    const hunt_id = await makeHuntFor(ctx.db, ident, hunt)
+    const found = await userForUserlabel(ctx.db, makerlabel)
+    const maker = found && User.faceOf(found)
+    if (! maker) { throw new Error(`No user holds the userlabel ${makerlabel}: say who you are at the front door first`) }
+    const hunt = await freshHuntLabel(ctx.db, maker.userlabel)
+    const hunt_id = await makeHuntFor(ctx.db, maker, hunt)
     const [home] = await realmsOf(ctx.db, hunt_id)
     const quiz = home?.quizzes[0]
     if (! home || ! quiz) { throw new Error(`The hunt ${hunt} was made without its quiz`) }
     const open: OpenQuizT = { hunt_id, realm_id: home.realm._id, quiz_id: quiz._id, quiz, realm: home.realm }
     for (const widget_label of widgetings) { await layOutWidgeting(ctx.db, open, quiz, widget_label) }
     for (const field of columns) { await layOutColumn(ctx.db, open, quiz, field) }
-    return Routes.quizPath({ org: ident.label, hunt, realm: HomeRealmLabel, quiz: hunt }, 'edit')
+    return Routes.quizPath({ org: maker.userlabel, hunt, realm: HomeRealmLabel, quiz: hunt }, 'edit')
   },
 })
 
@@ -130,35 +133,65 @@ async function layOutColumn(db: Writer, open: OpenQuizT, quiz: Doc<'quizzes'>, f
 }
 
 /**
- * Put the ident labelled `ident` on the hunt `hunt` of the org `org` as `role`, the way a smith
- * does from the Members panel (`add_hunting`): a new hunting, or a new role on the one they
- * already hold. The e2e suite's way to bring a second visitor onto a hunt, in a spec that is not about
- * the panel. Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production never has.
+ * Put the user holding the userlabel `userlabel` on the hunt `hunt` of the org `org` as `role`, the
+ * way a smith does from the Members panel (`add_huntship`): a new huntship, or a new role on the
+ * one they already hold. The e2e suite's way to bring a second visitor onto a hunt, in a spec that
+ * is not about the panel. It bypasses the smith's say, never the user's own: an anonymous user is
+ * refused (`sealedJoin`), as the panel refuses one, so a spec vouches for its visitor first
+ * (`vouchFor`). Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production never
+ * has.
  *
  * Internal, never public: a smith's say over who is on their hunt is for a holder of the
  * deployment's admin key alone to bypass.
  *
  * @param org - The label of the org whose hunt it is.
  * @param hunt - The hunt's label, within its org.
- * @param ident - The label of the ident to put on it, which must have been chosen at the front door.
+ * @param userlabel - The userlabel of the user to put on it, chosen at the front door.
  * @param role - What they are to do on it.
- * @throws On a deployment that may not be made into, a hunt the org lacks, or an ident nobody has chosen; nothing is written.
+ * @throws On a deployment that may not be made into, a hunt the org lacks, a userlabel nobody holds, or an anonymous user; nothing is written.
  *
- * @example npx convex run testing:putOnHunt '{"org": "tester_0123abcd", "hunt": "quiet_otter", "ident": "tester_4567cdef", "role": "reviewer"}'
+ * @example npx convex run testing:putOnHunt '{"org": "tester_0123abcd", "hunt": "quiet_otter", "userlabel": "tester_4567cdef", "role": "reviewer"}'
  */
 export const putOnHunt = zInternalMutation({
   args: {
     org:   userlabel,
     hunt:  label,
-    ident: userlabel,
+    userlabel,
     role:  oneof(HuntRoleVals),
   },
   returns: zod.null(),
-  handler: async (ctx, { org, hunt, ident, role }) => {
+  handler: async (ctx, { org, hunt, userlabel: memberlabel, role }) => {
     if (env.TRIQUET_CLEARABLE !== 'yes') { throw new Error('This deployment is not one to put members on by hand: TRIQUET_CLEARABLE is not yes') }
     const row = await huntInOrg(ctx.db, org, hunt)
     if (! row) { throw new Error(`~${org} has no hunt ${hunt}`) }
-    await addHunting(ctx.db, row._id, ident, role)
+    await addHuntship(ctx.db, censusOf(ctx.db), row._id, memberlabel, role)
+    return null
+  },
+})
+
+/**
+ * Vouch for the user holding the userlabel `userlabel` as no longer anonymous: what signing in with
+ * Google does to an anonymous user's browser (its account joins the user, which is then no longer
+ * anonymous), stood in for, since nothing automated signs in to Google. The e2e suite's way to a
+ * visitor that may do what sealing keeps from an anonymous user: be put on a hunt, bring others
+ * onto one, review. It signs nobody in and proves nothing: it is no provider, and touches no
+ * account. Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production never has.
+ *
+ * Internal, never public: for a holder of the deployment's admin key alone.
+ *
+ * @param userlabel - The userlabel of the user to vouch for, chosen at the front door.
+ * @throws On a deployment that may not be made into, or a userlabel nobody holds; nothing is written.
+ *
+ * @example npx convex run testing:vouchFor '{"userlabel": "tester_4567cdef"}'
+ */
+export const vouchFor = zInternalMutation({
+  args:    { userlabel },
+  returns: zod.null(),
+  handler: async (ctx, { userlabel: vouchedlabel }) => {
+    if (env.TRIQUET_CLEARABLE !== 'yes') { throw new Error('This deployment is not one to vouch for users by hand: TRIQUET_CLEARABLE is not yes') }
+    const user = await userForUserlabel(ctx.db, vouchedlabel)
+    if (! user) { throw new Error(`No user holds the userlabel ${vouchedlabel}: say who you are at the front door first`) }
+    await ctx.db.patch('users', user._id, { isAnonymous: false })
     return null
   },
 })

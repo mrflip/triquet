@@ -8,9 +8,9 @@ import * as Approve from '../lib/approve'
 import { AppNotices, noSuchHuntNotice } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT } from '../lib/rows'
-import { HuntRoleTitles } from '../models/hunting'
+import { HuntRoleTitles } from '../models/huntship'
 import { useHuntOpening } from '../state/use-hunt-opening'
-import { useIdent } from '../state/use-ident'
+import { useMe } from '../state/use-me'
 import { useShowHunt } from '../state/shown'
 import { FullHistoryDownload } from './FullHistoryDownload'
 import { HuntBranch } from './HuntBranch'
@@ -46,21 +46,21 @@ function pathOf(screen: HuntRouteProps['screen'], labels: Routes.HuntLabels): st
  */
 export function HuntRoute({ org, huntLabel, screen }: Readonly<HuntRouteProps>) {
   const router = useRouter()
-  const { ident, actor, loaded } = useIdent()
+  const { user, actor, loaded } = useMe()
   const { finding, hunt, smiths } = useHuntOpening(org, huntLabel)
   useShowHunt(hunt)
   useCanonical(org === null ? null : pathOf(screen, { org, hunt: huntLabel }), hunt && pathOf(screen, { org: hunt.org, hunt: hunt.label }))
 
   useEffect(() => {
-    if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
-  }, [loaded, ident, router])
+    if (loaded && ! user) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
+  }, [loaded, user, router])
 
   useEffect(() => {
     document.title = hunt ? `${hunt.title} — Triquet` : 'Triquet'
   }, [hunt])
 
-  if (! loaded || ! ident || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
-  if (finding === 'refused') { return <NotOnHunt playtestPath={null} ident={ident} claims={null} smiths={smiths} /> }
+  if (! loaded || ! user || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
+  if (finding === 'refused') { return <NotOnHunt playtestPath={null} user={user} claims={null} smiths={smiths} /> }
   if (! hunt) { return <NoSuchHunt org={org} huntLabel={huntLabel} /> }
   return screen === 'hunt' ? <HuntScreen hunt={hunt} actor={actor} /> : <QuizzesScreen hunt={hunt} />
 }
@@ -119,7 +119,7 @@ function HuntScreen({ hunt, actor }: Readonly<{ hunt: ShallowHuntT, actor: Actor
             </TableHead>
             <TableBody>
               {hunt.members.map((member) => (
-                <TableRow key={member.ident_id}>
+                <TableRow key={member.user_id}>
                   <TableCell>{member.title}</TableCell>
                   <TableCell>{member.label}</TableCell>
                   <TableCell>{HuntRoleTitles[member.role]}</TableCell>

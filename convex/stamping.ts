@@ -12,12 +12,12 @@ import * as Stamps from '../src/lib/stamps'
 // trigger has never seen is read as `Stamps.of` reads it.
 
 /**
- * The tables whose rows are stamped: every table of ours the app writes, but `identings`, each row
- * of which is one assertion of a userlabel, appended and never edited, so that its `_creationTime`
- * is its whole history. Convex Auth's tables are its own.
+ * The tables whose rows are stamped: every table of ours the app writes, `users` among them, but
+ * `ghostings`, each row of which is one userlabel retired, appended and never edited, so that its
+ * `_creationTime` is its whole history. Convex Auth's own tables are its own.
  */
 export const StampedTables = [
-  'idents', 'hunts', 'realms', 'widgets', 'quizzes', 'widgetings', 'columns', 'questions', 'widgeteds', 'quiz_widgeteds', 'reviews', 'reviewings', 'huntings',
+  'users', 'hunts', 'realms', 'widgets', 'quizzes', 'widgetings', 'columns', 'questions', 'widgeteds', 'quiz_widgeteds', 'reviews', 'reviewings', 'huntships',
 ] as const satisfies readonly TableNames[]
 export type StampedTablename = typeof StampedTables[number]
 

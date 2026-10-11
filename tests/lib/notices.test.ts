@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { RefusalNotices, botUnavailableNotice, identUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, widgetingShownNotice } from '../../src/lib/notices'
+import { RefusalNotices, botUnavailableNotice, userUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, widgetingShownNotice } from '../../src/lib/notices'
 
 describe('botUnavailableNotice', () => {
   const Cases: [[string, string], string, string][] = [
@@ -29,9 +29,9 @@ describe('noSuchHuntNotice', () => {
   })
 })
 
-describe('identUnknownNotice', () => {
-  it('names the label no ident answers to, and says what they must do', () => {
-    expect(identUnknownNotice('flip_kromer')).to.eq('No ident is labelled "flip_kromer". They need to visit the app and choose it first.')
+describe('userUnknownNotice', () => {
+  it('names the handle nobody goes by, and says what they must do', () => {
+    expect(userUnknownNotice('flip_kromer')).to.eq('Nobody goes by the handle "flip_kromer". They need to visit the app and choose it first.')
   })
 })
 
@@ -49,14 +49,14 @@ describe("notOnHuntNotice", () => {
     })
   }
 
-  it("says they are not yet a member, to contact the smith for an invitation, and the ident to invite", () => {
-    expect(notOnHuntNotice([Flip], 'ada_lovelace')).to.eq('You are not yet a member of this hunt. To be invited, contact its smith, Flip (flip_kromer), and give them your ident, “ada_lovelace”. This page opens for you as soon as they add you.')
+  it("says they are not yet a member, to contact the smith for an invitation, and the handle to invite", () => {
+    expect(notOnHuntNotice([Flip], 'ada_lovelace')).to.eq('You are not yet a member of this hunt. To be invited, contact its smith, Flip (flip_kromer), and give them your handle, “ada_lovelace”. This page opens for you as soon as they add you.')
   })
 })
 
 describe("notASmithNotice", () => {
   it("says they are a reviewer, and who could make them a smith and where", () => {
-    expect(notASmithNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')).to.eq('You are a reviewer on this hunt, not a smith. Ask Flip (flip_kromer) to make you one: they can change the role of your ident, “ada_lovelace”, in the Members panel beneath any of its quizzes.')
+    expect(notASmithNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')).to.eq('You are a reviewer on this hunt, not a smith. Ask Flip (flip_kromer) to make you one: they can change the role of your handle, “ada_lovelace”, in the Members panel beneath any of its quizzes.')
   })
 })
 

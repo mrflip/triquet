@@ -375,7 +375,7 @@ describe('the titles', () => {
 })
 
 /** Who is on the hunt of `Rows`: its maker, a smith, alone */
-const Members = [{ ident_id: idOf('idents', 'i1'), label: 'alice_smiths', title: 'Alice', role: 'smith' as const }]
+const Members = [{ user_id: idOf('users', 'i1'), label: 'alice_smiths', title: 'Alice', role: 'smith' as const }]
 
 describe('huntListingOf', () => {
   it('is the hunt titled, with its realms titled and holding their quizzes\' rows', () => {
@@ -425,9 +425,9 @@ describe('shallowHuntOf', () => {
 describe("smithsOf", () => {
   it("names the smiths among the members, by label and title, in the order they joined", () => {
     const members = [
-      { ident_id: idOf('idents', 'i1'), label: 'alice_smiths',  title: 'Alice', role: 'smith' as const },
-      { ident_id: idOf('idents', 'i2'), label: 'bob_reviews',   title: 'Bob',   role: 'reviewer' as const },
-      { ident_id: idOf('idents', 'i3'), label: 'carol_smiths',  title: '',      role: 'smith' as const },
+      { user_id: idOf('users', 'i1'), label: 'alice_smiths',  title: 'Alice', role: 'smith' as const },
+      { user_id: idOf('users', 'i2'), label: 'bob_reviews',   title: 'Bob',   role: 'reviewer' as const },
+      { user_id: idOf('users', 'i3'), label: 'carol_smiths',  title: '',      role: 'smith' as const },
     ]
     expect(smithsOf(members)).to.deep.eq([{ label: 'alice_smiths', title: 'Alice' }, { label: 'carol_smiths', title: '' }])
   })
@@ -447,21 +447,21 @@ describe('huntFrom', () => {
 })
 
 describe('reviewBy', () => {
-  const ident_id = idOf('idents', 'i1')
-  const ReviewRow: Doc<'reviews'> = { _id: idOf('reviews', 'v1'), _creationTime: 3, hunt_id: idOf('hunts', 'h1'), quiz_id, ident_id, overall: '', phase: 'draft' }
-  const Other = { ...ReviewRow, _id: idOf('reviews', 'v2'), ident_id: idOf('idents', 'i2') }
+  const user_id = idOf('users', 'i1')
+  const ReviewRow: Doc<'reviews'> = { _id: idOf('reviews', 'v1'), _creationTime: 3, hunt_id: idOf('hunts', 'h1'), quiz_id, user_id, overall: '', phase: 'draft' }
+  const Other = { ...ReviewRow, _id: idOf('reviews', 'v2'), user_id: idOf('users', 'i2') }
   const Later = { ...ReviewRow, _id: idOf('reviews', 'v3'), _creationTime: 4, overall: 'Twice.' }
 
   it('finds the review an ident wrote among a quiz\'s reviews', () => {
-    expect(reviewBy([Other, ReviewRow], ident_id)?._id).to.eq(ReviewRow._id)
+    expect(reviewBy([Other, ReviewRow], user_id)?._id).to.eq(ReviewRow._id)
   })
 
   it('takes the earliest, should an ident have written two', () => {
-    expect(reviewBy([ReviewRow, Later], ident_id)?.overall).to.eq('')
+    expect(reviewBy([ReviewRow, Later], user_id)?.overall).to.eq('')
   })
 
   it('is null for an ident who has written none, or a quiz with no reviews', () => {
-    expect([reviewBy([Other], ident_id), reviewBy([], ident_id)]).to.deep.eq([null, null])
+    expect([reviewBy([Other], user_id), reviewBy([], user_id)]).to.deep.eq([null, null])
   })
 })
 

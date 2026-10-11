@@ -14,7 +14,7 @@ import { Question } from '../../../src/models/question'
 import { BlankQuestionQty, Quiz } from '../../../src/models/quiz'
 import { classicLayout } from '../../support/layouts'
 import { present } from '../../support/present'
-import { huntHolding, identified, openTester, wholeHunt, type Tester } from '../../support/convex'
+import { huntHolding, googleUser, openTester, wholeHunt, type Tester } from '../../support/convex'
 import { seedHuntRows } from '../../support/seed'
 import { expectSound } from '../../support/soundness'
 
@@ -142,24 +142,24 @@ describe("the update helpers", () => {
 
   it("updateReview writes the fields that change, and leaves the rest", async () => {
     const { tt, hunt_id, quiz_id } = await holding(titled('aa'))
-    const { ident_id } = await identified(tt, 'alice_reviews')
+    const { user_id } = await googleUser(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
-      const review_id = await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
+      const review_id = await ctx.db.insert('reviews', { hunt_id, quiz_id, user_id, overall: '', phase: 'empty' })
       await updateReview(ctx.db, present(await ctx.db.get('reviews', review_id)), { overall: 'Went well.', phase: 'draft' })
     })
     const [after] = await tt.run(async (ctx) => await reviewsOf(ctx.db, quiz_id))
-    expect([after?.overall, after?.phase, after?.ident_id]).to.deep.eq(['Went well.', 'draft', ident_id])
+    expect([after?.overall, after?.phase, after?.user_id]).to.deep.eq(['Went well.', 'draft', user_id])
   })
 
   it("revise a widgeting, a column and a reviewing, keeping each row's copies of its parents' fields", async () => {
     const { tt, hunt_id, quiz_id, rows } = await holding(huntHolding([{ ...Quiz.blank('Princes'), ...classicLayout(), questions: [Question.blank()] }]))
-    const { ident_id } = await identified(tt, 'alice_reviews')
+    const { user_id } = await googleUser(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
       const held = present(await quizRowsOf(ctx.db, quiz_id))
       const [widgeting, column, question] = [present(held.widgetings[0]), present(held.columns[0]), present(held.questions[0])]
-      const review_id = await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'draft' })
+      const review_id = await ctx.db.insert('reviews', { hunt_id, quiz_id, user_id, overall: '', phase: 'draft' })
       const reviewing_id = await ctx.db.insert('reviewings', {
-        hunt_id, quiz_id, ident_id, review_id, question_id: question._id, get_rate: null, guesses: '', comments: '', minutes: null, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false,
+        hunt_id, quiz_id, user_id, review_id, question_id: question._id, get_rate: null, guesses: '', comments: '', minutes: null, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false,
       })
       await updateWidgeting(ctx.db, widgeting, { description: 'Revised.' })
       await updateColumn(ctx.db, column, { width_px: 120 })
@@ -169,7 +169,7 @@ describe("the update helpers", () => {
     const [reviewing] = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
     expect([held.widgetings[0]?.description, held.columns[0]?.width_px, reviewing?.get_rate]).to.deep.eq(['Revised.', 120, 40])
     expect([held.widgetings[0]?.hunt_id, held.columns[0]?.hunt_id]).to.deep.eq([hunt_id, hunt_id])
-    expect([reviewing?.hunt_id, reviewing?.quiz_id, reviewing?.ident_id]).to.deep.eq([hunt_id, quiz_id, ident_id])
+    expect([reviewing?.hunt_id, reviewing?.quiz_id, reviewing?.user_id]).to.deep.eq([hunt_id, quiz_id, user_id])
     await expectSound(tt)
   })
 })
@@ -218,11 +218,11 @@ describe("deleteQuiz", () => {
   it("deletes the quiz and every row that hangs from it", async () => {
     const quiz = { ...Quiz.blank('', 'princes'), ...classicLayout(), questions: [{ ...Question.blank(), clueing: 'Who?' }] }
     const { tt, hunt_id, quiz_id } = await holding(huntHolding([quiz, Quiz.blank('', 'kings')]))
-    const { ident_id } = await identified(tt, 'alice_reviews')
+    const { user_id } = await googleUser(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
       const { questions, widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
       await ctx.db.insert('widgeteds', { hunt_id, quiz_id, question_id: present(questions[0])._id, widgeting_id: present(widgetings[0])._id, status: 'ok', value: { guess: 'Leon', explanation: '' }, message: null, result_meta: {} })
-      await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
+      await ctx.db.insert('reviews', { hunt_id, quiz_id, user_id, overall: '', phase: 'empty' })
     })
     expect(await heldCounts(tt, quiz_id)).to.deep.eq([1, 1, 12, 21, 1, 1])
     const library = await libraryIn(tt)

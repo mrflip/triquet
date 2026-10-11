@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { HuntListingT } from '../lib/rows'
 import type * as Routes from '../lib/routes'
-import type { IdentT } from '../models/ident'
+import type { UserT } from '../models/user'
 import type { QuizT } from '../models/quiz'
 
 /** The hunt a page is about, as the header names it: its title, and its org and label to link to */
@@ -30,9 +30,9 @@ export type QuizActsT = {
   onSetLock: (locked: boolean) => void
 }
 
-/** Who is looking, as the header's user menu shows them: their ident, null until they have said one; and how to retitle it */
+/** Who is looking, as the header's user menu shows them: their user, null until it holds a userlabel; and how to retitle it */
 export type ShownUserT = {
-  ident:     IdentT | null
+  user:      UserT | null
   onRetitle: (title: string) => void
 }
 
@@ -129,9 +129,9 @@ export function useShowQuizActs(acts: QuizActsT | null): void {
  * Say who is looking, for the header's user menu, for as long as the caller is on screen. Hand
  * over an object held still until who it is changes.
  *
- * @param user - The visitor's ident and how to retitle it; null to say nothing.
+ * @param user - The visitor's user and how to retitle it; null to say nothing.
  *
- * @example useShowUser(useMemo(() => ({ ident, onRetitle }), [ident, onRetitle]))
+ * @example useShowUser(useMemo(() => ({ user, onRetitle }), [user, onRetitle]))
  */
 export function useShowUser(user: ShownUserT | null): void {
   useShowPart('user', user)

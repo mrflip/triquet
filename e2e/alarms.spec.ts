@@ -1,4 +1,4 @@
-import { AppNotices, RefusalNotices, identUnknownNotice } from '../src/lib/notices'
+import { AppNotices, RefusalNotices, userUnknownNotice } from '../src/lib/notices'
 import { expect, grid, openPanel, test } from './support'
 
 // Short enough that the page scrolls, whatever the grid and panels come to.
@@ -35,7 +35,7 @@ test('a refusal shown beside the field it was about raises no alarm', async ({ p
   const members = await openPanel(page, 'Members')
   await members.getByLabel('Ident label').fill('nobody_answers_to_this')
   await members.getByRole('button', { name: 'Add' }).click()
-  await expect(members.getByText(identUnknownNotice('nobody_answers_to_this'))).toBeVisible()
+  await expect(members.getByText(userUnknownNotice('nobody_answers_to_this'))).toBeVisible()
   // No window is needed: the field's notice and an alarm, were there one, are set in the same
   // moment the refusal arrives, so once the notice shows an alarm would already be up.
   await expect(page.getByRole('alert').filter({ hasText: AppNotices.changeNotKept })).toHaveCount(0)

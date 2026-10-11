@@ -4,7 +4,7 @@ import { getFunctionName } from 'convex/server'
 import { api, internal } from '../../convex/_generated/api'
 import { Backfills } from '../../convex/migrations'
 import { Hunt } from '../../src/models/hunt'
-import { identified, openTester, seedHunt, signedIn } from '../support/convex'
+import { googleUser, openTester, seedHunt, anonymousSession } from '../support/convex'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -16,7 +16,7 @@ describe("stats.backfills", () => {
   it("answers null to anyone who is no admin: no session, or a session with no userlabel", async () => {
     const tt = openTester()
     migrationsTest.register(tt)
-    const session = await signedIn(tt)
+    const session = await anonymousSession(tt)
     expect([await tt.query(api.stats.backfills, {}), await session.as.query(api.stats.backfills, {})]).to.deep.eq([null, null])
   })
 
@@ -24,8 +24,8 @@ describe("stats.backfills", () => {
     vi.stubEnv('EXPOSE_INTERNAL_STATS_TO_ALL', 'true')
     const tt = openTester()
     migrationsTest.register(tt)
-    const session = await signedIn(tt)
-    const { as } = await identified(tt, 'pat_smiths')
+    const session = await anonymousSession(tt)
+    const { as } = await googleUser(tt, 'pat_smiths')
     const listed = await as.query(api.stats.backfills, {})
     expect(listed).to.be.an('array').with.length.greaterThan(0)
     expect(await tt.query(api.stats.backfills, {})).to.deep.eq(listed)
@@ -37,8 +37,8 @@ describe("stats.backfills", () => {
       vi.stubEnv('EXPOSE_INTERNAL_STATS_TO_ALL', exposeval)
       const tt = openTester()
       migrationsTest.register(tt)
-      const session = await signedIn(tt)
-      const { as } = await identified(tt, 'pat_smiths')
+      const session = await anonymousSession(tt)
+      const { as } = await googleUser(tt, 'pat_smiths')
       expect([await tt.query(api.stats.backfills, {}), await session.as.query(api.stats.backfills, {})]).to.deep.eq([null, null])
       expect(await as.query(api.stats.backfills, {})).to.be.an('array')
     })
@@ -47,7 +47,7 @@ describe("stats.backfills", () => {
   it("lists each backfill still defined as never run, to an admin, on a deployment that has run none", async () => {
     const tt = openTester()
     migrationsTest.register(tt)
-    const { as } = await identified(tt, 'pat_smiths')
+    const { as } = await googleUser(tt, 'pat_smiths')
     const backfills = await as.query(api.stats.backfills, {}) ?? []
     expect(backfills.map(({ fnname }) => fnname)).to.have.members(Backfills.map((ref) => getFunctionName(ref)))
     expect(backfills.find(({ fnname }) => fnname === 'migrations:backfillHuntStamps')).to.deep.eq(
@@ -61,7 +61,7 @@ describe("stats.backfills", () => {
     await seedHunt(tt, Hunt.blank('spring_hunt'), { smith: 'pat_smiths' })
     await tt.mutation(internal.migrations.runAll, {})
     await tt.finishAllScheduledFunctions(vi.runAllTimers)
-    const { as } = await identified(tt, 'pat_smiths')
+    const { as } = await googleUser(tt, 'pat_smiths')
     const backfills = await as.query(api.stats.backfills, {}) ?? []
     const stamps = backfills.find(({ fnname }) => fnname === 'migrations:backfillHuntStamps')
     expect(stamps).to.include({ fnname: 'migrations:backfillHuntStamps', defined: true, state: 'success', is_done: true, processed: 1 })

@@ -4,11 +4,11 @@ import { useMemo } from 'react'
 import type { Id } from '../../convex/_generated/dataModel'
 import type { ShallowHuntT } from '../lib/rows'
 import type { HuntAffirmsDNA, QuizAffirmsDNA } from '../models/actions'
-import { useIdent } from './use-ident'
+import { useMe } from './use-me'
 
 /** What this browser affirms of itself on a hunt, and on a quiz of it; each null until known */
 export type AffirmsHandle = {
-  /** Who it is (`useIdent`), which hunt, and its standing there; null until both who it is and the hunt are known */
+  /** Who it is (`useMe`), which hunt, and its standing there; null until both who it is and the hunt are known */
   huntAffirms: HuntAffirmsDNA | null
   /** As `huntAffirms`, and the quiz it is reading; null until that is known too */
   quizAffirms: QuizAffirmsDNA | null
@@ -24,20 +24,20 @@ export type AffirmsHandle = {
  * @param quiz_id - The quiz of it being read; null for none.
  * @returns The affirms, each null until what it says is known.
  *
- * @example const { huntAffirms } = useAffirms(hunt, null)  // => { huntAffirms: { ident_id, hunt_id: hunt._id, standing: hunt.role }, quizAffirms: null }
+ * @example const { huntAffirms } = useAffirms(hunt, null)  // => { huntAffirms: { user_id, hunt_id: hunt._id, standing: hunt.role }, quizAffirms: null }
  */
 export function useAffirms(hunt: Pick<ShallowHuntT, '_id' | 'role'> | null, quiz_id: Id<'quizzes'> | null): AffirmsHandle {
-  const { ident } = useIdent()
-  const ident_id = ident?._id ?? null
+  const { user } = useMe()
+  const user_id = user?._id ?? null
   const hunt_id = hunt?._id ?? null
   const standing = hunt?.role ?? null
   const huntAffirms = useMemo(() => {
-    if (ident_id === null || hunt_id === null || standing === null) { return null }
-    return { ident_id, hunt_id, standing }
-  }, [ident_id, hunt_id, standing])
+    if (user_id === null || hunt_id === null || standing === null) { return null }
+    return { user_id, hunt_id, standing }
+  }, [user_id, hunt_id, standing])
   const quizAffirms = useMemo(() => {
-    if (ident_id === null || hunt_id === null || standing === null || quiz_id === null) { return null }
-    return { ident_id, hunt_id, standing, quiz_id }
-  }, [ident_id, hunt_id, standing, quiz_id])
+    if (user_id === null || hunt_id === null || standing === null || quiz_id === null) { return null }
+    return { user_id, hunt_id, standing, quiz_id }
+  }, [user_id, hunt_id, standing, quiz_id])
   return { huntAffirms, quizAffirms }
 }

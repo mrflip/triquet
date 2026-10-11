@@ -44,7 +44,7 @@ test.describe('the front door', () => {
 
   test('asks a visitor who has not said who they are', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
+    await expect(page.getByRole('heading', { name: AppNotices.userlabelGateTitle })).toBeVisible()
   })
 
   test('sends a visitor who has said on to their hunts', async ({ page }) => {
@@ -102,7 +102,7 @@ test.describe('the front door', () => {
   test('makes an ident titled with the name typed, labelled with the userlabel', async ({ page }) => {
     const label = freshIdentLabel()
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
+    await expect(page.getByRole('heading', { name: AppNotices.userlabelGateTitle })).toBeVisible()
     await page.getByRole('textbox', { name: 'Your name' }).fill('Flip (the) Kromer!')
     await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
     await page.getByRole('button', { name: `Log in as ${label}` }).click()
@@ -144,7 +144,7 @@ test.describe('the front door', () => {
 
     menu = await openUserMenu(page)
     await menu.getByRole('menuitem', { name: 'Be someone else' }).click()
-    await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
+    await expect(page.getByRole('heading', { name: AppNotices.userlabelGateTitle })).toBeVisible()
   })
 
   test('lets a visitor about to become someone else keep being who they are', async ({ page }) => {
@@ -160,7 +160,7 @@ test.describe('the front door', () => {
     const label = await assumeIdent(page)
     await page.getByRole('link', { name: 'Be someone else' }).click()
     // The hunts page has a "Your name" field too: wait for the gate's.
-    await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
+    await expect(page.getByRole('heading', { name: AppNotices.userlabelGateTitle })).toBeVisible()
     await page.getByRole('textbox', { name: 'Your name' }).fill(label.replaceAll('_', ' ').toUpperCase())
     const keep = page.getByRole('button', { name: `Keep being ${Labelmaker.titleize(label)} (@${label})` })
     await expect(keep).toHaveCount(1)
@@ -180,7 +180,7 @@ test.describe('the front door', () => {
     await elsewhere.goto('/')
     await elsewhere.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
     await elsewhere.getByRole('button', { name: `Log in as ${label}` }).click()
-    const gate = elsewhere.getByRole('region', { name: AppNotices.identGateTitle })
+    const gate = elsewhere.getByRole('region', { name: AppNotices.userlabelGateTitle })
     await expect(gate.getByRole('alert')).toHaveText(RefusalNotices.userlabelClaimed)
     await expect(elsewhere).toHaveURL((url) => url.pathname === '/')
 
@@ -564,7 +564,7 @@ test.describe('a link handed to a friend', () => {
     const friend = await otherVisitor(browser)
     const label = freshIdentLabel()
     await friend.goto(link)
-    await expect(friend.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
+    await expect(friend.getByRole('heading', { name: AppNotices.userlabelGateTitle })).toBeVisible()
     await friend.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
     await friend.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(friend).toHaveURL(link)
@@ -662,12 +662,12 @@ test.describe('a link handed to a friend', () => {
     const members = await openPanel(page, 'Members')
     const box = members.getByLabel('Ident label')
     await box.fill('Flip Kromer')
-    await expect(members.getByText(AppNotices.identLabelShape)).toBeVisible()
+    await expect(members.getByText(AppNotices.memberLabelShape)).toBeVisible()
     await expect(box).toHaveAttribute('aria-invalid', 'true')
     await box.fill('flip')
-    await expect(members.getByText(AppNotices.identLabelUnfinished)).toBeHidden()
+    await expect(members.getByText(AppNotices.memberLabelUnfinished)).toBeHidden()
     await members.getByRole('button', { name: 'Add' }).click()
-    await expect(members.getByText(AppNotices.identLabelUnfinished)).toBeVisible()
+    await expect(members.getByText(AppNotices.memberLabelUnfinished)).toBeVisible()
     await expect(box).toHaveAttribute('aria-invalid', 'true')
   })
 
@@ -681,9 +681,9 @@ test.describe('a link handed to a friend', () => {
 
     await members.getByLabel('Ident label').fill(label)
     await members.getByRole('button', { name: 'Add' }).click()
-    await expect(members.getByText(RefusalNotices.ownHunting)).toBeVisible()
+    await expect(members.getByText(RefusalNotices.ownHuntship)).toBeVisible()
     // Said beside the field without asking the server, in the same moment an alarm would be raised, were one.
-    await expect(page.getByRole('alert').filter({ hasText: RefusalNotices.ownHunting })).toHaveCount(0)
+    await expect(page.getByRole('alert').filter({ hasText: RefusalNotices.ownHuntship })).toHaveCount(0)
   })
 
   test('lets a smith take a member off, who is then told they are not on the hunt', async ({ page, friend, friendLabel: label }) => {

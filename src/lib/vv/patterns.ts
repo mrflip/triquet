@@ -69,7 +69,7 @@ export const Loalnumbar   = { re: /^[a-z0-9_]*$/,            msg: 'should have o
 export const Plain        = { re: /^[A-Za-z0-9 ]*$/, msg: 'should have only plain letters, numbers, and the occasional space' } as const satisfies Patternbag
 
 export const Label      = { re: /^[a-z](_?[a-z0-9])+$/, min: 2, max: 40, msg: 'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
-/** A userlabel -- an ident's label: label-shaped, and long enough to be a name someone chose rather than an initial */
+/** A userlabel -- a user's handle: label-shaped, and long enough to be a name someone chose rather than an initial */
 export const Userlabel  = { re: /^[a-z](_?[a-z0-9])+$/, min: 6, max: 24, msg: 'should be 6 to 24 plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
 /** A userlabel as far as it has been typed: empty, or what typing on could still make a `Userlabel` -- every character one it keeps, with at most a trailing underscore or too few characters between it and done */
 export const Userbegun  = { re: /^(?:[a-z](?:_?[a-z0-9])*_?)?$/, max: Userlabel.max, msg: 'should be plain lowercase letters/_/numbers, with a letter first and no __ in a row' } as const satisfies Patternbag
@@ -257,8 +257,11 @@ export const UnreservedToplevel = {
 /** A web address: `http://` or `https://`, then no space, up to what a browser's address bar holds comfortably */
 export const Weburl     = { re: /^https?:\/\/[^\p{White_Space}/?#]\P{White_Space}*$/iu, max: 2000, msg: 'should be a web address, beginning http:// or https://' } as const satisfies Patternbag
 
-/** A Convex document id: lowercase letters and digits, about 32 of them */
-export const Convexid   = { re: /^[0-9a-z]{31,37}$/, min: 31, max: 37, msg: 'should be a document id, 31 to 37 lowercase letters/numbers' } as const satisfies Patternbag
+/**
+ * A Convex document id: lowercase letters and digits, about 32 of them; or convex-test's, twenty
+ * digits and then its table's name, which may hold a capital (`authAccounts`).
+ */
+export const Convexid   = { re: /^(?:[0-9a-z]{31,37}|\d{20}[a-z]\w{10,16})$/, min: 31, max: 37, msg: 'should be a document id, 31 to 37 lowercase letters/numbers' } as const satisfies Patternbag
 
 //
 // == [String lengths] ==
@@ -345,7 +348,7 @@ export const WidgetsInLibrary   = { min: 0, max: 999 } as const
 export const WidgetingsCounted  = { min: 0, max: 999 } as const
 /** Columns in one quiz */
 export const ColumnsPerQuiz     = { min: 0, max: 99 } as const
-/** Reviews of one quiz, one per ident that opened one */
+/** Reviews of one quiz, one per user that opened one */
 export const ReviewsPerQuiz     = { min: 0, max: 999 } as const
 /** Questions one review picks as its top 3, and likewise as its meh 3 */
 export const PicksPerReview     = { min: 0, max: 3 } as const
@@ -353,8 +356,8 @@ export const PicksPerReview     = { min: 0, max: 3 } as const
 export const QuizzesPerRealm    = { min: 1, max: 999 } as const
 /** Realms in one hunt; every hunt has at least its home realm */
 export const RealmsPerHunt      = { min: 1, max: 99 } as const
-/** Idents on one hunt, one hunting each */
-export const HuntingsPerHunt    = { min: 0, max: 999 } as const
+/** Users on one hunt, one huntship each */
+export const HuntshipsPerHunt   = { min: 0, max: 999 } as const
 /** Hunts in the whole app: roomy enough for a whole e2e run's, each spec making its own */
 export const HuntsInApp         = { min: 0, max: 999 } as const
 /** Hunts one org may make, a tenth of the app's: roomy for a person, but no one userlabel fills the app */

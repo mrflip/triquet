@@ -1,17 +1,17 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useRetitleIdent } from './IdentTitle'
+import { useRetitleUser } from './UserTitle'
 import { useShowUser } from '../state/shown'
-import { useIdent } from '../state/use-ident'
+import { useMe } from '../state/use-me'
 
 /**
  * Tells the header's user menu who is looking, for every page that connects to the database:
- * their ident, once the server has said, and how to retitle it. Draws nothing.
+ * their user, once the server has said, and how to retitle it. Draws nothing.
  */
 export function ShowUser() {
-  const { ident, loaded } = useIdent()
-  const onRetitle = useRetitleIdent()
-  useShowUser(useMemo(() => (loaded ? { ident, onRetitle } : null), [loaded, ident, onRetitle]))
+  const { user, loaded } = useMe()
+  const onRetitle = useRetitleUser()
+  useShowUser(useMemo(() => (loaded ? { user, onRetitle } : null), [loaded, user, onRetitle]))
   return null
 }

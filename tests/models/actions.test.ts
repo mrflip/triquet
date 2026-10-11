@@ -176,23 +176,23 @@ describe('ActionValidators.outerHuntAction', () => {
 })
 
 describe('ActionValidators.userAction', () => {
-  it('takes becoming an ident, and retitling it', () => {
-    const actions: UserActionT[] = [{ kind: 'assume_ident', label: 'flip_kromer', title: '' }, { kind: 'retitle_ident', title: 'Flip' }]
+  it('takes taking a userlabel, and retitling the user', () => {
+    const actions: UserActionT[] = [{ kind: 'assume_userlabel', userlabel: 'flip_kromer', title: '' }, { kind: 'retitle_user', title: 'Flip' }]
     expect(actions.map((action) => ActionValidators.userAction(action))).to.deep.eq(actions)
   })
 
-  it('refuses an ident label too short to be one', () => {
-    expect(() => ActionValidators.userAction({ kind: 'assume_ident', label: 'flip', title: '' })).to.throw(Z.ZodError)
+  it('refuses a userlabel too short to be one', () => {
+    expect(() => ActionValidators.userAction({ kind: 'assume_userlabel', userlabel: 'flip', title: '' })).to.throw(Z.ZodError)
   })
 
-  it('refuses retitling an ident to nothing', () => {
-    expect(() => ActionValidators.userAction({ kind: 'retitle_ident', title: '' })).to.throw(Z.ZodError)
+  it('refuses retitling a user to nothing', () => {
+    expect(() => ActionValidators.userAction({ kind: 'retitle_user', title: '' })).to.throw(Z.ZodError)
   })
 
-  it("takes a blank title on assuming an ident, which then goes by its label, but not one that is not a title", () => {
-    expect(ActionValidators.userAction({ kind: 'assume_ident', label: 'flip_kromer', title: '' })).to.deep.eq({ kind: 'assume_ident', label: 'flip_kromer', title: '' })
-    expect(() => ActionValidators.userAction({ kind: 'assume_ident', label: 'flip_kromer', title: 'Flip\u{0}Kromer' })).to.throw(Z.ZodError)
-    expect(() => ActionValidators.userAction({ kind: 'assume_ident', label: 'flip_kromer', title: 'F'.repeat(83) })).to.throw(Z.ZodError)
+  it("takes a blank title on taking a userlabel, which the user is then titled after, but not one that is not a title", () => {
+    expect(ActionValidators.userAction({ kind: 'assume_userlabel', userlabel: 'flip_kromer', title: '' })).to.deep.eq({ kind: 'assume_userlabel', userlabel: 'flip_kromer', title: '' })
+    expect(() => ActionValidators.userAction({ kind: 'assume_userlabel', userlabel: 'flip_kromer', title: 'Flip\u{0}Kromer' })).to.throw(Z.ZodError)
+    expect(() => ActionValidators.userAction({ kind: 'assume_userlabel', userlabel: 'flip_kromer', title: 'F'.repeat(83) })).to.throw(Z.ZodError)
   })
 })
 

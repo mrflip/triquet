@@ -11,14 +11,14 @@ import { Widgeting } from '../../src/models/widgeting'
 import { WidgetValidators } from '../../src/models/widget'
 import { WidgetedValidators } from '../../src/models/widgeted'
 import { present } from '../support/present'
-import { affirmsOf, huntHolding, identified, openTester, putOn, seedHunt, type AffirmsBag, type Identified, type Tester } from '../support/convex'
+import { affirmsOf, huntHolding, googleUser, openTester, putOn, seedHunt, type AffirmsBag, type Labelled, type Tester } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
 
 /**
  * What a test reads a quiz through: a deployment, and the sessions of a reviewer and a smith on the
  * quiz's hunt, with what each affirms of themselves there
  */
-type Reading = { tt: Tester, alice: Identified, affirms: AffirmsBag, sam: Identified, smiths: AffirmsBag }
+type Reading = { tt: Tester, alice: Labelled, affirms: AffirmsBag, sam: Labelled, smiths: AffirmsBag }
 
 /** A fresh deployment holding `hunt` with a reviewer and a smith on it; its first quiz's id, and its questions' ids in order */
 async function holding(hunt: HuntT): Promise<Reading & { quiz_id: Id<'quizzes'>, question_ids: Id<'questions'>[] }> {
@@ -28,10 +28,10 @@ async function holding(hunt: HuntT): Promise<Reading & { quiz_id: Id<'quizzes'>,
   const realm = present(home)
   const quiz_id = present(realm.quizzes[0])._id
   const question_ids = await tt.run(async (ctx) => present(await quizRowsOf(ctx.db, quiz_id)).questions.map((row) => row._id))
-  const alice = await identified(tt, 'alice_reviews')
-  await putOn(tt, hunt_id, alice.ident_id, 'reviewer')
-  const sam = await identified(tt, 'sam_smiths')
-  await putOn(tt, hunt_id, sam.ident_id, 'smith')
+  const alice = await googleUser(tt, 'alice_reviews')
+  await putOn(tt, hunt_id, alice.user_id, 'reviewer')
+  const sam = await googleUser(tt, 'sam_smiths')
+  await putOn(tt, hunt_id, sam.user_id, 'smith')
   const place = { hunt_id, realm_id: realm.realm._id, quiz_id }
   const [affirms, smiths] = [await affirmsOf(tt, alice, place), await affirmsOf(tt, sam, place)]
   return { tt, alice, affirms, sam, smiths, quiz_id, question_ids }
@@ -157,14 +157,14 @@ describe("quizzes.open", () => {
 
   it("reads null, as for one not there, for someone not on its hunt, or with no session", async () => {
     const { tt, affirms } = await holding(Hunt.blank())
-    const stranger = await identified(tt, 'carol_strays')
-    expect(await stranger.as.query(api.quizzes.open, { affirms: { ...affirms.quiz, ident_id: stranger.ident_id, standing: 'stranger' } })).to.be.null
+    const stranger = await googleUser(tt, 'carol_strays')
+    expect(await stranger.as.query(api.quizzes.open, { affirms: { ...affirms.quiz, user_id: stranger.user_id, standing: 'stranger' } })).to.be.null
     expect(await tt.query(api.quizzes.open, { affirms: affirms.quiz })).to.be.null
   })
 
   it("reads null for affirms that are not so: a standing not held, another's ident, or a quiz of another hunt", async () => {
     const { tt, alice, affirms } = await holding(Hunt.blank())
-    const stranger = await identified(tt, 'carol_strays')
+    const stranger = await googleUser(tt, 'carol_strays')
     const other = await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'carol_strays' })
     expect(await alice.as.query(api.quizzes.open, { affirms: { ...affirms.quiz, standing: 'smith' } })).to.be.null
     expect(await stranger.as.query(api.quizzes.open, { affirms: affirms.quiz })).to.be.null
@@ -202,9 +202,9 @@ describe("quizzes.whole", () => {
 
   it("reads null for a quiz that is not there, for someone not on its hunt, with no session, or for affirms that are not so", async () => {
     const { tt, sam, smiths, quiz_id } = await holding(threeQuestions())
-    const stranger = await identified(tt, 'carol_strays')
+    const stranger = await googleUser(tt, 'carol_strays')
     const other = await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'carol_strays' })
-    expect(await stranger.as.query(api.quizzes.whole, { affirms: { ...smiths.quiz, ident_id: stranger.ident_id, standing: 'stranger' } })).to.be.null
+    expect(await stranger.as.query(api.quizzes.whole, { affirms: { ...smiths.quiz, user_id: stranger.user_id, standing: 'stranger' } })).to.be.null
     expect(await tt.query(api.quizzes.whole, { affirms: smiths.quiz })).to.be.null
     expect(await sam.as.query(api.quizzes.whole, { affirms: { ...smiths.quiz, standing: 'reviewer' } })).to.be.null
     expect(await sam.as.query(api.quizzes.whole, { affirms: { ...smiths.quiz, quiz_id: other.open.quiz_id } })).to.be.null

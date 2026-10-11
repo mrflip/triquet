@@ -28,8 +28,9 @@ beforeEach(() => { vi.useFakeTimers({ now: Early, toFake: ['Date'] }) })
 afterEach(() => { vi.useRealTimers() })
 
 describe("StampedTables", () => {
-  it("is every table of ours the app writes, but the identings, appended and never edited", () => {
-    expect(StampedTables).to.not.include('identings')
+  it("is every table of ours the app writes, users among them, but the ghostings, appended and never edited", () => {
+    expect(StampedTables).to.not.include('ghostings')
+    expect(StampedTables).to.include('users')
     expect(StampedTables).to.include.members(['hunts', 'quizzes', 'questions', 'widgetings', 'columns', 'widgeteds', 'reviews', 'reviewings'])
   })
 })

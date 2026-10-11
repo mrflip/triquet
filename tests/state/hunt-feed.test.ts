@@ -17,7 +17,7 @@ import { SignalGrainMs } from '../../src/models/signal'
 import { HuntPartkey, IdleWaitMs, WidgetsPartkey, huntPartOf, quizPartOf, settleFeeds, watchHunt, widgetsPartOf, type HuntFeedT, type HuntReadingT, type WatcherT } from '../../src/state/hunt-feed'
 import { Pace } from '../../src/state/hunt-fetching'
 import { testClock, type TestClockT } from '../support/clocks'
-import { affirmsOf, callerOf, huntHolding, openTester, seedHunt, wholeHunt, type Identified, type PlaceT, type Seeded } from '../support/convex'
+import { affirmsOf, callerOf, huntHolding, openTester, seedHunt, wholeHunt, type Labelled, type PlaceT, type Seeded } from '../support/convex'
 import { classicLayout } from '../support/layouts'
 import { present } from '../support/present'
 import { snapshot } from '../support/snapshots'
@@ -108,7 +108,7 @@ function quizOf(title: string, label: string, labels: readonly string[]): QuizT 
 }
 
 /** A seeded hunt and who is on it: its smith pat, a second smith sam, lee with a shared review of princes, kim with a draft one */
-type PeopledT = Seeded & { sam: Identified, lee: Identified, kim: Identified, orglabel: string, hunt_label: string, places: Record<string, PlaceT> }
+type PeopledT = Seeded & { sam: Labelled, lee: Labelled, kim: Labelled, orglabel: string, hunt_label: string, places: Record<string, PlaceT> }
 
 /**
  * A hunt of three quizzes (princes, paris, kings), princes open, with two smiths and two
@@ -133,13 +133,13 @@ async function peopled(): Promise<PeopledT> {
 }
 
 /** Carry out `action` as `by` from the quiz at `place`, as their browser would affirm it, at the time the clock says */
-async function performIn(held: PeopledT, by: Identified, place: PlaceT, action: HuntActionDNA): Promise<void> {
+async function performIn(held: PeopledT, by: Labelled, place: PlaceT, action: HuntActionDNA): Promise<void> {
   const { action: affirms } = await affirmsOf(held.tt, by, place)
   await callerOf(by).mutation(api.hunts.perform, { affirms, action })
 }
 
 /** Carry out `action` as `by` from the quiz at `place`, a grain after whatever came before, so that it moves the quiz's signal */
-async function actIn(held: PeopledT, by: Identified, place: PlaceT, action: HuntActionDNA): Promise<void> {
+async function actIn(held: PeopledT, by: Labelled, place: PlaceT, action: HuntActionDNA): Promise<void> {
   vi.setSystemTime(Date.now() + SignalGrainMs)
   await performIn(held, by, place, action)
 }
@@ -158,8 +158,8 @@ async function filesFromRows(held: PeopledT): Promise<Huntfiles.FilesT> {
     const byQuiz = await Promise.all(quizzes.map(async (quiz) => {
       const reviewed = await reviewsOf(ctx.db, quiz._id as Id<'quizzes'>)
       return [quiz._id, await Promise.all(reviewed.map(async (review) => {
-        const [ident, reviewings] = await Promise.all([ctx.db.get('idents', review.ident_id), reviewingsOf(ctx.db, review._id)])
-        return { reviewer: ident && { label: ident.label, title: ident.title }, phase: review.phase, overall: review.overall, ..._.pick(review, ['_creationTime', 'created_at', 'updated_at']), reviewings }
+        const [reviewer, reviewings] = await Promise.all([ctx.db.get('users', review.user_id), reviewingsOf(ctx.db, review._id)])
+        return { reviewer: reviewer && { label: present(reviewer.userlabel), title: present(reviewer.title) }, phase: review.phase, overall: review.overall, ..._.pick(review, ['_creationTime', 'created_at', 'updated_at']), reviewings }
       }))] as const
     }))
     return [rows, Object.fromEntries(byQuiz)] as const
@@ -377,8 +377,8 @@ describe('watchHunt', () => {
     const held = await peopled()
     const { standIn, readings, clock } = await fed(held)
     await held.tt.run(async (ctx) => {
-      const hunting = present(await ctx.db.query('huntings').withIndex('by_ident_id_and_hunt_id', (cvx) => cvx.eq('ident_id', held.smith.ident_id).eq('hunt_id', held.open.hunt_id)).first())
-      await ctx.db.patch('huntings', hunting._id, { role: 'reviewer' })
+      const huntship = present(await ctx.db.query('huntships').withIndex('by_user_id_and_hunt_id', (cvx) => cvx.eq('user_id', held.smith.user_id).eq('hunt_id', held.open.hunt_id)).first())
+      await ctx.db.patch('huntships', huntship._id, { role: 'reviewer' })
     })
     await actIn(held, held.sam, present(held.places.paris), { kind: 'retitle_quiz', title: 'Paris, again' })
     await waitedOut({ standIn, clock })
@@ -427,7 +427,7 @@ describe('watchHunt, with a failing watch', () => {
       for (const update of updates) { update() }
       await new Promise((resolve) => { setTimeout(resolve, 0) })
     }
-    const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
+    const affirms = { user_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
     const feed = watchHunt({ watchQuery } as unknown as WatcherT, { orglabel: 'pat_smith', hunt_label: 'hunt', affirms, focus: null }, () => null)
     await moment()
     await moment()
@@ -493,7 +493,7 @@ describe('watchHunt, waited on', () => {
     const hunt = { ...shallow, realms: [{ ...present(shallow.realms[0]), quizzes: [{ _id: princes._id, label: princes.label }] }] }
     const { watcher, answer } = scripted()
     const readings: HuntReadingT[] = []
-    const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
+    const affirms = { user_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
     const feed = watchHunt(watcher, { orglabel: hunt.org, hunt_label: hunt.label, affirms, focus: null }, (reading) => { readings.push(reading) })
     const heard = { read: false }
     void feed.whenRead().then(() => { heard.read = true })
@@ -516,7 +516,7 @@ describe('watchHunt, waited on', () => {
     const { feed } = await fed(held)
     await feed.whenRead()
     const { watcher } = scripted()
-    const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
+    const affirms = { user_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
     const unheard = watchHunt(watcher, { orglabel: 'pat_smith', hunt_label: 'nowhere', affirms, focus: null }, () => null)
     const waiting = unheard.whenRead()
     unheard.stop()
@@ -786,9 +786,9 @@ async function largeHunt(): Promise<PeopledT> {
         }
       }
       for (const reviewer of reviewers) {
-        const review_id = await ctx.db.insert('reviews', { hunt_id: quiz.hunt_id, quiz_id: quiz._id, ident_id: reviewer.ident_id, overall: 'A fair quiz, a little long in the middle.', phase: 'shared' })
+        const review_id = await ctx.db.insert('reviews', { hunt_id: quiz.hunt_id, quiz_id: quiz._id, user_id: reviewer.user_id, overall: 'A fair quiz, a little long in the middle.', phase: 'shared' })
         for (const question_id of quiz.row_ordering) {
-          await ctx.db.insert('reviewings', { hunt_id: quiz.hunt_id, quiz_id: quiz._id, ident_id: reviewer.ident_id, review_id, question_id, get_rate: 40, guesses: 'Sheep?', comments: 'Lovely, but the French is hard going.', minutes: 2, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false })
+          await ctx.db.insert('reviewings', { hunt_id: quiz.hunt_id, quiz_id: quiz._id, user_id: reviewer.user_id, review_id, question_id, get_rate: 40, guesses: 'Sheep?', comments: 'Lovely, but the French is hard going.', minutes: 2, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false })
         }
       }
     }

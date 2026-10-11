@@ -20,7 +20,7 @@ export default defineConfig({
           environment: 'edge-runtime',
           include:     ['tests/convex/**/*.test.ts'],
           // Every userlabel an admin, as on a local backend (`scripts/convex_dev`); a test of fewer stubs it
-          env:         { TRIQUET_ADMINS: '*' },
+          env:         { TRIQUET_EVERYONE_ADMIN: 'yes' },
           server:      { deps: { inline: ['convex-test'] } },
         },
       },

@@ -7,6 +7,7 @@ import { RefusalNotices } from '../../src/lib/notices'
 import { CategoryLabelVals } from '../../src/models/category'
 import { ActionValidators, QuizRevisionKindVals, type HuntActionDNA, type HuntActionT, type LibraryActionDNA, type LibraryActionT, type OuterHuntActionDNA, type OuterHuntActionT, type UserActionDNA, type UserActionT } from '../../src/models/actions'
 import type { ReviewPhase, ReviewPolicyT } from '../../src/models/review'
+import { userActor } from '../support/actors'
 
 /** Whatever `attempt` throws, or null when it does not */
 function failureOf(attempt: () => unknown): unknown {
@@ -18,45 +19,48 @@ function failureOf(attempt: () => unknown): unknown {
   }
 }
 
-const user_id       = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
 const hunt_id       = 'k17ah9c4r1hm0z5y1ad0bbn7wn7fn9x1' as Id<'hunts'>
 const other_hunt_id = 'k17ah9c4r1hm0z5y1ad0bbn7wn7fn9x2' as Id<'hunts'>
 const quiz_id       = 'jd7bb0e6p0dn0x7h7b8eyhcsx17fnf6t' as Id<'quizzes'>
 const question_id   = 'jh71ffnfm8vbc2rdm5m90sv8kd7fnhj4' as Id<'questions'>
-const alice_id      = 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>
-const bob_id        = 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'idents'>
+const alice_id      = 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'users'>
+const bob_id        = 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'users'>
 
-const Alice = Actor.asIdent(user_id, { _id: alice_id, label: 'alice_smiths' }, true)
+const Alice = userActor(alice_id, 'alice_smiths', { admin: true })
 
-/** The four standings a request can come with */
-const StandingVals = ['smith', 'reviewer', 'stranger', 'anonymous'] as const
+/** Alice, were she anonymous: sealed in her sandbox, an admin here as everyone is on a local backend */
+const AnonAlice = userActor(alice_id, 'alice_smiths', { admin: true, anonymous: true })
+
+/** The four standings a request can come with; `unlabelled`, a request whose user holds no userlabel, a stranger to every hunt */
+const StandingVals = ['smith', 'reviewer', 'stranger', 'unlabelled'] as const
 type Standing = typeof StandingVals[number]
 
-/** The matrix's columns: each standing with an unlocked quiz on screen, and a smith with a locked one */
-const ColumnVals = [...StandingVals, 'locked_smith'] as const
+/** The matrix's columns: each standing with an unlocked quiz on screen, a smith with a locked one, and an anonymous smith of its sandbox */
+const ColumnVals = [...StandingVals, 'locked_smith', 'sealed_smith'] as const
 type Column = typeof ColumnVals[number]
 
 /** The quiz on screen, unlocked and locked */
 const Unlocked = { locked: false }
 const Locked   = { locked: true }
 
-/** Alice's claims on the hunt in each standing, an unlocked quiz on screen; the anonymous actor is a stranger to every hunt */
+/** Alice's claims on the hunt in each standing, an unlocked quiz on screen; the unlabelled actor is a stranger to every hunt */
 const ClaimsAs: Record<Column, Actor.QuizClaimsT> = {
   smith:        { ...Actor.claimsOn(Alice, hunt_id, { role: 'smith' }), quiz: Unlocked },
   reviewer:     { ...Actor.claimsOn(Alice, hunt_id, { role: 'reviewer' }), quiz: Unlocked },
   stranger:     { ...Actor.claimsOn(Alice, hunt_id, null), quiz: Unlocked },
-  anonymous:    { ...Actor.claimsOn(Actor.anonymous, hunt_id, null), quiz: Unlocked },
+  unlabelled:   { ...Actor.claimsOn(Actor.unlabelled, hunt_id, null), quiz: Unlocked },
   locked_smith: { ...Actor.claimsOn(Alice, hunt_id, { role: 'smith' }), quiz: Locked },
+  sealed_smith: { ...Actor.claimsOn(AnonAlice, hunt_id, { role: 'smith' }), quiz: Unlocked },
 }
 
-/** A review of the quiz, by `ident_id`, in `phase` */
-function reviewBy(ident_id: Id<'idents'>, phase: ReviewPhase, of_hunt_id = hunt_id): ReviewPolicyT {
-  return { hunt_id: of_hunt_id, ident_id, phase }
+/** A review of the quiz, by `user_id`, in `phase` */
+function reviewBy(user_id: Id<'users'>, phase: ReviewPhase, of_hunt_id = hunt_id): ReviewPolicyT {
+  return { hunt_id: of_hunt_id, user_id, phase }
 }
 
 describe('Approve.mayReadHunt', () => {
   const Cases: [Standing, Approve.VerdictT, string][] = [
-    ['anonymous', 'notIdentified', 'nobody who has asserted no userlabel'],
+    ['unlabelled', 'notIdentified', 'nobody without a userlabel'],
     ['smith',     'allow',         'a smith of the hunt'],
     ['reviewer',  'allow',         'a reviewer of the hunt'],
     ['stranger',  'notPermitted',  'nobody else'],
@@ -70,7 +74,7 @@ describe('Approve.mayReadHunt', () => {
 
 describe('Approve.mayExportHunt', () => {
   const Cases: [Standing, Approve.VerdictT, string][] = [
-    ['anonymous', 'notIdentified', 'nobody who has asserted no userlabel'],
+    ['unlabelled', 'notIdentified', 'nobody without a userlabel'],
     ['smith',     'allow',         'a smith of the hunt'],
     ['reviewer',  'notPermitted',  'nobody else: not a reviewer of the hunt'],
     ['stranger',  'notPermitted',  'nobody else: not a stranger to it'],
@@ -84,7 +88,7 @@ describe('Approve.mayExportHunt', () => {
 
 describe('Approve.mayChangeHunt', () => {
   const Cases: [Standing, Approve.VerdictT, string][] = [
-    ['anonymous', 'notIdentified', 'nobody who has asserted no userlabel'],
+    ['unlabelled', 'notIdentified', 'nobody without a userlabel'],
     ['smith',     'allow',         'a smith of the hunt'],
     ['reviewer',  'notPermitted',  'nobody else: a reviewer'],
     ['stranger',  'notPermitted',  'nobody else: a stranger'],
@@ -99,7 +103,7 @@ describe('Approve.mayChangeHunt', () => {
 describe('Approve.mayReviseQuiz', () => {
   const Cases: [Standing, { locked: boolean } | null, Approve.VerdictT, string][] = [
     // one case per guard, in order:
-    ['anonymous', Unlocked, 'notIdentified', 'nobody who has asserted no userlabel'],
+    ['unlabelled', Unlocked, 'notIdentified', 'nobody without a userlabel'],
     ['reviewer',  Unlocked, 'notPermitted',  'only a smith of the hunt: not a reviewer'],
     ['stranger',  Unlocked, 'notPermitted',  'only a smith of the hunt: not a stranger'],
     ['smith',     null,     'allow',         "a quiz that is gone is the write's to refuse, as it would be for anyone"],
@@ -107,7 +111,7 @@ describe('Approve.mayReviseQuiz', () => {
     ['smith',     Unlocked, 'allow',         'a smith, in an unlocked quiz'],
     // the lock is no reason for anyone else:
     ['reviewer',  Locked,   'notPermitted',  'a reviewer is told they may not, not that the quiz is locked'],
-    ['anonymous', Locked,   'notIdentified', 'nobody is told the quiz is locked before saying who they are'],
+    ['unlabelled', Locked,   'notIdentified', 'nobody is told the quiz is locked before saying who they are'],
   ]
   for (const [standing, quiz, expected, describes] of Cases) {
     it(describes, () => {
@@ -127,7 +131,7 @@ describe('Approve.mayWriteReview', () => {
 describe('Approve.mayReadReview', () => {
   const Cases: [ReviewPolicyT, Standing, ReviewPolicyT | null, Approve.VerdictT, string][] = [
     // one case per guard, in order:
-    [reviewBy(alice_id, 'draft'),                 'anonymous', null,                           'notIdentified', 'nobody who has asserted no userlabel'],
+    [reviewBy(alice_id, 'draft'),                 'unlabelled', null,                          'notIdentified', 'nobody without a userlabel'],
     [reviewBy(alice_id, 'draft', other_hunt_id),  'smith',     null,                           'notPermitted',  "claims on another hunt say nothing of this one, not even of one's own"],
     [reviewBy(alice_id, 'draft'),                 'reviewer',  reviewBy(alice_id, 'draft'),    'allow',         "one's own review, while one is on its hunt"],
     [reviewBy(bob_id, 'draft'),                   'smith',     null,                           'notPermitted',  'nobody else reads a review that is not shared, not even a smith'],
@@ -149,14 +153,14 @@ describe('Approve.mayReadReview', () => {
 })
 
 describe('Approve.mayChangeMembership', () => {
-  const Cases: [Standing, Actor.IdentRefT, Approve.VerdictT, string][] = [
-    ['anonymous', { ident_id: bob_id },              'notIdentified', 'nobody who has asserted no userlabel'],
-    ['reviewer',  { ident_id: bob_id },              'notPermitted',  'only a smith of the hunt: not a reviewer'],
-    ['stranger',  { ident_label: 'bob_reviews' },    'notPermitted',  'only a smith of the hunt: not a stranger'],
-    ['smith',     { ident_id: alice_id },            'ownHunting',    'nobody changes their own place on it, named by id'],
-    ['smith',     { ident_label: 'alice_smiths' },   'ownHunting',    'nobody changes their own place on it, named by label'],
-    ['smith',     { ident_id: bob_id },              'allow',         "a smith, anyone else's, named by id"],
-    ['smith',     { ident_label: 'bob_reviews' },    'allow',         "a smith, anyone else's, named by label"],
+  const Cases: [Standing, Actor.UserRefT, Approve.VerdictT, string][] = [
+    ['unlabelled', { user_id: bob_id },              'notIdentified', 'nobody without a userlabel'],
+    ['reviewer',  { user_id: bob_id },              'notPermitted',  'only a smith of the hunt: not a reviewer'],
+    ['stranger',  { userlabel: 'bob_reviews' },    'notPermitted',  'only a smith of the hunt: not a stranger'],
+    ['smith',     { user_id: alice_id },            'ownHuntship',    'nobody changes their own place on it, named by id'],
+    ['smith',     { userlabel: 'alice_smiths' },   'ownHuntship',    'nobody changes their own place on it, named by label'],
+    ['smith',     { user_id: bob_id },              'allow',         "a smith, anyone else's, named by id"],
+    ['smith',     { userlabel: 'bob_reviews' },    'allow',         "a smith, anyone else's, named by label"],
   ]
   for (const [standing, target, expected, describes] of Cases) {
     it(describes, () => {
@@ -166,8 +170,8 @@ describe('Approve.mayChangeMembership', () => {
 })
 
 describe('Approve.mayReadLibrary', () => {
-  it('nobody who has asserted no userlabel', () => {
-    expect(Approve.mayReadLibrary(Actor.anonymous)).to.eq('notIdentified')
+  it('nobody without a userlabel', () => {
+    expect(Approve.mayReadLibrary(Actor.unlabelled)).to.eq('notIdentified')
   })
 
   it('anyone who has', () => {
@@ -183,8 +187,8 @@ function nobodyIsAdmin(): void {
 describe('Approve.mayChangeLibrary', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('nobody who has asserted no userlabel', () => {
-    expect(Approve.mayChangeLibrary(Actor.anonymous)).to.eq('notIdentified')
+  it('nobody without a userlabel', () => {
+    expect(Approve.mayChangeLibrary(Actor.unlabelled)).to.eq('notIdentified')
   })
 
   it('an admin: one the deployment names (`Actor.isAdmin`)', () => {
@@ -201,7 +205,7 @@ describe('Approve.mayCountUsage', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
   it('whoever may change the library', () => {
-    const verdicts = [Approve.mayCountUsage(Actor.anonymous), Approve.mayCountUsage(Alice)]
+    const verdicts = [Approve.mayCountUsage(Actor.unlabelled), Approve.mayCountUsage(Alice)]
     nobodyIsAdmin()
     expect([...verdicts, Approve.mayCountUsage(Alice)]).to.deep.eq(['notIdentified', 'allow', 'notPermitted'])
   })
@@ -210,37 +214,72 @@ describe('Approve.mayCountUsage', () => {
 describe('Approve.mayReadBackfills', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('nobody who has asserted no userlabel, an admin, and nobody else, where the deployment does not expose its stats', () => {
-    const verdicts = [Approve.mayReadBackfills(Actor.anonymous, undefined), Approve.mayReadBackfills(Alice, undefined)]
+  it('nobody without a userlabel, an admin, and nobody else, where the deployment does not expose its stats', () => {
+    const verdicts = [Approve.mayReadBackfills(Actor.unlabelled, undefined), Approve.mayReadBackfills(Alice, undefined)]
     nobodyIsAdmin()
     expect([...verdicts, Approve.mayReadBackfills(Alice, undefined)]).to.deep.eq(['notIdentified', 'allow', 'notPermitted'])
   })
 
   it('anyone, where EXPOSE_INTERNAL_STATS_TO_ALL says exactly true', () => {
     nobodyIsAdmin()
-    expect([Approve.mayReadBackfills(Actor.anonymous, 'true'), Approve.mayReadBackfills(Alice, 'true')]).to.deep.eq(['allow', 'allow'])
+    expect([Approve.mayReadBackfills(Actor.unlabelled, 'true'), Approve.mayReadBackfills(Alice, 'true')]).to.deep.eq(['allow', 'allow'])
   })
 
   for (const exposeval of ['false', '', 'TRUE', 'yes', ' true']) {
     it(`no one more than an admin, for the value ${JSON.stringify(exposeval)}: only true exposes`, () => {
-      expect(Approve.mayReadBackfills(Actor.anonymous, exposeval)).to.eq('notIdentified')
+      expect(Approve.mayReadBackfills(Actor.unlabelled, exposeval)).to.eq('notIdentified')
     })
   }
 })
 
+/** The action of taking the userlabel `userlabel` */
+function take(userlabel: string) {
+  return { kind: 'assume_userlabel', userlabel, title: '' } as const
+}
+
+/** The action of making a hunt labelled `label` */
+function make(label: string) {
+  return { kind: 'new_hunt', label } as const
+}
+
 describe('Approve.mayAssertUserlabel', () => {
-  it('anyone', () => {
-    expect(Approve.mayAssertUserlabel()).to.eq('allow')
+  it('anyone whose user holds none yet, anonymous or not', () => {
+    expect(Approve.mayAssertUserlabel(Actor.unlabelled, take('alice_smiths'))).to.eq('allow')
+  })
+
+  it('a user holding one, taking it again: no change', () => {
+    expect([Approve.mayAssertUserlabel(Alice, take('alice_smiths')), Approve.mayAssertUserlabel(AnonAlice, take('alice_smiths'))]).to.deep.eq(['allow', 'allow'])
+  })
+
+  it('no user taking a second: a userlabel is chosen once', () => {
+    expect([Approve.mayAssertUserlabel(Alice, take('alice_again')), Approve.mayAssertUserlabel(AnonAlice, take('alice_again'))]).to.deep.eq(['userlabelSet', 'userlabelSet'])
   })
 })
 
-describe('Approve.mayRetitleIdent and Approve.mayMakeHunt', () => {
-  it('nobody who has asserted no userlabel', () => {
-    expect([Approve.mayRetitleIdent(Actor.anonymous), Approve.mayMakeHunt(Actor.anonymous)]).to.deep.eq(['notIdentified', 'notIdentified'])
+describe('Approve.mayRetitleUser', () => {
+  it('nobody without a userlabel; anyone who has, anonymous or not', () => {
+    expect([Approve.mayRetitleUser(Actor.unlabelled), Approve.mayRetitleUser(Alice), Approve.mayRetitleUser(AnonAlice)]).to.deep.eq(['notIdentified', 'allow', 'allow'])
   })
+})
 
-  it('anyone who has', () => {
-    expect([Approve.mayRetitleIdent(Alice), Approve.mayMakeHunt(Alice)]).to.deep.eq(['allow', 'allow'])
+describe('Approve.mayMakeHunt', () => {
+  const Cases: [Actor.ActorT, string, Approve.VerdictT, string][] = [
+    [Actor.unlabelled, 'loud_heron',   'notIdentified', 'nobody without a userlabel: a hunt nobody is on is one nobody can open'],
+    [AnonAlice,        'loud_heron',   'sealedHunts',   'nobody anonymous makes a hunt but its sandbox'],
+    [AnonAlice,        'alice_smiths', 'allow',         'an anonymous user, its sandbox: labelled with its own userlabel'],
+    [Alice,            'loud_heron',   'allow',         'anyone else, any label'],
+    [Alice,            'alice_smiths', 'allow',         'anyone else, a hunt labelled as they are too'],
+  ]
+  for (const [actor, label, expected, describes] of Cases) {
+    it(describes, () => {
+      expect(Approve.mayMakeHunt(actor, make(label))).to.eq(expected)
+    })
+  }
+})
+
+describe('Approve.mayJoinHunt', () => {
+  it('nobody anonymous; anyone else', () => {
+    expect([Approve.mayJoinHunt({ anonymous: true }), Approve.mayJoinHunt({ anonymous: false })]).to.deep.eq(['sealedJoin', 'allow'])
   })
 })
 
@@ -274,7 +313,7 @@ type ActionKind = ActionT['kind']
 type HuntlessDNA = UserActionDNA | Extract<OuterHuntActionDNA, { kind: 'new_hunt' }>
 
 /** The kinds of action that name no hunt, and are no hunt action's kind */
-const HuntlessKinds: ReadonlySet<string> = new Set<HuntlessDNA['kind']>(['assume_ident', 'retitle_ident', 'new_hunt'])
+const HuntlessKinds: ReadonlySet<string> = new Set<HuntlessDNA['kind']>(['assume_userlabel', 'retitle_user', 'new_hunt'])
 
 /** An outer hunt action that names a hunt, and is no hunt action's kind */
 type HuntNamingDNA = Extract<OuterHuntActionDNA, { kind: 'arrange_categories' | 'rebranch_hunt' }>
@@ -309,14 +348,16 @@ function actionOf(dna: HuntActionDNA | LibraryActionDNA | HuntlessDNA | HuntNami
 }
 
 /** A verdict for each column, in `ColumnVals` order */
-type VerdictRowT = readonly [Approve.VerdictT, Approve.VerdictT, Approve.VerdictT, Approve.VerdictT, Approve.VerdictT]
+type VerdictRowT = readonly [Approve.VerdictT, Approve.VerdictT, Approve.VerdictT, Approve.VerdictT, Approve.VerdictT, Approve.VerdictT]
 
-//                            smith    reviewer        stranger        anonymous        smith, quiz locked
-const Revisers: VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'quizLocked']
-const Smiths:   VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow']
-const Members:  VerdictRowT = ['allow', 'allow',        'notPermitted', 'notIdentified', 'allow']
-const Idents:   VerdictRowT = ['allow', 'allow',        'allow',        'notIdentified', 'allow']
-const Anyone:   VerdictRowT = ['allow', 'allow',        'allow',        'allow',         'allow']
+//                              smith    reviewer        stranger        unlabelled       smith, quiz locked  anonymous smith
+const Revisers:    VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'quizLocked',      'allow']
+const Smiths:      VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow',           'allow']
+const Memberships: VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow',           'sealedMembers']
+const Members:     VerdictRowT = ['allow', 'allow',        'notPermitted', 'notIdentified', 'allow',           'sealedReview']
+const Labelled:    VerdictRowT = ['allow', 'allow',        'allow',        'notIdentified', 'allow',           'allow']
+const NewHunts:    VerdictRowT = ['allow', 'allow',        'allow',        'notIdentified', 'allow',           'sealedHunts']
+const Anyone:      VerdictRowT = ['allow', 'allow',        'allow',        'allow',         'allow',           'allow']
 
 /** One action of every kind, and what each standing is told of it; a kind missing here fails to compile */
 const Matrix = {
@@ -331,11 +372,11 @@ const Matrix = {
   move_column:         [{ kind: 'move_column', label: 'qnum', onto_idx: 1 },                                                         Revisers],
   set_templateable:       [{ kind: 'set_templateable', templateable: ['recap'] },                                                    Revisers],
   // library, an admin's, of the actor alone (Alice, an admin here):
-  add_widget:          [{ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' } },  Idents],
-  edit_widget:         [{ kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(question.title)' } },                         Idents],
-  delete_widget:       [{ kind: 'delete_widget', label: 'shout' },                                                                   Idents],
-  move_widget:         [{ kind: 'move_widget', label: 'shout', onto_idx: 2 },                                                        Idents],
-  import_widgets:      [{ kind: 'import_widgets', widgets: [] },                                                                     Idents],
+  add_widget:          [{ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(question.title)' } },  Labelled],
+  edit_widget:         [{ kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(question.title)' } },                         Labelled],
+  delete_widget:       [{ kind: 'delete_widget', label: 'shout' },                                                                   Labelled],
+  move_widget:         [{ kind: 'move_widget', label: 'shout', onto_idx: 2 },                                                        Labelled],
+  import_widgets:      [{ kind: 'import_widgets', widgets: [] },                                                                     Labelled],
   // content:
   retitle_quiz:        [{ kind: 'retitle_quiz', title: 'Princes' },                                                                  Revisers],
   relabel_quiz:        [{ kind: 'relabel_quiz', label: 'princes' },                                                                  Revisers],
@@ -368,17 +409,17 @@ const Matrix = {
   set_reviewing:       [{ kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 40 } },                                    Members],
   peek_answer:         [{ kind: 'peek_answer', quiz_id, question_id },                                                               Members],
   // the hunt, and who is on it (someone else; one's own place is below):
-  add_hunting:         [{ kind: 'add_hunting', ident_label: 'bob_reviews', role: 'reviewer' },                                       Smiths],
-  remove_hunting:      [{ kind: 'remove_hunting', ident_id: bob_id },                                                                Smiths],
+  add_huntship:        [{ kind: 'add_huntship', userlabel: 'bob_reviews', role: 'reviewer' },                                        Memberships],
+  remove_huntship:     [{ kind: 'remove_huntship', user_id: bob_id },                                                                Memberships],
   retitle_hunt:        [{ kind: 'retitle_hunt', title: 'Princes' },                                                                  Smiths],
   relabel_hunt:        [{ kind: 'relabel_hunt', label: 'princes' },                                                                  Smiths],
   delete_hunt:         [{ kind: 'delete_hunt' },                                                                                     Smiths],
   arrange_categories:  [{ kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] },                          Smiths],
   rebranch_hunt:       [{ kind: 'rebranch_hunt', hunt_id, branch: 'playtest' },                                                      Smiths],
   // making a hunt, and the user actions, of the actor alone:
-  new_hunt:            [{ kind: 'new_hunt', label: 'loud_heron' },                                                                   Idents],
-  assume_ident:        [{ kind: 'assume_ident', label: 'alice_smiths', title: 'Alice' },                                             Anyone],
-  retitle_ident:       [{ kind: 'retitle_ident', title: 'Alice' },                                                                   Idents],
+  new_hunt:            [{ kind: 'new_hunt', label: 'loud_heron' },                                                                   NewHunts],
+  assume_userlabel:    [{ kind: 'assume_userlabel', userlabel: 'alice_smiths', title: 'Alice' },                                     Anyone],
+  retitle_user:        [{ kind: 'retitle_user', title: 'Alice' },                                                                    Labelled],
 } as const satisfies { [KK in ActionKind]: readonly [Extract<HuntActionDNA | LibraryActionDNA | HuntlessDNA | HuntNamingDNA, { kind: KK }>, VerdictRowT] }
 
 describe('the matrix: every action kind, as each standing, and as a smith of a locked quiz', () => {
@@ -403,10 +444,10 @@ describe('the matrix: every action kind, as each standing, and as a smith of a l
   describe('once nobody is an admin', () => {
     afterEach(() => { vi.restoreAllMocks() })
 
-    //                             smith           reviewer        stranger        anonymous        smith, quiz locked
-    const Nobody: VerdictRowT = ['notPermitted', 'notPermitted', 'notPermitted', 'notIdentified', 'notPermitted']
+    //                           smith           reviewer        stranger        unlabelled       smith, quiz locked  anonymous smith
+    const Nobody: VerdictRowT = ['notPermitted', 'notPermitted', 'notPermitted', 'notIdentified', 'notPermitted',    'notPermitted']
 
-    it('refuses every library action, and changing or counting the library by name, to every ident, smith or not', () => {
+    it('refuses every library action, and changing or counting the library by name, to every user, smith or not', () => {
       nobodyIsAdmin()
       const kinds = Object.keys(Matrix).filter((kind) => LibraryKinds.has(kind))
       const verdicts = kinds.map((kind) => {
@@ -434,15 +475,15 @@ describe('the matrix: every action kind, as each standing, and as a smith of a l
 
   it("refuses a change to one's own place on the hunt, for a smith, by its own refusal", () => {
     expect([
-      Approve.verdictOn('add_hunting', ClaimsAs.smith, { kind: 'add_hunting', ident_label: 'alice_smiths', role: 'reviewer' }),
-      Approve.verdictOn('add_hunting', ClaimsAs.smith, { kind: 'add_hunting', ident_label: 'alice_smiths', role: 'smith' }),
-      Approve.verdictOn('remove_hunting', ClaimsAs.smith, { kind: 'remove_hunting', ident_id: alice_id }),
-    ]).to.deep.eq(['ownHunting', 'ownHunting', 'ownHunting'])
+      Approve.verdictOn('add_huntship', ClaimsAs.smith, { kind: 'add_huntship', userlabel: 'alice_smiths', role: 'reviewer' }),
+      Approve.verdictOn('add_huntship', ClaimsAs.smith, { kind: 'add_huntship', userlabel: 'alice_smiths', role: 'smith' }),
+      Approve.verdictOn('remove_huntship', ClaimsAs.smith, { kind: 'remove_huntship', user_id: alice_id }),
+    ]).to.deep.eq(['ownHuntship', 'ownHuntship', 'ownHuntship'])
   })
 })
 
 /** The keys of the policies that are not an action's */
-const ReadKeys: ReadonlySet<Approve.PolicyKey> = new Set(['read_hunt', 'export_hunt', 'read_review', 'read_library', 'count_usage', 'read_backfills', 'ask_anthropic_bot', 'change_library'] as const)
+const ReadKeys: ReadonlySet<Approve.PolicyKey> = new Set(['read_hunt', 'export_hunt', 'read_review', 'read_library', 'count_usage', 'read_backfills', 'join_hunt', 'ask_anthropic_bot', 'change_library'] as const)
 
 describe('Approve.verdictOn', () => {
   it('asks the reads by name', () => {
@@ -450,7 +491,7 @@ describe('Approve.verdictOn', () => {
       Approve.verdictOn('read_hunt', ClaimsAs.reviewer),
       Approve.verdictOn('export_hunt', ClaimsAs.reviewer),
       Approve.verdictOn('read_review', reviewBy(bob_id, 'shared'), ClaimsAs.smith, null),
-      Approve.verdictOn('read_library', Actor.anonymous),
+      Approve.verdictOn('read_library', Actor.unlabelled),
       Approve.verdictOn('count_usage', Alice),
       Approve.verdictOn('read_backfills', Alice, undefined),
       Approve.verdictOn('ask_anthropic_bot', 'allow'),
@@ -476,7 +517,7 @@ describe('Approve.verdictOn', () => {
 
   it("throws for an action handed to another kind's policy", () => {
     const retitle = { kind: 'retitle_quiz', title: 'Kings' } as const
-    expect(() => Approve.verdictOn('add_hunting', ClaimsAs.smith, retitle)).to.throw('A retitle_quiz action was handed to the policy for add_hunting')
+    expect(() => Approve.verdictOn('add_huntship', ClaimsAs.smith, retitle)).to.throw('A retitle_quiz action was handed to the policy for add_huntship')
   })
 })
 
@@ -486,7 +527,7 @@ describe('Approve.may', () => {
   })
 
   it('is false for any denial', () => {
-    expect([Approve.may('read_hunt', ClaimsAs.stranger), Approve.may('read_hunt', ClaimsAs.anonymous)]).to.deep.eq([false, false])
+    expect([Approve.may('read_hunt', ClaimsAs.stranger), Approve.may('read_hunt', ClaimsAs.unlabelled)]).to.deep.eq([false, false])
   })
 })
 
@@ -513,13 +554,13 @@ describe('Approve.mayOffer', () => {
     })
   }
 
-  it('is asked by kind alone of every action but those whose policy reads who the action names', () => {
+  it('is asked by kind alone of every action but those whose policy reads the action: who it names, or the label it takes', () => {
     const asked = Object.keys(Matrix).filter((kind) => ! isOfferable(kind))
-    expect(asked).to.deep.eq(['add_hunting', 'remove_hunting'])
+    expect(asked).to.deep.eq(['add_huntship', 'remove_huntship', 'new_hunt', 'assume_userlabel'])
   })
 
   it('throws for a kind whose policy reads the action, rather than deciding without it', () => {
-    expect(() => Approve.mayOffer('remove_hunting' as string as Approve.OfferableKind, ClaimsAs.smith)).to.throw('The policy for remove_hunting reads the action')
+    expect(() => Approve.mayOffer('remove_huntship' as string as Approve.OfferableKind, ClaimsAs.smith)).to.throw('The policy for remove_huntship reads the action')
   })
 
   it('throws for a key no action answers to, even one a read answers to', () => {
@@ -546,8 +587,8 @@ describe('Approve.must', () => {
   })
 
   it('says which refusal a hunt policy denied with', () => {
-    const failure = failureOf(() => { Approve.must('remove_hunting', ClaimsAs.smith, { kind: 'remove_hunting', ident_id: alice_id }) }) as Approve.NotApprovedError
-    expect([failure.denial, failure.message]).to.deep.eq(['ownHunting', RefusalNotices.ownHunting])
+    const failure = failureOf(() => { Approve.must('remove_huntship', ClaimsAs.smith, { kind: 'remove_huntship', user_id: alice_id }) }) as Approve.NotApprovedError
+    expect([failure.denial, failure.message]).to.deep.eq(['ownHuntship', RefusalNotices.ownHuntship])
   })
 
   it('keeps the evidence in the backstory, out of anything serialised', () => {

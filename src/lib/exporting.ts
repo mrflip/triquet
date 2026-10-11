@@ -46,7 +46,7 @@ export type ReviewingSourceT = { question_id: string } & Omit<Jsonball.VerdictBo
 /** One review of a quiz, as far as its ball needs it: who wrote it, how far it has come, what it says, and its stamps; a review as `reviews.forQuiz` reads it will do */
 export type ReviewSourceT = Pick<ReviewedT, 'reviewer' | 'phase' | 'overall'> & StampSourceT & { reviewings: readonly ReviewingSourceT[] }
 
-/** One ident on the hunt, as far as its members' ball needs it */
+/** One user on the hunt, as far as its members' ball needs it */
 export type MemberSourceT = Pick<MemberT, 'label' | 'title' | 'role'>
 
 /** Everything a hunt's balls are made from */
@@ -101,7 +101,7 @@ export function categoriesBall(place: Addresses.InHuntT, wheel: WheelT): PlacedB
 }
 
 /**
- * Who is on the hunt: each member by their ident label, with what they are called and their role.
+ * Who is on the hunt: each member by their userlabel, with what they are called and their role.
  *
  * @example membersBall(place, members).ball.members.pat_smith  // => { role: 'smith', title: 'Pat Smith' }
  */

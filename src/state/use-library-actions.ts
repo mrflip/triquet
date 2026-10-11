@@ -10,7 +10,7 @@ import { AppNotices, RefusalNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
 import { ActionValidators, type LibraryActionDNA } from '../models/actions'
 import { useRaiseAlarm } from './alarms'
-import { useIdent } from './use-ident'
+import { useMe } from './use-me'
 import { holdThePage } from './page-hold'
 import * as HuntMirror from './hunt-mirror'
 import { showLibraryChanged } from './optimistic-library'
@@ -25,7 +25,7 @@ export type LibraryActionsHandle = {
  * it once it has read it (`ActionValidators.libraryAction`); null when they allow it. An action
  * that does not read as one is left to the server, which refuses it saying what is wrong with it.
  *
- * @example libraryDenialOf(Actor.anonymous, { kind: 'delete_widget', label: 'dumdum' })  // => 'notIdentified'
+ * @example libraryDenialOf(Actor.unlabelled, { kind: 'delete_widget', label: 'dumdum' })  // => 'notIdentified'
  * @example libraryDenialOf(actor, { kind: 'move_widget', label: 'dumdum', onto_idx: 0 })  // => null, for an admin
  */
 export function libraryDenialOf(actor: Actor.ActorT, action: LibraryActionDNA): Approve.Denialkind | null {
@@ -54,7 +54,7 @@ export function libraryDenialOf(actor: Actor.ActorT, action: LibraryActionDNA): 
  * @returns The dispatcher. Whether a change is still being written is the page's (`usePageWriting`).
  */
 export function useLibraryActions(): LibraryActionsHandle {
-  const { actor } = useIdent()
+  const { actor } = useMe()
   const performBare = useMutation(api.widgets.perform)
   // Made once: `withOptimisticUpdate` makes a new mutation each time it is asked.
   const perform = useMemo(() => performBare.withOptimisticUpdate(showLibraryChanged), [performBare])

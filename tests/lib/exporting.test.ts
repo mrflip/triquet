@@ -298,7 +298,7 @@ describe('reviewBall', () => {
 
   it("writes of each reviewing its verdict and its stamps, as a reviewing's row is read: no ids, and not whether the reviewer peeked", () => {
     const stamps = { created_at: Date.UTC(2026, 9, 5), updated_at: Date.UTC(2026, 9, 6) }
-    const row = { _id: 'r1', _creationTime: 1, review_id: 'rv1', hunt_id: 'h1', quiz_id: 'q1', ident_id: 'i1', peeked: true, question_id: present(princes.questions[0])._id, ...Verdict, ...stamps }
+    const row = { _id: 'r1', _creationTime: 1, review_id: 'rv1', hunt_id: 'h1', quiz_id: 'q1', user_id: 'i1', peeked: true, question_id: present(princes.questions[0])._id, ...Verdict, ...stamps }
     const placed = present(Exporting.reviewBall(Place, 'home', princes, { ...present(shared), reviewings: [row] }))
     expect(_.get(placed.ball, 'quizzes.home.princes.reviews.lee_jones.verdicts.leon')).to.deep.eq({ ...Verdict, created_at: '2026-10-05T00:00:00.000Z', updated_at: '2026-10-06T00:00:00.000Z' })
   })

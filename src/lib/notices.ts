@@ -18,14 +18,14 @@ export const AppNotices = {
   openingHunts:         'Opening your hunts…',
   openingHunt:          'Opening the hunt…',
   noHunts:              'No hunts yet.',
-  identLabelShape:      'An ident label is lowercase letters, numbers and single underscores, starting with a letter.',
-  identLabelUnfinished: 'An ident label is at least 6 characters long, ending in a letter or number.',
-  identLabelReserved:   "No one goes by that label: it's kept for the app's own use.",
-  identLabelNeeded:     'Type the label they go by.',
+  memberLabelShape:      'A handle is lowercase letters, numbers and single underscores, starting with a letter.',
+  memberLabelUnfinished: 'A handle is at least 6 characters long, ending in a letter or number.',
+  memberLabelReserved:   "No one goes by that handle: it's kept for the app's own use.",
+  memberLabelNeeded:     'Type the handle they go by.',
   userlabelShape:       'A handle is lowercase letters, numbers and single underscores, starting with a letter.',
   userlabelUnfinished:  'A handle is at least 6 characters long, ending in a letter or number.',
   userlabelReserved:    'That handle is kept for the app\'s own use. Add to it, as my_name or name_2.',
-  identGateTitle:       'Enter your name and handle to join',
+  userlabelGateTitle:       'Enter your name and handle to join',
   untitledQuiz:         'Untitled quiz',
   smithsNoteBlank:      'The theme, the meta, what is left to do…',
   recapHeadBlank:       'First, a huge thank you to the playtesters: {{quiz.playtesters}}…',
@@ -90,9 +90,10 @@ export const RefusalNotices = {
   notIdentified:    'Say who you are first.',
   notSignedIn:      "This browser isn't signed in yet — try again in a moment.",
   userlabelClaimed: "Someone else holds that handle. Choose a different one — or, if it's yours, go back to the browser where you first chose it.",
+  userlabelSet:     'This browser already has a handle, and a handle is chosen once.',
   reviewNotOpened:  'Open your review of this quiz first.',
-  identUnknown:     identUnknownNotice('…'),
-  ownHunting:       "You can't take yourself off this hunt or change your own role — another smith can.",
+  userUnknown:      userUnknownNotice('…'),
+  ownHuntship:       "You can't take yourself off this hunt or change your own role — another smith can.",
   questionsFull:    `A quiz holds at most ${String(PA.QuestionsPerQuiz.max)} questions.`,
   widgetingsFull:   `A quiz holds at most ${String(PA.WidgetingsPerQuiz.max)} widgetings.`,
   columnsFull:      `A quiz holds at most ${String(PA.ColumnsPerQuiz.max)} columns.`,
@@ -103,7 +104,11 @@ export const RefusalNotices = {
   libraryFull:      `The library holds at most ${String(PA.WidgetsInLibrary.max)} widgets.`,
   huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,
   orgFull:          `One handle may make at most ${String(PA.HuntsPerOrg.max)} hunts.`,
-  huntingsFull:     `A hunt holds at most ${String(PA.HuntingsPerHunt.max)} members.`,
+  huntshipsFull:    `A hunt holds at most ${String(PA.HuntshipsPerHunt.max)} members.`,
+  sealedHunts:      'Sign in with Google to make more hunts than the one named for your handle — coming soon.',
+  sealedMembers:    'Sign in with Google to bring others onto your hunt — coming soon.',
+  sealedJoin:       "That handle isn't signed in with Google, so it can't be put on a hunt yet. Signing in with Google is coming soon.",
+  sealedReview:     'Sign in with Google to review quizzes — coming soon.',
   botsOff:          'Asking Claude is switched off on this server for now — everything else still works.',
 } as const
 
@@ -127,13 +132,13 @@ export const AskFailureNotices = {
 export type AskFailurekind = keyof typeof AskFailureNotices
 
 /**
- * Why a smith could not add `label` to a hunt: nobody has chosen that ident yet. The refusal
- * `identUnknown` says it of the label refused.
+ * Why a smith could not add `label` to a hunt: nobody has chosen that handle yet. The refusal
+ * `userUnknown` says it of the userlabel refused.
  *
- * @example identUnknownNotice('flip_kromer')  // => 'No ident is labelled "flip_kromer". They need to visit the app and choose it first.'
+ * @example userUnknownNotice('flip_kromer')  // => 'Nobody goes by the handle "flip_kromer". They need to visit the app and choose it first.'
  */
-export function identUnknownNotice(label: string): string {
-  return `No ident is labelled "${label}". They need to visit the app and choose it first.`
+export function userUnknownNotice(label: string): string {
+  return `Nobody goes by the handle "${label}". They need to visit the app and choose it first.`
 }
 
 /**
@@ -182,17 +187,17 @@ function smithsNamed(smiths: readonly SmithT[]): string {
 
 /**
  * What someone not on a hunt is told when an address takes them into it: to contact its smith for
- * an invitation, naming the ident to invite.
+ * an invitation, naming the handle to invite.
  *
  * @param smiths - The hunt's smiths.
- * @param label - The label of the ident they are now, which a smith would add.
+ * @param label - Their userlabel, which a smith would add.
  *
  * @example notOnHuntNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are not yet a member of this hunt. To be invited, contact its smith, Flip (flip_kromer), …'
  */
 export function notOnHuntNotice(smiths: readonly SmithT[], label: string): string {
   const which = smiths.length > 1 ? 'one of its smiths' : 'its smith'
   const whom = smiths.length === 0 ? smithsNamed(smiths) : `${which}, ${smithsNamed(smiths)}`
-  return `You are not yet a member of this hunt. To be invited, contact ${whom}, and give them your ident, “${label}”. This page opens for you as soon as they add you.`
+  return `You are not yet a member of this hunt. To be invited, contact ${whom}, and give them your handle, “${label}”. This page opens for you as soon as they add you.`
 }
 
 /**
@@ -200,12 +205,12 @@ export function notOnHuntNotice(smiths: readonly SmithT[], label: string): strin
  * make them a smith, and how.
  *
  * @param smiths - The hunt's smiths.
- * @param label - The label of the reviewer's ident.
+ * @param label - The reviewer's userlabel.
  *
  * @example notASmithNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are a reviewer on this hunt, not a smith. Ask Flip (flip_kromer) to make you one: …'
  */
 export function notASmithNotice(smiths: readonly SmithT[], label: string): string {
-  return `You are a reviewer on this hunt, not a smith. Ask ${smithsNamed(smiths)} to make you one: they can change the role of your ident, “${label}”, in the Members panel beneath any of its quizzes.`
+  return `You are a reviewer on this hunt, not a smith. Ask ${smithsNamed(smiths)} to make you one: they can change the role of your handle, “${label}”, in the Members panel beneath any of its quizzes.`
 }
 
 /**

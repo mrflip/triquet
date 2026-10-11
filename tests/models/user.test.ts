@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { Ident, IdentValidators } from '../../src/models/ident'
-import { IdentingValidators } from '../../src/models/identing'
+import type { Id } from '../../convex/_generated/dataModel'
+import { User, UserValidators } from '../../src/models/user'
 
-describe('Ident.labelFor', () => {
+describe('User.labelFor', () => {
   const Cases = [
     ["Flip Kromer",          "flip_kromer",                  'makes words a label'],
     ["  flip  ",             "flip",                         'trims, leaving a label too short for the validator to take'],
@@ -15,16 +15,16 @@ describe('Ident.labelFor', () => {
   ] as const
   for (const [name, label, describes] of Cases) {
     it(describes, () => {
-      expect(Ident.labelFor(name)).to.eq(label)
-      expect(Ident.labelFor(name).length).to.be.at.most(24)
+      expect(User.labelFor(name)).to.eq(label)
+      expect(User.labelFor(name).length).to.be.at.most(24)
     })
   }
 })
 
-describe('Ident.flawIn', () => {
+describe('User.flawIn', () => {
   const Cases = [
     // regular usage:
-    ["flip_kromer",                  null,         'takes an ident label'],
+    ["flip_kromer",                  null,         'takes a userlabel'],
     ["flip_kromer_2",                null,         'takes numbers and single underscores after the first letter'],
     ["x".repeat(24),                 null,         'takes as many characters as a label holds'],
     // still being typed:
@@ -50,17 +50,17 @@ describe('Ident.flawIn', () => {
   ] as const
   for (const [label, flaw, describes] of Cases) {
     it(describes, () => {
-      expect(Ident.flawIn(label)).to.eq(flaw)
+      expect(User.flawIn(label)).to.eq(flaw)
     })
   }
 
   it('finds no flaw in any label a name makes but a short one', () => {
     const names = ['Flip Kromer', 'Philip (flip) Kromer', 'Ünïcödé Pérson', '1st Flipper', 'the quite long name indeed', '2nd Avenue Puzzle Solvers Club', '田中 Kromer', '🤔🤔🤔']
-    expect(names.map((name) => Ident.flawIn(Ident.labelFor(name)))).to.deep.eq([null, null, null, null, null, null, null, 'unfinished'])
+    expect(names.map((name) => User.flawIn(User.labelFor(name)))).to.deep.eq([null, null, null, null, null, null, null, 'unfinished'])
   })
 })
 
-describe('Ident.flawToSay', () => {
+describe('User.flawToSay', () => {
   const Cases = [
     ["Flip",        false, 'shape',      'says a misshapen label at once'],
     ["Flip",        true,  'shape',      'says a misshapen label once left'],
@@ -74,70 +74,104 @@ describe('Ident.flawToSay', () => {
   ] as const
   for (const [label, left, flaw, describes] of Cases) {
     it(describes, () => {
-      expect(Ident.flawToSay(label, left)).to.eq(flaw)
+      expect(User.flawToSay(label, left)).to.eq(flaw)
     })
   }
 })
 
-describe('Ident.byline', () => {
-  it('names an ident by its title, then its label written @label', () => {
-    expect(Ident.byline({ label: 'mrflip', title: 'Mrflip' })).to.eq('Mrflip (@mrflip)')
-    expect(Ident.byline({ label: 'flip_kromer', title: 'The First' })).to.eq('The First (@flip_kromer)')
+describe('User.byline', () => {
+  it('names a user by its title, then its userlabel written @label', () => {
+    expect(User.byline({ userlabel: 'mrflip', title: 'Mrflip' })).to.eq('Mrflip (@mrflip)')
+    expect(User.byline({ userlabel: 'flip_kromer', title: 'The First' })).to.eq('The First (@flip_kromer)')
   })
 })
 
-describe('Ident.atLabel', () => {
-  it("writes an ident's label as its byline does, after an @", () => {
-    expect(Ident.atLabel({ label: 'flip_kromer' })).to.eq('@flip_kromer')
+describe('User.atLabel', () => {
+  it("writes a user's userlabel as its byline does, after an @", () => {
+    expect(User.atLabel({ userlabel: 'flip_kromer' })).to.eq('@flip_kromer')
   })
 })
 
-describe('Ident.fill', () => {
-  const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr'
-
-  it('titles an ident after its label when it is given no title', () => {
-    expect(Ident.fill({ label: 'flip_kromer', title: '', user_id })).to.deep.eq({ label: 'flip_kromer', title: 'Flip Kromer', user_id })
-    expect(Ident.fill({ label: 'flip_kromer', title: ' '.repeat(3), user_id })).to.deep.eq({ label: 'flip_kromer', title: 'Flip Kromer', user_id })
+describe('User.labelled', () => {
+  it('titles a user after its userlabel when it is given no title', () => {
+    expect(User.labelled('flip_kromer', '')).to.deep.eq({ userlabel: 'flip_kromer', title: 'Flip Kromer' })
+    expect(User.labelled('flip_kromer', ' '.repeat(3))).to.deep.eq({ userlabel: 'flip_kromer', title: 'Flip Kromer' })
   })
 
   it('keeps a title it is given, trimmed', () => {
-    expect(Ident.fill({ label: 'flip_kromer', title: ' Flip ', user_id })).to.deep.eq({ label: 'flip_kromer', title: 'Flip', user_id })
-  })
-
-  it('holds the session that claimed it, or nobody', () => {
-    expect(Ident.fill({ label: 'flip_kromer', title: 'Flip', user_id: null }).user_id).to.be.null
-    expect(() => Ident.fill({ label: 'flip_kromer', title: 'Flip' } as never)).to.throw(Z.ZodError)
+    expect(User.labelled('flip_kromer', ' Flip ')).to.deep.eq({ userlabel: 'flip_kromer', title: 'Flip' })
   })
 
   const Refused = [
-    ['flips',                  'a label shorter than six'],
-    ['x'.repeat(25),           'a label longer than twenty-four'],
-    ['Flip_Kromer',            'a label that is not one'],
+    ['flips',                  'a userlabel shorter than six'],
+    ['x'.repeat(25),           'a userlabel longer than twenty-four'],
+    ['Flip_Kromer',            'a userlabel that is not one'],
+    ['support',                'a word kept for the app\'s own use'],
   ] as const
-  for (const [label, describes] of Refused) {
+  for (const [userlabel, describes] of Refused) {
     it(`refuses ${describes}`, () => {
-      expect(() => Ident.fill({ label, title: 'Flip', user_id: null })).to.throw(Z.ZodError)
+      expect(() => User.labelled(userlabel, 'Flip')).to.throw(Z.ZodError)
     })
   }
 })
 
-describe('IdentValidators.identLabel', () => {
-  it('takes six to twenty-four characters, inclusive', () => {
-    expect(['sixsix', 'x'.repeat(24)].map((label) => IdentValidators.identLabel.safeParse(label).success)).to.deep.eq([true, true])
-    expect(['fivee', 'x'.repeat(25)].map((label) => IdentValidators.identLabel.safeParse(label).success)).to.deep.eq([false, false])
+describe('User.titleFor', () => {
+  it('is the title as given, or the userlabel titleized when blank', () => {
+    expect([User.titleFor('flip_kromer', ''), User.titleFor('flip_kromer', 'Flip')]).to.deep.eq(['Flip Kromer', 'Flip'])
+  })
+
+  it('refuses a title that is not one', () => {
+    expect(() => User.titleFor('flip_kromer', 'F'.repeat(83))).to.throw(Z.ZodError)
   })
 })
 
-describe('IdentingValidators.row', () => {
-  const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr'
-  const ident_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
+describe('User.anonymous', () => {
+  it('is an anonymous user holding no userlabel, as an anonymous sign-in makes one', () => {
+    expect(User.anonymous()).to.deep.eq({ isAnonymous: true })
+  })
+})
 
-  it('names the session, and the ident it took on, each by its row id', () => {
-    expect(IdentingValidators.row({ user_id, ident_id })).to.deep.eq({ user_id, ident_id })
+describe('User.isAnonymous', () => {
+  it("is Convex Auth's isAnonymous, its absence meaning no", () => {
+    expect([User.isAnonymous({ isAnonymous: true }), User.isAnonymous({ isAnonymous: false }), User.isAnonymous({})]).to.deep.eq([true, false, false])
+  })
+})
+
+describe('User.faceOf', () => {
+  const _id = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
+
+  it('tells of a user its userlabel, title and whether it is anonymous, and never its email', () => {
+    expect(User.faceOf({ _id, userlabel: 'flip_kromer', title: 'Flip', email: 'flip@example.com', name: 'Flip K' } as never)).to.deep.eq({ _id, userlabel: 'flip_kromer', title: 'Flip', anonymous: false })
+    expect(User.faceOf({ _id, userlabel: 'flip_kromer', title: 'Flip', isAnonymous: true })).to.deep.eq({ _id, userlabel: 'flip_kromer', title: 'Flip', anonymous: true })
   })
 
-  it('refuses a session that is not a row id, or no session at all', () => {
-    expect(() => IdentingValidators.row({ user_id: 'flip_kromer', ident_id })).to.throw(Z.ZodError)
-    expect(() => IdentingValidators.row({ ident_id } as never)).to.throw(Z.ZodError)
+  it('is null for a user holding no userlabel, whom nobody can name', () => {
+    expect(User.faceOf({ _id, isAnonymous: true })).to.be.null
   })
+})
+
+describe('UserValidators.userlabel', () => {
+  it('takes six to twenty-four characters, inclusive', () => {
+    expect(['sixsix', 'x'.repeat(24)].map((label) => UserValidators.userlabel.safeParse(label).success)).to.deep.eq([true, true])
+    expect(['fivee', 'x'.repeat(25)].map((label) => UserValidators.userlabel.safeParse(label).success)).to.deep.eq([false, false])
+  })
+})
+
+describe('UserValidators.row', () => {
+  it("takes a user with nothing yet, as an anonymous sign-in makes one, and Convex Auth's fields beside ours", () => {
+    const row = { name: 'Flip K', image: 'https://example.com/flip.png', email: 'flip@example.com', emailVerificationTime: 1_759_700_000_000, isAnonymous: false, userlabel: 'flip_kromer', title: 'Flip', admin: true }
+    expect([UserValidators.row({}), UserValidators.row(row)]).to.deep.eq([{}, row])
+  })
+
+  const Refused: [object, string][] = [
+    [{ userlabel: 'Flip K' },    'a userlabel that is not one'],
+    [{ title: '' },              'a title left blank, which no user has'],
+    [{ admin: 'yes' },           'an admin flag that is not a yes or no'],
+    [{ isAnonymous: 'true' },    'an isAnonymous that is not a yes or no'],
+  ]
+  for (const [row, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => UserValidators.row(row as never)).to.throw(Z.ZodError)
+    })
+  }
 })

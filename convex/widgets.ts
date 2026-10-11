@@ -12,7 +12,7 @@ const { label, zod } = ValidatorKit
 
 /**
  * The library: every widget every hunt can put to work, in the order it lists them, for an actor
- * who has asserted a userlabel. Empty for one who has not.
+ * whose user holds a userlabel. Empty for one whose user holds none.
  */
 export const library = zQuery({
   args:    {},
@@ -45,7 +45,7 @@ export const usage = zQuery({
  * asks the census.
  *
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`) when the action cannot be
- *   carried out (`notIdentified` for an actor who has asserted no userlabel, `notPermitted` for one
+ *   carried out (`notIdentified` for an actor without a userlabel, `notPermitted` for one
  *   who is no admin, `labelTaken`, `libraryFull`, `widgetGone`, `widgetInUse`, `entryKindFixed`
  *   for what the library will not hold), or `{ ZodError }` when an argument is not valid; nothing
  *   is written.

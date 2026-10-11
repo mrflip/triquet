@@ -15,7 +15,7 @@ import path from 'node:path'
 import { parseEnv } from 'node:util'
 import * as Z from 'zod'
 import type * as Routes from '../src/lib/routes'
-import type { HuntRole } from '../src/models/hunting'
+import type { HuntRole } from '../src/models/huntship'
 import * as Environment from './environment'
 
 /** Where the suite's backend answers, and the key that makes a call an admin's */

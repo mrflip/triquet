@@ -49,12 +49,6 @@ describe('Routes.rootPath', () => {
   })
 })
 
-describe('Routes.switchIdentPath', () => {
-  it('keeps the login screen open with ?switch', () => {
-    expect(Routes.switchIdentPath()).to.eq('/?switch')
-  })
-})
-
 describe('Routes.huntsPath', () => {
   it('is /my/hunts', () => {
     expect(Routes.huntsPath()).to.eq('/my/hunts')

@@ -30,7 +30,7 @@ export type InQuizT = InHuntT & { realm: string, quiz: string }
  * * `categories`, `members`: the hunt's wheel of categories, and who is on it.
  * * `quiz`: one quiz, whole.
  * * `questions`: one quiz's questions alone, to paste across quizzes.
- * * `review`: one reviewer's review of one quiz, by their ident label.
+ * * `review`: one reviewer's review of one quiz, by their userlabel.
  * * `widget`: one widget of the library, in its scope (`pub`).
  */
 export type AddressT =
@@ -261,8 +261,8 @@ function quizResourceFrom(inQuiz: InQuizT, keypath: readonly string[]): AddressT
 }
 
 /**
- * The org an address's first segment names: the ident label after its `~`; null when it names
- * none, as a label too short or too long to be an ident's does not.
+ * The org an address's first segment names: the userlabel after its `~`; null when it names
+ * none, as a label too short or too long to be a userlabel does not.
  *
  * @example orgFrom('~pat_smith')  // => 'pat_smith'
  * @example orgFrom('pat_smith')  // => null

@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntingFor, huntsCountedInOrg, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
-  usageOf, wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
+  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntshipFor, huntsCountedInOrg, huntRowsOf, ghostingFor, holderOfUserlabel, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
+  usageOf, userForUserlabel, wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import type { CellRows } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -15,7 +14,7 @@ import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
 import { counting, plainReads } from '../support/counting'
 import { present } from '../support/present'
-import { huntHolding, identified, openTester, putOn, signedIn, type Tester } from '../support/convex'
+import { anonymousSession, anonymousUser, googleUser, huntHolding, openTester, putOn, type Tester } from '../support/convex'
 import { seedHuntRows, seedQuizRows } from '../support/seed'
 
 /** A fresh deployment holding `hunt`, and its first quiz's id */
@@ -396,60 +395,95 @@ describe("usageOf", () => {
   })
 })
 
-describe("identFor", () => {
-  it("is the ident a session asserted last, and null for one that never has", async () => {
+describe("userForUserlabel", () => {
+  it("is the user holding a userlabel, and null for one nobody holds", async () => {
     const tt = openTester()
-    const flip = await identified(tt, 'flip_kromer')
-    await flip.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'quiet_otter', title: '' } })
-    const { user_id } = await signedIn(tt)
-    const found = await tt.run(async (ctx) => [await identFor(ctx.db, flip.user_id), await identFor(ctx.db, user_id)])
-    expect(found.map((ident) => ident?.label ?? null)).to.deep.eq(['quiet_otter', null])
+    const flip = await googleUser(tt, 'flip_kromer')
+    await anonymousSession(tt)
+    const found = await tt.run(async (ctx) => [await userForUserlabel(ctx.db, 'flip_kromer'), await userForUserlabel(ctx.db, 'quiet_otter')])
+    expect(found.map((user) => user?._id ?? null)).to.deep.eq([flip.user_id, null])
+  })
+})
+
+describe("holderOfUserlabel", () => {
+  it("says what holds a userlabel: a user, a ghosting, or a hunt's address; null when it is free", async () => {
+    const tt = openTester()
+    const flip = await googleUser(tt, 'flip_kromer')
+    await tt.run(async (ctx) => {
+      const account = present(await ctx.db.query('authAccounts').first())
+      await ctx.db.insert('ghostings', { userlabel: 'old_flip', user_id: flip.user_id, into_user_id: flip.user_id, account_id: account._id })
+      await ctx.db.insert('hunts', { label: 'spring_hunt', orglabel: 'pat_smiths', title: '', branch: 'main' })
+    })
+    const held = await tt.run(async (ctx) => await Promise.all(['flip_kromer', 'old_flip', 'pat_smiths', 'quiet_otter'].map(async (userlabel) => await holderOfUserlabel(ctx.db, userlabel))))
+    expect(held).to.deep.eq(['user', 'ghosting', 'address', null])
   })
 
-  it("is null for a session whose newest identing names an ident it no longer holds", async () => {
+  it("finds a ghosting by its userlabel, and nothing for one none holds", async () => {
     const tt = openTester()
-    const [flip, bob] = [await identified(tt, 'flip_kromer'), await identified(tt, 'bob_smiths')]
+    const flip = await googleUser(tt, 'flip_kromer')
     await tt.run(async (ctx) => {
-      await ctx.db.patch('idents', flip.ident_id, { user_id: bob.user_id })
-      await ctx.db.patch('idents', bob.ident_id, { user_id: null })
+      const account = present(await ctx.db.query('authAccounts').first())
+      await ctx.db.insert('ghostings', { userlabel: 'old_flip', user_id: flip.user_id, into_user_id: flip.user_id, account_id: account._id })
     })
-    const found = await tt.run(async (ctx) => [await identFor(ctx.db, flip.user_id), await identFor(ctx.db, bob.user_id)])
-    expect(found).to.deep.eq([null, null])
+    const found = await tt.run(async (ctx) => [await ghostingFor(ctx.db, 'old_flip'), await ghostingFor(ctx.db, 'flip_kromer')])
+    expect(found.map((ghosting) => ghosting?.userlabel ?? null)).to.deep.eq(['old_flip', null])
+  })
+})
+
+describe("censusOf: who a user is", () => {
+  it("tells of a user, by userlabel or by id, its face alone: userlabel, title, anonymous or not, and never its email", async () => {
+    const tt = openTester()
+    const [flip, anon] = [await googleUser(tt, 'flip_kromer'), await anonymousUser(tt, 'anon_otter')]
+    const faces = await tt.run(async (ctx) => {
+      const census = censusOf(ctx.db)
+      return [await census.userByLabel('flip_kromer'), await census.userById(anon.user_id), await census.userByLabel('nobody_here')]
+    })
+    expect(faces).to.deep.eq([
+      { _id: flip.user_id, userlabel: 'flip_kromer', title: 'Flip Kromer', anonymous: false },
+      { _id: anon.user_id, userlabel: 'anon_otter', title: 'Anon Otter', anonymous: true },
+      null,
+    ])
+  })
+
+  it("tells nothing of a user holding no userlabel", async () => {
+    const tt = openTester()
+    const session = await anonymousSession(tt)
+    expect(await tt.run(async (ctx) => await censusOf(ctx.db).userById(session.user_id))).to.be.null
   })
 })
 
 describe("reviewFor", () => {
-  it("finds the ident's review of a quiz, and nothing for an ident with none", async () => {
+  it("finds the user's review of a quiz, and nothing for a user with none", async () => {
     const { tt, hunt_id, quiz_id } = await holding(Hunt.blank())
-    const [alice, bob] = [await identified(tt, 'alice_reviews'), await identified(tt, 'bob_reviews')]
-    await tt.run(async (ctx) => { await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id: alice.ident_id, overall: 'Mine', phase: 'draft' }) })
-    const found = await tt.run(async (ctx) => [await reviewFor(ctx.db, quiz_id, alice.ident_id), await reviewFor(ctx.db, quiz_id, bob.ident_id)])
+    const [alice, bob] = [await googleUser(tt, 'alice_reviews'), await googleUser(tt, 'bob_reviews')]
+    await tt.run(async (ctx) => { await ctx.db.insert('reviews', { hunt_id, quiz_id, user_id: alice.user_id, overall: 'Mine', phase: 'draft' }) })
+    const found = await tt.run(async (ctx) => [await reviewFor(ctx.db, quiz_id, alice.user_id), await reviewFor(ctx.db, quiz_id, bob.user_id)])
     expect(found.map((review) => review?.overall ?? null)).to.deep.eq(['Mine', null])
   })
 
-  it("takes the earlier when two reviews answer to one ident", async () => {
+  it("takes the earlier when two reviews answer to one user", async () => {
     const { tt, hunt_id, quiz_id } = await holding(Hunt.blank())
-    const { ident_id } = await identified(tt, 'alice_reviews')
+    const { user_id } = await googleUser(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
-      await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: 'First', phase: 'empty' })
-      await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: 'Second', phase: 'empty' })
+      await ctx.db.insert('reviews', { hunt_id, quiz_id, user_id, overall: 'First', phase: 'empty' })
+      await ctx.db.insert('reviews', { hunt_id, quiz_id, user_id, overall: 'Second', phase: 'empty' })
     })
-    const found = await tt.run(async (ctx) => await reviewFor(ctx.db, quiz_id, ident_id))
+    const found = await tt.run(async (ctx) => await reviewFor(ctx.db, quiz_id, user_id))
     expect(found?.overall).to.eq('First')
   })
 })
 
 describe("membersOf", () => {
-  it("reads each member's label and title off their hunting, not their ident", async () => {
+  it("reads each member's userlabel and title off their huntship, not their user", async () => {
     const { tt, hunt_id } = await holding(Hunt.blank())
-    const alice = await identified(tt, 'alice_reviews')
-    await putOn(tt, hunt_id, alice.ident_id, 'reviewer')
+    const alice = await googleUser(tt, 'alice_reviews')
+    await putOn(tt, hunt_id, alice.user_id, 'reviewer')
     await tt.run(async (ctx) => {
-      const hunting = present(await huntingFor(ctx.db, hunt_id, alice.ident_id))
-      await ctx.db.patch('huntings', hunting._id, { ident_title: 'As The Hunting Holds It' })
+      const huntship = present(await huntshipFor(ctx.db, hunt_id, alice.user_id))
+      await ctx.db.patch('huntships', huntship._id, { usertitle: 'As The Huntship Holds It' })
     })
     const members = await tt.run(async (ctx) => await membersOf(ctx.db, hunt_id))
-    expect(members.map(({ label, title, role }) => [label, title, role])).to.deep.eq([['alice_reviews', 'As The Hunting Holds It', 'reviewer']])
+    expect(members.map(({ label, title, role }) => [label, title, role])).to.deep.eq([['alice_reviews', 'As The Huntship Holds It', 'reviewer']])
   })
 })
 

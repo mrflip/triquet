@@ -34,11 +34,6 @@ export function rootPath(then?: string): string {
   return then === undefined ? '/' : `/?${new URLSearchParams([['then', then]]).toString()}`
 }
 
-/** The login screen, kept open for a visitor who has said who they are to become someone else */
-export function switchIdentPath(): string {
-  return '/?switch'
-}
-
 /** The hunts the visitor is on, whosever they are */
 export function huntsPath(): string {
   return '/my/hunts'
@@ -97,7 +92,7 @@ export function categoriesPath(labels: HuntLabels): string {
 
 /**
  * Where a quiz lives, opened in `mode`. Without one it names the quiz alone, which opens in the
- * mode the visitor's role works in (`Hunting.modeFor`).
+ * mode the visitor's role works in (`Huntship.modeFor`).
  *
  * @example quizPath({ org: 'pat_smith', hunt: 'quiet_otter', realm: 'home', quiz: 'loud_heron' }, 'edit')  // => '/~pat_smith/quiet_otter/quizzes/home/loud_heron/!edit'
  */

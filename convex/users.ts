@@ -2,7 +2,7 @@ import * as Actor from '../src/lib/actor'
 import { ValidatorKit } from '../src/lib/validator'
 import { refuse, refusingInvalid } from '../src/lib/refusals'
 import { ActionValidators } from '../src/models/actions'
-import type { CurrentIdentT } from '../src/models/ident'
+import type { CurrentUserT } from '../src/models/user'
 import { zMutation, zQuery } from './functions'
 import { affirmUserAction } from './authorize'
 import { performUser } from './writing/user_actions'
@@ -10,32 +10,33 @@ import { performUser } from './writing/user_actions'
 const { zid } = ValidatorKit
 
 /**
- * Who the asking session is now: the ident its newest identing names, and the actor the server
+ * Who the asking session is now: its user, by its userlabel and title, and the actor the server
  * builds of it for every request, so the browser decides what to offer as the server decides what
- * to allow (`Approve`). Null when it has asserted no userlabel, or there is no session.
+ * to allow (`Approve`). Null while the user holds no userlabel, or there is no session. Never its
+ * email: that is for a query of its owner's own, which nothing asks yet.
  */
 export const current = zQuery({
   args:    {},
-  handler: async (ctx): Promise<CurrentIdentT | null> => {
-    if (Actor.isAnonymous(ctx.actor)) { return null }
-    const ident = await ctx.db.get('idents', ctx.actor.ident_id)
-    return ident && { ident: { _id: ident._id, label: ident.label, title: ident.title }, actor: ctx.actor }
+  handler: (ctx): CurrentUserT | null => {
+    const { actor } = ctx
+    if (Actor.isUnlabelled(actor)) { return null }
+    return { user: { _id: actor.user_id, userlabel: actor.userlabel, title: actor.usertitle }, actor }
   },
 })
 
 /**
- * Carry out what a visitor did as themselves: assert a userlabel, or retitle it. See
+ * Carry out what a visitor did as themselves: take a userlabel, or retitle the user they are. See
  * `writing/user_actions`.
  *
- * @returns The ident taken on or retitled.
+ * @returns The user that took the userlabel, or was retitled.
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`: `notSignedIn` for a request
- *   with no session, `notIdentified` for a retitle by a session that has asserted no userlabel,
- *   `userlabelClaimed` for a userlabel another session holds), or `{ ZodError }` for an argument
- *   that is not valid; nothing is written.
+ *   with no session, `notIdentified` for a retitle by a user holding no userlabel, `userlabelSet`
+ *   for a user taking a second one, `userlabelClaimed` for a userlabel that is not free), or
+ *   `{ ZodError }` for an argument that is not valid; nothing is written.
  */
 export const perform = zMutation({
   args:    { action: ActionValidators.userAction },
-  returns: zid('idents'),
+  returns: zid('users'),
   handler: async (ctx, { action }) => await refusingInvalid(async () => {
     const { actor, user_id } = ctx
     if (user_id === null) { refuse('notSignedIn') }

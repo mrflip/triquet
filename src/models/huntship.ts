@@ -3,37 +3,37 @@ import type * as Actor from '../lib/actor'
 import * as Approve from '../lib/approve'
 import { Validator } from '../lib/validator'
 import type { Mode } from '../lib/addresses'
-import { IdentValidators } from './ident'
+import { UserValidators } from './user'
 
-/** What an ident may do on a hunt: make its quizzes, or playtest them */
+/** What a user may do on a hunt: make its quizzes, or playtest them */
 export const HuntRoleVals = ['smith', 'reviewer'] as const
 export type HuntRole = typeof HuntRoleVals[number]
 
 /** Each role as the screen names it */
 export const HuntRoleTitles = { smith: 'Smith', reviewer: 'Reviewer' } as const satisfies Record<HuntRole, string>
 
-export const HuntingValidators = Validator(({ obj, oneof, stamps, zid }) => {
+export const HuntshipValidators = Validator(({ obj, oneof, stamps, zid }) => {
   const role = oneof(HuntRoleVals)
-    .describe('What the ident does on the hunt: a smith makes its quizzes and says who else is on it; a reviewer playtests them.')
+    .describe('What the user does on the hunt: a smith makes its quizzes and says who else is on it; a reviewer playtests them.')
 
   const row = obj({
-    hunt_id:     zid('hunts')
+    hunt_id:   zid('hunts')
       .describe('The hunt.'),
-    ident_id:    zid('idents')
+    user_id:   zid('users')
       .describe('Who is on it.'),
-    ident_label: IdentValidators.identLabel
-      .describe('The label of who is on it, copied from the ident when the hunting is made: an ident\'s label never changes.'),
-    ident_title: IdentValidators.title
-      .describe('What who is on it is called, copied from the ident: retitling an ident rewrites it on every hunting the ident has.'),
+    userlabel: UserValidators.userlabel
+      .describe('The userlabel of who is on it, copied from the user when the huntship is made: a userlabel is set once.'),
+    usertitle: UserValidators.title
+      .describe('What who is on it is called, copied from the user: retitling a user rewrites it on every huntship the user has.'),
     role,
     ...stamps,
   })
-    .describe('One ident\'s place on one hunt: at most one per hunt and ident, its role replaced rather than a second made.')
+    .describe('One user\'s place on one hunt: at most one per hunt and user, its role replaced rather than a second made.')
 
   return { role, row }
 })
 
-export type HuntingRowT = Z.output<typeof HuntingValidators.row>
+export type HuntshipRowT = Z.output<typeof HuntshipValidators.row>
 
 /** The mode the app's own links open a quiz in for each role: a smith works on it, a reviewer playtests it */
 const ModeForRole = { smith: 'edit', reviewer: 'playtest' } as const satisfies Record<HuntRole, Mode>
@@ -45,20 +45,20 @@ const ModeForRole = { smith: 'edit', reviewer: 'playtest' } as const satisfies R
  */
 const ModeKinds = { edit: 'set_lock', playtest: 'open_review' } as const satisfies Record<Mode, Approve.OfferableKind>
 
-/** One ident's place on one hunt, with a role */
-export class Hunting implements HuntingRowT {
-  declare hunt_id:     HuntingRowT['hunt_id']
-  declare ident_id:    HuntingRowT['ident_id']
-  declare ident_label: string
-  declare ident_title: string
-  declare role:        HuntRole
+/** One user's place on one hunt, with a role */
+export class Huntship implements HuntshipRowT {
+  declare hunt_id:   HuntshipRowT['hunt_id']
+  declare user_id:   HuntshipRowT['user_id']
+  declare userlabel: string
+  declare usertitle: string
+  declare role:      HuntRole
 
   /**
    * The mode the app's own links open a quiz in for someone of `role`: a smith works on it, a
    * reviewer playtests it. The link is written for whoever it is shown to; the address it names
    * opens the same screen for anyone (`notes/decisions/urls.md`, rule 4).
    *
-   * @example Hunting.modeFor('reviewer')  // => 'playtest'
+   * @example Huntship.modeFor('reviewer')  // => 'playtest'
    */
   static modeFor(role: HuntRole): Mode {
     return ModeForRole[role]
@@ -69,7 +69,7 @@ export class Hunting implements HuntingRowT {
    * server would let them take the one action that mode always offers (`ModeKinds`). A smith may
    * be shown either; a reviewer only the playtest; nobody else either.
    *
-   * @example Hunting.mayOpen(claims, 'edit')  // => false, for a reviewer
+   * @example Huntship.mayOpen(claims, 'edit')  // => false, for a reviewer
    */
   static mayOpen(claims: Actor.HuntClaimsT, mode: Mode): boolean {
     return Approve.mayOffer(ModeKinds[mode], claims)

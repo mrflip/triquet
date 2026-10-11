@@ -3,10 +3,10 @@
 import { useId, useState } from 'react'
 import { Avatar, Box, Divider, IconButton, MenuItem, MenuList, Popover, Tooltip, Typography } from '@mui/material'
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined'
-import { IdentTitle } from './IdentTitle'
+import { UserTitle } from './UserTitle'
 import NextLink from './NextLink'
 import * as Routes from '../lib/routes'
-import { Ident, type IdentT } from '../models/ident'
+import { User, type UserT } from '../models/user'
 import type { ShownUserT } from '../state/shown'
 
 export type UserMenuProps = {
@@ -17,18 +17,18 @@ export type UserMenuProps = {
 /**
  * Who you are, at the far right of the top bar on every page: a button showing it, the
  * first letter of your name, and a menu of what is yours. It opens on your name, retitled in place,
- * and your @label; then your hunts, being someone else, and About. On a page that knows no one, a
+ * and your @label; then your hunts, and About. On a page that knows no one, a
  * bare figure, and the menu without the name.
  */
 export function UserMenu({ user }: Readonly<UserMenuProps>) {
   const menuId = useId()
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const open = anchor !== null
-  const ident = user?.ident ?? null
+  const me = user?.user ?? null
   const close = () => { setAnchor(null) }
   return (
     <>
-      <Tooltip describeChild title={ident === null ? 'You' : `You are ${ident.title} (${Ident.atLabel(ident)})`}>
+      <Tooltip describeChild title={me === null ? 'You' : `You are ${User.byline(me)}`}>
         <IconButton
           aria-label="You"
           aria-haspopup="dialog"
@@ -37,9 +37,9 @@ export function UserMenu({ user }: Readonly<UserMenuProps>) {
           onClick={(event) => { setAnchor(event.currentTarget) }}
           sx={{ flexShrink: 0, p: 0.5 }}
         >
-          {ident === null
+          {me === null
             ? <AccountCircleOutlinedIcon sx={{ fontSize: 28 }} />
-            : <Avatar sx={{ width: 28, height: 28, fontSize: 15, bgcolor: 'primary.main', color: 'primary.contrastText' }}>{initialOf(ident)}</Avatar>}
+            : <Avatar sx={{ width: 28, height: 28, fontSize: 15, bgcolor: 'primary.main', color: 'primary.contrastText' }}>{initialOf(me)}</Avatar>}
         </IconButton>
       </Tooltip>
       {/* A popover rather than a menu, so the name is a field of its own and not an item whose keys the menu takes. */}
@@ -48,11 +48,10 @@ export function UserMenu({ user }: Readonly<UserMenuProps>) {
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }} transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         slotProps={{ paper: { role: 'dialog', 'aria-label': 'You' } }}
       >
-        {user !== null && ident !== null && <Whoami ident={ident} onRetitle={user.onRetitle} />}
-        {user !== null && ident !== null && <Divider />}
-        <MenuList aria-label="Yours" autoFocusItem={ident === null}>
+        {user !== null && me !== null && <Whoami me={me} onRetitle={user.onRetitle} />}
+        {user !== null && me !== null && <Divider />}
+        <MenuList aria-label="Yours" autoFocusItem={me === null}>
           <MenuItem component={NextLink} href={Routes.huntsPath()} onClick={close}>Your hunts</MenuItem>
-          <MenuItem component={NextLink} href={Routes.switchIdentPath()} onClick={close}>Be someone else</MenuItem>
           <MenuItem component={NextLink} href={Routes.aboutPath()} onClick={close}>About</MenuItem>
         </MenuList>
       </Popover>
@@ -61,16 +60,16 @@ export function UserMenu({ user }: Readonly<UserMenuProps>) {
 }
 
 /** The head of the user menu: your name, retitled in place, and your @label beneath it */
-function Whoami({ ident, onRetitle }: Readonly<{ ident: IdentT, onRetitle: (title: string) => void }>) {
+function Whoami({ me, onRetitle }: Readonly<{ me: UserT, onRetitle: (title: string) => void }>) {
   return (
     <Box sx={{ px: 1.5, pt: 1.5, pb: 1 }}>
-      <IdentTitle ident={ident} onRetitle={onRetitle} />
-      <Typography variant="body2" color="text.secondary" sx={{ px: 0.5 }}>{Ident.atLabel(ident)}</Typography>
+      <UserTitle user={me} onRetitle={onRetitle} />
+      <Typography variant="body2" color="text.secondary" sx={{ px: 0.5 }}>{User.atLabel(me)}</Typography>
     </Box>
   )
 }
 
 /** The letter the user menu's button shows: the first of the visitor's name */
-function initialOf(ident: IdentT): string {
-  return (ident.title.trim().at(0) ?? ident.label.at(0) ?? '?').toUpperCase()
+function initialOf(me: UserT): string {
+  return (me.title.trim().at(0) ?? me.userlabel.at(0) ?? '?').toUpperCase()
 }

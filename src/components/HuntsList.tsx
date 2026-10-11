@@ -7,18 +7,18 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import * as Actor from '../lib/actor'
 import * as Approve from '../lib/approve'
 import * as Labelmaker from '../lib/labelmaker'
-import { AppNotices } from '../lib/notices'
+import { AppNotices, RefusalNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import { HomeRealmLabel } from '../models/realm'
 import type { ListedHuntT } from '../lib/rows'
-import { Hunting, HuntRoleTitles } from '../models/hunting'
-import { Ident } from '../models/ident'
+import { Huntship, HuntRoleTitles } from '../models/huntship'
+import { User } from '../models/user'
 import { useRaiseAlarm } from '../state/alarms'
 import { useOuterHuntActions } from '../state/use-outer-hunt-actions'
 import { useHuntsList } from '../state/use-hunts-list'
-import { useIdent } from '../state/use-ident'
+import { useMe } from '../state/use-me'
 import { HuntEditModal } from './HuntEditModal'
-import { IdentTitle, useRetitleIdent } from './IdentTitle'
+import { UserTitle, useRetitleUser } from './UserTitle'
 import NextLink from './NextLink'
 import { OrphanedRepos } from './OrphanedRepos'
 import { Panel } from './panels/Panel'
@@ -26,10 +26,10 @@ import { OpeningNotice } from './SyncNotices'
 import styles from './workbench.module.css'
 
 /** What the list of every hunt the visitor is on says of itself */
-const HuntsBlurb = "The hunts you are on, and the quizzes in each. Open a quiz to work on it as a smith, or to review it as a reviewer. To be put on someone else's hunt, ask one of its smiths to add you by your ident label."
+const HuntsBlurb = "The hunts you are on, and the quizzes in each. Open a quiz to work on it as a smith, or to review it as a reviewer. To be put on someone else's hunt, ask one of its smiths to add you by your handle."
 
 /** What a list of one org's hunts says of itself, after naming the org */
-const OrgBlurb = "Open a quiz to work on it as a smith, or to review it as a reviewer. To be put on another of its hunts, ask one of that hunt's smiths to add you by your ident label."
+const OrgBlurb = "Open a quiz to work on it as a smith, or to review it as a reviewer. To be put on another of its hunts, ask one of that hunt's smiths to add you by your handle."
 
 /** How many fresh labels a new hunt tries before giving up, each already taken by a hunt not listed here */
 const NewHuntAttemptsMax = 3
@@ -68,42 +68,48 @@ export type HuntsListProps = {
  * for quizzes no longer among them, to download.
  *
  * Given an `org`, only that org's hunts, without the histories; a new hunt is offered only on the
- * visitor's own. A visitor who has not said who they are is sent to say so first, and brought back.
+ * visitor's own. An anonymous visitor (`Actor.isSealed`) is offered one hunt, their sandbox,
+ * labelled with their own handle, and once it is made, told that more come with signing in with
+ * Google. A visitor who has not said who they are is sent to say so first, and brought back.
  */
 export function HuntsList({ org }: Readonly<HuntsListProps>) {
   const router = useRouter()
-  const { ident, actor, loaded } = useIdent()
+  const { user, actor, loaded } = useMe()
   const listed = useHuntsList()
   const { act, busy } = useOuterHuntActions()
-  const retitle = useRetitleIdent()
+  const retitle = useRetitleUser()
   const raise = useRaiseAlarm()
   const here = org === undefined ? Routes.huntsPath() : Routes.orgPath(org)
 
   useEffect(() => {
-    if (loaded && ! ident) { router.replace(Routes.rootPath(here)) }
-  }, [loaded, ident, router, here])
+    if (loaded && ! user) { router.replace(Routes.rootPath(here)) }
+  }, [loaded, user, router, here])
 
-  if (! loaded || ! ident || listed === null) {
+  if (! loaded || ! user || listed === null) {
     return <OpeningNotice notice={null} waiting={AppNotices.openingHunts} />
   }
   const hunts = org === undefined ? listed : listed.filter((hunt) => hunt.org === org)
-  const making = org === undefined || org === ident.label
+  const ownOrg = listed.filter((hunt) => hunt.org === user.userlabel)
+  const sealed = Actor.isSealed(actor)
+  const making = org === undefined || org === user.userlabel
+  // An anonymous visitor makes one hunt, their sandbox, and is told what comes with Google once it is made.
+  const offering = making && ! (sealed && ownOrg.length > 0)
 
   const onNew = async () => {
     // The label is settled here rather than in the action, because the address this is about
     // to go to has to name it. It need only be unique within the visitor's own org, but only the
     // hunts they are on are listed, so one of their org they have left may already answer to it:
-    // then another is tried, and only the last refusal is said.
-    const ownOrg = listed.filter((hunt) => hunt.org === ident.label)
+    // then another is tried, and only the last refusal is said. A sandbox's label is its maker's
+    // own userlabel, tried once.
     for (let attempt = 1; attempt <= NewHuntAttemptsMax; attempt += 1) {
-      const label = Labelmaker.freshLabelFor(ownOrg)
+      const label = sealed ? user.userlabel : Labelmaker.freshLabelFor(ownOrg)
       const outcome = await act({ kind: 'new_hunt', label })
       if (outcome.kept) {
         // Its maker is its first smith, and so its org.
-        router.push(Routes.quizPath({ org: ident.label, hunt: label, realm: HomeRealmLabel, quiz: label }, 'edit'))
+        router.push(Routes.quizPath({ org: user.userlabel, hunt: label, realm: HomeRealmLabel, quiz: label }, 'edit'))
         return
       }
-      if (attempt === NewHuntAttemptsMax || outcome.failurekind !== 'labelTaken') {
+      if (sealed || attempt === NewHuntAttemptsMax || outcome.failurekind !== 'labelTaken') {
         raise(outcome.alarm)
         return
       }
@@ -114,15 +120,15 @@ export function HuntsList({ org }: Readonly<HuntsListProps>) {
     <main className={styles.page}>
       <Stack direction="row" useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap', columnGap: 1, mb: 1 }}>
         <Typography>You are</Typography>
-        <IdentTitle ident={ident} onRetitle={retitle} />
-        <Typography>({Ident.atLabel(ident)}).</Typography>
-        <Link component={NextLink} href={Routes.switchIdentPath()}>Be someone else</Link>
+        <UserTitle user={user} onRetitle={retitle} />
+        <Typography>({User.atLabel(user)}).</Typography>
       </Stack>
       <Panel
         title={org === undefined ? 'Hunts' : `Hunts of ~${org}`}
         blurb={org === undefined ? HuntsBlurb : `The hunts of ~${org} you are on, and the quizzes in each. ${OrgBlurb}`}
       >
-        {making && <Button variant="outlined" size="small" disabled={busy} onClick={() => { void onNew() }}>+ New hunt</Button>}
+        {offering && <Button variant="outlined" size="small" disabled={busy} onClick={() => { void onNew() }}>+ New hunt</Button>}
+        {making && ! offering && <p className={styles.microcopy}>{RefusalNotices.sealedHunts}</p>}
         {hunts.length === 0 && <p className={styles.microcopy}>{org === undefined ? AppNotices.noHunts : `You are on none of ~${org}'s hunts.`}</p>}
         {hunts.length > 0 && (
           <TableContainer sx={{ mt: 1, containerType: 'inline-size' }}>
@@ -200,7 +206,7 @@ function HuntRow({ hunt, actor }: Readonly<HuntRowProps>) {
  * marked locked or still being worked on, flowing on and wrapping
  */
 export function QuizLinks({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
-  const mode = Hunting.modeFor(hunt.role)
+  const mode = Huntship.modeFor(hunt.role)
   return (
     <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', columnGap: 3, rowGap: 0.5 }}>
       {hunt.realms.flatMap((realm) => realm.quizzes.map((quiz) => (

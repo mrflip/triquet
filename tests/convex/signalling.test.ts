@@ -8,7 +8,7 @@ import { Hunt } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { SignalGrainMs } from '../../src/models/signal'
-import { affirmsOf, callerOf, huntHolding, openTester, seedHunt, type Identified, type Seeded } from '../support/convex'
+import { affirmsOf, callerOf, huntHolding, openTester, seedHunt, type Labelled, type Seeded } from '../support/convex'
 import { classicLayout } from '../support/layouts'
 import { present } from '../support/present'
 
@@ -21,7 +21,7 @@ function quizOf(label: string, labels: readonly string[]): QuizT {
 }
 
 /** A hunt of two quizzes, princes open and paris beside it, with a reviewer, lee */
-async function seeded(): Promise<Seeded & { lee: Identified, paris: Id<'quizzes'>, leon: Id<'questions'> }> {
+async function seeded(): Promise<Seeded & { lee: Labelled, paris: Id<'quizzes'>, leon: Id<'questions'> }> {
   const held = await seedHunt(openTester(), huntHolding([quizOf('princes', ['leon', 'nantes']), quizOf('paris', ['louvre'])]), { smith: 'pat_smiths' })
   const lee = await held.join('lee_reviews', 'reviewer')
   const seen = await held.read()

@@ -119,5 +119,17 @@ export class Hunt implements HuntT {
   static quizzesOf(hunt: Pick<HuntT, 'realms'>): QuizT[] {
     return hunt.realms.flatMap((realm) => realm.quizzes)
   }
+
+  /**
+   * Whether `hunt` is a sandbox: labelled with its own org, `~label/label`, as the one hunt an
+   * anonymous user may make is (`Approve.mayMakeHunt`). Its address stays a sandbox's when a merge
+   * hands it to a user signed in with Google, whose userlabel may be another.
+   *
+   * @example Hunt.isSandbox({ label: 'flip_kromer', orglabel: 'flip_kromer' })  // => true
+   * @example Hunt.isSandbox({ label: 'quiet_otter', orglabel: 'flip_kromer' })  // => false
+   */
+  static isSandbox(hunt: { label: string, orglabel: string }): boolean {
+    return hunt.label === hunt.orglabel
+  }
 }
 

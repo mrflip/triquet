@@ -91,7 +91,7 @@ describe('HuntValidators.row', () => {
     expect(() => HuntValidators.row({ ...Row, label: 'Quiet Otter' })).to.throw(Z.ZodError)
   })
 
-  it("refuses an org that is not an ident's label", () => {
+  it("refuses an org that is not a userlabel", () => {
     expect(() => HuntValidators.row({ ...Row, orglabel: 'pat' })).to.throw(Z.ZodError)
   })
 
@@ -137,5 +137,15 @@ describe('HuntValidators.newLabel', () => {
   it('refuses what is no label', () => {
     expect(() => HuntValidators.newLabel('Quiet Otter')).to.throw(Z.ZodError)
     expect(() => HuntValidators.newLabel('position')).to.throw(Z.ZodError)
+  })
+})
+
+describe('Hunt.isSandbox', () => {
+  it('is a hunt labelled with its own org, as an anonymous user makes its one hunt', () => {
+    expect(Hunt.isSandbox({ label: 'flip_kromer', orglabel: 'flip_kromer' })).to.be.true
+  })
+
+  it('is no other hunt', () => {
+    expect(Hunt.isSandbox({ label: 'quiet_otter', orglabel: 'flip_kromer' })).to.be.false
   })
 })
