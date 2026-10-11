@@ -9,12 +9,16 @@
 #      (TRIQUET_CLEARABLE=yes, which testing:clearAll asks for), and gives it Convex Auth's keys
 #      when it has none (scripts/convex_auth_keys).
 #   3. With --reset, empties it (scripts/convex_reset). A push that a schema change refuses, for
-#      rows the new schema no longer fits, is then retried once the backend is empty.
-#   4. With --seed, seeds it (seeding:seedWidgets, which is safe to run again): the library's seed
-#      widgets, and the default widgetings for a quiz laid out before there were any. Production is
-#      seeded by hand the same way (notes/deploy.md).
-#   5. With --watch, keeps pushing convex/ as it changes, for as long as the command runs.
-#   6. Runs the command with NEXT_PUBLIC_CONVEX_URL naming the backend, and PORT the role's web
+#      rows the new schema no longer fits, is then retried once the backend is empty. One refused
+#      without --reset says how to catch the backend up instead (scripts/deploy.ts --role).
+#   4. Records the checkout's HEAD in the backend's migrations table as the step it was pushed
+#      (deploying:recordPushed; notes/deploy.md, *The two modes*) and starts its backfills
+#      (migrations:runAll), without waiting for them.
+#   5. With --seed, seeds it (seeding:seedWidgets, which is safe to run again): the library's seed
+#      widgets, and the default widgetings for a quiz laid out before there were any. A deploy
+#      seeds production the same way.
+#   6. With --watch, keeps pushing convex/ as it changes, for as long as the command runs.
+#   7. Runs the command with NEXT_PUBLIC_CONVEX_URL naming the backend, and PORT the role's web
 #      port: both as scripts/lanes.ts has them for this checkout's lane.
 #
 # Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent|e2e-built> [--reset] [--seed] [--watch] <command> [arguments...]
@@ -88,7 +92,10 @@ done < "${datadir}/cli.env"
 
 push() { "$convex" dev --once --typecheck disable --tail-logs disable; }
 if ! push; then
-  if [[ "$reset" != yes ]]; then exit 1; fi
+  if [[ "$reset" != yes ]]; then
+    echo "The ${role} backend refused the push. If its rows no longer fit the schema, catch it up step by step (node scripts/deploy.ts --role ${role}), or empty it (--reset)." >&2
+    exit 1
+  fi
   echo "Emptying the ${role} backend, which --reset was going to do anyway, and pushing again." >&2
   scripts/convex_reset "$role"
   push
@@ -98,6 +105,11 @@ fi
 "$convex" env set TRIQUET_ADMINS "${TRIQUET_ADMINS:-*}" > /dev/null
 scripts/convex_auth_keys "$role"
 if [[ "$reset" == yes ]]; then scripts/convex_reset "$role"; fi
+# The step this backend now holds, in its migrations table (an empty backend fits any schema, so a
+# reset backend holds HEAD), and its backfills started; scripts/deploy.ts finishes and records them.
+step="$(node -e 'console.log(JSON.stringify({ sha: process.argv[1], subject: process.argv[2].split("\n")[0] || "(no subject)" }))' "$(git rev-parse HEAD)" "$(git log -1 --format=%s HEAD)")"
+"$convex" run deploying:recordPushed "$step" > /dev/null
+"$convex" run migrations:runAll > /dev/null
 if [[ "$seed" == yes ]]; then "$convex" run seeding:seedWidgets > /dev/null; fi
 if [[ "$watch" == yes ]]; then
   "$convex" dev --typecheck disable --tail-logs disable &
