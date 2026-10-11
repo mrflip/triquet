@@ -98,7 +98,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('add_hunting'),         ident_label: IdentValidators.identLabel, role: HuntingValidators.role }),
     obj({ kind: lit('remove_hunting'),      ident_id: zid('idents') }),
     obj({ kind: lit('retitle_hunt'),        title: titleish }),
-    obj({ kind: lit('relabel_hunt'),        label }),
+    obj({ kind: lit('relabel_hunt'),        label: HuntValidators.newLabel }),
     obj({ kind: lit('delete_hunt') }),
   ])
     .describe('Everything the author can do from inside a quiz: to it, to its realm\'s quizzes, and to who is on the hunt.')
@@ -119,9 +119,9 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     .describe('What a visitor can do as themselves, before any quiz is open: become an ident, or retitle the one they are.')
 
   const outerHuntAction = discrim('kind', [
-    obj({ kind: lit('new_hunt'),      label }),
+    obj({ kind: lit('new_hunt'),      label: HuntValidators.newLabel }),
     obj({ kind: lit('retitle_hunt'),  hunt_id: zid('hunts'), title: titleish }),
-    obj({ kind: lit('relabel_hunt'),  hunt_id: zid('hunts'), label }),
+    obj({ kind: lit('relabel_hunt'),  hunt_id: zid('hunts'), label: HuntValidators.newLabel }),
     obj({ kind: lit('arrange_categories'), hunt_id: zid('hunts'), wheel: CategoryValidators.wheel }),
     obj({ kind: lit('rebranch_hunt'), hunt_id: zid('hunts'), branch: HuntValidators.branch }),
   ])

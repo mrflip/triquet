@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as PA from '../../../src/lib/vv/patterns'
 
@@ -134,6 +136,9 @@ const UnreservedToplevelCases: [string, boolean, string][] = [
   ["support_desk",  false,  'a label beginning support is refused'],
   ["official_ben",  false,  'a label beginning official is refused'],
   ["verified_ben",  false,  'a label beginning verif is refused'],
+  ["google",        false,  'the sign-in\'s provider is refused'],
+  ["google_team",   false,  'a label beginning google is refused, whatever follows'],
+  ["googly_eyes",   true,   'a word one letter off google is another word'],
   ["team_otter",    true,   'team with more after it is allowed: only the bare word is kept'],
   ["stafford",      true,   'a word too common to refuse as a prefix is refused only whole'],
   // the forms:
@@ -141,8 +146,21 @@ const UnreservedToplevelCases: [string, boolean, string][] = [
   ["pub_a",         false,  'pub, an underbar and one character more is refused'],
   ["pubs",          true,   'pub and one character more is another word'],
   ["pubkey",        true,   'pub and three characters more is another word'],
+  // the words a handle should not be:
+  ["handle",        false,  'what the screen calls a userlabel is refused'],
+  ["sandbox",       false,  'what the screen calls an anonymous user\'s one hunt is refused'],
+  ["smith",         false,  'a role\'s name is refused'],
+  ["reviewers",     false,  'a role\'s name, many, is refused'],
+  ["superuser",     false,  'a name that would pass for the app\'s own keeper is refused'],
+  ["claude",        false,  'the bot\'s name is refused'],
+  ["info",          false,  'the contact address\'s mailbox is refused'],
+  ["privacy",       false,  'the privacy policy\'s route is refused'],
+  ["terms",         false,  'the terms\' route is refused'],
+  ["stats",         false,  'the stats page\'s route is refused'],
   // near misses, which must be allowed:
   ["about_face",    true,   'a top-level word with more after it is another word'],
+  ["smithson",      true,   'a role\'s name with more after it is another word'],
+  ["handlebar",     true,   'handle with more after it is another word'],
   ["my_team",       true,   'a top-level word at the end of a longer one is another word'],
   // trivial cases:
   ["",              true,   'an empty string is not reserved: refusing it is the label pattern\'s job'],
@@ -175,7 +193,32 @@ describe('ReservedToplevel', () => {
     const covered = PA.ReservedToplevel.filter((word) => PA.ReservedToplevelPrefixes.some((prefix) => word.startsWith(prefix)))
     expect(covered).to.deep.eq([])
   })
+
+  it("keeps every top-level route and public folder from a new hunt or ident, as any label a route could be", () => {
+    const routes = toplevelSegments().filter((segment) => PA.Label.re.test(segment))
+    expect(routes).to.include.members(['about', 'api', 'my', 'stats', 'privacy', 'terms', 'brand'])
+    expect(routes.filter((segment) => PA.isUnreserved(segment) && PA.UnreservedToplevel.rule(segment))).to.deep.eq([])
+  })
 })
+
+/** The first segment of every address the app serves itself: `src/app`'s folders, through its route groups, and `public`'s */
+function toplevelSegments(): string[] {
+  const root = path.join(import.meta.dirname, '../../..')
+  return [...routesIn(path.join(root, 'src/app')), ...foldersIn(path.join(root, 'public'))]
+}
+
+/** The route segments `dir` serves at its own level: its folders, a route group's own taken in, and no dynamic or private one */
+function routesIn(dir: string): string[] {
+  return foldersIn(dir).flatMap((folder) => {
+    if (folder.startsWith('(')) { return routesIn(path.join(dir, folder)) }
+    return folder.startsWith('[') || folder.startsWith('_') ? [] : [folder]
+  })
+}
+
+/** The names of the folders in `dir` */
+function foldersIn(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+}
 
 const TrimmedCases: [string, boolean, string][] = [
   // regular usage:

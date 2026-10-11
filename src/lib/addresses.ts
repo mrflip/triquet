@@ -294,7 +294,11 @@ function isLabel(str: string): boolean {
   return CK.label.safeParse(str).success
 }
 
-/** Whether `str` is an ident's label, as an org is, by the server's own check: a label, of an ident's length, and no reserved word */
+/**
+ * Whether `str` is an ident's label as an org holds one, by the server's own check: a label, of an
+ * ident's length, and none of the words every label is kept from. A top-level word is an org's
+ * all the same, kept since the org was named (`CK.heldUserlabel`).
+ */
 function isIdentlabel(str: string): boolean {
-  return CK.userlabel.safeParse(str).success
+  return CK.heldUserlabel.safeParse(str).success
 }

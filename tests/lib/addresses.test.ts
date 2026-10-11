@@ -236,7 +236,11 @@ describe("Addresses.orgFrom", () => {
   })
 
   it("reads a reserved word as none, as the server would refuse it", () => {
-    expect([Addresses.orgFrom('~undefined'), Addresses.orgFrom('~admin_pat'), Addresses.orgFrom('~pat_smith_id')]).to.deep.eq([null, null, null])
+    expect([Addresses.orgFrom('~undefined'), Addresses.orgFrom('~pat_smith_id')]).to.deep.eq([null, null])
+  })
+
+  it("reads an org named before its word was kept for the app's own use as the org it is", () => {
+    expect([Addresses.orgFrom('~admin_pat'), Addresses.orgFrom('~google_fan')]).to.deep.eq(['admin_pat', 'google_fan'])
   })
 
   it("reads a label of no ident's length as none", () => {

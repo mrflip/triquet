@@ -60,11 +60,19 @@ export const labelshape = lower.min(PA.Label.min).max(PA.Label.max).regex(PA.Lab
  * (`column:<label>`) still reads the label's shape as its pattern.
  */
 export const label     = labelshape.refine((val) => PA.isUnreserved(val), PA.Unreserved.msg).describe('simple label')
-/** A label global across the app, a hunt's: a label, and none of the words kept for the app's own pages and people (`PA.ReservedToplevel`) */
+/** A label global across the app, a new hunt's: a label, and none of the words kept for the app's own pages and people (`PA.ReservedToplevel`) */
 export const toplabel  = label.refine((val) => PA.UnreservedToplevel.rule(val), PA.UnreservedToplevel.msg).describe('top-level label')
-/** A userlabel, an ident's label: label-shaped, 6 to 24 characters, and none of the words a label or a top-level label is kept from */
-export const userlabel  = lower.min(PA.Userlabel.min).max(PA.Userlabel.max).regex(PA.Userlabel.re, PA.Userlabel.msg)
+/**
+ * A userlabel already held, as an org's address holds one (`/~<org>`): label-shaped, 6 to 24
+ * characters, and none of the words every label is kept from. The top-level words govern a label
+ * being claimed (`userlabel`), not one held, so an org named before a word was kept keeps its
+ * address, and its hunts stay writable.
+ */
+export const heldUserlabel = lower.min(PA.Userlabel.min).max(PA.Userlabel.max).regex(PA.Userlabel.re, PA.Userlabel.msg)
   .refine((val) => PA.Unreserved.rule(val), PA.Unreserved.msg)
+  .describe('held ident label')
+/** A userlabel, an ident's label as it is claimed: a userlabel held (`heldUserlabel`), and none of the words a top-level label is kept from */
+export const userlabel  = heldUserlabel
   .refine((val) => PA.UnreservedToplevel.rule(val), PA.UnreservedToplevel.msg)
   .describe('ident label')
 export const dashlabel = lower.min(PA.Dashlabel.min).max(PA.Dashlabel.max).regex(PA.Dashlabel.re, PA.Dashlabel.msg).describe('dash-separated label')

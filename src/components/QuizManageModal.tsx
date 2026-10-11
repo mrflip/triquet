@@ -103,7 +103,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
   /** The hunt's new label, or what is wrong with it */
   const onRelabelHuntClick = (cleaned: string): string | null => {
     if (Labelmaker.isReserved(cleaned, { toplevel: true })) { return AppNotices.labelReserved }
-    if (! HuntValidators.row.shape.label.safeParse(cleaned).success) { return AppNotices.huntLabelShape }
+    if (! HuntValidators.newLabel.safeParse(cleaned).success) { return AppNotices.huntLabelShape }
     onRelabelHunt(cleaned)
     onClose()
     return null

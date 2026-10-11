@@ -37,7 +37,7 @@ export function HuntEditModal({ hunt, onClose }: Readonly<HuntEditModalProps>) {
 
   const onSave = async () => {
     const titleOk = HuntValidators.row.shape.title.safeParse(title).success
-    const labelOk = HuntValidators.row.shape.label.safeParse(label).success
+    const labelOk = label === huntLabel || HuntValidators.newLabel.safeParse(label).success
     setTitleIssue(titleOk ? null : AppNotices.huntTitleTooLong)
     const labelRefusal = Labelmaker.isReserved(label, { toplevel: true }) ? AppNotices.labelReserved : AppNotices.huntLabelShape
     setLabelIssue(labelOk ? null : labelRefusal)

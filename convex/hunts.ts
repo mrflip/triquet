@@ -12,7 +12,7 @@ import { huntForLabel, huntInOrg, huntingsFor, huntRowsOf, membersOf, realmsOf, 
 import { performOuterHunt } from './writing/hunt_actions'
 import { perform as performAction } from './writing/perform'
 
-const { userlabel, label, zid, zod } = ValidatorKit
+const { heldUserlabel, label, zid, zod } = ValidatorKit
 
 /**
  * The hunts the asking actor is on, as the hunts list shows them, each with its role there and
@@ -45,7 +45,7 @@ export const list = zQuery({
  * no hunt answers.
  */
 export const open = zQuery({
-  args:    { orglabel: userlabel.nullable().optional(), hunt_label: label },
+  args:    { orglabel: heldUserlabel.nullable().optional(), hunt_label: label },
   handler: async (ctx, { orglabel, hunt_label }): Promise<HuntOpeningT> => {
     const hunt = orglabel === null || orglabel === undefined ? await huntForLabel(ctx.db, hunt_label) : await huntInOrg(ctx.db, orglabel, hunt_label)
     if (! hunt) { return { why: 'noSuchHunt', hunt: null } }

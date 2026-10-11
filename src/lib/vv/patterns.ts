@@ -186,9 +186,11 @@ export function isUnreserved(val: string, allowed?: ReadonlySet<string>): boolea
 }
 
 /**
- * The words no hunt and no ident may be labelled, beyond those no label may be. A hunt's label and
- * an ident's are each global, the first word of an address or the name a person goes by, so these
- * are kept for the app's own pages and for whoever speaks for it.
+ * The words no new hunt and no new ident may be labelled, beyond those no label may be. A hunt's
+ * label and an ident's are each global, the first word of an address or the name a person goes
+ * by, so these are kept for the app's own pages and for whoever speaks for it. They govern a label
+ * being made or claimed, and never one already held: a word added here leaves every hunt and org
+ * already so labelled at its address (`CK.heldUserlabel`), which `scripts/check_reserved` names.
  */
 export const ReservedToplevelGroups = {
   /** The app's own corners, and the words for signing in and keeping an account */
@@ -207,6 +209,18 @@ export const ReservedToplevelGroups = {
   voices:  [
     'staff', 'system', 'moderator', 'mod', 'everyone', 'anonymous',
     'guest', 'nobody', 'webmaster', 'postmaster', 'hostmaster', 'abuse', 'noreply', 'no_reply',
+    'info', 'hello', 'sales', 'marketing', 'mailer_daemon', 'mailerdaemon', 'donotreply', 'do_not_reply',
+    'someone', 'anyone', 'unknown', 'deleted', 'claude', 'anthropic', 'gmail',
+  ],
+  /** What the screen calls a person's name and their way in: a handle so named would read as the screen's own word */
+  identity: [
+    'handle', 'handles', 'profile', 'profiles', 'password', 'passwords', 'session', 'sessions',
+    'sandbox', 'sandboxes', 'anon', 'sign_in', 'sign_out', 'sign_up', 'log_in', 'log_out',
+  ],
+  /** Who may do what, on a hunt and over the app: a handle so named would pass for a role the screen names */
+  roles:   [
+    'smith', 'smiths', 'reviewer', 'reviewers', 'member', 'members', 'owner', 'owners',
+    'moderators', 'mods', 'superuser', 'sysadmin', 'sudo',
   ],
 } as const
 
@@ -214,12 +228,13 @@ export const ReservedToplevelGroups = {
 export const ReservedToplevel: readonly string[] = Object.values(ReservedToplevelGroups).flat()
 
 /**
- * How no hunt's or ident's label may begin: what would pass for the app's own desk or its say-so
- * with anything after it (`help_desk`, `triquet_team`, `verified_ben`). A prefix is here when
+ * How no new hunt's or ident's label may begin: what would pass for the app's own desk, its say-so
+ * or its sign-in's with anything after it (`help_desk`, `triquet_team`, `verified_ben`,
+ * `google_support`). A prefix is here when
  * the trick it plays is a bad one and few real names begin with it; one too common to refuse
  * (`staff`, as Stafford; `mod`, as modern) is reserved only as the whole word.
  */
-export const ReservedToplevelPrefixes: readonly string[] = ['secur', 'login', 'triquet', 'help', 'admin', 'support', 'official', 'verif']
+export const ReservedToplevelPrefixes: readonly string[] = ['secur', 'login', 'triquet', 'help', 'admin', 'support', 'official', 'verif', 'google']
 
 /** Whole labels of these forms are kept too, each a regex of the whole label: `pub` and two characters more, for scopes of the library beside `pub` */
 export const ReservedToplevelForms: readonly string[] = ['pub..']
@@ -228,7 +243,7 @@ const ReservedToplevelSet: ReadonlySet<string> = new Set(ReservedToplevel)
 const ReservedToplevelFormRe = new RegExp(`^(?:${ReservedToplevelForms.join('|')})$`)
 
 /**
- * A hunt's or an ident's label that is no top-level reserved word or form, and begins with no
+ * A new hunt's or ident's label that is no top-level reserved word or form, and begins with no
  * reserved prefix. Says nothing of the words every label is kept from, which is `Unreserved`'s
  * business.
  */
