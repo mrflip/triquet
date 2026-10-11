@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { api, internal } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { noticeOf } from '../../src/lib/refusals'
-import type { AccountActionDNA } from '../../src/models/actions'
+import type { OuterHuntActionDNA } from '../../src/models/actions'
 import * as PA from '../../src/lib/vv/patterns'
 import { Hunt } from '../../src/models/hunt'
 import { callerOf, identified, openTester, seedHunt, type Session, type Tester } from '../support/convex'
@@ -46,8 +46,8 @@ async function huntsIn(tt: Tester) {
 }
 
 /** Carry out a hunt action from outside its quizzes, as the session `by` */
-async function performOuter(by: Session, action: AccountActionDNA) {
-  return await callerOf(by).mutation(api.idents.performAccount, { action })
+async function performOuter(by: Session, action: OuterHuntActionDNA) {
+  return await callerOf(by).mutation(api.hunts.performOuter, { action })
 }
 
 describe('check_reserved:refused', () => {
