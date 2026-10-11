@@ -241,7 +241,8 @@ test.describe('the hunts', () => {
   })
 
   test('are retitled and relabelled by their smith from the gear beside each, and their quizzes follow the label', async ({ page }) => {
-    await startHunt(page)
+    // Signed in with Google, as it were: an anonymous smith may not relabel its sandbox.
+    await vouchFor(await startHunt(page))
     const title = freshTitle('Relabelled quiz')
     await page.getByLabel('Quiz name').fill(title)
     await page.getByLabel('Quiz name').blur()
