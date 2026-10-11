@@ -4,6 +4,20 @@ Branch `20261011-adopt_script`, PR filed at landing; see the report. Suites at `
 green (typecheck, lint, 211 unit files, 6142 tests). No e2e yet: the thread touches `convex/` and
 `src/models/`, so the landing's `--touched` reaches the whole suite.
 
+**Review: clean, with one minor finding fixed by the worker** (`a376a43b`). `--title` alone for a
+user whose userlabel a word reserved since would refuse was planned as a retitle, then failed in
+perform (`User.labelled` re-parsed the held userlabel as one being claimed: "Server Error"). The
+reviewer proposed a refusal in `relabelFor`. I took the shape the orchestrator offered instead:
+`relabelUser` keeps the userlabel a user already holds and only retitles, so plan and perform
+agree, and the retitle goes through. Tests cover it in `adopt.test.ts` and `user_actions.test.ts`.
+
+**Left by the review, for thread 9 and the PR's open questions**:
+1. `--smith-all` (and `--smith ~anon/anon`) puts the user on anonymous users' sandboxes, past
+   sealing. That is safe at adoption time, since production then holds no sandboxes, but not on a
+   later run.
+2. Relabelling an anonymous user that holds a sandbox lets it make a second hunt under its new
+   label, since `mayMakeHunt` checks only label == userlabel. Only the command line reaches this.
+
 * **Built**:
   - `convex/adopt.ts`: `adopt:plan` (an internal query: the dry run, which writes nothing) and
     `adopt:perform` (an internal mutation: the same plan, carried out in one transaction), both
