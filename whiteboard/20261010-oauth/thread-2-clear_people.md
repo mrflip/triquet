@@ -1,8 +1,8 @@
 # Thread 2: clear_people (2026-10-11)
 
 Branch `20261011-clear_people`, PR filed at landing; see the report. Suites: justify green
-(typecheck, lint, 202 unit files); e2e not yet run for the landing (the branch adds `convex/`, so
-`--touched` reaches the whole suite).
+(typecheck, lint, 202 unit files); `pnpm e2e --touched` ran the whole suite (the branch adds to
+`convex/`): 293 passed, no flakes. The review came back clean.
 
 * **Built**:
   - `convex/clear_people.ts`: `clearBatch`, an internal mutation deleting up to 500 rows a run
