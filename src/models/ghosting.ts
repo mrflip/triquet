@@ -7,13 +7,13 @@ export const GhostingValidators = Validator(({ obj, zid }) => {
     userlabel:    UserValidators.heldUserlabel
       .describe('The userlabel retired: held reserved, so no user may take it, until it is released.'),
     user_id:      zid('users')
-      .describe('The user that held it, merged away: marked, never deleted.'),
+      .describe("The user that held it: the user merged away (marked, never deleted), or, where its handle was the one kept, the user it merged into, whose own handle this was."),
     into_user_id: zid('users')
       .describe('The user it merged into, which carries on.'),
     account_id:   zid('authAccounts')
       .describe('The account whose sign-in caused the merge: a Google account the merged-into user already had.'),
   })
-    .describe('One userlabel retired by a merge, held reserved until it can be released. Appended, never edited. The Coach\'s word.')
+    .describe('One userlabel retired by a merge, held reserved until it can be released: written as its name choice is settled, for the handle not kept. Appended, never edited. The Coach\'s word.')
 
   return { row }
 })

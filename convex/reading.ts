@@ -6,7 +6,9 @@ import { huntFrom, quizFrom, widgetingFrom, type CellRows, type HuntRows, type L
 import type { WidgetingTier } from '../src/models/widgeting'
 import type { HuntT } from '../src/models/hunt'
 import type { QuizT } from '../src/models/quiz'
-import { User, type UserFaceT } from '../src/models/user'
+import * as Actor from '../src/lib/actor'
+import * as Labelmaker from '../src/lib/labelmaker'
+import { User, type NameChoiceT, type OwnUserT, type UserFaceT } from '../src/models/user'
 
 // Every read here goes through an index, and takes at most the cap `lib/vv/patterns.ts` sets for
 // that kind of child, which the writes refuse to pass: a read never silently drops a row. A
@@ -44,6 +46,52 @@ export async function ghostingFor(db: Reader, userlabel: string): Promise<Doc<'g
  */
 export async function nameChoiceFor(db: Reader, user_id: Id<'users'>): Promise<Doc<'users'> | null> {
   return await db.query('users').withIndex('by_merged_into', (cvx) => cvx.eq('merged.into_user_id', user_id).gt('userlabel', '')).first()
+}
+
+/**
+ * What the user `user_id` is told of itself and nobody else is (`OwnUserT`): whether it is signed
+ * in with Google, the email Google sent, the handle the front door offers it while it holds none
+ * (`suggestedFor`), and the name choice a merge left it (`nameChoiceFor`). Never read for anyone
+ * but the asking session's own user.
+ *
+ * @returns What it is told; null when there is no such user.
+ *
+ * @example (await ownUserOf(db, user_id))?.email  // => 'flip@example.com', for a user signed in with Google
+ */
+export async function ownUserOf(db: Reader, user_id: Id<'users'>): Promise<OwnUserT | null> {
+  const user = await db.get('users', user_id)
+  if (user === null) { return null }
+  const google = Actor.isSignedInWithGoogle(user)
+  const [suggested, merged] = await Promise.all([
+    google && user.userlabel === undefined ? suggestedFor(db, user) : null,
+    user.userlabel === undefined ? null : nameChoiceFor(db, user_id),
+  ])
+  return { google, email: google ? user.email ?? null : null, suggested, nameChoice: choiceBetween(merged, user) }
+}
+
+/**
+ * What the front door offers a user signed in with Google that holds no userlabel: its Google
+ * name as its title, and the first of `User.suggestionsFor` that is free (`holderOfUserlabel`:
+ * held by no user, retired by no ghosting, and no hunt's address), asked one after another, so
+ * the usual case reads three rows.
+ */
+async function suggestedFor(db: Reader, user: Pick<Doc<'users'>, 'name' | 'email'>): Promise<NonNullable<OwnUserT['suggested']>> {
+  const title = user.name?.trim() ?? ''
+  for (const userlabel of User.suggestionsFor(user)) {
+    if (await holderOfUserlabel(db, userlabel) === null) { return { userlabel, title } }
+  }
+  return { userlabel: null, title }
+}
+
+/** The name choice between the user merged away `merged` and `user`, as its owner is shown it; null when there is none */
+function choiceBetween(merged: Doc<'users'> | null, user: Doc<'users'>): NameChoiceT | null {
+  if (merged?.userlabel === undefined || user.userlabel === undefined) { return null }
+  return { merged: handleOf(merged.userlabel, merged.title), own: handleOf(user.userlabel, user.title) }
+}
+
+/** A handle as a name choice shows it: the userlabel, and the title, its userlabel titleized when it has none */
+function handleOf(userlabel: string, title: string | undefined): NameChoiceT['own'] {
+  return { userlabel, title: title ?? Labelmaker.titleize(userlabel) }
 }
 
 /** The Google account of the user `user_id`: a user has at most one, as nothing links a second; null for a user signed in with none */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, googleAccountOf, huntForLabel, huntInOrg, huntshipFor, huntsCountedInOrg, huntRowsOf, ghostingFor, holderOfUserlabel, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, nameChoiceFor, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
+  censusOf, cellRowsOf, googleAccountOf, huntForLabel, huntInOrg, huntshipFor, huntsCountedInOrg, huntRowsOf, ghostingFor, holderOfUserlabel, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, nameChoiceFor, ownUserOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
   usageOf, userForUserlabel, wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import type { CellRows } from '../../src/lib/rows'
@@ -439,6 +439,28 @@ describe("nameChoiceFor", () => {
     const anon = await anonymousUser(tt, 'anon_first')
     await merge(tt, anon.user_id, alice.user_id, account._id)
     expect(await tt.run(async (ctx) => await nameChoiceFor(ctx.db, bob.user_id))).to.be.null
+  })
+})
+
+describe("ownUserOf", () => {
+  it("is what a user is told of itself: its email, for one signed in with Google, and its name choice, pending a merge", async () => {
+    const tt = openTester()
+    const alice = await googleUser(tt, 'alice_google')
+    const account = present(await tt.run(async (ctx) => await googleAccountOf(ctx.db, alice.user_id)))
+    const anon = await anonymousUser(tt, 'anon_first')
+    await merge(tt, anon.user_id, alice.user_id, account._id)
+    expect(await tt.run(async (ctx) => await ownUserOf(ctx.db, alice.user_id))).to.deep.eq({
+      google: true, email: 'alice_google@example.com', suggested: null, nameChoice: { merged: { userlabel: 'anon_first', title: 'Anon First' }, own: { userlabel: 'alice_google', title: 'Alice Google' } },
+    })
+    // The user merged away is anonymous, and is told nothing of the user it merged into
+    expect(await tt.run(async (ctx) => await ownUserOf(ctx.db, anon.user_id))).to.deep.eq({ google: false, email: null, suggested: null, nameChoice: null })
+  })
+
+  it("is null for a user that is not there", async () => {
+    const tt = openTester()
+    const gone = await anonymousSession(tt)
+    await tt.run(async (ctx) => { await ctx.db.delete('users', gone.user_id) })
+    expect(await tt.run(async (ctx) => await ownUserOf(ctx.db, gone.user_id))).to.be.null
   })
 })
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { internal } from '../../convex/_generated/api'
+import { api, internal } from '../../convex/_generated/api'
 import { Hunt } from '../../src/models/hunt'
 import * as PA from '../../src/lib/vv/patterns'
 import { EstimatesColumnWidthPx, NewColumnWidthPx } from '../../src/lib/widgeting-edit'
@@ -283,6 +283,14 @@ describe("testing.vouchFor", () => {
     await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), userlabel: 'tester_anon', role: 'reviewer' })
     const members = await membersOf(tt, address)
     expect([user.isAnonymous, members.at(-1)]).to.deep.eq([false, ['tester_anon', 'reviewer']])
+  })
+
+  it("gives the user the email asked for, as Google would have sent it, for its owner to be shown", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'tester_anon')
+    await tt.mutation(internal.testing.vouchFor, { userlabel: 'tester_anon', email: 'tester@example.com' })
+    expect(await anon.as.query(api.users.own, {})).to.deep.eq({ google: true, email: 'tester@example.com', suggested: null, nameChoice: null })
   })
 
   it("signs nobody in, and touches no account", async () => {

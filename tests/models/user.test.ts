@@ -21,6 +21,42 @@ describe('User.labelFor', () => {
   }
 })
 
+describe('User.suggestionsFor', () => {
+  const Cases = [
+    // regular usage:
+    [{ name: "Flip Kromer", email: "flip.kromer@example.com" }, ["flip_kromer", "flip_kromer_2"], 'offers the name first, then numbered, the email making the same one adding nothing'],
+    [{ name: "Flip Kromer", email: "mrflip@example.com" },      ["flip_kromer", "mrflip"],        'offers the email before the @ after the name'],
+    [{ email: "mrflip@example.com" },                           ["mrflip", "mrflip_2"],           'offers the email alone where Google sent no name'],
+    // mended or dropped:
+    [{ name: "Flip", email: "flip@example.com" },               ["flip_2", "flip_3"],             'mends a name too short to be a userlabel by numbering it'],
+    [{ name: "Handles", email: "mrflip@example.com" },          ["mrflip", "handles_2"],          'never offers a reserved word'],
+    [{ name: "Google Fan", email: "support@example.com" },      [],                               'offers nothing where every word is kept, numbered or not'],
+    [{ name: "The Quite Long Name Indeed" },                    ["the_quite_long_name_inde", "the_quite_long_name_in_2"], 'cuts a long one short to leave room for its number'],
+    [{ name: "Abcdefghijklmnopqrstu Vw" },                      ["abcdefghijklmnopqrstu_vw", "abcdefghijklmnopqrstu_2"],  'keeps one cut short from ending in an underscore before its number'],
+    // nothing to go on:
+    [{},                                                        [],                               'offers nothing for nothing'],
+    [{ name: "  ", email: "@example.com" },                     [],                               'offers nothing for a blank name and an email with nothing before its @'],
+  ] as const
+  for (const [profile, firstTwo, describes] of Cases) {
+    it(describes, () => {
+      expect(User.suggestionsFor(profile).slice(0, 2)).to.deep.eq(firstTwo)
+    })
+  }
+
+  it('offers only userlabels a person could claim, each once', () => {
+    const offered = User.suggestionsFor({ name: 'Flip Kromer', email: 'flip_kromer@example.com' })
+    expect(offered.filter((label) => User.flawIn(label) !== null)).to.deep.eq([])
+    expect(offered).to.have.lengthOf(9)
+    expect(new Set(offered).size).to.eq(offered.length)
+  })
+
+  it('matches its examples', () => {
+    expect(User.suggestionsFor({ name: 'Flip Kromer', email: 'flip@example.com' }).slice(0, 3)).to.deep.eq(['flip_kromer', 'flip_kromer_2', 'flip_kromer_3'])
+    expect(User.suggestionsFor({ email: 'flip@example.com' }).slice(0, 2)).to.deep.eq(['flip_2', 'flip_3'])
+    expect(User.suggestionsFor({})).to.deep.eq([])
+  })
+})
+
 describe('User.flawIn', () => {
   const Cases = [
     // regular usage:

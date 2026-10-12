@@ -174,24 +174,28 @@ export const putOnHunt = zInternalMutation({
  * Google does to an anonymous user's browser (its account joins the user, which is then no longer
  * anonymous), stood in for, since nothing automated signs in to Google. The e2e suite's way to a
  * visitor that may do what sealing keeps from an anonymous user: be put on a hunt, bring others
- * onto one, review. It signs nobody in and proves nothing: it is no provider, and touches no
- * account. Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production never has.
+ * onto one, review. Given an email, the user holds it as Google would have sent it, for a spec of
+ * what its owner is shown (the user menu). It signs nobody in and proves nothing: it is no
+ * provider, and touches no account. Refused on a deployment without `TRIQUET_CLEARABLE=yes`,
+ * which production never has.
  *
  * Internal, never public: for a holder of the deployment's admin key alone.
  *
  * @param userlabel - The userlabel of the user to vouch for, chosen at the front door.
+ * @param email - The email it is to hold, as Google sends one; left as it was when absent.
  * @throws On a deployment that may not be made into, or a userlabel nobody holds; nothing is written.
  *
  * @example npx convex run testing:vouchFor '{"userlabel": "tester_4567cdef"}'
+ * @example npx convex run testing:vouchFor '{"userlabel": "tester_4567cdef", "email": "tester@example.com"}'
  */
 export const vouchFor = zInternalMutation({
-  args:    { userlabel },
+  args:    { userlabel, email: zod.email().optional() },
   returns: zod.null(),
-  handler: async (ctx, { userlabel: vouchedlabel }) => {
+  handler: async (ctx, { userlabel: vouchedlabel, email }) => {
     if (env.TRIQUET_CLEARABLE !== 'yes') { throw new Error('This deployment is not one to vouch for users by hand: TRIQUET_CLEARABLE is not yes') }
     const user = await userForUserlabel(ctx.db, vouchedlabel)
     if (! user) { throw new Error(`No user holds the userlabel ${vouchedlabel}: say who you are at the front door first`) }
-    await ctx.db.patch('users', user._id, { isAnonymous: false })
+    await ctx.db.patch('users', user._id, { isAnonymous: false, ...(email !== undefined && { email }) })
     return null
   },
 })

@@ -120,6 +120,15 @@ function sharedLabels(held: Held): string[] {
   ]
 }
 
+/** Every userlabel held once: by one user, or retired into one ghosting, and never by both (`holderOfUserlabel` reads them as one) */
+function sharedUserlabels(held: Held): string[] {
+  const userlabels = [
+    ...held.users.flatMap((user) => (user.userlabel === undefined ? [] : [user.userlabel])),
+    ...held.ghostings.map((ghosting) => ghosting.userlabel),
+  ]
+  return repeatsIn(userlabels).map((userlabel) => `${userlabel} is held twice`)
+}
+
 /**
  * One field a row holds a copy of (`notes/convex.md`, *Denormalized fields*): the table and field,
  * the field of the row naming the parent it is copied from (`via`), and the parent's table and the
@@ -173,6 +182,7 @@ export const SoundnessChecks: SoundnessCheck[] = [
   { title: 'every chain names a sibling',                         faultsOf: danglingChains },
   { title: "every column's source names something showable",      faultsOf: unshowableSources },
   { title: 'no two hunts, nor two quizzes of a realm, share a label', faultsOf: sharedLabels },
+  { title: 'no two users, nor a user and a ghosting, hold one userlabel', faultsOf: sharedUserlabels },
   ...Copies.map((copy) => ({ title: `${copy.tablename}.${copy.fieldname} is its ${copy.via}'s ${copy.from}`, faultsOf: staleCopies(copy) })),
 ]
 

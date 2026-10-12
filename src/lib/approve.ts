@@ -371,6 +371,21 @@ export function mayRetitleUser(actor: Actor.ActorT): VerdictT {
 }
 
 /**
+ * Whether `actor` may settle a name choice a merge left it (`settle_name_choice`): which of two
+ * handles to keep. Whether one is pending, and between which two, is the write's to say
+ * (`nameChoiceGone`), since it turns on the rows of the user merged into it. In order:
+ *
+ * * Nobody without a userlabel: a user merged into always holds one
+ * * Anyone who has
+ *
+ * @example Approve.maySettleNameChoice(actor)  // => 'allow'
+ */
+export function maySettleNameChoice(actor: Actor.ActorT): VerdictT {
+  if (Actor.isUnlabelled(actor)) { return 'notIdentified' } // Nobody without a userlabel: a user merged into always holds one
+  return Allow                                              // Anyone who has
+}
+
+/**
  * Whether `actor` may make the hunt `action` names, of which they become the first smith, under
  * their own org. A sealed user makes only its sandbox, labelled with its own userlabel; its org
  * holding one already is the write's to refuse (`newHunt`), as two hunts of one org never share a
@@ -530,6 +545,7 @@ const HuntPolicies = {
 const UserPolicies = {
   assume_userlabel: mayAssertUserlabel,
   retitle_user:     mayRetitleUser,
+  settle_name_choice: maySettleNameChoice,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
 /** The reads, and the ask, by name */

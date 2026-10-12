@@ -94,6 +94,34 @@ export type CurrentUserT = { user: UserT, actor: Actor.UserActorT }
  */
 export type UserFaceT = { _id: Id<'users'>, userlabel: string, title: string, anonymous: boolean }
 
+/** A handle a user may keep, as a name choice shows it: the userlabel and the title beside it */
+export type HandleT = Pick<UserT, 'userlabel' | 'title'>
+
+/**
+ * A name choice pending after a merge (`nameChoiceFor`): the handle the merged browser went by,
+ * which the user merged away still holds, and the user's own. One is kept; the other is retired.
+ */
+export type NameChoiceT = { merged: HandleT, own: HandleT }
+
+/**
+ * What a user is told of itself and nobody else is: whether it is signed in with Google, the email
+ * Google sent, the handle the front door offers a user signed in with Google that holds none yet,
+ * and a name choice pending after a merge.
+ */
+export type OwnUserT = {
+  /** Whether the user is signed in with Google (`Actor.isSignedInWithGoogle`) */
+  google:     boolean
+  /** The email Google sent, shown to its owner alone; null for a user not signed in with Google, or one Google sent none for */
+  email:      string | null
+  /** For a user signed in with Google holding no userlabel: the title Google's name makes, and the first free userlabel of `User.suggestionsFor`, null when none is; null otherwise */
+  suggested:  { userlabel: string | null, title: string } | null
+  /** A name choice pending after a merge; null when none is */
+  nameChoice: NameChoiceT | null
+}
+
+/** What `User.suggestionsFor` puts after a userlabel to make another */
+const SuggestionNumbers = [2, 3, 4, 5, 6, 7, 8, 9] as const
+
 /** Why what a person typed is not a userlabel: no typing on would make it one, it is one still being typed (too short, or ending in an underscore), or it is a word kept for the app's own use */
 export type LabelFlawT = 'shape' | 'unfinished' | 'reserved'
 
@@ -119,6 +147,27 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    */
   static labelFor(name: string): string {
     return Labelmaker.normalize(name, PA.Userlabel)
+  }
+
+  /**
+   * The userlabels to offer a user signed in with Google, best first: its name and the part of its
+   * email before the @, each made a userlabel by `labelFor`, then each with `_2` to `_9` after it
+   * (cut short to leave room), which also mends one too short to be a userlabel. Only userlabels a
+   * person could claim are listed (`flawIn`: no reserved word among them), each once. Whether one
+   * is free is the database's to say.
+   *
+   * @param profile - What Google sent: the name and email, either of which may be missing.
+   * @returns The userlabels, best first; empty when neither makes one.
+   *
+   * @example User.suggestionsFor({ name: 'Flip Kromer', email: 'flip@example.com' }).slice(0, 3)  // => ['flip_kromer', 'flip_kromer_2', 'flip_kromer_3']
+   * @example User.suggestionsFor({ email: 'flip@example.com' }).slice(0, 2)                        // => ['flip_2', 'flip_3']
+   * @example User.suggestionsFor({})                                                               // => []
+   */
+  static suggestionsFor(profile: { name?: string, email?: string }): string[] {
+    const bases = [this.labelFor(profile.name ?? ''), this.labelFor(profile.email?.split('@', 1)[0] ?? '')]
+      .filter((base) => base !== '')
+    const numbered = bases.flatMap((base) => SuggestionNumbers.map((num) => `${base.slice(0, PA.Userlabel.max - 2).replace(/_$/, '')}_${String(num)}`))
+    return [...new Set([...bases, ...numbered])].filter((label) => this.flawIn(label) === null)
   }
 
   /**

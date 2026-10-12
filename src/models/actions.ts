@@ -115,8 +115,15 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
   const userAction = discrim('kind', [
     obj({ kind: lit('assume_userlabel'), userlabel: UserValidators.userlabel, title: titleish }),
     obj({ kind: lit('retitle_user'),     title: UserValidators.title }),
+    obj({
+      kind:   lit('settle_name_choice'),
+      merged: UserValidators.heldUserlabel
+        .describe('The handle the merged browser went by, which names the choice: a user merged into this one still holds it.'),
+      keep:   UserValidators.heldUserlabel
+        .describe('The handle to keep: that one, or the user\'s own.'),
+    }),
   ])
-    .describe('What a visitor can do as themselves, before any quiz is open: take a userlabel, once, or retitle the user they are.')
+    .describe('What a visitor can do as themselves, before any quiz is open: take a userlabel, once, retitle the user they are, or settle the name choice a merge left them.')
 
   const outerHuntAction = discrim('kind', [
     obj({ kind: lit('new_hunt'),      label: HuntValidators.newLabel }),

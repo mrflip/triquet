@@ -1,9 +1,10 @@
 import type { Doc, Id } from '../_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
 import { refuse } from '../../src/lib/refusals'
+import { GhostingValidators } from '../../src/models/ghosting'
 import { User, UserValidators, type SignInDNA, type SignInT } from '../../src/models/user'
 import type { UserActionT } from '../../src/models/actions'
-import { googleAccountOf, holderOfUserlabel, huntInOrg, huntshipFor, huntshipsFor } from '../reading'
+import { googleAccountOf, holderOfUserlabel, huntInOrg, huntshipFor, huntshipsFor, userForUserlabel } from '../reading'
 import { removeHuntship, smithOfSandbox } from './huntship_actions'
 import type { Writer } from './quiz_writing'
 
@@ -75,8 +76,20 @@ export async function retitleUser(db: Writer, actor: Actor.ActorT, title: string
  * @example await relabelUser(db, user_id, 'mrflip', '')  // => 3, for a user on three hunts
  */
 export async function relabelUser(db: Writer, user_id: Id<'users'>, userlabel: string, title: string): Promise<number> {
-  const [user, huntships] = await Promise.all([db.get('users', user_id), huntshipsFor(db, user_id)])
+  const user = await db.get('users', user_id)
   const labelled = user?.userlabel === userlabel ? { userlabel, title: User.titleFor(userlabel, title) } : User.labelled(userlabel, title)
+  return await rewriteUserlabel(db, user_id, labelled)
+}
+
+/**
+ * Write `labelled`, a userlabel and title already held to their rules, onto the user `user_id`, and
+ * the copies each of its huntships holds to match: what `relabelUser` and a settled name choice
+ * share.
+ *
+ * @returns How many of its huntships' copies were rewritten.
+ */
+async function rewriteUserlabel(db: Writer, user_id: Id<'users'>, labelled: { userlabel: string, title: string }): Promise<number> {
+  const huntships = await huntshipsFor(db, user_id)
   await db.patch('users', user_id, labelled)
   const stale = huntships.filter((huntship) => huntship.userlabel !== labelled.userlabel || huntship.usertitle !== labelled.title)
   for (const huntship of stale) {
@@ -86,8 +99,48 @@ export async function relabelUser(db: Writer, user_id: Id<'users'>, userlabel: s
 }
 
 /**
- * Carry out what a visitor did as themselves, writing the rows it comes to: take a userlabel, or
- * retitle the user they are. Whether they may is asked before this (`authorize`).
+ * Settle the name choice a merge left the user `actor` is: keep `keep`, which is either `merged`,
+ * the handle the merged browser went by, or the user's own, and retire the other. The user merged
+ * away gives up `merged` either way, and the handle not kept goes into a ghosting (appended, never
+ * edited), so nobody else takes it:
+ *
+ * * Keeping its own: `merged` is retired, held by the user merged away.
+ * * Keeping `merged`: the user is relabelled with it and retitled with the merged user's title,
+ *   and its huntships' copies follow (`notes/convex.md`, *Denormalized fields*); its own handle
+ *   is retired, held by itself. `merged` is a userlabel claimed once already, so it is held to
+ *   what a held one is (`User.relabelled`), not to the rules for claiming one.
+ *
+ * No address moves: a hunt's `orglabel` stays as it was made. The next pending choice, if any,
+ * comes up by itself (`nameChoiceFor`).
+ *
+ * @param db - The mutation's database.
+ * @param actor - Who the user is now.
+ * @param merged - The handle that names the choice: a user merged into this one holds it still.
+ * @param keep - The handle to keep: `merged`, or the user's own.
+ * @returns The user's row id.
+ * @throws A refusal: `notIdentified` for a user holding no userlabel, `nameChoiceGone` when no user
+ *   merged into this one holds `merged`, or `keep` is neither handle (settled already, in another
+ *   tab); nothing is written.
+ *
+ * @example await settleNameChoice(ctx.db, ctx.actor, 'mrflip', 'mrflip')  // the user is mrflip now; its old handle is retired
+ */
+export async function settleNameChoice(db: Writer, actor: Actor.ActorT, merged: string, keep: string): Promise<Id<'users'>> {
+  if (Actor.isUnlabelled(actor)) { refuse('notIdentified') }
+  const gone = await userForUserlabel(db, merged)
+  const mark = gone?.merged
+  if (! gone || mark?.into_user_id !== actor.user_id) { refuse('nameChoiceGone') }         // no choice of this handle is pending
+  if (keep !== merged && keep !== actor.userlabel) { refuse('nameChoiceGone') }            // nor between these two
+  const keepsMerged = keep === merged
+  const retired = keepsMerged ? { userlabel: actor.userlabel, user_id: actor.user_id } : { userlabel: merged, user_id: gone._id }
+  await db.patch('users', gone._id, { userlabel: undefined })
+  await db.insert('ghostings', GhostingValidators.row({ ...retired, into_user_id: actor.user_id, account_id: mark.account_id }))
+  if (keepsMerged) { await rewriteUserlabel(db, actor.user_id, User.relabelled(merged, gone.title ?? '')) }
+  return actor.user_id
+}
+
+/**
+ * Carry out what a visitor did as themselves, writing the rows it comes to: take a userlabel,
+ * retitle the user they are, or settle the name choice a merge left them. Whether they may is asked before this (`authorize`).
  *
  * @param db - The mutation's database.
  * @param user_id - The visitor's session's user.
@@ -100,6 +153,7 @@ export async function performUser(db: Writer, user_id: Id<'users'>, actor: Actor
   switch (action.kind) {
   case 'assume_userlabel': { return await assumeUserlabel(db, user_id, actor, action.userlabel, action.title) }
   case 'retitle_user':     { return await retitleUser(db, actor, action.title) }
+  case 'settle_name_choice': { return await settleNameChoice(db, actor, action.merged, action.keep) }
   }
 }
 

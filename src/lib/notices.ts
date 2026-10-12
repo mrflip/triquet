@@ -58,6 +58,14 @@ export const AppNotices = {
   noArchivedQuestions:  'No questions are archived.',
   importSentToLocked:   'This quiz is locked, so the paste sent here from another quiz was not read. Unlock it and paste again.',
   libraryReadOnly:      'Only an admin of this deployment can change the library, so here it is only to copy out.',
+  orSignInWithGoogle:   'Or sign in with Google, and take your handle to every device.',
+  nameChoiceTitle:      'Keep which handle?',
+  nameChoiceAbout:      "The handle you don't keep is retired: nobody else can take it. Every hunt keeps its address either way.",
+  nameChoiceLater:      'Decide later',
+  signOut:              'Sign out',
+  staySignedIn:         'Stay signed in',
+  reviewingSealedTitle: 'Reviewing comes with Google',
+  reviewingSealed:      'This hunt is yours to work on, but reviewing a quiz, your own included, comes with signing in with Google.',
 } as const
 
 /** Why the server refused a change, or a request, in the author's language: one per `failurekind` */
@@ -105,12 +113,13 @@ export const RefusalNotices = {
   huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,
   orgFull:          `One handle may make at most ${String(PA.HuntsPerOrg.max)} hunts.`,
   huntshipsFull:    `A hunt holds at most ${String(PA.HuntshipsPerHunt.max)} members.`,
-  sealedHunts:      'Sign in with Google to make more hunts than the one named for your handle — coming soon.',
-  sealedRelabel:    'Sign in with Google to relabel your hunt: its label is your handle until then — coming soon.',
-  sealedDelete:     'Sign in with Google to delete your hunt — coming soon.',
-  sealedMembers:    'Sign in with Google to bring others onto your hunt — coming soon.',
-  sealedJoin:       "That handle isn't signed in with Google, so it can't be put on a hunt yet. Signing in with Google is coming soon.",
-  sealedReview:     'Sign in with Google to review quizzes — coming soon.',
+  sealedHunts:      'Sign in with Google to make more hunts than the one named for your handle.',
+  sealedRelabel:    'Sign in with Google to relabel your hunt: its label is your handle until then.',
+  sealedDelete:     'Sign in with Google to delete your hunt.',
+  sealedMembers:    'Sign in with Google to bring others onto your hunt.',
+  sealedJoin:       "That handle isn't signed in with Google, so it can't be put on a hunt until it is.",
+  sealedReview:     'Sign in with Google to review quizzes, your own included.',
+  nameChoiceGone:   'That choice of handle has already been made — reload the page to see the handle you have.',
   botsOff:          'Asking Claude is switched off on this server for now — everything else still works.',
 } as const
 
@@ -146,6 +155,59 @@ export const GoogleSignInUnfinished = "Google sign-in didn't finish"
  */
 export function googleSignInUnfinishedNotice(userlabel: string | null): string {
   return userlabel === null ? "You're still signed in as before. Try again." : `You're still ${userlabel}, as before. Try again.`
+}
+
+/**
+ * What an anonymous user is offered beside the Google sign-in button: its handle, kept on every
+ * device.
+ *
+ * @example keepHandleNotice('mrflip')  // => 'Sign in with Google to keep mrflip on every device.'
+ */
+export function keepHandleNotice(userlabel: string): string {
+  return `Sign in with Google to keep ${userlabel} on every device.`
+}
+
+/**
+ * What the front door says above the name and handle of a user signed in with Google that holds no
+ * handle yet, by the email Google sent, when it sent one.
+ *
+ * @example googleGateNotice('flip@example.com')  // => 'Signed in with Google as flip@example.com. Your name is what others see, …'
+ */
+export function googleGateNotice(email: string | null): string {
+  const signedIn = email === null ? 'Signed in with Google.' : `Signed in with Google as ${email}.`
+  return `${signedIn} Your name is what others see, and you can change it later. Your handle is how others add you to a hunt: if nobody goes by it yet, it becomes yours for good. Here is one made from your Google name; change it if you like.`
+}
+
+/**
+ * Who the user menu says its owner is signed in as: the email Google sent, to its owner alone.
+ *
+ * @example signedInAsNotice('flip@example.com')  // => 'Signed in with Google as flip@example.com'
+ * @example signedInAsNotice(null)                // => 'Signed in with Google'
+ */
+export function signedInAsNotice(email: string | null): string {
+  return email === null ? 'Signed in with Google' : `Signed in with Google as ${email}`
+}
+
+/**
+ * What signing out asks first: the browser goes back to having no handle, and how to be the user
+ * again.
+ *
+ * @example signOutQuestion('mrflip')  // => 'Sign out? This browser goes back to having no handle. To be mrflip here again, sign in with Google.'
+ * @example signOutQuestion(null)      // => 'Sign out? This browser goes back to having no handle.'
+ */
+export function signOutQuestion(userlabel: string | null): string {
+  const again = userlabel === null ? '' : ` To be ${userlabel} here again, sign in with Google.`
+  return `Sign out? This browser goes back to having no handle.${again}`
+}
+
+/**
+ * What the name choice a merge left asks: which handle to keep, the merged browser's or the
+ * Google account's.
+ *
+ * @example nameChoiceQuestion('mrflip', 'flippy')  // => 'This browser was mrflip; your Google account is flippy. Keep which?'
+ */
+export function nameChoiceQuestion(merged: string, own: string): string {
+  return `This browser was ${merged}; your Google account is ${own}. Keep which?`
 }
 
 /**
@@ -212,9 +274,26 @@ function smithsNamed(smiths: readonly SmithT[]): string {
  * @example notOnHuntNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are not yet a member of this hunt. To be invited, contact its smith, Flip (flip_kromer), …'
  */
 export function notOnHuntNotice(smiths: readonly SmithT[], label: string): string {
+  return `You are not yet a member of this hunt. To be invited, contact ${smithsWhom(smiths)}, and give them your handle, “${label}”. This page opens for you as soon as they add you.`
+}
+
+/**
+ * What an anonymous visitor not on a hunt is told when an address takes them into it: a smith can
+ * put them on it only once they sign in with Google, and then whom to ask.
+ *
+ * @param smiths - The hunt's smiths.
+ * @param label - Their userlabel, which a smith would add.
+ *
+ * @example sealedNotOnHuntNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are not yet a member of this hunt, and a smith can put you on it only once you sign in with Google. Then contact its smith, Flip (flip_kromer), …'
+ */
+export function sealedNotOnHuntNotice(smiths: readonly SmithT[], label: string): string {
+  return `You are not yet a member of this hunt, and a smith can put you on it only once you sign in with Google. Then contact ${smithsWhom(smiths)}, and give them your handle, “${label}”.`
+}
+
+/** The smiths to contact, as a sentence names them after "contact": its smith, one of its smiths, or a smith of this hunt when none are known */
+function smithsWhom(smiths: readonly SmithT[]): string {
   const which = smiths.length > 1 ? 'one of its smiths' : 'its smith'
-  const whom = smiths.length === 0 ? smithsNamed(smiths) : `${which}, ${smithsNamed(smiths)}`
-  return `You are not yet a member of this hunt. To be invited, contact ${whom}, and give them your handle, “${label}”. This page opens for you as soon as they add you.`
+  return smiths.length === 0 ? smithsNamed(smiths) : `${which}, ${smithsNamed(smiths)}`
 }
 
 /**

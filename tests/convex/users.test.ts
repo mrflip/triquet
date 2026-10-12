@@ -5,6 +5,7 @@ import { userForUserlabel } from '../../convex/reading'
 import { RefusalNotices } from '../../src/lib/notices'
 import { failurekindOf, noticeOf } from '../../src/lib/refusals'
 import { Quiz } from '../../src/models/quiz'
+import type { OwnUserT } from '../../src/models/user'
 import { present } from '../support/present'
 import { anonymousSession, anonymousUser, callerOf, googleUser, huntHolding, openTester, putOn, refusedAs, seedHunt, type Session, type Tester } from '../support/convex'
 import { expectSound } from '../support/soundness'
@@ -221,5 +222,81 @@ describe('a user holding a userlabel the reserved list has kept since', () => {
     await act({ kind: 'add_huntship', userlabel: 'google_fan', role: 'reviewer' })
     const huntships = await tt.run(async (ctx) => await ctx.db.query('huntships').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', open.hunt_id)).collect())
     expect([await fieldOf(tt, held.user_id, 'title'), huntships.map((row) => [row.userlabel, row.usertitle])]).to.deep.eq(['Fan', [['seed_smith', 'Seed Smith'], ['google_fan', 'Fan']]])
+  })
+})
+
+/** A fresh browser's session whose user Google has vouched for, holding no userlabel yet, with what Google sent: how a Google sign-in from the front door leaves one */
+async function googleUnlabelled(tt: Tester, profile: { name?: string, email?: string }): Promise<Session> {
+  const session = await anonymousSession(tt)
+  await tt.run(async (ctx) => {
+    await ctx.db.patch('users', session.user_id, { isAnonymous: false, ...profile })
+    await ctx.db.insert('authAccounts', { userId: session.user_id, provider: 'google', providerAccountId: `google-sub-${session.user_id}` })
+  })
+  return session
+}
+
+/** What `by` is told of itself */
+async function ownOf(by: Session | Tester) {
+  return await callerOf(by).query(api.users.own, {})
+}
+
+/** One part of what `by` is told of itself; undefined when it is told nothing */
+async function toldOf<KK extends keyof OwnUserT>(by: Session | Tester, part: KK): Promise<OwnUserT[KK] | undefined> {
+  const own = await ownOf(by)
+  return own?.[part]
+}
+
+describe('users.own', () => {
+  it('is nothing for a request with no session', async () => {
+    expect(await ownOf(openTester())).to.be.null
+  })
+
+  it('tells an anonymous user only that it is not signed in with Google', async () => {
+    const tt = openTester()
+    expect(await ownOf(await anonymousUser(tt, 'anon_alice'))).to.deep.eq({ google: false, email: null, suggested: null, nameChoice: null })
+    expect(await ownOf(await anonymousSession(tt))).to.deep.eq({ google: false, email: null, suggested: null, nameChoice: null })
+  })
+
+  it('tells a user signed in with Google its own email, and no other', async () => {
+    const tt = openTester()
+    const [alice, bob] = [await googleUser(tt, 'alice_google'), await googleUser(tt, 'bob_google')]
+    expect(await ownOf(alice)).to.deep.eq({ google: true, email: 'alice_google@example.com', suggested: null, nameChoice: null })
+    expect(await toldOf(bob, 'email')).to.eq('bob_google@example.com')
+  })
+
+  it('offers a user signed in with Google holding no handle one from its Google name, titled with that name', async () => {
+    const tt = openTester()
+    const session = await googleUnlabelled(tt, { name: 'Flip Kromer', email: 'mrflip@example.com' })
+    expect(await toldOf(session, 'suggested')).to.deep.eq({ userlabel: 'flip_kromer', title: 'Flip Kromer' })
+  })
+
+  it('offers the next that is free: past a userlabel a user holds, one a hunt is addressed by, and one a ghosting has retired', async () => {
+    const tt = openTester()
+    const holder = await googleUser(tt, 'flip_kromer')
+    const { open } = await seedHunt(tt, huntHolding([Quiz.blank('One')]))
+    await tt.run(async (ctx) => {
+      const account = present(await ctx.db.query('authAccounts').first())
+      // An address, which no user need hold: the hunt keeps it whoever its smiths are now
+      await ctx.db.patch('hunts', open.hunt_id, { orglabel: 'mrflip' })
+      await ctx.db.insert('ghostings', { userlabel: 'flip_kromer_2', user_id: holder.user_id, into_user_id: holder.user_id, account_id: account._id })
+    })
+    const session = await googleUnlabelled(tt, { name: 'Flip Kromer', email: 'mrflip@example.com' })
+    expect(await toldOf(session, 'suggested')).to.deep.eq({ userlabel: 'flip_kromer_3', title: 'Flip Kromer' })
+  })
+
+  it('offers no handle when no suggestion is free, or Google sent nothing to make one of, but the title still', async () => {
+    const tt = openTester()
+    expect(await toldOf(await googleUnlabelled(tt, { name: 'Google Fan' }), 'suggested')).to.deep.eq({ userlabel: null, title: 'Google Fan' })
+    expect(await toldOf(await googleUnlabelled(tt, {}), 'suggested')).to.deep.eq({ userlabel: null, title: '' })
+  })
+
+  it('tells a user a merge left a name choice which two handles it is between', async () => {
+    const tt = openTester()
+    const alice = await googleUser(tt, 'alice_google')
+    await tt.run(async (ctx) => {
+      const account = present(await ctx.db.query('authAccounts').withIndex('userIdAndProvider', (cvx) => cvx.eq('userId', alice.user_id).eq('provider', 'google')).unique())
+      await ctx.db.insert('users', { isAnonymous: true, userlabel: 'anon_alice', merged: { into_user_id: alice.user_id, account_id: account._id } })
+    })
+    expect(await toldOf(alice, 'nameChoice')).to.deep.eq({ merged: { userlabel: 'anon_alice', title: 'Anon Alice' }, own: { userlabel: 'alice_google', title: 'Alice Google' } })
   })
 })

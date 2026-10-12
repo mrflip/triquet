@@ -519,3 +519,119 @@ describe('the admin flag, through a sign-in', () => {
     }
   })
 })
+
+/** The userlabel the user `user_id` holds now, if any */
+async function userlabelOf(tt: Tester, user_id: Id<'users'>): Promise<string | undefined> {
+  const user = await userRow(tt, user_id)
+  return user.userlabel
+}
+
+/** The handle the name choice pending for `user_id` asks about, if any */
+async function choiceLabelOf(tt: Tester, user_id: Id<'users'>): Promise<string | undefined> {
+  const choice = await choiceOf(tt, user_id)
+  return choice?.userlabel
+}
+
+/** Settle `by`'s name choice of the handle `merged`, keeping `keep`, through the public function */
+async function settle(by: Session, merged: string, keep: string) {
+  return await by.as.mutation(api.users.perform, { action: { kind: 'settle_name_choice', merged, keep } })
+}
+
+/** Every ghosting, as the tests read them: the handle retired, who held it, into whom */
+async function ghostingsIn(tt: Tester) {
+  const ghostings = await tt.run(async (ctx) => await ctx.db.query('ghostings').collect())
+  return ghostings.map(({ userlabel, user_id, into_user_id, account_id }) => ({ userlabel, user_id, into_user_id, account_id }))
+}
+
+/** A merge carried out (`merging`, then the sign-in), leaving Alice a name choice: `anon_alice`, which the merged browser went by, or her own `alice_google` */
+async function choosing() {
+  const merge = await merging()
+  await signInWithGoogle(merge.tt, merge.anon, merge.sub)
+  return merge
+}
+
+describe('settleNameChoice, through users.perform', () => {
+  it("keeps the user's own handle: the merged browser's is taken from the user merged away and retired, and no address moves", async () => {
+    const { tt, anon, alice, account_id, sandbox_id } = await choosing()
+    expect(await settle(alice, 'anon_alice', 'alice_google')).to.eq(alice.user_id)
+    const [aliceNow, gone] = await userRows(tt, alice.user_id, anon.user_id)
+    expect([aliceNow?.userlabel, gone?.userlabel, gone?.merged?.into_user_id]).to.deep.eq(['alice_google', undefined, alice.user_id])
+    expect(await ghostingsIn(tt)).to.deep.eq([{ userlabel: 'anon_alice', user_id: anon.user_id, into_user_id: alice.user_id, account_id }])
+    expect(await choiceOf(tt, alice.user_id)).to.be.null
+    const sandbox = present(await tt.run(async (ctx) => await ctx.db.get('hunts', sandbox_id)))
+    expect([sandbox.orglabel, sandbox.label, await membersByLabel(tt, sandbox_id)]).to.deep.eq(['anon_alice', 'anon_alice', [['alice_google', 'smith']]])
+    await expectSound(tt)
+  })
+
+  it("keeps the merged browser's handle: the user is relabelled and retitled with it, its huntships' copies follow, and its own is retired", async () => {
+    const { tt, anon, alice, account_id, sandbox_id } = await choosing()
+    const own = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'alice_google' })
+    expect(await settle(alice, 'anon_alice', 'anon_alice')).to.eq(alice.user_id)
+    const [aliceNow, gone] = await userRows(tt, alice.user_id, anon.user_id)
+    expect([aliceNow?.userlabel, aliceNow?.title, gone?.userlabel]).to.deep.eq(['anon_alice', 'Alice of the Sandbox', undefined])
+    expect(await ghostingsIn(tt)).to.deep.eq([{ userlabel: 'alice_google', user_id: alice.user_id, into_user_id: alice.user_id, account_id }])
+    expect([await membersByLabel(tt, sandbox_id), await membersByLabel(tt, own.open.hunt_id)]).to.deep.eq([[['anon_alice', 'smith']], [['anon_alice', 'smith']]])
+    // Addresses never change: the hunt Alice made as alice_google stays at ~alice_google
+    const ownHunt = present(await tt.run(async (ctx) => await ctx.db.get('hunts', own.open.hunt_id)))
+    expect(ownHunt.orglabel).to.eq('alice_google')
+    expect(present(await alice.as.query(api.users.current, {})).user.userlabel).to.eq('anon_alice')
+    await expectSound(tt)
+  })
+
+  it('leaves the handle not kept for nobody else to take', async () => {
+    const { tt, alice } = await choosing()
+    await settle(alice, 'anon_alice', 'anon_alice')
+    const other = await anonymousSession(tt)
+    await expectRefusal(other.as.mutation(api.users.perform, { action: { kind: 'assume_userlabel', userlabel: 'alice_google', title: '' } }), 'userlabelClaimed')
+  })
+
+  it("keeps a merged browser's handle that a word reserved since would refuse to anyone claiming it now", async () => {
+    const { tt, alice, account_id } = await choosing()
+    // A handle claimed before `handles` was kept for the app's own use
+    await tt.run(async (ctx) => { await ctx.db.insert('users', { isAnonymous: true, userlabel: 'handles', title: 'Handles', merged: { into_user_id: alice.user_id, account_id } }) })
+    await settle(alice, 'handles', 'handles')
+    expect(await userlabelOf(tt, alice.user_id)).to.eq('handles')
+    await expectSound(tt)
+  })
+
+  it('brings the next pending choice up once one is settled', async () => {
+    const { tt, alice, account_id } = await choosing()
+    const zed_id = await tt.run(async (ctx) => await ctx.db.insert('users', { isAnonymous: true, userlabel: 'zed_anon', title: 'Zed', merged: { into_user_id: alice.user_id, account_id } }))
+    expect(await choiceLabelOf(tt, alice.user_id)).to.eq('anon_alice')
+    await settle(alice, 'zed_anon', 'alice_google')
+    expect(await choiceLabelOf(tt, alice.user_id)).to.eq('anon_alice')
+    await settle(alice, 'anon_alice', 'anon_alice')
+    expect(await choiceOf(tt, alice.user_id)).to.be.null
+    expect(await userlabelOf(tt, zed_id)).to.be.undefined
+    await expectSound(tt)
+  })
+
+  it('refuses a choice already settled, as from another tab, writing nothing more', async () => {
+    const { tt, alice } = await choosing()
+    await settle(alice, 'anon_alice', 'alice_google')
+    const ante = await ghostingsIn(tt)
+    await expectRefusal(settle(alice, 'anon_alice', 'anon_alice'), 'nameChoiceGone')
+    expect([await userlabelOf(tt, alice.user_id), await ghostingsIn(tt)]).to.deep.eq(['alice_google', ante])
+  })
+
+  it('refuses a handle to keep that is neither of the two', async () => {
+    const { tt, alice } = await choosing()
+    await googleUser(tt, 'bob_google')
+    await expectRefusal(settle(alice, 'anon_alice', 'bob_google'), 'nameChoiceGone')
+    expect(await choiceOf(tt, alice.user_id)).to.not.be.null
+  })
+
+  it("refuses to settle another user's choice", async () => {
+    const { tt, alice } = await choosing()
+    const bob = await googleUser(tt, 'bob_google')
+    await expectRefusal(settle(bob, 'anon_alice', 'bob_google'), 'nameChoiceGone')
+    expect(await choiceOf(tt, alice.user_id)).to.not.be.null
+  })
+
+  it('refuses a user holding no userlabel', async () => {
+    const { tt, alice } = await choosing()
+    const nobody = await anonymousSession(tt)
+    await expectRefusal(settle(nobody, 'anon_alice', 'anon_alice'), 'notIdentified')
+    expect(await choiceOf(tt, alice.user_id)).to.not.be.null
+  })
+})

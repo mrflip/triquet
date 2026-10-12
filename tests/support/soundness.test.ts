@@ -66,6 +66,14 @@ async function huntLabelShared({ tt, open }: Seeded) {
   })
 }
 
+async function userlabelGhosted({ tt, smith }: Seeded) {
+  await tt.run(async (ctx) => {
+    const user = present(await ctx.db.get('users', smith.user_id))
+    const account = present(await ctx.db.query('authAccounts').first())
+    await ctx.db.insert('ghostings', { userlabel: present(user.userlabel), user_id: smith.user_id, into_user_id: smith.user_id, account_id: account._id })
+  })
+}
+
 async function quizOfAnotherHunt({ tt, open }: Seeded) {
   const other = await seedHunt(tt, huntHolding([Quiz.blank('Three')]))
   await tt.run(async (ctx) => { await ctx.db.patch('quizzes', open.quiz_id, { hunt_id: other.open.hunt_id }) })
@@ -103,6 +111,7 @@ const Breakages: [(seeded: Seeded) => Promise<void>, string, string][] = [
   [columnOfNoField,     "every column's source names something showable: column askew",                         'a column showing a field questions lack'],
   [quizLabelShared,     'no two hunts, nor two quizzes of a realm, share a label: two quizzes of one realm',     'two quizzes of a realm under one label'],
   [huntLabelShared,     'no two hunts, nor two quizzes of a realm, share a label: two hunts',                   'two hunts under one label'],
+  [userlabelGhosted,    'no two users, nor a user and a ghosting, hold one userlabel: seed_smith is held twice',  'a userlabel held by a user and retired into a ghosting both'],
   [quizOfAnotherHunt,   "quizzes.hunt_id is its realm_id's hunt_id: quizzes",                                    "a quiz whose hunt is not its realm's"],
   [widgetingOfAnotherHunt, "widgetings.hunt_id is its quiz_id's hunt_id: widgetings",                           "a widgeting whose hunt is not its quiz's"],
   [titleStale,          "huntships.usertitle is its user_id's title: huntships",                              "a huntship still holding its user's old title"],

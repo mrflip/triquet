@@ -436,6 +436,14 @@ describe("users, each session's own", () => {
     expect([await other.as.query(api.users.current, {}), await tt.query(api.users.current, {})]).to.deep.eq([null, null])
   })
 
+  it("tell an email only to the session's own user, by the session: never to another session, or none", async () => {
+    const tt = openTester()
+    const alice = await googleUser(tt, 'alice_reviews')
+    const other = await anonymousSession(tt)
+    const told = [await alice.as.query(api.users.own, {}), await other.as.query(api.users.own, {}), await tt.query(api.users.own, {})]
+    expect(told.map((own) => own?.email)).to.deep.eq(['alice_reviews@example.com', null, undefined])
+  })
+
   it("are listed by no function, nor is a userlabel taken from a user by one; Convex Auth's own functions are the rest", async () => {
     expect(await publicFunctions()).to.deep.eq([
       'auth:isAuthenticated', 'auth:offered', 'auth:signIn', 'auth:signOut',
@@ -444,7 +452,7 @@ describe("users, each session's own", () => {
       'quizzes:open', 'quizzes:signals', 'quizzes:whole',
       'reviews:forQuiz',
       'stats:backfills',
-      'users:current', 'users:perform',
+      'users:current', 'users:own', 'users:perform',
       'widgets:library', 'widgets:perform', 'widgets:usage',
     ])
   })

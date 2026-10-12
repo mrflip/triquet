@@ -341,7 +341,7 @@ type ActionKind = ActionT['kind']
 type HuntlessDNA = UserActionDNA | Extract<OuterHuntActionDNA, { kind: 'new_hunt' }>
 
 /** The kinds of action that name no hunt, and are no hunt action's kind */
-const HuntlessKinds: ReadonlySet<string> = new Set<HuntlessDNA['kind']>(['assume_userlabel', 'retitle_user', 'new_hunt'])
+const HuntlessKinds: ReadonlySet<string> = new Set<HuntlessDNA['kind']>(['assume_userlabel', 'retitle_user', 'settle_name_choice', 'new_hunt'])
 
 /** An outer hunt action that names a hunt, and is no hunt action's kind */
 type HuntNamingDNA = Extract<OuterHuntActionDNA, { kind: 'arrange_categories' | 'rebranch_hunt' }>
@@ -450,6 +450,7 @@ const Matrix = {
   new_hunt:            [{ kind: 'new_hunt', label: 'loud_heron' },                                                                   NewHunts],
   assume_userlabel:    [{ kind: 'assume_userlabel', userlabel: 'alice_smiths', title: 'Alice' },                                     Anyone],
   retitle_user:        [{ kind: 'retitle_user', title: 'Alice' },                                                                    Labelled],
+  settle_name_choice:  [{ kind: 'settle_name_choice', merged: 'alice_anon', keep: 'alice_anon' },                                    Labelled],
 } as const satisfies { [KK in ActionKind]: readonly [Extract<HuntActionDNA | LibraryActionDNA | HuntlessDNA | HuntNamingDNA, { kind: KK }>, VerdictRowT] }
 
 describe('the matrix: every action kind, as each standing, and as a smith of a locked quiz', () => {
