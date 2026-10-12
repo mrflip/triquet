@@ -155,9 +155,10 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
     in. **Thread 9** reviews it (`notes/security.md`).
   - **Privacy:** no scoped database reaches `users`. Another user is known only by userlabel,
     title and anonymity, through the census. No query returns an email.
-  - **For thread 6:** the sealing refusals say "Sign in with Google to … — coming soon". Today
-    `NotOnHunt` tells an anonymous visitor to ask a smith to add them, which will be refused, and
-    an anonymous smith opening its own sandbox at `!playtest` is told "Not yet on this hunt".
+  - **For thread 6:** the sealing refusals say "Sign in with Google to … — coming soon", and
+    point nowhere until the button exists. (`NotOnHunt` now tells an anonymous visitor to sign in
+    with Google first and then ask the smith, `sealedNotOnHuntNotice`; an anonymous smith at its
+    own sandbox's `!playtest` reads `sealedReview`: the stack review, 2026-10-12.)
   - **Caught up onto thread 8:** everything naming a userlabel already held uses
     `CK.heldUserlabel` (user row, huntship copy, ghosting, `add_huntship`); claiming one stays on
     `CK.userlabel`. `isIdentlabel` is now `isHeldUserlabel`. `PA.ReservedLabels` still lists

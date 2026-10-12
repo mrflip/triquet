@@ -7,6 +7,23 @@
   chooses? (I'm not sure, discuss)
 
 
+## Soon
+
+* **Review every test file against `notes/testing.md`, `STYLE.md` and the other guidance, and
+  repair** what strays: above all the `"` every test title takes, which many files (the OAuth
+  sprint's new tests among them) wrote with `'`. `@stylistic/quotes` is off in
+  `eslint.config.mjs`, so nothing catches it; a rule for test titles would settle it for good.
+
+## Not yet
+
+* **A sealed user whose userlabel is reserved at top level after it took it can never make its
+  sandbox.** `new_hunt.label` is held to `HuntValidators.newLabel` (the full reserved list), while
+  a held userlabel is only `CK.heldUserlabel`, so *+ New hunt* alarms on every click for such a
+  user and no other label is allowed it (`mayMakeHunt`). It arises only when a word is reserved
+  after a claim, which the OAuth sprint's clear makes moot for now. The fix, when wanted: take the
+  sandbox's label as `heldUserlabel` when it equals the maker's own userlabel, in the action's
+  validator or in `newHunt`. From the stack review, 2026-10-12.
+
 ## Known Bugs
 
 * **The production deploy of #163 did not start its backfills.** `scripts/convex-migrations.ts

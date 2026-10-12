@@ -94,9 +94,10 @@ smith, as the relabel fix made it fail in the full run.
     is ready; `googleUser` is the helper to sign in beside.
   - **Thread 6**: the sealing refusals point nowhere yet. Places that should offer Google: the
     hunts list's `sealedHunts` line, the Members panel's `sealedMembers` notice, and the
-    `NotOnHunt` page, which tells an anonymous visitor to ask a smith to add them (who will be
-    refused, `sealedJoin`). An anonymous smith opening its own sandbox's quiz at `!playtest` is
-    shown "Not yet on this hunt", since it may not review; worth its own words.
+    `NotOnHunt` page, which tells an anonymous visitor to sign in with Google first and then ask
+    a smith to add them (`sealedNotOnHuntNotice`, the stack review of 2026-10-12: the Coach's
+    word is that there is no search for a person, so whoever holds the link knows the smith). An
+    anonymous smith at its own sandbox's `!playtest` reads `sealedReview` since the same review.
   - **Thread 9**: a smith adding a handle learns whether that user is anonymous (the `sealedJoin`
     refusal); the privacy policy's *Who sees what* does not say so.
   - `scripts/measure-latency.ts` was already stale (a *Continue* button, `/h/` addresses); its
