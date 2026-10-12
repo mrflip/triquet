@@ -66,7 +66,12 @@ the whole suite; CI runs the rest on every branch).
    table of its own, or a renamed comment. Cosmetic. (#230)
 6. **`tests/convex/clear_people.test.ts:42`** says "username" in a comment; #230 deletes the file,
    and a fix there would conflict with that delete on restack, so I left it. (#227/#228)
-7. **The handoffs' own items stand** (not re-litigated): `--smith-all` reaching anonymous sandboxes
+7. **`pnpm justify` on Node 22 trips on one test**: `tests/convex/authorize.test.ts` uses
+   `Promise.try` (Node 24's), which `unicorn/prefer-promise-try` asks for, so it is right as it is
+   and CI (Node 24) passes it; `notes/cloud.md`'s line that the unit tests pass on Node 22 is off by
+   this one test. Everything else in justify passed here (6151 tests; three timing-sensitive files
+   flaked only while two runs overlapped and pass alone). (#228)
+8. **The handoffs' own items stand** (not re-litigated): `--smith-all` reaching anonymous sandboxes
    and a relabelled anonymous user making a second sandbox (#231, for thread 9); `hunts:open`
    naming a hunt's smiths to anyone with its label, and images from other hosts (#226, for
    thread 9); the guard's deployment being re-read per `convex run` (#227).
