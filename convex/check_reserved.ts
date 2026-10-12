@@ -40,7 +40,7 @@ export const refused = zInternalQuery({
     const found = hunts.map((hunt) => ({
       orglabel: hunt.orglabel,
       label:    hunt.label,
-      refused:  HeldLabelVals.filter((field) => Labelmaker.isReserved(hunt[field], { toplevel: true })),
+      refused:  HeldLabelVals.filter((fieldname) => Labelmaker.isReserved(hunt[fieldname], { toplevel: true })),
     }))
     return { counted: hunts.length, refused: found.filter((hunt) => hunt.refused.length > 0) }
   },

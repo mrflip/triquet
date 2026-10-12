@@ -32,7 +32,7 @@ export type ReportT = z.infer<typeof Report>
  * @example lineOf({ orglabel: 'google_fan', label: 'privacy', refused: ['orglabel', 'label'] })  // => '  ~google_fan/privacy  (its org and its label)'
  */
 export function lineOf(hunt: z.infer<typeof Refused>): string {
-  const which = hunt.refused.map((field) => (field === 'orglabel' ? 'its org' : 'its label')).join(' and ')
+  const which = hunt.refused.map((fieldname) => (fieldname === 'orglabel' ? 'its org' : 'its label')).join(' and ')
   return `  ~${hunt.orglabel}/${hunt.label}  (${which})`
 }
 
