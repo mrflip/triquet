@@ -140,6 +140,17 @@ an up-to-date branch that passes CI, and the Coach makes it (`notes/git_hygiene-
 
 Every commit in a PR survives into `main` individually, so it's highly desirable that each commit builds and passes tests. Unusual circumstances may warrant intermediate commits with failures (eg to isolate a large hairy ball of mechanical changes from the thoughtful aftermath repairs, or when debugging a CI problem).
 
+**Fold a run of fiddling into one commit.** Three or more commits in a row that touch the same
+few files (a note revised up and down, a test and its fixture adjusted again and again) are one
+change, and land as one commit. Fold them while the branch is still yours to rewrite and before
+anyone has reviewed them (your place's file says when that is: on the laptop, before it lands;
+in the cloud, while every commit past `origin/main` carries your session's trailer). When the run
+is the newest thing on the branch: `git reset --soft <the commit before the run>`, then one commit
+whose message says what the whole run changed; otherwise a rebase with `fixup`. Push with an
+explicit lease, `--force-with-lease=<branch>:<the sha origin holds>`. Keep apart what was
+separated on purpose: a pure move or rename left unedited so `git log --follow` reads across it,
+a `gen` regeneration, a commit kept red to isolate a mechanical change.
+
 ### Commit messages
 
 One prefix, lowercase, then a colon, a space and a plain-language sentence saying what changed.
@@ -170,6 +181,15 @@ commit is `tests`, `e2e` or `docs` only when nothing else moved. When two produc
 one commit, that is a sign to split it; when it cannot be split, take the one the sentence is
 about. A small change is usually one commit for the whole PR: don't split a twelve-line fix into
 three commits to look diligent.
+
+**The `Sprint:` trailer.** Every commit carries a trailer naming the chain it belongs to, `Sprint:
+<chain>` (`git commit --trailer 'Sprint: oauth'`): the sprint's name inside a sprint, the thread's
+label outside one, and the base's chain for a thread stacked on another, spelled the same on every
+commit of the chain and in its `(Serial Deploy: <chain>)` title. Then one `git log --all
+--grep='^Sprint: <chain>'` finds every commit of a feature, merged or still open, and whoever picks
+the work up mid-way has no hunt for the head of the chain. `/pullchef` stamps the trailer on
+commits that lack it when it rebases them, guessing the chain from the stack; a commit already
+carrying one keeps it.
 
 ## Stray branches
 
