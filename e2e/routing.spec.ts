@@ -3,7 +3,7 @@ import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import * as Routes from '../src/lib/routes'
 import { putOnHunt } from './admin'
-import { addMember, answerRemoval, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openAccount, openManage, openPanel, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
+import { addMember, answerRemoval, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openUserMenu, openPanel, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
 
 // The tests about the front door, the hunts list, or making a hunt go in by themselves
 // (`startAt: null`); the rest begin at the fixture's fresh hunt, with the fixture's friend for a
@@ -54,44 +54,44 @@ test.describe('the front door', () => {
     await expect(page.getByText(`(@${label})`)).toBeVisible()
   })
 
-  test('will not log in as a username too short to be an ident\'s, saying so once the field is left', async ({ page }) => {
+  test('will not log in as a userlabel too short to be an ident\'s, saying so once the field is left', async ({ page }) => {
     await page.goto('/')
     const name = page.getByRole('textbox', { name: 'Your name' })
-    const box = page.getByRole('textbox', { name: 'Username', exact: true })
+    const box = page.getByRole('textbox', { name: 'Handle', exact: true })
     await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
     await name.fill('Flip')
     await expect(box).toHaveValue('flip')
     await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
     // Not yet: the render that holds 'flip' has said nothing, while the name is still being typed.
-    await expect(page.getByText(AppNotices.usernameUnfinished)).toBeHidden()
+    await expect(page.getByText(AppNotices.userlabelUnfinished)).toBeHidden()
     await name.blur()
-    await expect(page.getByText(AppNotices.usernameUnfinished)).toBeVisible()
+    await expect(page.getByText(AppNotices.userlabelUnfinished)).toBeVisible()
     await expect(box).toHaveAttribute('aria-invalid', 'true')
   })
 
-  test('takes any name, and says at once of a username no typing on would mend', async ({ page }) => {
+  test('takes any name, and says at once of a userlabel no typing on would mend', async ({ page }) => {
     await page.goto('/')
-    const box = page.getByRole('textbox', { name: 'Username', exact: true })
+    const box = page.getByRole('textbox', { name: 'Handle', exact: true })
     await page.getByRole('textbox', { name: 'Your name' }).fill('Flip (the) Kromer!')
     await expect(box).toHaveValue('flip_the_kromer')
     await expect(page.getByRole('button', { name: 'Log in as flip_the_kromer' })).toBeEnabled()
     await box.fill('Flip_Kromer')
-    await expect(page.getByText(AppNotices.usernameShape)).toBeVisible()
+    await expect(page.getByText(AppNotices.userlabelShape)).toBeVisible()
     await expect(box).toHaveAttribute('aria-invalid', 'true')
     await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
   })
 
-  test('makes the username follow the name until it is typed in itself, and again once it is emptied', async ({ page }) => {
+  test('makes the userlabel follow the name until it is typed in itself, and again once it is emptied', async ({ page }) => {
     await page.goto('/')
     const name = page.getByRole('textbox', { name: 'Your name' })
-    const box = page.getByRole('textbox', { name: 'Username', exact: true })
+    const box = page.getByRole('textbox', { name: 'Handle', exact: true })
     await name.fill('Flip Kromer')
     await expect(box).toHaveValue('flip_kromer')
     await box.fill('mrflip')
     await name.fill('Philip Kromer')
     await expect(box).toHaveValue('mrflip')
     await box.fill('')
-    // Emptied, it follows again: blank while it is being cleared, the name's username once the name changes or the field is left.
+    // Emptied, it follows again: blank while it is being cleared, the name's userlabel once the name changes or the field is left.
     await expect(page.getByRole('button', { name: 'Log in as philip_kromer' })).toBeVisible()
     await box.blur()
     await expect(box).toHaveValue('philip_kromer')
@@ -99,22 +99,22 @@ test.describe('the front door', () => {
     await expect(box).toHaveValue('phil_kromer')
   })
 
-  test('makes an ident titled with the name typed, labelled with the username', async ({ page }) => {
+  test('makes an ident titled with the name typed, labelled with the userlabel', async ({ page }) => {
     const label = freshIdentLabel()
     await page.goto('/')
     await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
     await page.getByRole('textbox', { name: 'Your name' }).fill('Flip (the) Kromer!')
-    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
+    await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
     await page.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(@${label})`)).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('Flip (the) Kromer!')
   })
 
-  test('titles an ident after its username when no name is typed', async ({ page }) => {
+  test('titles an ident after its userlabel when no name is typed', async ({ page }) => {
     const label = freshIdentLabel()
     await page.goto('/')
-    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
+    await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
     await page.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue(Labelmaker.titleize(label))
@@ -124,39 +124,39 @@ test.describe('the front door', () => {
     await assumeIdent(page)
     await page.getByRole('link', { name: 'Be someone else' }).click()
     const other = freshIdentLabel()
-    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
+    await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(other)
     await page.getByRole('button', { name: `Log in as ${other}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(@${other})`)).toBeVisible()
   })
 
-  test("names the visitor in the header's account menu, which retitles them and lets them become someone else", async ({ page }) => {
+  test("names the visitor in the header's user menu, which retitles them and lets them become someone else", async ({ page }) => {
     const label = await assumeIdent(page)
-    let account = await openAccount(page)
-    await expect(account).toContainText(`@${label}`)
-    await account.getByRole('textbox', { name: 'Your name' }).fill('Menu Named')
-    await account.getByRole('textbox', { name: 'Your name' }).blur()
+    let menu = await openUserMenu(page)
+    await expect(menu).toContainText(`@${label}`)
+    await menu.getByRole('textbox', { name: 'Your name' }).fill('Menu Named')
+    await menu.getByRole('textbox', { name: 'Your name' }).blur()
     // Said to the menu itself: the blur leaves focus on the page's body, which the menu does not hear.
-    await account.press('Escape')
-    await expect(account).toBeHidden()
+    await menu.press('Escape')
+    await expect(menu).toBeHidden()
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('Menu Named')
-    await expect(page.getByRole('banner').getByRole('button', { name: 'Account' })).toHaveText('M')
+    await expect(page.getByRole('banner').getByRole('button', { name: 'You', exact: true })).toHaveText('M')
 
-    account = await openAccount(page)
-    await account.getByRole('menuitem', { name: 'Be someone else' }).click()
+    menu = await openUserMenu(page)
+    await menu.getByRole('menuitem', { name: 'Be someone else' }).click()
     await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
   })
 
   test('lets a visitor about to become someone else keep being who they are', async ({ page }) => {
     const label = await assumeIdent(page)
     await page.getByRole('link', { name: 'Be someone else' }).click()
-    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(freshIdentLabel())
+    await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(freshIdentLabel())
     await page.getByRole('button', { name: `Keep being ${Labelmaker.titleize(label)} (@${label})` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(@${label})`)).toBeVisible()
   })
 
-  test('offers a visitor whose name makes their own username to keep being who they are, in place of logging in', async ({ page }) => {
+  test('offers a visitor whose name makes their own userlabel to keep being who they are, in place of logging in', async ({ page }) => {
     const label = await assumeIdent(page)
     await page.getByRole('link', { name: 'Be someone else' }).click()
     // The hunts page has a "Your name" field too: wait for the gate's.
@@ -165,12 +165,12 @@ test.describe('the front door', () => {
     const keep = page.getByRole('button', { name: `Keep being ${Labelmaker.titleize(label)} (@${label})` })
     await expect(keep).toHaveCount(1)
     await expect(page.getByRole('button', { name: /^Log in/ })).toHaveCount(0)
-    await page.getByRole('textbox', { name: 'Username', exact: true }).press('Enter')
+    await page.getByRole('textbox', { name: 'Handle', exact: true }).press('Enter')
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(@${label})`)).toBeVisible()
   })
 
-  test('turns a second browser away from a username the first holds, saying what to do, and lets it choose another', async ({ page, browser }) => {
+  test('turns a second browser away from a userlabel the first holds, saying what to do, and lets it choose another', async ({ page, browser }) => {
     const label = await assumeIdent(page)
     await page.getByRole('textbox', { name: 'Your name' }).fill('The First')
     await page.getByRole('textbox', { name: 'Your name' }).blur()
@@ -178,14 +178,14 @@ test.describe('the front door', () => {
 
     const elsewhere = await otherVisitor(browser)
     await elsewhere.goto('/')
-    await elsewhere.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
+    await elsewhere.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
     await elsewhere.getByRole('button', { name: `Log in as ${label}` }).click()
     const gate = elsewhere.getByRole('region', { name: AppNotices.identGateTitle })
-    await expect(gate.getByRole('alert')).toHaveText(RefusalNotices.usernameClaimed)
+    await expect(gate.getByRole('alert')).toHaveText(RefusalNotices.userlabelClaimed)
     await expect(elsewhere).toHaveURL((url) => url.pathname === '/')
 
     const other = freshIdentLabel()
-    await elsewhere.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
+    await elsewhere.getByRole('textbox', { name: 'Handle', exact: true }).fill(other)
     await elsewhere.getByRole('button', { name: `Log in as ${other}` }).click()
     await expect(elsewhere).toHaveURL(/\/my\/hunts$/)
     await expect(elsewhere.getByText(`(@${other})`)).toBeVisible()
@@ -202,7 +202,7 @@ test.describe('the hunts', () => {
     await page.goto('/my/hunts')
     await expect(page).toHaveURL(/\/\?then=%2Fmy%2Fhunts$/)
     const label = freshIdentLabel()
-    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
+    await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
     await page.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
   })
@@ -314,8 +314,8 @@ test.describe('a hunt', () => {
     await expect(page.getByRole('table', { name: 'Your hunts' }).getByRole('rowheader', { name: huntTitle })).toBeVisible()
 
     // A page about no hunt names none.
-    const account = await openAccount(page)
-    await account.getByRole('menuitem', { name: 'About' }).click()
+    const menu = await openUserMenu(page)
+    await menu.getByRole('menuitem', { name: 'About' }).click()
     await expect(page).toHaveURL('/about')
     await expect(whereYouAre(page).getByRole('link')).toHaveCount(1)
   })
@@ -475,7 +475,7 @@ test.describe('an address naming a quiz that is not there', () => {
       await page.goto(Routes.huntsPath())
       await page.getByRole('link', { name: 'Be someone else' }).click()
       const other = freshIdentLabel()
-      await page.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
+      await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(other)
       await page.getByRole('button', { name: `Log in as ${other}` }).click()
       await expect(page.getByText(`(@${other})`)).toBeVisible()
       await expect(page.getByRole('button', { name: 'Orphaned histories (1)' })).toBeVisible()
@@ -565,7 +565,7 @@ test.describe('a link handed to a friend', () => {
     const label = freshIdentLabel()
     await friend.goto(link)
     await expect(friend.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
-    await friend.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
+    await friend.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
     await friend.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(friend).toHaveURL(link)
     const notice = friend.getByRole('region', { name: 'Not yet on this hunt' })
@@ -658,7 +658,7 @@ test.describe('a link handed to a friend', () => {
     await expect(members.getByText(`No ident is labelled "${label}". They need to visit the app and choose it first.`)).toBeVisible()
   })
 
-  test('checks the label a smith types as the front door checks a username', async ({ page }) => {
+  test('checks the label a smith types as the front door checks a userlabel', async ({ page }) => {
     const members = await openPanel(page, 'Members')
     const box = members.getByLabel('Ident label')
     await box.fill('Flip Kromer')

@@ -6,7 +6,7 @@ import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import type { HuntListingT } from '../lib/rows'
 import { HuntValidators } from '../models/hunt'
-import { useAccountActions } from '../state/use-account-actions'
+import { useOuterHuntActions } from '../state/use-outer-hunt-actions'
 
 export type HuntBranchProps = {
   hunt:     Pick<HuntListingT, '_id' | 'branch'>
@@ -23,7 +23,7 @@ export type HuntBranchProps = {
  * Mount it keyed by the hunt's branch, so that a switch made elsewhere replaces what is typed here.
  */
 export function HuntBranch({ hunt, editable }: Readonly<HuntBranchProps>) {
-  const { act, busy } = useAccountActions()
+  const { act, busy } = useOuterHuntActions()
   const [draft, setDraft] = useState(hunt.branch)
   const [issue, setIssue] = useState<string | null>(null)
   const branch = Labelmaker.normalize(draft)

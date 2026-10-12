@@ -20,11 +20,11 @@ security expert who knows what questions to ask.
   to recheck's verdict (`lib/redos.ts`) where a mutation writes it, and refused unless recheck calls
   it `safe` within 200 ms; past that it is trusted and never checked again, nor timeboxed as it
   runs. Its source is at most 200 characters, its flags `i`, `m`, `s` and `u` only.
-* `Actor.isAdmin` is an equality check on the username, against the deployment's `TRIQUET_ADMINS`
+* `Actor.isAdmin` is an equality check on the userlabel, against the deployment's `TRIQUET_ADMINS`
   (production: `mrflip`), made on the server as it builds the actor and carried to the browser;
-  `*` makes every username an admin, which `scripts/convex_dev` sets on every local backend.
-* The first user to claim a username becomes that user: an ident nobody holds goes to the first
-  session to assert it (`claimFor`, `convex/writing/account_actions.ts`).
+  `*` makes every userlabel an admin, which `scripts/convex_dev` sets on every local backend.
+* The first user to claim a userlabel becomes that user: an ident nobody holds goes to the first
+  session to assert it (`claimFor`, `convex/writing/user_actions.ts`).
 * 2026-10-08: field, recap and prompt templates are LiquidJS (`lib/liquidry.ts`): a field or
   recap template is written by any smith of a quiz and run in every smith's browser; a prompt is
   written by an admin and rendered in the browser of whoever asks. LiquidJS calls a function it finds as an own property of what it reads;
@@ -64,3 +64,22 @@ security expert who knows what questions to ask.
   2026-10-09: stopped at 101 ms with `Date.now()` still); its range operator can still allocate ten
   million items in one step (in a Convex mutation, past its 64 MB). A run has five seconds all
   told (`Runner.RunMs`), and a column's own formula as long. A widgeting whose widget is gone takes params held to no reserved word.
+* 2026-10-11 (oauth sprint, thread 7): the privacy policy (`src/content/privacy.md`, served at
+  `/privacy`) is a public statement of what is kept, where, who can read it, and what leaves for
+  Anthropic: among others, that a Google account gives only its email, name, picture and `sub`;
+  that an email is shown to its owner alone; that anyone opening a hunt's address while not on it
+  reads its smiths' names and handles (`NotOnHunt`); that a session lives in the browser's storage
+  and no cookie is set but the short-lived ones Convex Auth's Google sign-in sets on the Convex
+  site (`*OAuthstate`, `*OAuthpkce`, `*OAuthnonce`, `*RedirectTo`, fifteen minutes each); and that
+  nothing goes to a bot unasked. Code that changes any of these
+  changes the policy, and its date, in the same PR.
+* 2026-10-11 (oauth sprint, thread 2): `clear_people:clearBatch` (`convex/clear_people.ts`), an
+  internal mutation, deletes every row of Convex Auth's tables (`users`, `authAccounts`,
+  `authSessions`, `authRefreshTokens`, `authVerifiers`, `authVerificationCodes`,
+  `authRateLimits`) and of `idents`, `identings`, `huntings`, `reviews` and `reviewings`, with no
+  argument and no environment check: the one place our code writes Convex Auth's tables. It is
+  run on production once, by a Coach, through `scripts/clear_people` under `prd_janitor`; the
+  `converge` thread deletes it. The script's guard (`scripts/janitor.ts`, kept for later janitor
+  commands) acts only when `--deployment` names the deployment the CLI's environment reaches, by
+  the address that deployment reports for itself (its `cloudUrl`, read by `convex function-spec`
+  with the same admin key, not the address the CLI connected to); a dry run is the default.

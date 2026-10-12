@@ -14,7 +14,7 @@ describe("askerOf", () => {
     expect(await tt.run(async (ctx) => await askerOf(ctx))).to.deep.eq({ actor: Actor.anonymous, user_id: null })
   })
 
-  it("is the session's user, anonymous, for a session that has asserted no username", async () => {
+  it("is the session's user, anonymous, for a session that has asserted no userlabel", async () => {
     const tt = openTester()
     const session = await signedIn(tt)
     expect(await session.as.run(async (ctx) => await askerOf(ctx))).to.deep.eq({ actor: Actor.anonymous, user_id: session.user_id })
@@ -26,7 +26,7 @@ describe("askerOf", () => {
     expect(await flip.as.run(async (ctx) => await askerOf(ctx))).to.deep.eq({ actor: flip.actor, user_id: flip.user_id })
   })
 
-  it("is an admin only where the deployment's TRIQUET_ADMINS names its username, and the browser is told so", async () => {
+  it("is an admin only where the deployment's TRIQUET_ADMINS names its userlabel, and the browser is told so", async () => {
     const tt = openTester()
     const [flip, ada] = [await identified(tt, 'mrflip'), await identified(tt, 'ada_lovelace')]
     vi.stubEnv('TRIQUET_ADMINS', 'mrflip')

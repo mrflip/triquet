@@ -42,7 +42,7 @@ advice). In the Google Cloud console, *Google Auth Platform*:
    - App name: Triquet.
    - User support email, and developer contact email.
    - No logo: uploading one is what sends the brand to verification.
-   - Homepage and privacy-policy links: see *Pages*, below.
+   - Homepage, privacy-policy and terms links: see *The branding page, field by field*, below.
    - **Authorized domains:** add `<prod>.convex.site` (where the callback lands) and the
      app's Vercel host (`<app>.vercel.app`). Both `convex.site` and `vercel.app` are on the
      Public Suffix List, so each subdomain counts as a domain of its own and is accepted.
@@ -76,9 +76,31 @@ advice). In the Google Cloud console, *Google Auth Platform*:
 Google's branding help says the homepage and privacy-policy links are "required for all external
 production apps", then calls them "recommended" in the paragraph above. In practice they are
 enforced when you submit for brand verification. Whether the console blocks *Publish* without
-them could not be confirmed. If it does, `/about` will do for the homepage, and a plain privacy
-page is a small thread (thread 3 in the plan). We will store the email, name and picture of each Google account that signs in,
-so a privacy page is decent to have anyway.
+them could not be confirmed. The sprint's thread 7 (`google_pages`) built all three pages, so the
+question no longer matters: `/about` describes the app and links the other two, and all three are
+public and prerendered, with no sign-in in front of them.
+
+### The branding page, field by field
+
+Production is served at `triquet.vercel.app` (`notes/20260928-cloud_measurements-a.md`). If it
+moves to a domain of its own (path C), put that host in place of it everywhere below.
+
+| Field on *Google Auth Platform → Branding* | Enter |
+| --- | --- |
+| App name | `Triquet` |
+| User support email | `info@triquet.me`, if the console offers it (see below); else your own |
+| App logo | none (a logo sends the brand to verification) |
+| Application home page | `https://triquet.vercel.app/about` |
+| Application privacy policy link | `https://triquet.vercel.app/privacy` |
+| Application terms of service link | `https://triquet.vercel.app/terms` |
+| Authorized domains | `triquet.vercel.app`, and `<prod>.convex.site` (the production deployment's HTTP Actions host) |
+| Developer contact information | your own address |
+
+* **The support email** is chosen from a list: the signed-in Google account's own address, or a
+  Google Group it manages. `info@triquet.me` appears there only if it is that account, or a group
+  of it; the pages give it as the contact either way.
+* **The dev project** (Testing) needs none of the links. If you fill them in anyway, give it the
+  same production URLs: a local lane's address is no page Google can reach.
 
 ## The dev key (you may have this already)
 

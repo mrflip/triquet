@@ -63,7 +63,7 @@ describe('Review.isActiveOwner', () => {
   const Own = { hunt_id, ident_id }
 
   const Cases: [Pick<ReviewRowT, 'hunt_id' | 'ident_id'>, Actor.HuntClaimsT, boolean, string][] = [
-    [Own,                               Actor.claimsOn(Actor.anonymous, hunt_id, null),      false, 'nobody who has asserted no username wrote it'],
+    [Own,                               Actor.claimsOn(Actor.anonymous, hunt_id, null),      false, 'nobody who has asserted no userlabel wrote it'],
     [{ hunt_id, ident_id: other_id },   Actor.claimsOn(Flip, hunt_id, { role: 'reviewer' }), false, "nobody else's review is theirs"],
     [{ ...Own, hunt_id: other_hunt_id }, Actor.claimsOn(Flip, hunt_id, { role: 'reviewer' }), false, 'claims on another hunt say nothing of this one'],
     [Own,                               Actor.claimsOn(Flip, hunt_id, { role: 'reviewer' }), true,  'the writer, while a reviewer on its hunt'],

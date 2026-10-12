@@ -77,7 +77,7 @@ describe('hunts.perform: add_hunting', () => {
     expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith']])
   })
 
-  it('refuses a session that has asserted no username', async () => {
+  it('refuses a session that has asserted no userlabel', async () => {
     const seeded = await smithed()
     await identified(seeded.tt, 'bob_reviews')
     await expectRefusal(seeded.act({ kind: 'add_hunting', ident_label: 'bob_reviews', role: 'reviewer' }, await signedIn(seeded.tt)), 'notIdentified')
@@ -127,7 +127,7 @@ describe('hunts.perform: remove_hunting', () => {
     expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith']])
   })
 
-  it('refuses a session that has asserted no username', async () => {
+  it('refuses a session that has asserted no userlabel', async () => {
     const seeded = await smithed()
     await expectRefusal(seeded.act({ kind: 'remove_hunting', ident_id: seeded.alice.ident_id }, await signedIn(seeded.tt)), 'notIdentified')
   })

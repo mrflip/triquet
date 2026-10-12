@@ -45,7 +45,7 @@ test('names the build and what the browser runs, says it is connected, and shows
 
 test('tells a browser that has not said who it is nothing of the backfills', async ({ page }) => {
   await page.goto('/stats')
-  await expect(page.getByText('Only an admin sees these: choose a username first.')).toBeVisible()
+  await expect(page.getByText('Only an admin sees these: choose a handle first.')).toBeVisible()
   await expect(page.getByRole('table', { name: 'Backfills' })).toHaveCount(0)
   // The rest of the page is anyone's.
   await expect(factOf(page, 'Connected')).toHaveText(/^yes, /)

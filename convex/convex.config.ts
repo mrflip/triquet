@@ -7,8 +7,8 @@ import { v as CVX } from 'convex/values'
  *
  * * `TRIQUET_CLEARABLE` is set to `yes` only on a development or test deployment whose tables may
  *   be emptied; production never has it.
- * * `TRIQUET_ADMINS` names the deployment's admins (`Actor.namesAdmin`): usernames parted by
- *   commas or spaces, or `*` for every username. Unset names nobody. `scripts/convex_dev` sets `*`
+ * * `TRIQUET_ADMINS` names the deployment's admins (`Actor.namesAdmin`): userlabels parted by
+ *   commas or spaces, or `*` for every userlabel. Unset names nobody. `scripts/convex_dev` sets `*`
  *   on a local backend; a Coach sets production's (`notes/deploy.md`).
  * * `JWT_PRIVATE_KEY`, `JWKS` and `SITE_URL` are Convex Auth's (`convex/auth.ts`), which reads
  *   them itself: the key it signs a session's tokens with, the public half it checks them by, and

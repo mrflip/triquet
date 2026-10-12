@@ -174,8 +174,8 @@ every hunt and never changes with one: written once, when the repository is made
 * **Realms**: every hunt holds only `home`, so a realm's own title and position are not written.
   A realm written later wants a kind of its own (`realms.<realm>`), since `quizzes.<realm>` holds
   quizzes by label.
-* **Idents, identings, users, sessions**: these are accounts. Members carries what the hunt
-  needs of them.
+* **Idents, identings, users, sessions**: these say who is asking, not what a hunt holds.
+  Members carries what the hunt needs of them.
 * **The library apart from what the hunt works**: it belongs to no hunt.
 
 ## Reading a ball back in

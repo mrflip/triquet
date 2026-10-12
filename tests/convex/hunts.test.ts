@@ -1201,7 +1201,7 @@ describe("hunts.perform", () => {
       expect(await reviewsIn(tt, quiz_id)).to.have.length(1)
     })
 
-    it("refuses a session that has asserted no username, writing nothing", async () => {
+    it("refuses a session that has asserted no userlabel, writing nothing", async () => {
       const { act, read, tt } = await seed(huntOf(['1', 'a']))
       const quiz_id = openOf(await read())._id
       await expectRefusal(act({ kind: 'open_review', quiz_id }, await signedIn(tt)), 'notIdentified')
@@ -1211,7 +1211,7 @@ describe("hunts.perform", () => {
     it("reviews as the ident the session asserted last, and turns away a browser still affirming the one before", async () => {
       const { act, read, tt, open, join } = await seed(huntOf(['1', 'a']))
       const alice = await join('alice_reviews', 'reviewer')
-      const otherself = await alice.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
+      const otherself = await alice.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
       await putOn(tt, open.hunt_id, otherself, 'reviewer')
       const quiz_id = openOf(await read())._id
       await expectRefusal(act({ kind: 'open_review', quiz_id }, alice), 'notPermitted')
@@ -1428,7 +1428,7 @@ describe("hunts.perform", () => {
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
-    it("refuses a session that has asserted no username", async () => {
+    it("refuses a session that has asserted no userlabel", async () => {
       const { tt, act, quiz_id, first } = await reviewed()
       await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } }, await signedIn(tt)), 'notIdentified')
       expect(await reviewingsIn(tt)).to.deep.eq([])
@@ -1836,13 +1836,13 @@ describe("hunts.list", () => {
     const tt = openTester()
     const alice = await identified(tt, 'alice_smiths')
     const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Her other self\'s')]), label: 'quiet_otter' })
-    const otherself = await alice.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
+    const otherself = await alice.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
     await putOn(tt, otter.open.hunt_id, otherself, 'reviewer')
     const listed = await alice.as.query(api.hunts.list, {})
     expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
   })
 
-  it("lists nothing for a session that has asserted no username, or a request with no session", async () => {
+  it("lists nothing for a session that has asserted no userlabel, or a request with no session", async () => {
     const tt = openTester()
     await seedHunt(tt, Hunt.blank('quiet_otter'))
     const session = await signedIn(tt)

@@ -13,7 +13,7 @@ import { HomeRealmLabel } from '../src/models/realm'
 import { HuntRoleVals } from '../src/models/hunting'
 import { zInternalMutation } from './functions'
 import { huntInOrg, identForLabel, layoutOf, realmsOf, widgetForLabel, wholeQuizOf } from './reading'
-import { makeHuntFor } from './writing/account_actions'
+import { makeHuntFor } from './writing/hunt_actions'
 import { addHunting } from './writing/hunting_actions'
 import { addColumn, performLayout } from './writing/layout_actions'
 import type { OpenQuizT, Writer } from './writing/quiz_writing'
@@ -60,7 +60,7 @@ const LabelDrawsMax = 9
  * dialogs would, in the order given. The e2e suite's way in to a quiz that is not about the way
  * in: the ident is the one its worker's browsers hold, and the address is where they go. Unlike
  * `new_hunt`, it makes one however many its ident has made (`makeHuntFor`): a worker makes every
- * hunt of its tests, and a run on one worker makes more than one username may.
+ * hunt of its tests, and a run on one worker makes more than one userlabel may.
  * Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production never has.
  *
  * Internal, never public: acting as whichever ident an argument names is for a holder of the

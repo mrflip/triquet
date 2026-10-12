@@ -23,7 +23,7 @@ const Cases: [keyof typeof ClaimsAs, WorkbenchOffersT, string][] = [
   ['locked_smith', { ...None, changeLibrary: true, exportHunt: true },                                                                      'leaves a locked quiz as it is, but not the library a quiz does not hold, nor the export'],
   ['reviewer',     { ...None, changeLibrary: true },                                                                                         'offers a reviewer nothing of the smith\'s screen but the library, which is any admin\'s'],
   ['stranger',     { ...None, changeLibrary: true },                                                                                         'offers someone not on the hunt nothing of it but the library, which is any admin\'s'],
-  ['anonymous',    None,                                                                                                                     'offers someone who has asserted no username nothing'],
+  ['anonymous',    None,                                                                                                                     'offers someone who has asserted no userlabel nothing'],
 ]
 
 describe('workbenchOffers', () => {

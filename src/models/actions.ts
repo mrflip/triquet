@@ -112,18 +112,22 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
   ])
     .describe('What an admin can do to the library of widgets every hunt shares, from anywhere: no hunt or quiz need be open.')
 
-  const accountAction = discrim('kind', [
+  const userAction = discrim('kind', [
     obj({ kind: lit('assume_ident'),  label: IdentValidators.identLabel, title: titleish }),
     obj({ kind: lit('retitle_ident'), title: IdentValidators.title }),
+  ])
+    .describe('What a visitor can do as themselves, before any quiz is open: become an ident, or retitle the one they are.')
+
+  const outerHuntAction = discrim('kind', [
     obj({ kind: lit('new_hunt'),      label }),
     obj({ kind: lit('retitle_hunt'),  hunt_id: zid('hunts'), title: titleish }),
     obj({ kind: lit('relabel_hunt'),  hunt_id: zid('hunts'), label }),
     obj({ kind: lit('arrange_categories'), hunt_id: zid('hunts'), wheel: CategoryValidators.wheel }),
     obj({ kind: lit('rebranch_hunt'), hunt_id: zid('hunts'), branch: HuntValidators.branch }),
   ])
-    .describe('What a visitor can do before any quiz is open: become an ident, retitle the one they are, make a hunt, and retitle, relabel, arrange the categories of, or put on another branch one they smith.')
+    .describe('What a visitor can do to a hunt from outside any quiz, naming it rather than affirming it: make one, and retitle, relabel, arrange the categories of, or put on another branch one they smith.')
 
-  return { huntAffirms, quizAffirms, affirms, huntAction, libraryAction, accountAction }
+  return { huntAffirms, quizAffirms, affirms, huntAction, outerHuntAction, libraryAction, userAction }
 })
 
 /** What a browser says of itself on a hunt, as it sends it */
@@ -148,10 +152,14 @@ export type LayoutActionT = Extract<HuntActionT, { kind: typeof LayoutActionKind
 export type LibraryActionDNA = Z.input<typeof ActionValidators.libraryAction>
 /** What an admin did to the library, validated */
 export type LibraryActionT = Z.output<typeof ActionValidators.libraryAction>
-/** What a visitor did before opening any quiz, as a view says it */
-export type AccountActionDNA = Z.input<typeof ActionValidators.accountAction>
-/** What a visitor did before opening any quiz, validated */
-export type AccountActionT = Z.output<typeof ActionValidators.accountAction>
+/** What a visitor did to a hunt from outside any quiz, as a view says it */
+export type OuterHuntActionDNA = Z.input<typeof ActionValidators.outerHuntAction>
+/** What a visitor did to a hunt from outside any quiz, validated */
+export type OuterHuntActionT = Z.output<typeof ActionValidators.outerHuntAction>
+/** What a visitor did as themselves, as a view says it */
+export type UserActionDNA = Z.input<typeof ActionValidators.userAction>
+/** What a visitor did as themselves, validated */
+export type UserActionT = Z.output<typeof ActionValidators.userAction>
 
 /** Whether `action` is one that revises a quiz's widgetings or columns */
 export function isLayoutAction(action: HuntActionT): action is LayoutActionT {

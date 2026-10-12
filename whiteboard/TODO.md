@@ -454,3 +454,12 @@ headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (abo
 * **The unit project has no DOM**, so a test can measure only a first render
   (`react-dom/server`); counting re-renders wants a DOM there (`happy-dom`, a dev dependency to
   propose) or a probe in an e2e spec.
+
+## From oauth sprint, thread 7: google_pages
+
+* **Deleting a person's data, on request.** The privacy policy (`/privacy`) promises to delete
+  what a person asks, written to `info@triquet.me`, until the app can do it itself. No command
+  does it yet: today it is the Coach in the Convex dashboard. Once thread 3's model lands, a
+  `prd_janitor` command on thread 2's guard (find a user by userlabel or Google email, as thread
+  4's does; delete its user, accounts, sessions and huntships; leave hunts others are on) would
+  make the promise a procedure. The in-app way is *Not in this sprint* (the pre-plan).

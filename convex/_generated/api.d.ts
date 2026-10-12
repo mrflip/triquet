@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as authorize from "../authorize.js";
+import type * as clear_people from "../clear_people.js";
 import type * as deploying from "../deploying.js";
 import type * as functions from "../functions.js";
 import type * as http from "../http.js";
@@ -28,7 +29,6 @@ import type * as stats from "../stats.js";
 import type * as testing from "../testing.js";
 import type * as triggers from "../triggers.js";
 import type * as widgets from "../widgets.js";
-import type * as writing_account_actions from "../writing/account_actions.js";
 import type * as writing_hunt_actions from "../writing/hunt_actions.js";
 import type * as writing_hunting_actions from "../writing/hunting_actions.js";
 import type * as writing_layout_actions from "../writing/layout_actions.js";
@@ -38,6 +38,7 @@ import type * as writing_quiz_actions from "../writing/quiz_actions.js";
 import type * as writing_quiz_writing from "../writing/quiz_writing.js";
 import type * as writing_regex_vetting from "../writing/regex_vetting.js";
 import type * as writing_review_actions from "../writing/review_actions.js";
+import type * as writing_user_actions from "../writing/user_actions.js";
 
 import type {
   ApiFromModules,
@@ -48,6 +49,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authorize: typeof authorize;
+  clear_people: typeof clear_people;
   deploying: typeof deploying;
   functions: typeof functions;
   http: typeof http;
@@ -66,7 +68,6 @@ declare const fullApi: ApiFromModules<{
   testing: typeof testing;
   triggers: typeof triggers;
   widgets: typeof widgets;
-  "writing/account_actions": typeof writing_account_actions;
   "writing/hunt_actions": typeof writing_hunt_actions;
   "writing/hunting_actions": typeof writing_hunting_actions;
   "writing/layout_actions": typeof writing_layout_actions;
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   "writing/quiz_writing": typeof writing_quiz_writing;
   "writing/regex_vetting": typeof writing_regex_vetting;
   "writing/review_actions": typeof writing_review_actions;
+  "writing/user_actions": typeof writing_user_actions;
 }>;
 
 /**

@@ -9,7 +9,7 @@ import type { AskFailurekind } from '../notices'
 /** Every reason an ask can fail, named so the browser can pick the author's sentence */
 export const AskFailurekindVals = [
   'notPermitted', 'rateLimited', 'declined', 'emptyAnswer', 'unreadable', 'cutShort',
-  'accountOff', 'sessionExpired', 'connection', 'unknown', 'unavailable',
+  'keyRefused', 'sessionExpired', 'connection', 'unknown', 'unavailable',
 ] as const satisfies readonly AskFailurekind[]
 
 export const AskContract = Validator(({ obj, oneof, str, uint, bool, lit, union, rec, zod }) => {

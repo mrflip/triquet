@@ -45,7 +45,7 @@ describe("showArranged", () => {
     expect(written).to.deep.eq([])
   })
 
-  it("shows nothing early for any other account action", () => {
+  it("shows nothing early for any other outer hunt action", () => {
     const args = { hunt_label: 'quiet_otter' }
     const { store, written } = storeHolding([{ args, value: { why: null, hunt: shallowHunt(hunt_id) } }])
     showArranged(store, { action: { kind: 'retitle_hunt', hunt_id, title: 'Autumn' } })

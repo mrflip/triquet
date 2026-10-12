@@ -10,7 +10,7 @@ beforeEach(() => { vi.useFakeTimers() })
 afterEach(() => { vi.useRealTimers() })
 
 describe("stats.backfills", () => {
-  it("answers null to anyone who is no admin: no session, or a session with no username", async () => {
+  it("answers null to anyone who is no admin: no session, or a session with no userlabel", async () => {
     const tt = openTester()
     migrationsTest.register(tt)
     const session = await signedIn(tt)

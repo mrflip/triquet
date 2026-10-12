@@ -121,7 +121,7 @@ describe("testing.makeHunt", () => {
     expect(made.smiths).to.deep.eq(['tester_maker'])
   })
 
-  it("makes a hunt for an ident whose org holds as many as one username may make", async () => {
+  it("makes a hunt for an ident whose org holds as many as one userlabel may make", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
     await identified(tt, 'tester_maker')

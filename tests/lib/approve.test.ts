@@ -5,7 +5,7 @@ import * as Approve from '../../src/lib/approve'
 import { AuthorizationError } from '../../src/lib/errors'
 import { RefusalNotices } from '../../src/lib/notices'
 import { CategoryLabelVals } from '../../src/models/category'
-import { ActionValidators, QuizRevisionKindVals, type AccountActionDNA, type AccountActionT, type HuntActionDNA, type HuntActionT, type LibraryActionDNA, type LibraryActionT } from '../../src/models/actions'
+import { ActionValidators, QuizRevisionKindVals, type HuntActionDNA, type HuntActionT, type LibraryActionDNA, type LibraryActionT, type OuterHuntActionDNA, type OuterHuntActionT, type UserActionDNA, type UserActionT } from '../../src/models/actions'
 import type { ReviewPhase, ReviewPolicyT } from '../../src/models/review'
 
 /** Whatever `attempt` throws, or null when it does not */
@@ -56,7 +56,7 @@ function reviewBy(ident_id: Id<'idents'>, phase: ReviewPhase, of_hunt_id = hunt_
 
 describe('Approve.mayReadHunt', () => {
   const Cases: [Standing, Approve.VerdictT, string][] = [
-    ['anonymous', 'notIdentified', 'nobody who has asserted no username'],
+    ['anonymous', 'notIdentified', 'nobody who has asserted no userlabel'],
     ['smith',     'allow',         'a smith of the hunt'],
     ['reviewer',  'allow',         'a reviewer of the hunt'],
     ['stranger',  'notPermitted',  'nobody else'],
@@ -70,7 +70,7 @@ describe('Approve.mayReadHunt', () => {
 
 describe('Approve.mayExportHunt', () => {
   const Cases: [Standing, Approve.VerdictT, string][] = [
-    ['anonymous', 'notIdentified', 'nobody who has asserted no username'],
+    ['anonymous', 'notIdentified', 'nobody who has asserted no userlabel'],
     ['smith',     'allow',         'a smith of the hunt'],
     ['reviewer',  'notPermitted',  'nobody else: not a reviewer of the hunt'],
     ['stranger',  'notPermitted',  'nobody else: not a stranger to it'],
@@ -84,7 +84,7 @@ describe('Approve.mayExportHunt', () => {
 
 describe('Approve.mayChangeHunt', () => {
   const Cases: [Standing, Approve.VerdictT, string][] = [
-    ['anonymous', 'notIdentified', 'nobody who has asserted no username'],
+    ['anonymous', 'notIdentified', 'nobody who has asserted no userlabel'],
     ['smith',     'allow',         'a smith of the hunt'],
     ['reviewer',  'notPermitted',  'nobody else: a reviewer'],
     ['stranger',  'notPermitted',  'nobody else: a stranger'],
@@ -99,7 +99,7 @@ describe('Approve.mayChangeHunt', () => {
 describe('Approve.mayReviseQuiz', () => {
   const Cases: [Standing, { locked: boolean } | null, Approve.VerdictT, string][] = [
     // one case per guard, in order:
-    ['anonymous', Unlocked, 'notIdentified', 'nobody who has asserted no username'],
+    ['anonymous', Unlocked, 'notIdentified', 'nobody who has asserted no userlabel'],
     ['reviewer',  Unlocked, 'notPermitted',  'only a smith of the hunt: not a reviewer'],
     ['stranger',  Unlocked, 'notPermitted',  'only a smith of the hunt: not a stranger'],
     ['smith',     null,     'allow',         "a quiz that is gone is the write's to refuse, as it would be for anyone"],
@@ -127,7 +127,7 @@ describe('Approve.mayWriteReview', () => {
 describe('Approve.mayReadReview', () => {
   const Cases: [ReviewPolicyT, Standing, ReviewPolicyT | null, Approve.VerdictT, string][] = [
     // one case per guard, in order:
-    [reviewBy(alice_id, 'draft'),                 'anonymous', null,                           'notIdentified', 'nobody who has asserted no username'],
+    [reviewBy(alice_id, 'draft'),                 'anonymous', null,                           'notIdentified', 'nobody who has asserted no userlabel'],
     [reviewBy(alice_id, 'draft', other_hunt_id),  'smith',     null,                           'notPermitted',  "claims on another hunt say nothing of this one, not even of one's own"],
     [reviewBy(alice_id, 'draft'),                 'reviewer',  reviewBy(alice_id, 'draft'),    'allow',         "one's own review, while one is on its hunt"],
     [reviewBy(bob_id, 'draft'),                   'smith',     null,                           'notPermitted',  'nobody else reads a review that is not shared, not even a smith'],
@@ -150,7 +150,7 @@ describe('Approve.mayReadReview', () => {
 
 describe('Approve.mayChangeMembership', () => {
   const Cases: [Standing, Actor.IdentRefT, Approve.VerdictT, string][] = [
-    ['anonymous', { ident_id: bob_id },              'notIdentified', 'nobody who has asserted no username'],
+    ['anonymous', { ident_id: bob_id },              'notIdentified', 'nobody who has asserted no userlabel'],
     ['reviewer',  { ident_id: bob_id },              'notPermitted',  'only a smith of the hunt: not a reviewer'],
     ['stranger',  { ident_label: 'bob_reviews' },    'notPermitted',  'only a smith of the hunt: not a stranger'],
     ['smith',     { ident_id: alice_id },            'ownHunting',    'nobody changes their own place on it, named by id'],
@@ -166,7 +166,7 @@ describe('Approve.mayChangeMembership', () => {
 })
 
 describe('Approve.mayReadLibrary', () => {
-  it('nobody who has asserted no username', () => {
+  it('nobody who has asserted no userlabel', () => {
     expect(Approve.mayReadLibrary(Actor.anonymous)).to.eq('notIdentified')
   })
 
@@ -183,7 +183,7 @@ function nobodyIsAdmin(): void {
 describe('Approve.mayChangeLibrary', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('nobody who has asserted no username', () => {
+  it('nobody who has asserted no userlabel', () => {
     expect(Approve.mayChangeLibrary(Actor.anonymous)).to.eq('notIdentified')
   })
 
@@ -210,21 +210,21 @@ describe('Approve.mayCountUsage', () => {
 describe('Approve.mayReadBackfills', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('nobody who has asserted no username, an admin, and nobody else', () => {
+  it('nobody who has asserted no userlabel, an admin, and nobody else', () => {
     const verdicts = [Approve.mayReadBackfills(Actor.anonymous), Approve.mayReadBackfills(Alice)]
     nobodyIsAdmin()
     expect([...verdicts, Approve.mayReadBackfills(Alice)]).to.deep.eq(['notIdentified', 'allow', 'notPermitted'])
   })
 })
 
-describe('Approve.mayAssertUsername', () => {
+describe('Approve.mayAssertUserlabel', () => {
   it('anyone', () => {
-    expect(Approve.mayAssertUsername()).to.eq('allow')
+    expect(Approve.mayAssertUserlabel()).to.eq('allow')
   })
 })
 
 describe('Approve.mayRetitleIdent and Approve.mayMakeHunt', () => {
-  it('nobody who has asserted no username', () => {
+  it('nobody who has asserted no userlabel', () => {
     expect([Approve.mayRetitleIdent(Actor.anonymous), Approve.mayMakeHunt(Actor.anonymous)]).to.deep.eq(['notIdentified', 'notIdentified'])
   })
 
@@ -255,31 +255,31 @@ describe('Approve.mayAskAnthropicBot', () => {
 
 // --- The matrix: every action kind, as each standing, through the dispatcher
 
-type ActionT = HuntActionT | LibraryActionT | AccountActionT
-type ActionDNA = HuntActionDNA | LibraryActionDNA | AccountActionDNA
+type ActionT = HuntActionT | OuterHuntActionT | LibraryActionT | UserActionT
+type ActionDNA = HuntActionDNA | OuterHuntActionDNA | LibraryActionDNA | UserActionDNA
 type ActionKind = ActionT['kind']
 
-/** An account action that names no hunt, and so is no hunt action's kind too */
-type HuntlessDNA = Extract<AccountActionDNA, { kind: 'assume_ident' | 'retitle_ident' | 'new_hunt' }>
+/** A user action, or the outer hunt action that names no hunt: of the actor alone, and no hunt action's kind */
+type HuntlessDNA = UserActionDNA | Extract<OuterHuntActionDNA, { kind: 'new_hunt' }>
 
-/** The kinds of account action that name no hunt */
+/** The kinds of action that name no hunt, and are no hunt action's kind */
 const HuntlessKinds: ReadonlySet<string> = new Set<HuntlessDNA['kind']>(['assume_ident', 'retitle_ident', 'new_hunt'])
 
-/** An account action that names a hunt, and is no hunt action's kind */
-type HuntNamingDNA = Extract<AccountActionDNA, { kind: 'arrange_categories' | 'rebranch_hunt' }>
+/** An outer hunt action that names a hunt, and is no hunt action's kind */
+type HuntNamingDNA = Extract<OuterHuntActionDNA, { kind: 'arrange_categories' | 'rebranch_hunt' }>
 
-/** The kinds of account action that name a hunt, and are no hunt action's kind */
+/** The kinds of outer hunt action that name a hunt, and are no hunt action's kind */
 const HuntNamingKinds: ReadonlySet<string> = new Set<HuntNamingDNA['kind']>(['arrange_categories', 'rebranch_hunt'])
 
 /** The kinds of action on the library */
 const LibraryKinds: ReadonlySet<string> = new Set<LibraryActionDNA['kind']>(['add_widget', 'edit_widget', 'delete_widget', 'move_widget', 'import_widgets'])
 
-/** Whether `dna` is an account action that names no hunt */
+/** Whether `dna` is an action that names no hunt, and is no hunt action's kind */
 function isHuntless(dna: ActionDNA): dna is HuntlessDNA {
   return HuntlessKinds.has(dna.kind)
 }
 
-/** Whether `dna` is an account action that names a hunt, and is no hunt action's kind */
+/** Whether `dna` is an outer hunt action that names a hunt, and is no hunt action's kind */
 function isHuntNaming(dna: ActionDNA): dna is HuntNamingDNA {
   return HuntNamingKinds.has(dna.kind)
 }
@@ -291,7 +291,8 @@ function isOnLibrary(dna: ActionDNA): dna is LibraryActionDNA {
 
 /** `dna` validated, as the server holds an action */
 function actionOf(dna: HuntActionDNA | LibraryActionDNA | HuntlessDNA | HuntNamingDNA): ActionT {
-  if (isHuntless(dna) || isHuntNaming(dna)) { return ActionValidators.accountAction(dna) }
+  if (isHuntless(dna)) { return dna.kind === 'new_hunt' ? ActionValidators.outerHuntAction(dna) : ActionValidators.userAction(dna) }
+  if (isHuntNaming(dna)) { return ActionValidators.outerHuntAction(dna) }
   if (isOnLibrary(dna)) { return ActionValidators.libraryAction(dna) }
   return ActionValidators.huntAction(dna)
 }
@@ -363,10 +364,10 @@ const Matrix = {
   delete_hunt:         [{ kind: 'delete_hunt' },                                                                                     Smiths],
   arrange_categories:  [{ kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] },                          Smiths],
   rebranch_hunt:       [{ kind: 'rebranch_hunt', hunt_id, branch: 'playtest' },                                                      Smiths],
-  // account actions, of the actor alone:
+  // making a hunt, and the user actions, of the actor alone:
+  new_hunt:            [{ kind: 'new_hunt', label: 'loud_heron' },                                                                   Idents],
   assume_ident:        [{ kind: 'assume_ident', label: 'alice_smiths', title: 'Alice' },                                             Anyone],
   retitle_ident:       [{ kind: 'retitle_ident', title: 'Alice' },                                                                   Idents],
-  new_hunt:            [{ kind: 'new_hunt', label: 'loud_heron' },                                                                   Idents],
 } as const satisfies { [KK in ActionKind]: readonly [Extract<HuntActionDNA | LibraryActionDNA | HuntlessDNA | HuntNamingDNA, { kind: KK }>, VerdictRowT] }
 
 describe('the matrix: every action kind, as each standing, and as a smith of a locked quiz', () => {
@@ -415,7 +416,7 @@ describe('the matrix: every action kind, as each standing, and as a smith of a l
     })
   })
 
-  it('asks a hunt-naming account action as the hunt action of its kind', () => {
+  it('asks a hunt-naming outer hunt action as the hunt action of its kind', () => {
     const retitle = { kind: 'retitle_hunt', hunt_id, title: 'Princes' } as const
     expect(ColumnVals.map((column) => Approve.verdictOn('retitle_hunt', ClaimsAs[column], retitle))).to.deep.eq(Smiths)
   })

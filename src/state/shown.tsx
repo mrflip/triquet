@@ -30,8 +30,8 @@ export type QuizActsT = {
   onSetLock: (locked: boolean) => void
 }
 
-/** Who is looking, as the header's account menu shows them: their ident, null until they have said one; and how to retitle it */
-export type ShownAccountT = {
+/** Who is looking, as the header's user menu shows them: their ident, null until they have said one; and how to retitle it */
+export type ShownUserT = {
   ident:     IdentT | null
   onRetitle: (title: string) => void
 }
@@ -41,13 +41,13 @@ export type ShownT = {
   hunt:     ShownHuntT | null
   quiz:     ShownQuizT | null
   quizActs: QuizActsT | null
-  account:  ShownAccountT | null
+  user:     ShownUserT | null
 }
 
 /** Say one part of what the header shows; null for nothing */
 type Show = <PT extends keyof ShownT>(part: PT, val: ShownT[PT]) => void
 
-const NothingShown: ShownT = { hunt: null, quiz: null, quizActs: null, account: null }
+const NothingShown: ShownT = { hunt: null, quiz: null, quizActs: null, user: null }
 
 // Two contexts, so a page that only says what the header shows is not drawn again when it does.
 const ShowContext = createContext<Show | null>(null)
@@ -126,15 +126,15 @@ export function useShowQuizActs(acts: QuizActsT | null): void {
 }
 
 /**
- * Say who is looking, for the header's account menu, for as long as the caller is on screen. Hand
+ * Say who is looking, for the header's user menu, for as long as the caller is on screen. Hand
  * over an object held still until who it is changes.
  *
- * @param account - The visitor's ident and how to retitle it; null to say nothing.
+ * @param user - The visitor's ident and how to retitle it; null to say nothing.
  *
- * @example useShowAccount(useMemo(() => ({ ident, onRetitle }), [ident, onRetitle]))
+ * @example useShowUser(useMemo(() => ({ ident, onRetitle }), [ident, onRetitle]))
  */
-export function useShowAccount(account: ShownAccountT | null): void {
-  useShowPart('account', account)
+export function useShowUser(user: ShownUserT | null): void {
+  useShowPart('user', user)
 }
 
 /**

@@ -145,21 +145,61 @@ words above.
 
 ## Who and where
 
+The oauth sprint (`whiteboard/20261010-oauth/`, whose pre-plan is the authority) makes the ident
+and the user one and adds Google sign-in. Its words are here; where the code does not say so yet,
+the entry names the sprint's thread that makes it. A user, an account and a session are never a
+person: one person may hold several of each, and nothing here can tell.
+
+* **account** -- one way in: a row of Convex Auth's `authAccounts`, anonymous or (thread 5) one
+  Google account, belonging to exactly one user. Our own code says it of nothing else: what was
+  once named for accounts is user actions and outer hunt actions (below). Another service's
+  account (Anthropic's, GitHub's, Convex's) is that service's word, never ours.
+* **user** -- a row of Convex Auth's `users`: what a session is signed in as, and what an ident's
+  `user_id` points at. From thread 3 it is the persona itself, holding its userlabel, its title
+  and its `admin` flag, and the ident is gone.
 * **session** -- a Convex Auth sign-in, anonymous for now: what a browser is to the server. It
   gives a `users` row id (`user_id`), and is kept in the browser's storage, so a browser is the
-  same session visit after visit. A session says nothing of who someone is; its username does.
-* **username** -- what the screen calls an ident's label: what a person types to become an ident.
-* **ident** -- who someone is in the app, named by a global label a person types to become it: 6 to
-  24 characters of the label alphabet, made from the name typed beside it until it is typed in
+  same session visit after visit. A session says nothing of who someone is; its userlabel does.
+* **anonymous** -- a user signed in with no proof, by Convex Auth's Anonymous provider
+  (`isAnonymous`), as every browser is at first; on screen, *anonymous*, beside *signed in with
+  Google*. From thread 3 it is sealed: a userlabel and one sandbox, no other hunt, no reviews. Not
+  the actor's `anonymous` kind, which is a request whose session has asserted no userlabel
+  (*actor*).
+* **userlabel** -- an ident's label, what a person types to become it (`PA.Userlabel`,
+  `ValidatorKit.userlabel`): 6 to 24 characters of the label alphabet, unique across the app, its
+  own word as `orglabel` is. Never "username", a word banned from code, notes, notice keys and
+  test names. From thread 3 a user holds it, and it is free only while no user holds it, no
+  ghosting holds it, and no hunt carries it as its `orglabel`.
+* **handle** -- what the screen calls a userlabel: the one word a visitor reads for it ("Handle",
+  "That handle is kept for the app's own use"). Not a row's drag handle, which the screen also
+  has, nor STYLE.md's `handle` tag.
+* **ident** -- who someone is in the app, named by a global userlabel a person types to become it: 6
+  to 24 characters of the label alphabet, made from the name typed beside it until it is typed in
   itself. Held by the session that claimed it (`user_id`), and asserted by no other: no password,
-  but no taking on another's either. One made before sessions held usernames is unclaimed
+  but no taking on another's either. One made before sessions held userlabels is unclaimed
   (`user_id` null) until a session asserts it. Has a `title` for display: the name typed at the
   front door, or its label titleized; retitling it never relabels it. Never deleted, and its label
-  never changes.
+  never changes. Becomes the user, thread 3.
 * **identing** -- one session asserting one ident, by the session's `user_id`. The session's
   newest identing is its current ident; that row, not browser storage, is what "logged in" means.
+  Gone in thread 3: choosing a userlabel is then one write to the user.
+* **huntship** -- (thread 3) a user's place on one hunt, with its role: what replaces the hunting,
+  copying the user's `userlabel` and `usertitle`. At most one per hunt and user.
+* **sandbox** -- (thread 3) the one hunt an anonymous user may make: labelled with its own
+  userlabel, so at `~label/label`, with no other member. Its address stays when a merge hands it
+  to a user signed in with Google.
+* **ghosting** -- (threads 5 and 6) a userlabel retired by a merge, held reserved until it can be
+  released: a row of `ghostings`, appended and never edited, naming the user that held it, the
+  user it merged into, and the account whose sign-in caused it. The Coach's word.
+* **user action**, **outer hunt action** -- what a visitor does outside any quiz, each kind on a
+  mutation of its own: as themselves, asserting or retitling a userlabel (`idents.perform`,
+  `writing/user_actions.ts`); or to a hunt they make or name, making, retitling, relabelling,
+  rebranching it or arranging its categories (`hunts.performOuter`, `performOuterHunt` in
+  `writing/hunt_actions.ts`). An outer hunt action names its hunt by id where a hunt action from
+  inside a quiz affirms it (`hunts.perform`), and the browser waits on either before it moves on
+  (`useAwaitedActions`).
 * **actor** -- who a request is from, as a tagged value built once per request and handed to
-  every function as `ctx.actor` (`src/lib/actor.ts`): `{ kind: 'anonymous' }` when no username
+  every function as `ctx.actor` (`src/lib/actor.ts`): `{ kind: 'anonymous' }` when no userlabel
   has been asserted (signed in or not), or `{ kind: 'ident', user_id, ident_id, ident_label }`.
   A tagged value rather than `null`, so that "anonymous" is a state with a name
   (`Actor.isAnonymous`). A variable, field or parameter named `actor` is the whole tagged value;
@@ -168,7 +208,7 @@ words above.
   in the same scope.
 * **standing** -- an actor's place on one hunt: `'smith'` or `'reviewer'` by its hunting, or
   `'stranger'` (`Actor.HuntStandingVals`). A named value rather than a null role, so that "not on
-  the hunt" is a state with a name. An actor who has asserted no username is a stranger to every
+  the hunt" is a state with a name. An actor who has asserted no userlabel is a stranger to every
   hunt.
 * **affirms** -- what a browser says is true of itself on a hunt, sent with every request about
   it: `{ ident_id, hunt_id, standing }`, and where the request is about a quiz, its `quiz_id`, and
@@ -220,7 +260,7 @@ words above.
   global, and exports on its own. Its label is unique within its org; should two of one org share
   one, the earlier-made wins.
 * **org** -- the scope a hunt is addressed under and its label is unique within, the `~pat_smith`
-  of `/~pat_smith/spring_hunt`: for now always an ident label, so every username is its own org.
+  of `/~pat_smith/spring_hunt`: for now always an ident label, so every userlabel is its own org.
   A hunt names its org in its **orglabel** (`hunts.orglabel`), its maker's ident label, copied
   when it was made and never changed: not when its maker is retitled, leaves, or changes role.
   Every hunt has one. The address's slot is `org` (`Routes.HuntLabels`, `HuntListingT.org`); the
@@ -241,6 +281,7 @@ words above.
   with a hunting on it. One per (hunt, ident): putting someone on again changes their role. A
   hunt's maker is its first smith, and nobody changes their own hunting: another smith does.
   The hunts list shows one's own hunts, its links opening each quiz in the mode one's role works in.
+  Becomes the huntship, thread 3.
 * **workspace** -- retired in September 2026: what one account held, before hunts held quizzes
   and addresses said which was open. Nothing reads one now.
 

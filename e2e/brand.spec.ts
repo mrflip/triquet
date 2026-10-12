@@ -1,19 +1,19 @@
 import { AppNotices } from '../src/lib/notices'
-import { expect, headLinks, openAccount, test } from './support'
+import { expect, headLinks, openUserMenu, test } from './support'
 
 // About the header and the about page, neither of which needs a hunt.
 test.use({ startAt: null })
 
 test.describe('the header', () => {
-  test('carries the logo home, and the way to About in its account menu', { tag: '@smoke' }, async ({ page }) => {
+  test('carries the logo home, and the way to About in its user menu', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/about')
     const banner = page.getByRole('banner')
     await banner.getByRole('link', { name: 'Triquet' }).click()
     await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
     // Nobody has said who they are yet: the menu has no name to show.
-    const account = await openAccount(page)
-    await expect(account.getByRole('textbox', { name: 'Your name' })).toHaveCount(0)
-    await account.getByRole('menuitem', { name: 'About' }).click()
+    const menu = await openUserMenu(page)
+    await expect(menu.getByRole('textbox', { name: 'Your name' })).toHaveCount(0)
+    await menu.getByRole('menuitem', { name: 'About' }).click()
     await expect(page).toHaveTitle('About — Triquet')
   })
 
@@ -58,6 +58,13 @@ test.describe('the about page', () => {
     await page.routeWebSocket((url) => url.host !== appHost, (socket) => { void socket.close() })
     await page.goto('/about')
     await expect(page.getByRole('heading', { name: 'About Triquet' })).toBeVisible()
+  })
+
+  test('links the privacy policy and the terms, as the homepage Google links', async ({ page }) => {
+    await page.goto('/about')
+    const main = page.getByRole('main')
+    await expect(main.getByRole('link', { name: 'privacy policy' })).toHaveAttribute('href', '/privacy')
+    await expect(main.getByRole('link', { name: 'terms of use' })).toHaveAttribute('href', '/terms')
   })
 
   test('downloads a brand asset when it is clicked', async ({ page }) => {

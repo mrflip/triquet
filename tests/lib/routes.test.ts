@@ -67,6 +67,18 @@ describe('Routes.aboutPath', () => {
   })
 })
 
+describe('Routes.privacyPath', () => {
+  it('is /privacy', () => {
+    expect(Routes.privacyPath()).to.eq('/privacy')
+  })
+})
+
+describe('Routes.termsPath', () => {
+  it('is /terms', () => {
+    expect(Routes.termsPath()).to.eq('/terms')
+  })
+})
+
 describe("Routes.modeFromAct", () => {
   it("reads the mode an old address's presentation is now", () => {
     expect([Routes.modeFromAct('smith'), Routes.modeFromAct('review')]).to.deep.eq(['edit', 'playtest'])

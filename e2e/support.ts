@@ -478,7 +478,7 @@ export function freshWidgetLabel(stem: string): string {
  */
 export async function assumeIdent(page: Page, label = freshIdentLabel()): Promise<string> {
   await page.goto('/')
-  await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
+  await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
   await page.getByRole('button', { name: `Log in as ${label}` }).click()
   await expect(page).toHaveURL(/\/my\/hunts$/)
   return label
@@ -645,10 +645,10 @@ export async function newQuiz(page: Page): Promise<void> {
   await expect(page.getByLabel('Quiz name')).not.toHaveValue(title)
 }
 
-/** The header's account menu, opened: who you are, then links to your hunts, to being someone else, and to About */
-export async function openAccount(page: Page): Promise<Locator> {
-  await page.getByRole('banner').getByRole('button', { name: 'Account' }).click()
-  return page.getByRole('dialog', { name: 'Account' })
+/** The header's user menu, opened: who you are, then links to your hunts, to being someone else, and to About */
+export async function openUserMenu(page: Page): Promise<Locator> {
+  await page.getByRole('banner').getByRole('button', { name: 'You', exact: true }).click()
+  return page.getByRole('dialog', { name: 'You', exact: true })
 }
 
 /**

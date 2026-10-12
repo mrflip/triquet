@@ -7,7 +7,7 @@ import { api } from '../../convex/_generated/api'
 import * as Alarms from '../lib/alarms'
 import { AppNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
-import type { AccountActionDNA } from '../models/actions'
+import type { OuterHuntActionDNA } from '../models/actions'
 import type { WheelT } from '../models/category'
 import { useRaiseAlarm } from './alarms'
 import { useHuntOpening, type HuntOpeningHandle } from './use-hunt-opening'
@@ -28,9 +28,9 @@ export type CategoriesHandle = HuntOpeningHandle & {
  * @param store - The client's watched results, to patch.
  * @param args - What the mutation was called with; only an arrangement is shown early.
  *
- * @example useMutation(api.idents.performAccount).withOptimisticUpdate(showArranged)
+ * @example useMutation(api.hunts.performOuter).withOptimisticUpdate(showArranged)
  */
-export function showArranged(store: OptimisticLocalStore, { action }: { action: AccountActionDNA }): void {
+export function showArranged(store: OptimisticLocalStore, { action }: { action: OuterHuntActionDNA }): void {
   if (action.kind !== 'arrange_categories') { return }
   for (const { args, value } of store.getAllQueries(api.hunts.open)) {
     if (value?.why !== null || value.hunt._id !== action.hunt_id) { continue }
@@ -54,7 +54,7 @@ export function useCategories(orglabel: string | null, hunt_label: string): Cate
   const { ready } = useSession()
   const raise = useRaiseAlarm()
   const [writing, setWriting] = useState(0)
-  const performAccount = useMutation(api.idents.performAccount).withOptimisticUpdate(showArranged)
+  const performOuter = useMutation(api.hunts.performOuter).withOptimisticUpdate(showArranged)
   const opened = useHuntOpening(orglabel, hunt_label)
   const hunt_id = opened.hunt?._id ?? null
 
@@ -64,7 +64,7 @@ export function useCategories(orglabel: string | null, hunt_label: string): Cate
     const write = async () => {
       setWriting((was) => was + 1)
       try {
-        await performAccount({ action })
+        await performOuter({ action })
       } catch (err) {
         Postmortem.report('arrange the categories', err, { hunt: hunt_label })
         raise(Alarms.of(AppNotices.changeNotKept, err))
@@ -73,7 +73,7 @@ export function useCategories(orglabel: string | null, hunt_label: string): Cate
       }
     }
     void write()
-  }, [hunt_id, ready, hunt_label, performAccount, raise])
+  }, [hunt_id, ready, hunt_label, performOuter, raise])
 
   return { ...opened, unsaved: writing > 0, arrange }
 }

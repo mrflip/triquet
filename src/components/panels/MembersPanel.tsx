@@ -84,7 +84,7 @@ function MemberDoor({ member, claims, carryOut }: Readonly<Pick<MembersPanelProp
 
 /**
  * The row that puts someone on the hunt: their ident label, their role, and a button. The label is
- * checked as the front door checks a username (`Ident.flawToSay`): one no typing on would mend is
+ * checked as the front door checks a userlabel (`Ident.flawToSay`): one no typing on would mend is
  * said at once, one too short once the field is left. A label refused, here, by the policy (one's
  * own: `ownHunting`), or by the server, says why beneath it until it is changed.
  */

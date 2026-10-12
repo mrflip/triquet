@@ -5,7 +5,7 @@
  * addressed as `Addresses` names it (`notes/decisions/urls.md`): the path names a resource by
  * label, in its org and hunt, and a last `!mode` segment how it is opened, so a link one person
  * pastes to another opens the same screen for whoever opens it. The app's own pages (the front
- * door, the hunts, About) sit at the root beside the orgs.
+ * door, the hunts, About, Privacy and Terms) sit at the root beside the orgs.
  *
  * Addresses from before (`/h/<hunt>/<realm>/<quiz>?act=smith`, `/h/<hunt>`, `/c/<hunt>/categories`)
  * still open, and move to their present form once the hunt they name says its org.
@@ -47,6 +47,16 @@ export function huntsPath(): string {
 /** What Triquet is, with its brand assets to download */
 export function aboutPath(): string {
   return '/about'
+}
+
+/** What Triquet keeps about the people who use it, who sees it, and how to have it deleted */
+export function privacyPath(): string {
+  return '/privacy'
+}
+
+/** The terms Triquet is offered on */
+export function termsPath(): string {
+  return '/terms'
 }
 
 /**

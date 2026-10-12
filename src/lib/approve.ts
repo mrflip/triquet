@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/prefer-combined-guards -- one guard per rule, each beside its rule, as notes/policy_approve.md asks */
-import type { AccountActionT, HuntActionT, LibraryActionT, QuizRevisionKind } from '../models/actions'
+import type { HuntActionT, LibraryActionT, OuterHuntActionT, QuizRevisionKind, UserActionT } from '../models/actions'
 import { Quiz, type QuizRowT } from '../models/quiz'
 import { Review, type ReviewPolicyT } from '../models/review'
 import { Validator } from './validator'
@@ -54,14 +54,14 @@ export class NotApprovedError extends AuthorizationError {
  * Whether the claimed actor may read their hunt and all it holds: its realms, quizzes and
  * questions, and who is on it. In order:
  *
- * * Nobody who has asserted no username
+ * * Nobody who has asserted no userlabel
  * * Anyone on the hunt, in either role
  * * Nobody else
  *
  * @example Approve.mayReadHunt(claims)  // => 'allow', for a reviewer
  */
 export function mayReadHunt(claims: Actor.HuntClaimsT): VerdictT {
-  if (Actor.isAnonymous(claims)) { return 'notIdentified' } // Nobody who has asserted no username
+  if (Actor.isAnonymous(claims)) { return 'notIdentified' } // Nobody who has asserted no userlabel
   if (Actor.isMember(claims))    { return Allow }           // Anyone on the hunt, in either role
   return 'notPermitted'                                     // Nobody else
 }
@@ -71,14 +71,14 @@ export function mayReadHunt(claims: Actor.HuntClaimsT): VerdictT {
  * retitle, relabel or delete it. Revising a quiz asks `mayReviseQuiz`, which also holds to the
  * quiz's lock. In order:
  *
- * * Nobody who has asserted no username
+ * * Nobody who has asserted no userlabel
  * * A smith of the hunt
  * * Nobody else
  *
  * @example Approve.mayChangeHunt(claims)  // => 'notPermitted', for a reviewer
  */
 export function mayChangeHunt(claims: Actor.HuntClaimsT): VerdictT {
-  if (Actor.isAnonymous(claims)) { return 'notIdentified' } // Nobody who has asserted no username
+  if (Actor.isAnonymous(claims)) { return 'notIdentified' } // Nobody who has asserted no userlabel
   if (Actor.isSmith(claims))     { return Allow }           // A smith of the hunt
   return 'notPermitted'                                     // Nobody else
 }
@@ -103,7 +103,7 @@ export function mayExportHunt(claims: Actor.HuntClaimsT): VerdictT {
  * playtesting, and holds still until a smith unlocks it; the refusal says so, so the author knows
  * what to do. In order:
  *
- * * Nobody who has asserted no username
+ * * Nobody who has asserted no userlabel
  * * Only a smith of the hunt
  * * A quiz that is gone is the write's to refuse (`quizGone`), as it would be for anyone
  * * Nothing in a locked quiz changes
@@ -115,7 +115,7 @@ export function mayExportHunt(claims: Actor.HuntClaimsT): VerdictT {
  * @example Approve.mayReviseQuiz({ locked: true }, claims)  // => 'quizLocked', for a smith
  */
 export function mayReviseQuiz(quiz: Pick<QuizRowT, 'locked'> | null, claims: Actor.HuntClaimsT): VerdictT {
-  if (Actor.isAnonymous(claims)) { return 'notIdentified' } // Nobody who has asserted no username
+  if (Actor.isAnonymous(claims)) { return 'notIdentified' } // Nobody who has asserted no userlabel
   if (! Actor.isSmith(claims))   { return 'notPermitted' }  // Only a smith of the hunt
   if (quiz === null)             { return Allow }           // A quiz that is gone is the write's to refuse (`quizGone`), as it would be for anyone
   if (Quiz.isLocked(quiz))       { return 'quizLocked' }    // Nothing in a locked quiz changes
@@ -147,7 +147,7 @@ export function mayWriteReview(claims: Actor.HuntClaimsT): VerdictT {
  * Whether the claimed actor may read `review`, with its verdicts. No reviewer reads the others'
  * before they have made up their own mind. In order:
  *
- * * Nobody who has asserted no username
+ * * Nobody who has asserted no userlabel
  * * Claims on another hunt say nothing of this one
  * * One's own review, while one is on its hunt
  * * Nobody else reads a review that is not shared
@@ -164,7 +164,7 @@ export function mayWriteReview(claims: Actor.HuntClaimsT): VerdictT {
  * @example Approve.mayReadReview(review, claims, ownReview)  // => 'allow', for a reviewer whose own is shared too
  */
 export function mayReadReview(review: ReviewPolicyT, claims: Actor.HuntClaimsT, ownReview: ReviewPolicyT | null): VerdictT {
-  if (Actor.isAnonymous(claims))            { return 'notIdentified' } // Nobody who has asserted no username
+  if (Actor.isAnonymous(claims))            { return 'notIdentified' } // Nobody who has asserted no userlabel
   if (review.hunt_id !== claims.hunt_id)    { return 'notPermitted' }  // Claims on another hunt say nothing of this one
   if (Review.isActiveOwner(review, claims)) { return Allow }           // One's own review, while one is on its hunt
   if (Review.isHidden(review))              { return 'notPermitted' }  // Nobody else reads a review that is not shared
@@ -179,7 +179,7 @@ export function mayReadReview(review: ReviewPolicyT, claims: Actor.HuntClaimsT, 
  * Whether the claimed actor may put someone on their hunt, change their role, or take them off.
  * In order:
  *
- * * Nobody who has asserted no username
+ * * Nobody who has asserted no userlabel
  * * Only a smith of the hunt
  * * Nobody changes their own place on it: another smith does
  * * A smith, anyone else's
@@ -191,7 +191,7 @@ export function mayReadReview(review: ReviewPolicyT, claims: Actor.HuntClaimsT, 
  * @example Approve.mayChangeMembership(claims, { ident_id: claims.ident_id })   // => 'ownHunting'
  */
 export function mayChangeMembership(claims: Actor.HuntClaimsT, target: Actor.IdentRefT): VerdictT {
-  if (Actor.isAnonymous(claims))       { return 'notIdentified' } // Nobody who has asserted no username
+  if (Actor.isAnonymous(claims))       { return 'notIdentified' } // Nobody who has asserted no userlabel
   if (! Actor.isSmith(claims))         { return 'notPermitted' }  // Only a smith of the hunt
   if (Actor.isOneself(claims, target)) { return 'ownHunting' }    // Nobody changes their own place on it: another smith does
   return Allow                                                    // A smith, anyone else's
@@ -201,13 +201,13 @@ export function mayChangeMembership(claims: Actor.HuntClaimsT, target: Actor.Ide
  * Whether `actor` may read the library of widgets, which holds formulas and prompts and nothing of
  * any hunt. In order:
  *
- * * Nobody who has asserted no username
+ * * Nobody who has asserted no userlabel
  * * Anyone who has
  *
  * @example Approve.mayReadLibrary(Actor.anonymous)  // => 'notIdentified'
  */
 export function mayReadLibrary(actor: Actor.ActorT): VerdictT {
-  if (Actor.isAnonymous(actor)) { return 'notIdentified' } // Nobody who has asserted no username
+  if (Actor.isAnonymous(actor)) { return 'notIdentified' } // Nobody who has asserted no userlabel
   return Allow                                             // Anyone who has
 }
 
@@ -217,19 +217,19 @@ export function mayReadLibrary(actor: Actor.ActorT): VerdictT {
  * every hunt, so changing it is an admin's act, not a smith's; who is an admin is
  * `Actor.isAdmin`'s to say. In order:
  *
- * * Nobody who has asserted no username
+ * * Nobody who has asserted no userlabel
  * * An admin
  * * Nobody else
  *
  * @example Approve.mayChangeLibrary(actor)  // => 'allow', for an admin
  */
 export function mayChangeLibrary(actor: Actor.ActorT): VerdictT {
-  return adminVerdict(actor) // Nobody who has asserted no username; an admin; nobody else
+  return adminVerdict(actor) // Nobody who has asserted no userlabel; an admin; nobody else
 }
 
-/** The verdict of a policy that is an admin's alone: nobody who has asserted no username, an admin (`Actor.isAdmin`), and nobody else */
+/** The verdict of a policy that is an admin's alone: nobody who has asserted no userlabel, an admin (`Actor.isAdmin`), and nobody else */
 function adminVerdict(actor: Actor.ActorT): VerdictT {
-  if (Actor.isAnonymous(actor)) { return 'notIdentified' } // Nobody who has asserted no username
+  if (Actor.isAnonymous(actor)) { return 'notIdentified' } // Nobody who has asserted no userlabel
   if (Actor.isAdmin(actor))     { return Allow }           // An admin
   return 'notPermitted'                                    // Nobody else
 }
@@ -252,52 +252,52 @@ export function mayCountUsage(actor: Actor.ActorT): VerdictT {
  * counts say roughly how many rows the deployment holds, of every hunt, so they are an admin's.
  * In order:
  *
- * * Nobody who has asserted no username
+ * * Nobody who has asserted no userlabel
  * * An admin (`Actor.isAdmin`)
  * * Nobody else
  *
  * @example Approve.mayReadBackfills(actor)  // => 'allow', for an admin
  */
 export function mayReadBackfills(actor: Actor.ActorT): VerdictT {
-  return adminVerdict(actor) // Nobody who has asserted no username; an admin; nobody else
+  return adminVerdict(actor) // Nobody who has asserted no userlabel; an admin; nobody else
 }
 
 /**
- * Whether the actor may assert a username: anyone whose request has a session. Whether that
- * username is theirs to take is the write's to say (`usernameClaimed`), since it turns on the
+ * Whether the actor may assert a userlabel: anyone whose request has a session. Whether that
+ * userlabel is theirs to take is the write's to say (`userlabelClaimed`), since it turns on the
  * ident's row. In order:
  *
  * * Anyone
  *
- * @example Approve.mayAssertUsername()  // => 'allow'
+ * @example Approve.mayAssertUserlabel()  // => 'allow'
  */
-export function mayAssertUsername(): VerdictT {
+export function mayAssertUserlabel(): VerdictT {
   return Allow // Anyone
 }
 
 /**
  * Whether `actor` may retitle the ident they are. In order:
  *
- * * Nobody who has asserted no username: they are no ident yet
+ * * Nobody who has asserted no userlabel: they are no ident yet
  * * Anyone who has
  *
  * @example Approve.mayRetitleIdent(actor)  // => 'allow'
  */
 export function mayRetitleIdent(actor: Actor.ActorT): VerdictT {
-  if (Actor.isAnonymous(actor)) { return 'notIdentified' } // Nobody who has asserted no username: they are no ident yet
+  if (Actor.isAnonymous(actor)) { return 'notIdentified' } // Nobody who has asserted no userlabel: they are no ident yet
   return Allow                                             // Anyone who has
 }
 
 /**
  * Whether `actor` may make a hunt, of which they become the first smith. In order:
  *
- * * Nobody who has asserted no username: a hunt nobody is on is one nobody can open
+ * * Nobody who has asserted no userlabel: a hunt nobody is on is one nobody can open
  * * Anyone who has
  *
  * @example Approve.mayMakeHunt(actor)  // => 'allow'
  */
 export function mayMakeHunt(actor: Actor.ActorT): VerdictT {
-  if (Actor.isAnonymous(actor)) { return 'notIdentified' } // Nobody who has asserted no username: a hunt nobody is on is one nobody can open
+  if (Actor.isAnonymous(actor)) { return 'notIdentified' } // Nobody who has asserted no userlabel: a hunt nobody is on is one nobody can open
   return Allow                                             // Anyone who has
 }
 
@@ -320,20 +320,20 @@ export function mayAskAnthropicBot(switchval: string | undefined): VerdictT {
 
 // --- The dispatch table
 
-/** Every action a request can carry: from inside a quiz, to the library, or before any quiz is open */
-type ActionT = HuntActionT | LibraryActionT | AccountActionT
+/** Every action a request can carry: from inside a quiz, to a hunt from outside any quiz, to the library, or as the visitor themselves */
+type ActionT = HuntActionT | OuterHuntActionT | LibraryActionT | UserActionT
 type ActionKind = ActionT['kind']
 /** The action of one kind */
 type ActionOfKind<KK extends ActionKind> = Extract<ActionT, { kind: KK }>
-/** The kinds of action decided of the actor alone: on the library, which no hunt owns, or before any hunt is in play (an account action that names no hunt) */
-type HuntlessKind = Exclude<LibraryActionT['kind'] | Exclude<AccountActionT, { hunt_id: unknown }>['kind'], HuntActionT['kind']>
+/** The kinds of action decided of the actor alone: on the library, which no hunt owns, or before any hunt is in play (a user action, or making a hunt) */
+type HuntlessKind = Exclude<LibraryActionT['kind'] | UserActionT['kind'] | Exclude<OuterHuntActionT, { hunt_id: unknown }>['kind'], HuntActionT['kind']>
 
 /**
  * What each policy is handed, by key. An action's policy is handed the claims on the hunt it
  * lands on (the actor alone, for one on the library or one decided before any hunt is in play;
- * with the quiz on screen, for one that revises it) and the action; the account actions that name
- * a hunt share the row of the hunt action of their kind, where there is one, and are handed the
- * claims on that hunt all the same where there is not (arranging its categories).
+ * with the quiz on screen, for one that revises it) and the action; the outer hunt actions that
+ * name a hunt share the row of the hunt action of their kind, where there is one, and are handed
+ * the claims on that hunt all the same where there is not (arranging its categories).
  */
 type EvidenceT = {
   [KK in ActionKind]: KK extends HuntlessKind ? [actor: Actor.ActorT, action: ActionT]
@@ -425,7 +425,7 @@ const ReviewPolicies = {
   peek_answer:      mayWriteReview,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
-/** The actions on the hunt itself, and who is on it */
+/** The actions on the hunt itself, and who is on it, and making one */
 const HuntPolicies = {
   add_hunting:    mayChangeMembership,
   remove_hunting: mayChangeMembership,
@@ -434,13 +434,13 @@ const HuntPolicies = {
   delete_hunt:    mayChangeHunt,
   arrange_categories: mayChangeHunt,
   rebranch_hunt:  mayChangeHunt,
+  new_hunt:       mayMakeHunt,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
-/** The account actions that name no hunt: of the actor alone */
-const AccountPolicies = {
-  assume_ident:  mayAssertUsername,
+/** The user actions: the visitor as themselves, of the actor alone */
+const UserPolicies = {
+  assume_ident:  mayAssertUserlabel,
   retitle_ident: mayRetitleIdent,
-  new_hunt:      mayMakeHunt,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
 /** The reads, and the ask, by name */
@@ -465,7 +465,7 @@ const RowPolicies = {
 /** The policy of every action, by its kind */
 const ActionPolicies = {
   ...LayoutPolicies, ...LibraryPolicies, ...ContentPolicies, ...RealmPolicies,
-  ...ReviewPolicies, ...HuntPolicies, ...AccountPolicies,
+  ...ReviewPolicies, ...HuntPolicies, ...UserPolicies,
 } as const satisfies PolicyRowsT<ActionKind>
 
 /** Every policy, by key: a key with no row fails to compile, and so does a row with no key */

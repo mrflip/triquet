@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { AppBar, Box, Breadcrumbs, Link, Toolbar, useMediaQuery, type Theme } from '@mui/material'
-import { AccountMenu } from './AccountMenu'
+import { UserMenu } from './UserMenu'
 import NextLink from './NextLink'
 import { Logo } from './Logo'
 import { QuizActsButtons, QuizSwitcher } from './QuizSwitcher'
@@ -34,13 +34,13 @@ const tooNarrow = (theme: Theme) => theme.breakpoints.down('md')
  * goes to the org's hunts, and the hunt's title, which goes to the hunt's own page; on a page
  * about a quiz, its realm's label, which goes to the hunt's quizzes, and the quiz's title, which
  * opens the switcher. The crumbs stop at the deepest the page has. On the right, on the quiz's
- * own screen, making another quiz and locking this one; and, at the far right, the account, whose
- * menu holds who you are, your hunts, being someone else, and About.
+ * own screen, making another quiz and locking this one; and, at the far right, the user menu: who
+ * you are, your hunts, being someone else, and About.
  *
  * As the bar narrows, the crumbs are cut short before the buttons are.
  */
 export function SiteHeader() {
-  const { hunt, quiz, quizActs, account } = useShown()
+  const { hunt, quiz, quizActs, user } = useShown()
   const pathname = usePathname()
   const huntPath = hunt === null ? null : Routes.huntPath({ org: hunt.org, hunt: hunt.label })
   const quizShown = hunt === null ? null : quiz
@@ -84,7 +84,7 @@ export function SiteHeader() {
         </Breadcrumbs>
         <Box sx={{ flex: 1 }} />
         {quizShown !== null && quizActs !== null && <QuizActsButtons locked={quizShown.quiz.locked} acts={quizActs} />}
-        <AccountMenu account={account} />
+        <UserMenu user={user} />
       </Toolbar>
     </AppBar>
   )

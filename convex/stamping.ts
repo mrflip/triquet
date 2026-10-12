@@ -13,7 +13,7 @@ import * as Stamps from '../src/lib/stamps'
 
 /**
  * The tables whose rows are stamped: every table of ours the app writes, but `identings`, each row
- * of which is one assertion of a username, appended and never edited, so that its `_creationTime`
+ * of which is one assertion of a userlabel, appended and never edited, so that its `_creationTime`
  * is its whole history. Convex Auth's tables are its own.
  */
 export const StampedTables = [
