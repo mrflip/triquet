@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-11. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `/sprint oath YOLO`, "plan and execute the sprint described in
 whiteboard/20261010-oauth", which is `20261011-oauth_preplan.md` beside this file.
-**Status: threads 1-5, 7, 8 landed (#226-#232); the Coach's high review of 5 and thread 6 underway (2026-10-12); 9 last.** `oauth-progress.md`, beside this file, is newer
+**Status: done (2026-10-12). Every thread landed: #226-#235, one stack, plus #233 from the Coach's high review of thread 5. Closing full e2e 309/309. See `human/20261012-sprint_oauth_done.md`.** `oauth-progress.md`, beside this file, is newer
 than this plan wherever the two disagree.
 
 The earlier plan in this file (three threads, an app-made hand-off, 2026-10-10) is superseded and

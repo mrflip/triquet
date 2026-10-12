@@ -16,7 +16,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 6 | `google_ui`: signing in, from both doors | landed #234 | `20261012-google_ui` | [#234](https://github.com/mrflip/triquet/pull/234) |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
-| 9 | `oauth_security`: a strong review | landing (full e2e, the sprint's closing run) | `20261012-oauth_security` | |
+| 9 | `oauth_security`: a strong review | landed #235 | `20261012-oauth_security` | [#235](https://github.com/mrflip/triquet/pull/235) |
 
 Full e2e runs at landing: threads 3 and 5, and every fourth landing (thread 8 carries the fourth). So far every landing's `--touched` ran the whole suite: 7 (299/299), 2 (293/293), 1 (299/299), no flakes.
 
@@ -337,6 +337,10 @@ unparseable address (crashing the front door, and the redirect callback), now nu
 * **F7:** `sealedJoin` reveals anonymity; the policy doesn't say so.
 * **F8:** sign-out leaves hunt histories (IndexedDB) for the next person at a shared browser.
 * **F9:** `/api/ask` answers any POST (O1); bring-your-own-key can now go ahead.
+
+* **Thread 9, #235**, stacked on #234; merge after the clear. *Review: fixed* (a dot-segment
+  redirect its own fix opened; an unparseable address that threw). Closing full e2e 309/309, no
+  flakes. F2 and F3 are the Coach's before production's Google keys.
 
 ## For thread 9: what the sprint has gathered
 
