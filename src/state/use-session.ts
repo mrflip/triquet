@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuthActions, useConvexAuth, type ConvexAuthActionsContext } from '@convex-dev/auth/react'
 import * as Postmortem from '../lib/postmortem'
+import * as Routes from '../lib/routes'
 
 export type SessionHandle = {
   /** Whether this browser is signed in, and the server has accepted its session: until then, nothing asks the server who it is */
@@ -48,6 +49,23 @@ export function useSession(): SessionHandle {
   }, [isLoading, isAuthenticated, signIn, attempt])
 
   return { ready: isAuthenticated }
+}
+
+/**
+ * How to sign this browser out: its session ends (Convex Auth's sign out, which deletes it on the
+ * server and forgets it here), and the browser starts afresh at the front door, where `useSession`
+ * signs it in anonymously, a new user holding no handle. A whole new page rather than a move within
+ * the app, so that nothing the app held of the user signed out outlives it. What else the browser
+ * keeps (the hunt histories) stays.
+ *
+ * @returns Sign out.
+ */
+export function useSignOut(): () => Promise<void> {
+  const { signOut } = useAuthActions()
+  return useCallback(async () => {
+    await signOut()
+    location.assign(Routes.rootPath())
+  }, [signOut])
 }
 
 /** Sign in anonymously, reporting a failure rather than throwing it; whether it worked */

@@ -60,7 +60,7 @@ export function HuntRoute({ org, huntLabel, screen }: Readonly<HuntRouteProps>) 
   }, [hunt])
 
   if (! loaded || ! user || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
-  if (finding === 'refused') { return <NotOnHunt playtestPath={null} user={user} claims={null} smiths={smiths} /> }
+  if (finding === 'refused') { return <NotOnHunt playtestPath={null} user={user} sealed={Actor.isSealed(actor)} claims={null} smiths={smiths} /> }
   if (! hunt) { return <NoSuchHunt org={org} huntLabel={huntLabel} /> }
   return screen === 'hunt' ? <HuntScreen hunt={hunt} actor={actor} /> : <QuizzesScreen hunt={hunt} />
 }

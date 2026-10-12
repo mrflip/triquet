@@ -7,6 +7,7 @@ import { userActor } from '../support/actors'
 const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
 const hunt_id = 'k17ah9c4r1hm0z5y1ad0bbn7wn7fn9x1' as Id<'hunts'>
 const Alice = userActor(user_id, 'alice_smiths', { admin: true })
+const Anon = userActor(user_id, 'anon_alice', { anonymous: true })
 
 /** Alice's claims on the hunt in each standing, an unlocked quiz on screen, and as a smith of a locked one */
 const ClaimsAs = {
@@ -15,13 +16,15 @@ const ClaimsAs = {
   stranger:     { ...Actor.claimsOn(Alice, hunt_id, null), quiz: { locked: false } },
   unlabelled:   { ...Actor.claimsOn(Actor.unlabelled, hunt_id, null), quiz: { locked: false } },
   locked_smith: { ...Actor.claimsOn(Alice, hunt_id, { role: 'smith' }), quiz: { locked: true } },
+  sealed_smith: { ...Actor.claimsOn(Anon, hunt_id, { role: 'smith' }), quiz: { locked: false } },
 } as const satisfies Record<string, Actor.QuizClaimsT>
 
-const None: WorkbenchOffersT = { reviseQuiz: false, reviseQuestions: false, importQuestions: false, reviseLayout: false, changeLibrary: false, exportHunt: false }
+const None: WorkbenchOffersT = { reviseQuiz: false, reviseQuestions: false, importQuestions: false, reviseLayout: false, changeLibrary: false, exportHunt: false, relabelHunt: false, deleteHunt: false }
 
 const Cases: [keyof typeof ClaimsAs, WorkbenchOffersT, string][] = [
-  ['smith',        { reviseQuiz: true, reviseQuestions: true, importQuestions: true, reviseLayout: true, changeLibrary: true, exportHunt: true }, 'offers a smith everything'],
-  ['locked_smith', { ...None, changeLibrary: true, exportHunt: true },                                                                      'leaves a locked quiz as it is, but not the library a quiz does not hold, nor the export'],
+  ['smith',        { reviseQuiz: true, reviseQuestions: true, importQuestions: true, reviseLayout: true, changeLibrary: true, exportHunt: true, relabelHunt: true, deleteHunt: true }, 'offers a smith everything'],
+  ['locked_smith', { ...None, changeLibrary: true, exportHunt: true, relabelHunt: true, deleteHunt: true },                                'leaves a locked quiz as it is, but not the library a quiz does not hold, the export, nor the hunt'],
+  ['sealed_smith', { reviseQuiz: true, reviseQuestions: true, importQuestions: true, reviseLayout: true, changeLibrary: false, exportHunt: true, relabelHunt: false, deleteHunt: false }, 'offers an anonymous smith its sandbox\'s quiz, but neither relabelling nor deleting the sandbox'],
   ['reviewer',     { ...None, changeLibrary: true },                                                                                         'offers a reviewer nothing of the smith\'s screen but the library, which is any admin\'s'],
   ['stranger',     { ...None, changeLibrary: true },                                                                                         'offers someone not on the hunt nothing of it but the library, which is any admin\'s'],
   ['unlabelled',   None,                                                                                                                     'offers someone without a userlabel nothing'],
@@ -39,6 +42,6 @@ describe('workbenchOffers', () => {
   it('opens no door to the library for anyone, a smith included, once `Actor.isAdmin` says nobody is an admin', () => {
     vi.spyOn(Actor, 'isAdmin').mockReturnValue(false)
     const offered = Object.values(ClaimsAs).map((claims) => workbenchOffers(claims).changeLibrary)
-    expect(offered).to.deep.eq([false, false, false, false, false])
+    expect(offered).to.deep.eq([false, false, false, false, false, false])
   })
 })

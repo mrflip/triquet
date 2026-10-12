@@ -185,7 +185,7 @@ function refreshTokenIn(storage: StorageT): string | null {
 const ConvexAuthKey = '__convexAuth'
 
 /**
- * Forget the session `page`'s browser holds, as signing out will (thread 6's *Sign out*): its
+ * Forget the session `page`'s browser holds, as the user menu's *Sign out* does: its
  * next page signs in afresh, a new anonymous user holding no userlabel, while what else the
  * browser keeps (the hunt histories) stays. For a spec about one browser that more than one user
  * has used: a handle is chosen once, so there is no becoming someone else. The page is left
@@ -671,7 +671,7 @@ export async function newQuiz(page: Page): Promise<void> {
   await expect(page.getByLabel('Quiz name')).not.toHaveValue(title)
 }
 
-/** The header's user menu, opened: who you are, then links to your hunts, to being someone else, and to About */
+/** The header's user menu, opened: who you are, then links to your hunts and to About, and, signed in with Google, *Sign out* */
 export async function openUserMenu(page: Page): Promise<Locator> {
   await page.getByRole('banner').getByRole('button', { name: 'You', exact: true }).click()
   return page.getByRole('dialog', { name: 'You', exact: true })

@@ -313,3 +313,33 @@ describe("testing.vouchFor", () => {
     expect(user?.isAnonymous).to.be.true
   })
 })
+
+describe("testing.mergeInto", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("marks one user merged into another, which then has a name choice between the two handles, signing nobody in", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const [anon, alice] = [await anonymousUser(tt, 'tester_anon'), await googleUser(tt, 'tester_alice')]
+    const before = await tt.run(async (ctx) => await ctx.db.query('authSessions').collect())
+    await tt.mutation(internal.testing.mergeInto, { userlabel: 'tester_anon', into: 'tester_alice' })
+    const gone = present(await tt.run(async (ctx) => await ctx.db.get('users', anon.user_id)))
+    expect(gone.merged?.into_user_id).to.eq(alice.user_id)
+    expect(await alice.as.query(api.users.own, {})).to.deep.include({ nameChoice: { merged: { userlabel: 'tester_anon', title: 'Tester Anon' }, own: { userlabel: 'tester_alice', title: 'Tester Alice' } } })
+    expect(await tt.run(async (ctx) => await ctx.db.query('authSessions').collect())).to.deep.eq(before)
+  })
+
+  it("refuses a userlabel no user holds, and a deployment that may not be made into, writing nothing", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'tester_anon')
+    await googleUser(tt, 'tester_alice')
+    await expect(tt.mutation(internal.testing.mergeInto, { userlabel: 'tester_anon', into: 'tester_nobody' })).rejects.toThrow(/No user holds the userlabel tester_nobody/)
+    vi.stubEnv('TRIQUET_CLEARABLE', '')
+    await expect(tt.mutation(internal.testing.mergeInto, { userlabel: 'tester_anon', into: 'tester_alice' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
+    const gone = await tt.run(async (ctx) => await ctx.db.get('users', anon.user_id))
+    expect(gone?.merged).to.be.undefined
+  })
+})

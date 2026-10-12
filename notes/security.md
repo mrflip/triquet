@@ -54,6 +54,23 @@ security expert who knows what questions to ask.
   email), `ghostings`, or Convex Auth's own tables; a function learns of another user only its face
   (`UserFaceT`: userlabel, title, anonymous or not) through the census, and `users.current` hands
   a session its own user without its email.
+* 2026-10-12 (oauth sprint, thread 6): **an email is told only to its owner.** `users.own` is the
+  one function that returns one: it reads the session's own user, by the id the session gives,
+  never by an argument, and is listed in `Unscoped` with why. The census, `users.current` and every
+  hunt's function still hand on only a face. The browser shows it in the header's user menu
+  alone (`UserMenu`), from what `ShowUser` hands the header; nothing logs it. Its tests:
+  `authorize.test.ts` (another session, and none, are told nothing).
+* 2026-10-12 (oauth sprint, thread 6): **a name choice is settled only by the user merged into**
+  (`settle_name_choice`): the write finds the merged-away user by the handle the action names and
+  refuses (`nameChoiceGone`) unless its `merged.into_user_id` is the acting user, and unless the
+  handle to keep is one of the two. The handle not kept goes into a ghosting, so nobody else takes
+  it; no hunt's address changes. *Sign out* is Convex Auth's own `signOut` (the session deleted on
+  the server and forgotten in the browser), then a whole new page at the front door.
+* 2026-10-12 (oauth sprint, thread 6): two more stand-ins for e2e, refused as `vouchFor` is on any
+  deployment without `TRIQUET_CLEARABLE=yes`: `vouchFor` may give the vouched user an email (as
+  Google would have sent it, for the user menu's spec), and `testing:mergeInto` marks one user
+  merged into another (the mark alone: no sandbox handed on, no session ended), so e2e can reach
+  the name choice. Neither is a provider, and neither signs anyone in.
 * 2026-10-11 (oauth sprint, thread 3): `testing:vouchFor`, an internal mutation refused on any
   deployment without `TRIQUET_CLEARABLE=yes`, marks a user no longer anonymous, standing in for a
   Google sign-in so e2e can test what sealing keeps from anonymous users. It is no provider and

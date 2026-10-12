@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Button, Stack, TextField } from '@mui/material'
-import { AppNotices } from '../lib/notices'
+import { Box, Button, Stack, TextField } from '@mui/material'
+import { AppNotices, googleGateNotice } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import * as PA from '../lib/vv/patterns'
 import { User, type LabelFlawT } from '../models/user'
+import { useShown } from '../state/shown'
 import { useUserActions } from '../state/use-user-actions'
 import { useMe } from '../state/use-me'
+import { GoogleSignInOffer } from './GoogleSignIn'
 import { Panel } from './panels/Panel'
 import { OpeningNotice } from './SyncNotices'
 import styles from './workbench.module.css'
@@ -24,6 +26,13 @@ import styles from './workbench.module.css'
  * refused, saying what to do instead, and the visitor may try another at once. There is no
  * password: the browser's session is what holds its user, and a user's userlabel is chosen once.
  *
+ * Beneath, where the deployment offers it, signing in with Google, which comes back here. A visitor
+ * back from Google whose Google account has no handle yet is told whom Google signed them in as,
+ * and offered a name and a handle made from what Google sent (`users.own`'s `suggested`: the Google
+ * name, and the first of its handles that nobody holds, no merge has retired, no hunt is addressed
+ * by and no reserved word is), to take or change; the handle follows the offered one until either
+ * field is typed in.
+ *
  * A visitor who has already said is sent on at once: to where the address's `then` points, when
  * a link sent them here, and to their hunts otherwise.
  */
@@ -32,8 +41,10 @@ export function UserlabelGate() {
   const params = useSearchParams()
   const onward = Routes.thenFrom(params.get('then')) ?? Routes.huntsPath()
   const { user, loaded } = useMe()
+  const own = useShown().user?.own ?? null
   const { act, busy, notice } = useUserActions()
-  const [nameDraft, setNameDraft] = useState('')
+  // The name as typed, or null while it is the one Google sent, if any: what a user signed in with Google is offered
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
   // The userlabel as typed into its own field, or null while it follows the name. Emptied, it is ''
   // until the name changes or the field is left: following again, but blank while being cleared.
   const [labelDraft, setLabelDraft] = useState<string | null>(null)
@@ -52,7 +63,9 @@ export function UserlabelGate() {
     return <OpeningNotice notice={null} waiting={AppNotices.opening} />
   }
 
-  const followed = User.labelFor(nameDraft)
+  const offered = own?.suggested ?? null
+  const name = nameDraft ?? offered?.title ?? ''
+  const followed = nameDraft === null && offered?.userlabel ? offered.userlabel : User.labelFor(name)
   const label = labelDraft === null || labelDraft === '' ? followed : labelDraft
   const flaw = User.flawIn(label)
   const said = User.flawToSay(label, left)
@@ -60,19 +73,19 @@ export function UserlabelGate() {
   const onSubmit = async () => {
     if (flaw !== null) { return }
     // Once the user holds it, it arrives by sync, and the effect above sends them on.
-    await act({ kind: 'assume_userlabel', userlabel: label, title: nameDraft })
+    await act({ kind: 'assume_userlabel', userlabel: label, title: name })
   }
 
   return (
     <main className={styles.page}>
-      <Panel title={AppNotices.userlabelGateTitle} blurb="Your name is what others see, and you can change it later. Your handle is how you log in and how others add you to a hunt: if nobody goes by it yet, it becomes yours for good, held by this browser. There is no password.">
+      <Panel title={AppNotices.userlabelGateTitle} blurb={own?.google === true ? googleGateNotice(own.email) : AnonymousBlurb}>
         <Stack
           component="form" spacing={1.5} sx={{ maxWidth: 560, mt: 1 }}
           onSubmit={(event) => { event.preventDefault(); void onSubmit() }}
         >
           <Stack direction={{ xs: 'column', sm: 'row' }} useFlexGap spacing={1.5}>
             <TextField
-              size="small" label="Your name" value={nameDraft} autoFocus sx={{ flex: 1 }}
+              size="small" label="Your name" value={name} autoFocus sx={{ flex: 1 }}
               helperText=" "
               slotProps={{ htmlInput: { maxLength: PA.Titleish.max } }}
               onChange={(event) => { setNameDraft(event.target.value); if (labelDraft === '') { setLabelDraft(null) } }}
@@ -92,10 +105,16 @@ export function UserlabelGate() {
           </Stack>
           {notice !== null && <p className={styles.microcopy} role="alert">{notice}</p>}
         </Stack>
+        {own?.google !== true && (
+          <Box sx={{ mt: 2 }}><GoogleSignInOffer reason={AppNotices.orSignInWithGoogle} /></Box>
+        )}
       </Panel>
     </main>
   )
 }
+
+/** What the front door says above the fields to a visitor not signed in with Google */
+const AnonymousBlurb = 'Your name is what others see, and you can change it later. Your handle is how you log in and how others add you to a hunt: if nobody goes by it yet, it becomes yours for good, held by this browser. There is no password.'
 
 /** What the userlabel field says beneath it of each flaw */
 const FlawNotices = {

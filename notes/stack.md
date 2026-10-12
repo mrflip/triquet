@@ -184,7 +184,9 @@ Settled; reach for these before writing the equivalent.
   directly so the import is ours to rely on. Reach for it before writing a percentile, a nice
   tick step, a bisect or a bin. Added Oct 2026 under the rule above.
 * **Fontsource** (`@fontsource/zilla-slab`, `work-sans`, `jetbrains-mono`) for the three
-  typefaces, whose woff2 files `src/app/fonts.ts` hands to `next/font/local`. Never
+  typefaces, whose woff2 files `src/app/fonts.ts` hands to `next/font/local`; and
+  `@fontsource/roboto`, Roboto Medium alone, for Google's sign-in button, which Google's branding
+  guidelines set in it (added Oct 2026, oauth sprint thread 6, under the rule above). Never
   `next/font/google`: it downloads the fonts at build time, and a bad answer from Google failed
   the CI build now and then (Turbopack's "next/font/google queries have exactly one entry"). MUI's
   own install docs load Roboto the same way. Added Sept 2026 without asking first.

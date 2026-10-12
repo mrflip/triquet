@@ -17,6 +17,7 @@ import { useRaiseAlarm } from '../state/alarms'
 import { useOuterHuntActions } from '../state/use-outer-hunt-actions'
 import { useHuntsList } from '../state/use-hunts-list'
 import { useMe } from '../state/use-me'
+import { GoogleSignInOffer } from './GoogleSignIn'
 import { HuntEditModal } from './HuntEditModal'
 import { UserTitle, useRetitleUser } from './UserTitle'
 import NextLink from './NextLink'
@@ -70,7 +71,7 @@ export type HuntsListProps = {
  * Given an `org`, only that org's hunts, without the histories; a new hunt is offered only on the
  * visitor's own. An anonymous visitor (`Actor.isSealed`) is offered one hunt, their sandbox,
  * labelled with their own handle, and once it is made, told that more come with signing in with
- * Google. A visitor who has not said who they are is sent to say so first, and brought back.
+ * Google, and offered it. A visitor who has not said who they are is sent to say so first, and brought back.
  */
 export function HuntsList({ org }: Readonly<HuntsListProps>) {
   const router = useRouter()
@@ -129,6 +130,7 @@ export function HuntsList({ org }: Readonly<HuntsListProps>) {
       >
         {offering && <Button variant="outlined" size="small" disabled={busy} onClick={() => { void onNew() }}>+ New hunt</Button>}
         {making && ! offering && <p className={styles.microcopy}>{RefusalNotices.sealedHunts}</p>}
+        {making && ! offering && <GoogleSignInOffer />}
         {hunts.length === 0 && <p className={styles.microcopy}>{org === undefined ? AppNotices.noHunts : `You are on none of ~${org}'s hunts.`}</p>}
         {hunts.length > 0 && (
           <TableContainer sx={{ mt: 1, containerType: 'inline-size' }}>
@@ -168,7 +170,8 @@ type HuntRowProps = {
  */
 function HuntRow({ hunt, actor }: Readonly<HuntRowProps>) {
   const [editing, setEditing] = useState(false)
-  const editable = Approve.mayOffer('retitle_hunt', Actor.claimsOn(actor, hunt._id, hunt))
+  const claims = Actor.claimsOn(actor, hunt._id, hunt)
+  const editable = Approve.mayOffer('retitle_hunt', claims)
   const labels = { org: hunt.org, hunt: hunt.label }
   return (
     <>
@@ -183,7 +186,7 @@ function HuntRow({ hunt, actor }: Readonly<HuntRowProps>) {
               <SettingsOutlinedIcon fontSize="small" />
             </IconButton>
           )}
-          {editing && <HuntEditModal hunt={hunt} onClose={() => { setEditing(false) }} />}
+          {editing && <HuntEditModal hunt={hunt} relabelable={Approve.mayOffer('relabel_hunt', claims)} onClose={() => { setEditing(false) }} />}
         </TableCell>
         <TableCell sx={{ ...RuledWhileBeside, whiteSpace: 'nowrap' }}>
           <Link component={NextLink} href={Routes.categoriesPath(labels)} aria-label={`Categories of ${hunt.title}`}>Categories</Link>

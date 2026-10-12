@@ -93,8 +93,10 @@ friend is on no hunt of the test's, a stranger to it, until put on one: by the b
 or through the Members panel (`addMember`) in a spec about the panel. A visitor nobody has seen,
 or one whose own way in is what the spec is about, is `otherVisitor(browser)`: a browser context
 with no session, closed after the test, who says who they are with `assumeUserlabel`: an
-anonymous user, sealed in its sandbox until the spec vouches for it (`vouchFor`). One browser that
-more than one user has used forgets its session with `forgetSession`, as *Sign out* will. A
+anonymous user, sealed in its sandbox until the spec vouches for it (`vouchFor`, which may also give
+it an email, as Google would have). A name choice is left by `mergeInto`, standing in for a Google
+sign-in's merge. One browser that more than one user has used forgets its session with
+`forgetSession`, as the user menu's *Sign out* does (`google-sign-in.spec.ts` walks the menu's own). A
 context made any other way inherits the worker's session.
 The grid is `grid(page)`, the table named *Questions*: the page holds other tables.
 

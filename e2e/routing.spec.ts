@@ -203,6 +203,34 @@ test.describe('the hunts', () => {
     await expect(members.getByRole('row').filter({ hasText: friendLabel })).toHaveCount(0)
   })
 
+  test("offer an anonymous smith neither relabelling nor deleting its sandbox, in the gear beside it or the quiz's own, saying why", async ({ page }) => {
+    await startHunt(page)
+    await openManage(page)
+    const manage = manageDialog(page)
+    await expect(manage.getByText(RefusalNotices.sealedRelabel)).toBeVisible()
+    await expect(manage.getByText(RefusalNotices.sealedDelete)).toBeVisible()
+    await expect(manage.getByRole('textbox', { name: 'Hunt label' })).toHaveCount(0)
+    await expect(manage.getByRole('button', { name: 'Delete this quiz and its hunt' })).toHaveCount(0)
+    await expect(manage.getByRole('textbox', { name: 'Hunt name' })).toBeVisible()
+    await closeManage(page)
+    await loadAfresh(page, '/my/hunts')
+    await page.getByRole('button', { name: /^Edit hunt / }).click()
+    const gear = page.getByRole('dialog', { name: 'Edit hunt' })
+    await expect(gear.getByText(RefusalNotices.sealedRelabel)).toBeVisible()
+    await expect(gear.getByRole('textbox', { name: 'Label', exact: true })).toHaveCount(0)
+    await expect(gear.getByRole('textbox', { name: 'Title', exact: true })).toBeVisible()
+  })
+
+  test("tell an anonymous smith asking to review its sandbox's quiz that reviewing comes with Google, and lead it back to working on it", async ({ page }) => {
+    const label = await startHunt(page)
+    const edit = page.url()
+    await page.goto(Routes.quizPath({ org: label, hunt: label, realm: 'home', quiz: label }, 'playtest'))
+    await expect(page.getByRole('heading', { name: AppNotices.reviewingSealedTitle })).toBeVisible()
+    await page.getByRole('link', { name: 'Work on this quiz' }).click()
+    await expect(page).toHaveURL(edit)
+    await expect(grid(page)).toBeVisible()
+  })
+
   test('list each hunt with its quizzes, which open when followed', async ({ page }) => {
     await startHunt(page)
     const title = freshTitle('Listed quiz')
@@ -559,7 +587,8 @@ test.describe('a link handed to a friend', () => {
     await friend.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(friend).toHaveURL(link)
     const notice = friend.getByRole('region', { name: 'Not yet on this hunt' })
-    await expect(notice).toContainText('You are not yet a member of this hunt.')
+    // Still anonymous: no smith can put them on until they sign in with Google, and they are told so
+    await expect(notice).toContainText('You are not yet a member of this hunt, and a smith can put you on it only once you sign in with Google.')
     await expect(notice).toContainText(`(${author}), and give them your handle`)
     await expect(notice).toContainText(`your handle, “${label}”`)
     await expect(friend.getByLabel('Quiz name')).toBeHidden()

@@ -3,8 +3,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { HuntListingT } from '../lib/rows'
 import type * as Routes from '../lib/routes'
-import type { UserT } from '../models/user'
+import type { OwnUserT, UserT } from '../models/user'
 import type { QuizT } from '../models/quiz'
+import type { GoogleSignInHandle } from './use-google-sign-in'
 
 /** The hunt a page is about, as the header names it: its title, and its org and label to link to */
 export type ShownHuntT = Pick<HuntListingT, 'org' | 'label' | 'title'>
@@ -30,10 +31,20 @@ export type QuizActsT = {
   onSetLock: (locked: boolean) => void
 }
 
-/** Who is looking, as the header's user menu shows them: their user, null until it holds a userlabel; and how to retitle it */
+/**
+ * Who is looking, as the header's user menu shows them, and the page beneath may ask too: their
+ * user, null until it holds a userlabel, and how to retitle it; what they are told of themselves
+ * and nobody else is (their email among it); whether to offer signing in with Google, and how; and
+ * how to sign out.
+ */
 export type ShownUserT = {
   user:      UserT | null
   onRetitle: (title: string) => void
+  /** What the user is told of itself alone; null until the server has said */
+  own:       OwnUserT | null
+  google:    GoogleSignInHandle
+  /** End this browser's session; the browser then has no handle until it says one again */
+  onSignOut: () => Promise<void>
 }
 
 /** Everything the header shows that only the page beneath it knows; null for each part the page says nothing of */
@@ -126,12 +137,12 @@ export function useShowQuizActs(acts: QuizActsT | null): void {
 }
 
 /**
- * Say who is looking, for the header's user menu, for as long as the caller is on screen. Hand
- * over an object held still until who it is changes.
+ * Say who is looking, for the header's user menu and the page beneath (`useShown`), for as long as
+ * the caller is on screen. Hand over an object held still until who it is changes.
  *
- * @param user - The visitor's user and how to retitle it; null to say nothing.
+ * @param user - The visitor's user and how to retitle it, what it is told of itself, signing in with Google and signing out; null to say nothing.
  *
- * @example useShowUser(useMemo(() => ({ user, onRetitle }), [user, onRetitle]))
+ * @example useShowUser(useMemo(() => ({ user, onRetitle, own, google, onSignOut }), [user, onRetitle, own, google, onSignOut]))
  */
 export function useShowUser(user: ShownUserT | null): void {
   useShowPart('user', user)

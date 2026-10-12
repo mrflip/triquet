@@ -8,6 +8,7 @@ import { ColumnsEditor } from './ColumnsEditor'
 import { ConfirmRemove } from './ConfirmRemove'
 import { DangerZone, type DangerousAct } from './DangerZone'
 import { ExplicitField } from './ExplicitField'
+import { GoogleSignInOffer } from './GoogleSignIn'
 import { InfoTip } from './InfoTip'
 import NextLink from './NextLink'
 import { RunOrderLine, RunOrderList } from './RunOrder'
@@ -17,7 +18,7 @@ import type { FoldSet } from './use-folds'
 import type { QuizRun } from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
 import * as HuntMirror from '../state/hunt-mirror'
-import { AppNotices } from '../lib/notices'
+import { AppNotices, RefusalNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import type { HuntActionDNA, LibraryActionDNA } from '../models/actions'
 import { HuntValidators } from '../models/hunt'
@@ -205,10 +206,14 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
                 label="Hunt name" committed={hunt.title} act="Rename" disabled={false} tidy={(typed) => typed.trim()}
                 about="What the hunt is called on screen. Its web address stays as it is." onCommit={onRenameHunt}
               />
-              <ExplicitField
-                label="Hunt label" committed={huntLabel} act="Relabel" actLabel="Relabel hunt" disabled={false} tidy={Labelmaker.normalize}
-                about="Used in the web address of every quiz in this hunt; links to the old one stop working." onCommit={onRelabelHuntClick}
-              />
+              {offers.relabelHunt
+                ? (
+                  <ExplicitField
+                    label="Hunt label" committed={huntLabel} act="Relabel" actLabel="Relabel hunt" disabled={false} tidy={Labelmaker.normalize}
+                    about="Used in the web address of every quiz in this hunt; links to the old one stop working." onCommit={onRelabelHuntClick}
+                  />
+                )
+                : <SealedOffer refusal={RefusalNotices.sealedRelabel} />}
             </Stack>
             <p className={styles.microcopy}>
               <Link component={NextLink} href={Routes.categoriesPath({ org: hunt.org, hunt: huntLabel })}>Arrange the hunt&apos;s categories</Link>
@@ -239,15 +244,25 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
             onDelete={onDeleteQuestion}
           />
 
-          <DangerZone
-            acts={[deleting]}
-          />
+          {lastQuiz && ! offers.deleteHunt
+            ? <SealedOffer refusal={RefusalNotices.sealedDelete} />
+            : <DangerZone acts={[deleting]} />}
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} variant="contained">Done</Button>
       </DialogActions>
     </Dialog>
+  )
+}
+
+/** Said in place of what an anonymous smith may not do to its sandbox: why not, and signing in with Google, offered */
+function SealedOffer({ refusal }: Readonly<{ refusal: string }>) {
+  return (
+    <Stack spacing={1}>
+      <p className={styles.microcopy}>{refusal}</p>
+      <GoogleSignInOffer />
+    </Stack>
   )
 }
 

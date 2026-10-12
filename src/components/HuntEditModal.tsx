@@ -4,27 +4,32 @@ import { useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, Stack, TextField } from '@mui/material'
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined'
 import * as Labelmaker from '../lib/labelmaker'
-import { AppNotices } from '../lib/notices'
+import { AppNotices, RefusalNotices } from '../lib/notices'
 import type { ListedHuntT } from '../lib/rows'
 import type { OuterHuntActionDNA } from '../models/actions'
 import { HuntValidators } from '../models/hunt'
 import { useOuterHuntActions } from '../state/use-outer-hunt-actions'
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
+import { GoogleSignInOffer } from './GoogleSignIn'
 import styles from './workbench.module.css'
 
 export type HuntEditModalProps = {
   /** The hunt, as the hunts list holds it; the visitor is its smith */
-  hunt:    ListedHuntT
-  onClose: () => void
+  hunt:        ListedHuntT
+  /** Whether the visitor may relabel it (`Approve.mayOffer('relabel_hunt')`): not an anonymous smith, whose sandbox's label is its handle */
+  relabelable: boolean
+  onClose:     () => void
 }
 
 /**
  * The hunts list's gear: a hunt's title, what it is called on screen, and its label, which the
  * address of every quiz in it names it by. Mount it only while it is open, so it starts from the
  * hunt as it is now. Saving closes it once both have landed, and keeps it open, saying why, when
- * the server refuses one (a label another hunt answers to).
+ * the server refuses one (a label another hunt answers to). A smith who may not relabel the hunt
+ * (an anonymous one, in its sandbox) is shown no label to change, and told why, with signing in with
+ * Google offered.
  */
-export function HuntEditModal({ hunt, onClose }: Readonly<HuntEditModalProps>) {
+export function HuntEditModal({ hunt, relabelable, onClose }: Readonly<HuntEditModalProps>) {
   const huntLabel = hunt.label
   const { act, busy, notice } = useOuterHuntActions()
   const [titleDraft, setTitleDraft] = useState(hunt.title)
@@ -75,14 +80,23 @@ export function HuntEditModal({ hunt, onClose }: Readonly<HuntEditModalProps>) {
             helperText={titleIssue ?? 'What the hunt is called on screen.'}
             onChange={(event) => { setTitleDraft(event.target.value); setTitleIssue(null) }}
           />
-          <TextField
-            label="Label"
-            value={labelDraft}
-            size="small"
-            error={labelIssue !== null}
-            helperText={labelIssue ?? <RelabelWarning />}
-            onChange={(event) => { setLabelDraft(event.target.value); setLabelIssue(null) }}
-          />
+          {relabelable
+            ? (
+              <TextField
+                label="Label"
+                value={labelDraft}
+                size="small"
+                error={labelIssue !== null}
+                helperText={labelIssue ?? <RelabelWarning />}
+                onChange={(event) => { setLabelDraft(event.target.value); setLabelIssue(null) }}
+              />
+            )
+            : (
+              <Stack spacing={1}>
+                <p className={styles.microcopy}>{RefusalNotices.sealedRelabel}</p>
+                <GoogleSignInOffer />
+              </Stack>
+            )}
           {notice !== null && <p className={styles.microcopy} role="alert">{notice}</p>}
         </Stack>
       </DialogContent>

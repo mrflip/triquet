@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import * as Actor from '../lib/actor'
 import * as Routes from '../lib/routes'
 import { Huntship } from '../models/huntship'
 import { useHunt } from '../state/use-hunt'
@@ -40,7 +41,7 @@ export type QuizRouteProps = {
  */
 export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
   const router = useRouter()
-  const { user, loaded } = useMe()
+  const { user, actor, loaded } = useMe()
   const { finding, hunt, realm, quiz, library, claims, smiths, reviews, dispatch, carryOut, movedTo, saveNotice } = useHunt(org, labels)
   useShowHunt(hunt)
   // Held still while the quiz is edited, so the header is told again only when what it shows changes.
@@ -66,7 +67,7 @@ export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
   if (! loaded || ! user) { return <OpeningNotice notice={saveNotice} /> }
   // Said as soon as the hunt arrives, without waiting on a quiz this visitor will not be shown.
   if (finding === 'refused' || (claims !== null && mode !== null && ! Huntship.mayOpen(claims, mode))) {
-    return <NotOnHunt playtestPath={now && Routes.quizPath(now, 'playtest')} user={user} claims={claims} smiths={smiths} />
+    return <NotOnHunt playtestPath={now && Routes.quizPath(now, 'playtest')} editPath={now && Routes.quizPath(now, 'edit')} user={user} sealed={Actor.isSealed(actor)} claims={claims} smiths={smiths} />
   }
   if (finding === 'waiting') { return <OpeningNotice notice={saveNotice} /> }
   if (! hunt || ! realm || ! quiz || ! claims) { return <QuizNotFound org={org} labels={labels} hunt={hunt} /> }

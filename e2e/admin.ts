@@ -2,7 +2,8 @@
  * The spec process's own line to the suite's Convex backend, as its admin: how the way in makes a
  * hunt without walking the hunts list (`testing:makeHunt`), how a spec puts a second visitor on
  * it without walking the Members panel (`putOnHunt`), and how a visitor is vouched for as no longer
- * anonymous, since nothing automated signs in to Google (`vouchFor`).
+ * anonymous, or left a name choice by a merge, since nothing automated signs in to Google
+ * (`vouchFor`, `mergeInto`).
  *
  * The admin key is the one `scripts/convex_backend` wrote beside the role's data when it started
  * the backend (`data/convex-<role>/cli.env`), which `scripts/convex_dev` and `scripts/convex_reset`
@@ -80,12 +81,29 @@ export async function putOnHunt(hunt: Routes.HuntLabels, label: string, role: Hu
  * still anonymous is sealed in its sandbox (no other hunt, no reviews). Signs nobody in.
  *
  * @param label - The userlabel of the user, chosen at the front door.
+ * @param email - The email it is to hold, as Google would have sent it, for a spec of what its owner is shown.
  * @throws When no user holds it; with what the backend said.
  *
  * @example await vouchFor(await assumeUserlabel(stranger))
+ * @example await vouchFor(label, `${label}@example.com`)
  */
-export async function vouchFor(label: string): Promise<void> {
-  await runAsAdmin('testing:vouchFor', { userlabel: label })
+export async function vouchFor(label: string, email?: string): Promise<void> {
+  await runAsAdmin('testing:vouchFor', { userlabel: label, ...(email !== undefined && { email }) })
+}
+
+/**
+ * Leave the user holding the userlabel `into` a name choice, as a Google sign-in's merge would
+ * (`testing:mergeInto`): the user holding `label` is marked merged into it. Nothing automated
+ * signs in to Google, so nothing else can. Signs nobody in.
+ *
+ * @param label - The userlabel of the user merged away: the handle the merged browser went by.
+ * @param into - The userlabel of the user it merged into.
+ * @throws When no user holds either; with what the backend said.
+ *
+ * @example await mergeInto(await assumeUserlabel(stranger), label)
+ */
+export async function mergeInto(label: string, into: string): Promise<void> {
+  await runAsAdmin('testing:mergeInto', { userlabel: label, into })
 }
 
 /** `body` read as JSON; null when it is not */

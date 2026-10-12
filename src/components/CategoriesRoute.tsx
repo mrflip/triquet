@@ -52,7 +52,7 @@ export function CategoriesRoute({ org, huntLabel }: Readonly<CategoriesRouteProp
   }, [hunt])
 
   if (! loaded || ! user || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
-  if (finding === 'refused') { return <NotOnHunt playtestPath={null} user={user} claims={null} smiths={smiths} /> }
+  if (finding === 'refused') { return <NotOnHunt playtestPath={null} user={user} sealed={Actor.isSealed(actor)} claims={null} smiths={smiths} /> }
   if (! hunt) { return <NoSuchHunt org={org} huntLabel={huntLabel} /> }
   const arranging = Approve.mayOffer('arrange_categories', Actor.claimsOn(actor, hunt._id, hunt))
   return <CategoriesScreen hunt={hunt} onArrange={arranging ? arrange : null} unsaved={unsaved} />

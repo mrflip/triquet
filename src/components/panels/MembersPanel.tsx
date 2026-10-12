@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button, MenuItem, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@mui/material'
 import { ConfirmRemove } from '../ConfirmRemove'
 import { CopyButton } from '../CopyButton'
+import { GoogleSignInOffer } from '../GoogleSignIn'
 import { Panel } from './Panel'
 import * as Actor from '../../lib/actor'
 import * as Approve from '../../lib/approve'
@@ -87,7 +88,8 @@ function MemberDoor({ member, claims, carryOut }: Readonly<Pick<MembersPanelProp
  * userlabel is checked as the front door checks one (`User.flawToSay`): one no typing on would
  * mend is said at once, one too short once the field is left. One refused, here, by the policy
  * (one's own: `ownHuntship`; any, by an anonymous smith: `sealedMembers`), or by the server (an
- * anonymous user: `sealedJoin`), says why beneath it until it is changed.
+ * anonymous user: `sealedJoin`), says why beneath it until it is changed; an anonymous smith is
+ * offered signing in with Google beneath that.
  */
 function AddMember({ claims, carryOut, saveNotice }: Readonly<Pick<MembersPanelProps, 'claims' | 'carryOut' | 'saveNotice'>>) {
   const [labelDraft, setLabelDraft] = useState('')
@@ -116,23 +118,26 @@ function AddMember({ claims, carryOut, saveNotice }: Readonly<Pick<MembersPanelP
   }
 
   return (
-    <Stack
-      component="form" direction="row" spacing={1} sx={{ alignItems: 'flex-start', mt: 1 }}
-      onSubmit={(event) => { event.preventDefault(); void onAdd() }}
-    >
-      <TextField
-        size="small" label="Their handle" value={labelDraft} sx={{ flex: 1 }}
-        helperText={shown ?? ' '} error={shown !== null}
-        slotProps={{ htmlInput: { maxLength: PA.Userlabel.max } }}
-        onChange={(event) => { setLabelDraft(event.target.value); setIssue(null); setRefused(false) }}
-        onBlur={() => { setLeft(true) }}
-      />
-      <TextField select size="small" label="Role" value={role}
-        onChange={(event) => { setRole(HuntRoleVals.find((each) => each === event.target.value) ?? 'reviewer') }}>
-        {HuntRoleVals.map((each) => <MenuItem key={each} value={each}>{HuntRoleTitles[each]}</MenuItem>)}
-      </TextField>
-      <Button type="submit" variant="outlined" size="small" sx={{ mt: 0.5 }}>Add</Button>
-    </Stack>
+    <>
+      <Stack
+        component="form" direction="row" spacing={1} sx={{ alignItems: 'flex-start', mt: 1 }}
+        onSubmit={(event) => { event.preventDefault(); void onAdd() }}
+      >
+        <TextField
+          size="small" label="Their handle" value={labelDraft} sx={{ flex: 1 }}
+          helperText={shown ?? ' '} error={shown !== null}
+          slotProps={{ htmlInput: { maxLength: PA.Userlabel.max } }}
+          onChange={(event) => { setLabelDraft(event.target.value); setIssue(null); setRefused(false) }}
+          onBlur={() => { setLeft(true) }}
+        />
+        <TextField select size="small" label="Role" value={role}
+          onChange={(event) => { setRole(HuntRoleVals.find((each) => each === event.target.value) ?? 'reviewer') }}>
+          {HuntRoleVals.map((each) => <MenuItem key={each} value={each}>{HuntRoleTitles[each]}</MenuItem>)}
+        </TextField>
+        <Button type="submit" variant="outlined" size="small" sx={{ mt: 0.5 }}>Add</Button>
+      </Stack>
+      {shown === RefusalNotices.sealedMembers && <GoogleSignInOffer />}
+    </>
   )
 }
 
