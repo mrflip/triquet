@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: threads 1-5, 7, 8 and 5r landed (#226-#233); thread 6 landing (2026-10-12). 7, 2, 1, 8, 3 and 4 landed (#226-#231).**
+**Status: threads 1-8 and 5r landed (#226-#234); thread 9 underway (2026-10-12). 7, 2, 1, 8, 3 and 4 landed (#226-#231).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -13,10 +13,10 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | landed #231 | `20261011-adopt_script` | [#231](https://github.com/mrflip/triquet/pull/231) |
 | 5 | `google_signin`: the provider, the patch, the merge | landed #232 | `20261011-google_signin` | [#232](https://github.com/mrflip/triquet/pull/232) |
 | 5r | `signin_review`: the Coach's `high` review of thread 5, fixes as their own PR | landed #233 | `20261012-signin_review` | [#233](https://github.com/mrflip/triquet/pull/233) |
-| 6 | `google_ui`: signing in, from both doors | landing | `20261012-google_ui` | |
+| 6 | `google_ui`: signing in, from both doors | landed #234 | `20261012-google_ui` | [#234](https://github.com/mrflip/triquet/pull/234) |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
-| 9 | `oauth_security`: a strong review | pending (1-8) | | |
+| 9 | `oauth_security`: a strong review | underway | `20261012-oauth_security` | |
 
 Full e2e runs at landing: threads 3 and 5, and every fourth landing (thread 8 carries the fourth). So far every landing's `--touched` ran the whole suite: 7 (299/299), 2 (293/293), 1 (299/299), no flakes.
 
@@ -71,6 +71,9 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   review: flagged (the redirect rule's first-segment hole), fixed by a worker; second review
   `fixed` (escaped page words; `sessionOf` failing safe). Full e2e 301/301, no flakes.
   **`jose` is a direct dependency.**
+* **Thread 6, #234**, stacked on #233; merge after the clear. *Review: fixed* (a long Google name
+  offered as a title the server refused). Full e2e 309/309, no flakes. Open: two sign-out
+  questions (TODO). For the Coach: the wording, Google's "G", `@fontsource/roboto`.
 * **Thread 1's notes for thread 3** (`thread-1-split_account.md`): move the `hunts.performOuter`
   tests to `hunts.test.ts`; sealing goes in `mayMakeHunt` and `newHunt`; "anonymous" means two
   things today (Convex Auth's `isAnonymous`, no proof; and the actor's `{ kind: 'anonymous' }`,
@@ -309,6 +312,29 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   settled only by the user merged into, once, moving no address. **For thread 9 and TODO:**
   sign-out can leave a handle-less anonymous user (the anonymous sign-in races the reload;
   holding it off interacts with page-hold's beforeunload prompt), and a write in flight at
+  sign-out goes without auth.
+
+## For thread 9: what the sprint has gathered
+
+*Orchestrator:* every item below was raised and left for thread 9. Weigh each; fix what is
+certain; note the rest in `whiteboard/TODO.md` and `notes/security.md`.
+
+* **Who learns what.** `sealedJoin` tells a smith whether a handle is anonymous. Guessable
+  adjective_animal hunt labels let a script list every hunt's smiths through `hunts:open`
+  (`/h/<label>` looks across every org). `users.own` is the only function returning an email.
+* **Sealing and the commands.** `--smith-all` puts a user on anonymous sandboxes, past sealing.
+  Relabelling an anonymous user holding a sandbox lets it make a second hunt (`mayMakeHunt` checks
+  only label == userlabel; only the command line reaches it). `sealedDelete` landed after thread
+  3's second review. The janitor's guard checks the deployment once.
+* **Test stand-ins.** `testing:vouchFor` (now able to set an email) and `testing:mergeInto`,
+  internal and gated on `TRIQUET_CLEARABLE=yes`: a way past sealing on test backends.
+* **Google sign-in.** The patch (#306's `authUserId` plus four parts); the exchange-time decision;
+  the 15-minute bound; the redirect rule (#233); the 8-digit code, unthrottled, live 2 minutes
+  (now spent on landing); provisional users and orphaned verifiers never swept (TODO);
+  `forgetDeadSignIns` clearing other tabs' verifiers; if `createOrUpdateUser` throws at the
+  exchange, the code and verifier survive their 2 minutes; the two narrow races in
+  `use-google-sign-in.ts`.
+* **Sign-out** (thread 6): it can leave a handle-less anonymous user; a write in flight at
   sign-out goes without auth.
 
 ## Convex Auth, as installed (checked 2026-10-10)
