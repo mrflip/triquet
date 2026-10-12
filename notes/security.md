@@ -103,7 +103,11 @@ security expert who knows what questions to ask.
 * 2026-10-12 (oauth sprint, thread 9): the front door sends a visitor who holds a handle on to
   its `?then=` (`Routes.thenFrom`), which is read as the browser reads an address (`onSite`, shared
   with `isSyncedPath`): the browser drops tabs and newlines first, so `/<tab>/elsewhere.example`,
-  which a test of its first characters passed, is another site and refused.
+  which a test of its first characters passed, is another site and refused. Read so, dot segments
+  resolve too: `/.//elsewhere.example` reads as the path `//elsewhere.example`, which names another
+  site when written out again, so a path that reads as `//…` is refused (the review of thread 9).
+  An address no browser could read (`/<tab>/[`, a host that is no host) is refused rather than
+  thrown on, so the front door renders and `returnUrlFor` falls back to `/`.
 * 2026-10-11 (oauth sprint, thread 3): `testing:vouchFor`, an internal mutation refused on any
   deployment without `TRIQUET_CLEARABLE=yes`, marks a user no longer anonymous, standing in for a
   Google sign-in so e2e can test what sealing keeps from anonymous users. It is no provider and
