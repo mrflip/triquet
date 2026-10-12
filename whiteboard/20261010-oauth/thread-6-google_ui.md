@@ -99,8 +99,14 @@ front door, the hunts, a hunt, a quiz). It reads only the unchanged `GoogleSignI
     the browser itself at the deployment's sign-in route with `page.route`, which a navigation the
     page makes does pass through (unlike the 302 the server makes).
 
+* **Review: `fixed`** (`6fb9f29b`): the front door offered a Google name longer than a title may be
+  (`PA.Titleish`), which the server refused; `suggestedFor` now shortens it, with a convex-test.
+
 * **For thread 9**: `users.own` (the one email-returning function), `settle_name_choice`'s check
-  that the merged user merged into the actor, `testing:mergeInto` and `vouchFor`'s email.
+  that the merged user merged into the actor, `testing:mergeInto` and `vouchFor`'s email. And the
+  review's two open questions, in `whiteboard/TODO.md` (*From oauth sprint, thread 6*): signing out
+  can leave a handle-less anonymous user nobody holds (`useSession` signs in again on the page
+  being left); and a write in flight at sign-out goes without auth, the question not mentioning it.
 
 * **For the Coach**: `human/20261012-google_ui.md` (read it to approve the wording or check
   Google's "G"): every new string, a draft; Google's "G" to check against the official asset;

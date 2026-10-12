@@ -473,3 +473,17 @@ headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (abo
   verifier past `SIGN_IN_START_MAX_AGE_MS` hands on nothing), but they accumulate. A scheduled
   sweep (Convex crons) of verifiers past the bound, and of provisional users with no session older
   than a day, was left out: no crons in the oauth sprint (the Coach, 2026-10-11).
+
+## From oauth sprint, thread 6: google_ui
+
+* **Signing out can leave an anonymous user nobody holds.** `useSignOut` awaits Convex Auth's
+  `signOut()`, then `location.assign('/')`. Clearing the token makes `useSession` start
+  `signIn('anonymous')` on the page about to be replaced; if the page leaves first, the server
+  keeps a handle-less anonymous user and its session: at most one row per sign-out, like a
+  crawler's visit. Holding the sign-in off with a "leaving" flag meets page-hold's beforeunload
+  prompt (a cancelled leave would strand the page signed out), so it waits on a decision; a sweep
+  of handle-less anonymous users with no live session would also cover it (thread 5's sweep).
+* **Signing out while a write is in flight.** The token is cleared before the page leaves, so a
+  write not yet sent would go without auth (and be refused). Page-hold's prompt appears, but the
+  sign-out question says nothing of pending work. Asking page-hold first, or saying so in the
+  question, would close it.
