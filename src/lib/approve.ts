@@ -25,6 +25,9 @@ export type VerdictT = typeof Allow | Denialkind
 /** The one value of the environment switch that lets this server ask Claude: anything else, or nothing, leaves it off */
 const SwitchedOn = 'allow'
 
+/** The one value of `EXPOSE_INTERNAL_STATS_TO_ALL` that shows the stats page's backfills to everyone: `false`, anything else, or nothing keeps them an admin's */
+const ExposedToAll = 'true'
+
 const ApproveValidators = Validator(({ arr, bool }) => {
   const verdicts = arr(bool).nonempty().describe('List of permission check results')
   return { verdicts }
@@ -249,17 +252,24 @@ export function mayCountUsage(actor: Actor.ActorT): VerdictT {
 
 /**
  * Whether `actor` may read how far each backfill has run on the deployment (the stats page). The
- * counts say roughly how many rows the deployment holds, of every hunt, so they are an admin's.
- * In order:
+ * counts say roughly how many rows the deployment holds, of every hunt, so they are an admin's,
+ * unless the deployment says to show them to all. In order:
  *
+ * * Anyone, where the deployment's `EXPOSE_INTERNAL_STATS_TO_ALL` says exactly `true`
  * * Nobody who has asserted no userlabel
  * * An admin (`Actor.isAdmin`)
  * * Nobody else
  *
- * @example Approve.mayReadBackfills(actor)  // => 'allow', for an admin
+ * @param actor - Who is asking.
+ * @param exposeval - The value of `EXPOSE_INTERNAL_STATS_TO_ALL`; undefined when it is unset.
+ *
+ * @example Approve.mayReadBackfills(actor, undefined)  // => 'allow', for an admin
+ * @example Approve.mayReadBackfills(Actor.anonymous, 'true')  // => 'allow'
+ * @example Approve.mayReadBackfills(Actor.anonymous, 'false')  // => 'notIdentified'
  */
-export function mayReadBackfills(actor: Actor.ActorT): VerdictT {
-  return adminVerdict(actor) // Nobody who has asserted no userlabel; an admin; nobody else
+export function mayReadBackfills(actor: Actor.ActorT, exposeval: string | undefined): VerdictT {
+  if (exposeval === ExposedToAll) { return Allow } // Anyone, where the deployment says exactly `true`
+  return adminVerdict(actor)                       // Nobody who has asserted no userlabel; an admin; nobody else
 }
 
 /**
@@ -346,7 +356,7 @@ type EvidenceT = {
   read_library:      [actor: Actor.ActorT]
   change_library:    [actor: Actor.ActorT]
   count_usage:       [actor: Actor.ActorT]
-  read_backfills:    [actor: Actor.ActorT]
+  read_backfills:    [actor: Actor.ActorT, exposeval: string | undefined]
   ask_anthropic_bot: [switchval: string | undefined]
 }
 

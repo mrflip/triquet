@@ -3,11 +3,15 @@
 import type { ReactNode } from 'react'
 import { version as reactVersion } from 'react'
 import { version as convexVersion } from 'convex'
-import { Box, Chip, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
+import { Box, Chip, Link, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
 import type { BuildStampT } from '../lib/build-stamp'
 import type { BackfillStatusT } from '../lib/rows'
+import * as StatsReport from '../lib/stats-report'
+import * as UU from '../lib/useful'
 import { convexUrl } from '../state/convex-url'
 import { useStats } from '../state/use-stats'
+import { CopyButton } from './CopyButton'
+import { ReadonlyBox } from './panels/ReadonlyBox'
 import styles from './workbench.module.css'
 
 type StatsProps = {
@@ -16,14 +20,30 @@ type StatsProps = {
   next_version: string
 }
 
-/** Which build this is, the pull request it came from, what this browser runs, and how far the deployment's backfills have run */
+/** How many lines the JSON box shows */
+const BoxRows = 12
+
+/**
+ * Which build this is, the pull request it came from, what this browser runs, and how far the
+ * deployment's backfills have run; all of it again as JSON, to copy from beside the heading or
+ * from the box at the foot. The build's part alone is served at `/stats.json`.
+ */
 export function Stats({ stamp, next_version }: Readonly<StatsProps>) {
   const { backfills, connected, connections } = useStats()
   const { pull, links } = stamp
   const told = pull ? pull.body : (stamp.message ?? '')
+  const report = StatsReport.pageReport(
+    StatsReport.buildReport(stamp, next_version),
+    { react: reactVersion, convex: convexVersion, backend: convexUrl() ?? null, connected, connections },
+    backfills,
+  )
+  const reportText = UU.jsonify(report)
   return (
     <Box component="main" className={styles.page} sx={{ maxWidth: 960, mx: 'auto' }}>
-      <Typography variant="h4" component="h1" gutterBottom>Stats</Typography>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 1 }}>
+        <Typography variant="h4" component="h1">Stats</Typography>
+        <CopyButton textOf={() => reportText}>Copy stats</CopyButton>
+      </Stack>
 
       <Section title="This build">
         <Facts rows={[
@@ -82,6 +102,10 @@ export function Stats({ stamp, next_version }: Readonly<StatsProps>) {
       <Section title="Backfills">
         <Backfills backfills={backfills} />
       </Section>
+
+      <Section title="As JSON">
+        <ReadonlyBox label="Stats as JSON" text={reportText} rows={BoxRows} dense resizable />
+      </Section>
     </Box>
   )
 }
@@ -125,7 +149,7 @@ const StateColors: Record<BackfillStatusT['state'], 'success' | 'info' | 'error'
   unknown:    'default',
 }
 
-/** The deployment's backfills, those still defined first; a state of `unknown` is one never run here. An admin's alone. */
+/** The deployment's backfills, those still defined first; a state of `unknown` is one never run here. An admin's, or anyone's where the deployment exposes them. */
 function Backfills({ backfills }: Readonly<{ backfills: readonly BackfillStatusT[] | null | undefined }>) {
   if (backfills === undefined) { return <Typography variant="body2" color="text.secondary">Asking the deployment…</Typography> }
   if (backfills === null) { return <Typography variant="body2" color="text.secondary">Only an admin sees these: choose a handle first.</Typography> }

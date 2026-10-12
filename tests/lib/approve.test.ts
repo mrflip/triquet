@@ -210,11 +210,22 @@ describe('Approve.mayCountUsage', () => {
 describe('Approve.mayReadBackfills', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('nobody who has asserted no userlabel, an admin, and nobody else', () => {
-    const verdicts = [Approve.mayReadBackfills(Actor.anonymous), Approve.mayReadBackfills(Alice)]
+  it('nobody who has asserted no userlabel, an admin, and nobody else, where the deployment does not expose its stats', () => {
+    const verdicts = [Approve.mayReadBackfills(Actor.anonymous, undefined), Approve.mayReadBackfills(Alice, undefined)]
     nobodyIsAdmin()
-    expect([...verdicts, Approve.mayReadBackfills(Alice)]).to.deep.eq(['notIdentified', 'allow', 'notPermitted'])
+    expect([...verdicts, Approve.mayReadBackfills(Alice, undefined)]).to.deep.eq(['notIdentified', 'allow', 'notPermitted'])
   })
+
+  it('anyone, where EXPOSE_INTERNAL_STATS_TO_ALL says exactly true', () => {
+    nobodyIsAdmin()
+    expect([Approve.mayReadBackfills(Actor.anonymous, 'true'), Approve.mayReadBackfills(Alice, 'true')]).to.deep.eq(['allow', 'allow'])
+  })
+
+  for (const exposeval of ['false', '', 'TRUE', 'yes', ' true']) {
+    it(`no one more than an admin, for the value ${JSON.stringify(exposeval)}: only true exposes`, () => {
+      expect(Approve.mayReadBackfills(Actor.anonymous, exposeval)).to.eq('notIdentified')
+    })
+  }
 })
 
 describe('Approve.mayAssertUserlabel', () => {
@@ -441,7 +452,7 @@ describe('Approve.verdictOn', () => {
       Approve.verdictOn('read_review', reviewBy(bob_id, 'shared'), ClaimsAs.smith, null),
       Approve.verdictOn('read_library', Actor.anonymous),
       Approve.verdictOn('count_usage', Alice),
-      Approve.verdictOn('read_backfills', Alice),
+      Approve.verdictOn('read_backfills', Alice, undefined),
       Approve.verdictOn('ask_anthropic_bot', 'allow'),
     ]).to.deep.eq(['allow', 'notPermitted', 'allow', 'notIdentified', 'allow', 'allow', 'allow'])
   })
