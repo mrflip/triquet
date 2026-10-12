@@ -3,7 +3,16 @@
 This PR holds the fixes from the Coach's `high` review of thread 5,
 [#232](https://github.com/mrflip/triquet/pull/232). Branch `20261012-signin_review`, PR filed at
 landing; see the report. Stacked on #232. Suites at `ready`: justify green (6277 unit tests, 1
-skipped); the Google sign-in and routing specs alone 54/54.
+skipped); the Google sign-in and routing specs alone 54/54. At landing: the full suite (see the
+report and the PR's Tests: line).
+
+**Second review: `fixed`**, two commits on this branch. `60629cd3`: an org's address passes only
+as `Addresses.urlOf` writes it, since `locationFrom` decodes an escaped page word
+(`/~pat_smith/quiet_otter/quizze%73`) that Next's router does not, and that landed on a 404 with the
+code unspent. `7b649fee`: `sessionOf` reads a token it cannot decode, or a `sub` that is no string,
+as `'none'` rather than throwing. Its minor note, left for the Coach: an address with an escaped
+letter (`%5F`, `%21edit`), or an old `/h/` address whose label fails `CK.label`, now falls back to
+`/` rather than coming back to that page.
 
 * **Built** (five `fix:` commits, the first the reviewer's):
   1. *The reviewer's* (`40dd3eb8`): `startGoogleSignIn` takes back its session-storage note when
