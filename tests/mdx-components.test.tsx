@@ -5,7 +5,7 @@ import { useMDXComponents } from '../src/mdx-components'
 /** The link `src/content` markdown writes as `[text](href)`, drawn as a page draws it */
 function Linked({ href }: Readonly<{ href: string }>) {
   const Anchor = useMDXComponents().a
-  if (Anchor === undefined) { throw new Error('The markdown components dress no link') }
+  if (typeof Anchor !== 'function') { throw new TypeError('The markdown components dress no link of their own') }
   return <Anchor href={href}>the words</Anchor>
 }
 
