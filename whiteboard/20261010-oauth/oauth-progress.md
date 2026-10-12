@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: threads 1-8 and 5r landed (#226-#234); thread 9 underway (2026-10-12). 7, 2, 1, 8, 3 and 4 landed (#226-#231).**
+**Status: done (2026-10-12). All threads landed, #226-#235; closing full e2e 309/309, no flakes. See `human/20261012-sprint_oauth_done.md`.**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
