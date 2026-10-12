@@ -13,7 +13,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | landed #231 | `20261011-adopt_script` | [#231](https://github.com/mrflip/triquet/pull/231) |
 | 5 | `google_signin`: the provider, the patch, the merge | landed #232 | `20261011-google_signin` | [#232](https://github.com/mrflip/triquet/pull/232) |
 | 5r | `signin_review`: the Coach's `high` review of thread 5, fixes as their own PR | landing (full e2e) | `20261012-signin_review` | |
-| 6 | `google_ui`: signing in, from both doors | in review | `20261012-google_ui` | |
+| 6 | `google_ui`: signing in, from both doors | landing | `20261012-google_ui` | |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
 | 9 | `oauth_security`: a strong review | pending (1-8) | | |
@@ -300,7 +300,12 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   New e2e stand-in `testing:mergeInto` (gated like `vouchFor`), and `vouchFor` may set an email.
   A new soundness check: no userlabel held twice. **Open a lane's dev server at `localhost`,
   not `127.0.0.1`:** Next 16 blocks its dev resources from another origin, and the page sits at
-  *Opening…*.
+  *Opening…*. *Review: fixed.* A Google name over 82 characters was offered as a title the server
+  refused; now shortened. All eight areas held: the email reaches only its owner; a name choice is
+  settled only by the user merged into, once, moving no address. **For thread 9 and TODO:**
+  sign-out can leave a handle-less anonymous user (the anonymous sign-in races the reload;
+  holding it off interacts with page-hold's beforeunload prompt), and a write in flight at
+  sign-out goes without auth.
 
 ## Convex Auth, as installed (checked 2026-10-10)
 
