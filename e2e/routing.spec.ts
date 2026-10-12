@@ -588,7 +588,7 @@ test.describe('a link handed to a friend', () => {
     await expect(friend).toHaveURL(link)
     const notice = friend.getByRole('region', { name: 'Not yet on this hunt' })
     // Still anonymous: no smith can put them on until they sign in with Google, and they are told so
-    await expect(notice).toContainText('You are not yet a member of this hunt, and a smith can put you on it only once you sign in with Google.')
+    await expect(notice).toContainText('You are not yet a member of this hunt. Sign in with Google first')
     await expect(notice).toContainText(`(${author}), and give them your handle`)
     await expect(notice).toContainText(`your handle, “${label}”`)
     await expect(friend.getByLabel('Quiz name')).toBeHidden()

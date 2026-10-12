@@ -60,12 +60,12 @@ describe("notOnHuntNotice", () => {
 describe("sealedNotOnHuntNotice", () => {
   const Flip = { label: 'flip_kromer', title: 'Flip' }
 
-  it("says a smith can put an anonymous visitor on only once they sign in with Google, then whom to ask, and the handle to give", () => {
-    expect(sealedNotOnHuntNotice([Flip], 'ada_lovelace')).to.eq('You are not yet a member of this hunt, and a smith can put you on it only once you sign in with Google. Then contact its smith, Flip (flip_kromer), and give them your handle, “ada_lovelace”.')
+  it("says to sign in with Google first, then whom to contact and the handle to give them, and why the order", () => {
+    expect(sealedNotOnHuntNotice([Flip], 'ada_lovelace')).to.eq('You are not yet a member of this hunt. Sign in with Google first, then contact its smith, Flip (flip_kromer), and give them your handle, “ada_lovelace”: a handle is put on a hunt only once it is signed in. This page opens for you as soon as they add you.')
   })
 
   it("names the smiths as the notice for anyone else does", () => {
-    expect(sealedNotOnHuntNotice([], 'ada_lovelace')).to.include('Then contact a smith of this hunt, and')
+    expect(sealedNotOnHuntNotice([], 'ada_lovelace')).to.include('then contact a smith of this hunt, and')
   })
 })
 

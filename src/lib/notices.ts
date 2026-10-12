@@ -278,16 +278,17 @@ export function notOnHuntNotice(smiths: readonly SmithT[], label: string): strin
 }
 
 /**
- * What an anonymous visitor not on a hunt is told when an address takes them into it: a smith can
- * put them on it only once they sign in with Google, and then whom to ask.
+ * What an anonymous visitor not on a hunt is told when an address takes them into it: to sign in
+ * with Google first, since a smith can put a handle on a hunt only once it is signed in (`sealedJoin`),
+ * and then whom to ask.
  *
  * @param smiths - The hunt's smiths.
  * @param label - Their userlabel, which a smith would add.
  *
- * @example sealedNotOnHuntNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are not yet a member of this hunt, and a smith can put you on it only once you sign in with Google. Then contact its smith, Flip (flip_kromer), …'
+ * @example sealedNotOnHuntNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are not yet a member of this hunt. Sign in with Google first, then contact its smith, Flip (flip_kromer), …'
  */
 export function sealedNotOnHuntNotice(smiths: readonly SmithT[], label: string): string {
-  return `You are not yet a member of this hunt, and a smith can put you on it only once you sign in with Google. Then contact ${smithsWhom(smiths)}, and give them your handle, “${label}”.`
+  return `You are not yet a member of this hunt. Sign in with Google first, then contact ${smithsWhom(smiths)}, and give them your handle, “${label}”: a handle is put on a hunt only once it is signed in. This page opens for you as soon as they add you.`
 }
 
 /** The smiths to contact, as a sentence names them after "contact": its smith, one of its smiths, or a smith of this hunt when none are known */
