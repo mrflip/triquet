@@ -114,12 +114,26 @@ describe('Routes.thenFrom', () => {
     [String.raw`/\elsewhere.example/`, 'another site, behind a backslash browsers read as a slash'],
     ['javascript:alert(1)',         'a script'],
     ['my/hunts',                    'a relative path'],
+    ['/\t/elsewhere.example/',      'another site, behind a tab the browser drops'],
+    ['/\n/elsewhere.example/',      'another site, behind a newline the browser drops'],
+    ['/\r\n/elsewhere.example/',    'another site, behind a carriage return and newline'],
+    ['/\t\\elsewhere.example/',     'another site, behind a tab and a backslash'],
+    [String.raw`/my\hunts`,         'a path holding a backslash'],
   ] as const
   for (const [raw, story] of Refused) {
     it(`refuses ${story}`, () => {
       expect(Routes.thenFrom(raw)).to.be.null
     })
   }
+
+  it('answers a path as the browser reads it, so what is followed is what was judged', () => {
+    expect(Routes.thenFrom('/my/\thunts#top')).to.eq('/my/hunts#top')
+  })
+
+  it('refuses another site sent by a link, its tab escaped in the address the front door reads', () => {
+    const then = new URLSearchParams('then=/%09/elsewhere.example').get('then')
+    expect(Routes.thenFrom(then)).to.be.null
+  })
 })
 
 /** The directories in `dir`, by name */

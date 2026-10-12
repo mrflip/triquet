@@ -98,9 +98,9 @@ const ModedKinds: ReadonlySet<Addresses.AddressKind> = new Set(['quiz'])
  * @example isSyncedPath('//example.com/my/hunts')       // => false
  */
 export function isSyncedPath(path: string): boolean {
-  if (! path.startsWith('/') || path.startsWith('//') || path.includes('\\')) { return false }
-  const { origin, pathname } = new URL(path, PathBase)
-  if (origin !== PathBase) { return false }
+  const url = onSite(path)
+  if (url === null) { return false }
+  const { pathname } = url
   if (pathname === '/') { return true }
   if (pathname.endsWith('/')) { return false }
   const segs = pathname.slice(1).split('/')
@@ -127,6 +127,20 @@ function fitsShape(segs: readonly string[], shape: readonly (string | typeof Any
 
 /** An origin no path of ours could name, to read a path against */
 const PathBase = 'https://app.invalid'
+
+/**
+ * `raw` read as a browser would read it, when it is a path on this site: it begins with one `/`,
+ * holds no backslash (which a browser reads as a slash), and, read against an origin of our own,
+ * stays on it. A browser drops tabs and newlines from an address before it reads it, so
+ * `/<tab>/elsewhere.example` is `//elsewhere.example`, another site: reading it as the browser
+ * will, rather than by its first characters, is what refuses it. Null for anything else: what
+ * `thenFrom` and `isSyncedPath` both read a path by.
+ */
+function onSite(raw: string): URL | null {
+  if (! raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) { return null }
+  const url = new URL(raw, PathBase)
+  return url.origin === PathBase ? url : null
+}
 
 /**
  * Where an org's hunts are listed: those of them the visitor is on.
@@ -207,13 +221,16 @@ export function movedPath(path: string, from: { search: string, hash: string }):
 /**
  * Where to send the visitor once they have said who they are: `then`, when it is a path on this
  * site, and nowhere otherwise. A link that could send a visitor off-site after logging in is a
- * trap, so anything with a scheme or a host is refused.
+ * trap, so anything with a scheme or a host is refused, judged as the browser will read it
+ * (`onSite`): `/<tab>/elsewhere.example` is another site once the browser drops the tab. The path
+ * is answered as read, so what is followed is what was judged.
  *
  * @example thenFrom('/~pat_smith/quiet_otter/quizzes/home/loud_heron/!playtest')  // => '/~pat_smith/quiet_otter/quizzes/home/loud_heron/!playtest'
  * @example thenFrom('https://elsewhere.example/')  // => null
  * @example thenFrom('//elsewhere.example/')  // => null
+ * @example thenFrom('/\t/elsewhere.example/')  // => null
  */
 export function thenFrom(raw: string | null): string | null {
-  if (raw === null || ! raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) { return null }
-  return raw
+  const url = raw === null ? null : onSite(raw)
+  return url && `${url.pathname}${url.search}${url.hash}`
 }
