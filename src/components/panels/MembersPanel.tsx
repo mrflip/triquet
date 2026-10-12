@@ -59,9 +59,11 @@ export function MembersPanel({ members, claims, labels, carryOut, saveNotice }: 
         </Table>
       </TableContainer>
       <AddMember claims={claims} carryOut={carryOut} saveNotice={saveNotice} />
-      <div className={styles.panelRow}>
-        <CopyButton textOf={() => `${location.origin}${Routes.quizPath(labels, 'playtest')}`}>Copy reviewer link</CopyButton>
-      </div>
+      {! Actor.isSealed(claims) && (
+        <div className={styles.panelRow}>
+          <CopyButton textOf={() => `${location.origin}${Routes.quizPath(labels, 'playtest')}`}>Copy reviewer link</CopyButton>
+        </div>
+      )}
     </Panel>
   )
 }

@@ -113,7 +113,7 @@ function HuntScreen({ hunt, actor }: Readonly<{ hunt: ShallowHuntT, actor: Actor
             <TableHead>
               <TableRow>
                 <TableCell>Who</TableCell>
-                <TableCell>Label</TableCell>
+                <TableCell>Handle</TableCell>
                 <TableCell>Role</TableCell>
               </TableRow>
             </TableHead>

@@ -105,7 +105,7 @@ test.describe('the front door', () => {
     await expect(page.getByRole('heading', { name: AppNotices.userlabelGateTitle })).toBeVisible()
     await page.getByRole('textbox', { name: 'Your name' }).fill('Flip (the) Kromer!')
     await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
-    await page.getByRole('button', { name: `Log in as ${label}` }).click()
+    await page.getByRole('textbox', { name: 'Handle', exact: true }).press('Enter') // the form goes on Enter, as on its button
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(@${label})`)).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('Flip (the) Kromer!')
@@ -669,7 +669,7 @@ test.describe('a link handed to a friend', () => {
     await expect(friend).toHaveURL(/\/!playtest$/)
   })
 
-  test('tells a smith who adds a handle nobody has chosen what the friend must do first', async ({ page }) => {
+  test("tells a smith who adds a handle nobody has chosen what the friend must do first", async ({ page }) => {
     const members = await openPanel(page, 'Members')
     const label = freshUserlabel()
     await members.getByLabel('Their handle').fill(label)
@@ -677,7 +677,7 @@ test.describe('a link handed to a friend', () => {
     await expect(members.getByText(userUnknownNotice(label))).toBeVisible()
   })
 
-  test('tells a smith who adds an anonymous visitor that they cannot be put on a hunt until they sign in with Google', async ({ page, browser }) => {
+  test("tells a smith who adds an anonymous visitor that they cannot be put on a hunt until they sign in with Google", async ({ page, browser }) => {
     const stranger = await otherVisitor(browser)
     const label = await assumeUserlabel(stranger)
     const members = await openPanel(page, 'Members')
@@ -687,7 +687,7 @@ test.describe('a link handed to a friend', () => {
     await expect(members.getByRole('row').filter({ hasText: label })).toHaveCount(0)
   })
 
-  test('checks the handle a smith types as the front door checks a userlabel', async ({ page }) => {
+  test("checks the handle a smith types as the front door checks a userlabel", async ({ page }) => {
     const members = await openPanel(page, 'Members')
     const box = members.getByLabel('Their handle')
     await box.fill('Flip Kromer')
