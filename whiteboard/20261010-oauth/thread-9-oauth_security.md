@@ -13,7 +13,7 @@ know what was checked). The briefs: `notes/security.md`, 2026-10-12, thread 9. T
 
 | # | Finding | Severity | Disposition |
 |---|---|---|---|
-| F1 | The front door's `?then=` is an open redirect for a visitor holding a handle (`/?then=/%09/evil.example`); a Google sign-in comes back to it | Medium | **Fixed** (`2f747dad`; the review's `f8b2087b`, `ebcb220d`) |
+| F1 | The front door's `?then=` is an open redirect for a visitor holding a handle (`/?then=/%09/evil.example`); a Google sign-in comes back to it | Medium | **Fixed** (three `fix:` commits: mine, and the review's two) |
 | F2 | `hunts:open` lists smiths' handles and titles (Google names, by default) to any caller, no session needed; old addresses look across every org, and labels are ~430k guessable pairs | Low to Medium (privacy) | Left: the Coach's call; the policy changes with it |
 | F3 | Convex Auth signs a verifier as often as asked, so a leaked verifier id works its whole 15 minutes | Low | Left: "sign once", a fifth part to the patch |
 | F4 | `adopt --email` trusts Google's email claim, `email_verified` dropped | Low | Left: the Coach watches the one run |
@@ -26,9 +26,9 @@ know what was checked). The briefs: `notes/security.md`, 2026-10-12, thread 9. T
 * **Built**: `Routes.thenFrom` reads `then` as the browser will (`onSite`, in `src/lib/routes.ts`,
   now shared with `isSyncedPath`), refuses a backslash anywhere, and answers the path as read;
   seven new cases in `tests/lib/routes.test.ts`. **The review (`fixed`) added two commits:**
-  `f8b2087b` refuses a path that reads as `//…` once dot segments resolve (`/.//evil.example`,
+  one refuses a path that reads as `//…` once dot segments resolve (`/.//evil.example`,
   which answering the path as read had turned into `//evil.example`, an open redirect my fix
-  opened); `ebcb220d` answers null for an address `new URL` cannot parse (`/%09/[`), which threw
+  opened); the other answers null for an address `new URL` cannot parse (`/%09/[`), which threw
   in the front door's render and in Convex Auth's redirect callback. `notes/security.md` gains two entries (the open
   findings; the fix); `whiteboard/TODO.md` a thread 9 section, and O1 and O3 corrected (O3 said
   "anyone with a userlabel"; it is anyone).

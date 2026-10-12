@@ -26,7 +26,7 @@ the summary, `notes/security.md` the briefs, `whiteboard/TODO.md` the open items
 
 | # | Finding | Severity | Disposition |
 |---|---|---|---|
-| F1 | The front door's `?then=` is an open redirect for a visitor holding a handle (`/?then=/%09/evil.example`) | Medium | **Fixed** (`2f747dad`, and the review's `f8b2087b`, `ebcb220d`) |
+| F1 | The front door's `?then=` is an open redirect for a visitor holding a handle (`/?then=/%09/evil.example`) | Medium | **Fixed** (three `fix:` commits: mine, and the review's two) |
 | F2 | `hunts:open` lists smiths' handles and titles (Google names, by default) to anyone, enumerably | Low to Medium (privacy) | Left: the Coach's call |
 | F3 | A verifier can be re-signed, so a leaked verifier id works for its whole 15 minutes | Low | Left: a fifth part to the patch |
 | F4 | `adopt --email` trusts an email Google may not have verified | Low | Left: the Coach watches the one run |
@@ -49,11 +49,11 @@ backslash, and answers the path as read. Tests: tab, newline, CR LF, tab plus ba
 backslash anywhere, and the escaped tab as `useSearchParams` hands it over.
 
 *The review of this thread found two more, fixed on the branch by the reviewer:*
-* **Dot segments** (`f8b2087b`). Reading the path as a browser does resolves `.` and `..`, so
+* **Dot segments.** Reading the path as a browser does resolves `.` and `..`, so
   `/.//evil.example` read as the path `//evil.example`, and answering the path as read handed the
-  router a protocol-relative address: an open redirect that `2f747dad` itself opened (before it,
+  router a protocol-relative address: an open redirect that the first fix itself opened (before it,
   that input stayed on-site). `onSite` now refuses a path that reads as `//…`.
-* **A parse failure** (`ebcb220d`). `new URL` throws on an address with a tab before an unparseable
+* **A parse failure.** `new URL` throws on an address with a tab before an unparseable
   host (`/?then=/%09/[`): `thenFrom` threw in the front door's render, and `isSyncedPath` in Convex
   Auth's `redirect` callback, which then threw instead of falling back to `/`. `onSite` now answers
   null for an address no browser could read.
@@ -164,7 +164,7 @@ once OAuth exists; it exists now. Pre-existing, noted only.
   failed exchange, and never takes another browser's.
 * **The redirect rule** (`returnUrlFor`, `isSyncedPath`): relative synced pages only, read against
   a fixed origin, so a tab or newline trick is refused, and anything else falls back to `/`;
-  an address `new URL` cannot parse threw there instead, until `ebcb220d` (F1).
+  an address `new URL` cannot parse threw there instead, until the review's second fix (F1).
 * **The table** (`userAtExchange`, `mergeInto`): never by email; two Google users never merged; an
   upgrade folds the provisional user away in the same mutation; nobody is ever signed in as a
   provisional user; a merged-away user's sessions and refresh tokens go, and `askerOf` reads a
