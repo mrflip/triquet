@@ -170,7 +170,9 @@ security expert who knows what questions to ask.
     to a relative path of a page that opens the database (`Routes.isSyncedPath`), never another
     site or a page without Convex Auth's provider, so the code is exchanged, and spent, the moment
     the clicker's browser lands: the guess window at the 8-digit code closes then, not at its 2
-    minutes. *Corrected after the Coach's `high` review (thread 5r):* the rule first read only a
+    minutes. Anywhere else asked for is never followed: the browser goes to the front door (`/`,
+    itself a synced page) instead, which spends the code just the same, where a refusal would have
+    stranded it on an error from the deployment after Google's consent (thread 5r). *Corrected after the Coach's `high` review (thread 5r):* the rule first read only a
     path's first segment, so a crafted path beneath a synced page that reaches none (`/h/x/y`,
     `/~any/hunt/nothing`) passed, landed on a page not found (which mounts no provider), and left
     the code in the address its whole 2 minutes. It now matches each page's whole path: an org's

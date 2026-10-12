@@ -95,41 +95,47 @@ describe('the providers, on a deployment without Google', () => {
 })
 
 describe('returnUrlFor, the redirect callback', () => {
-  const Sent: [string, string, string][] = [
-    ['/~pat_smith/quiet_otter?x=1',   'http://localhost:3099/~pat_smith/quiet_otter?x=1', 'a hunt, on the app'],
-    ['/',                             'http://localhost:3099/',                           'the front door'],
+  const Cases: [string, string, string][] = [
+    // pages that open the database, sent back to:
+    ["/~pat_smith/quiet_otter?x=1",    "http://localhost:3099/~pat_smith/quiet_otter?x=1", 'a hunt, on the app'],
+    ["/",                              "http://localhost:3099/",                           'the front door'],
+    // anywhere else, never followed: the front door instead
+    ["/privacy",                       "http://localhost:3099/",                           'a page that opens no database, where a code would lie unspent'],
+    ["/about",                         "http://localhost:3099/",                           'About, likewise'],
+    ["/h/x/y",                         "http://localhost:3099/",                           'a path beneath the synced pages that reaches none, where a code would lie unspent in a page not found'],
+    ["https://example.com/my/hunts",   "http://localhost:3099/",                           'another site'],
+    ["//example.com/my/hunts",         "http://localhost:3099/",                           'another site, without its scheme'],
+    ["http://localhost:3099/my/hunts", "http://localhost:3099/",                           'even the app, written absolute: only a path is taken'],
   ]
-  for (const [redirectTo, expected, describes] of Sent) {
-    it(`sends back to ${describes}`, () => {
+  for (const [redirectTo, expected, describes] of Cases) {
+    it(`sends ${redirectTo} back to ${expected}: ${describes}`, () => {
       expect(returnUrlFor(redirectTo)).to.eq(expected)
     })
   }
 
-  const Refused: [string, string][] = [
-    ['/privacy',                       'a page that opens no database, where a code would lie unspent'],
-    ['/about',                         'About, likewise'],
-    ['https://example.com/my/hunts',   'another site'],
-    ['//example.com/my/hunts',         'another site, without its scheme'],
-    ['http://localhost:3099/my/hunts', 'even the app, written absolute: only a path is taken'],
-  ]
-  for (const [redirectTo, describes] of Refused) {
-    it(`refuses ${describes}`, () => {
-      expect(() => returnUrlFor(redirectTo)).to.throw(/comes back only to a page that opens the database/)
-    })
-  }
+  it('refuses to send a sign-in anywhere from a deployment with no SITE_URL', () => {
+    vi.stubEnv('SITE_URL', '')
+    try {
+      expect(() => returnUrlFor('/')).to.throw(/no SITE_URL/)
+    } finally {
+      vi.stubEnv('SITE_URL', 'http://localhost:3099')
+    }
+  })
 
-  it("governs Google's callback route: a page that opens the database is where it sends the browser, any other it refuses", async () => {
+  it("governs Google's callback route: a page that opens the database is where it sends the browser, and the front door in place of any other", async () => {
     // Nothing reaches Google: its discovery document is refused, so the callback fails its sign-in and sends the browser back
     vi.stubGlobal('fetch', () => Promise.reject(new Error('No network in a unit test')))
     try {
       const tt = openTester()
       const callback = async (redirectTo: string) => await tt.fetch('/api/auth/callback/google', { headers: { Cookie: `googleRedirectTo=${encodeURIComponent(redirectTo)}` }, redirect: 'manual' })
-      const sent = await callback('/my/hunts')
-      expect([sent.status, sent.headers.get('Location')]).to.deep.eq([302, 'http://localhost:3099/my/hunts'])
-      await expect(callback('/privacy')).rejects.toThrow(/comes back only to a page that opens the database/)
+      const sent = await Promise.all(['/my/hunts', '/privacy', 'https://example.com/'].map(async (redirectTo) => await callback(redirectTo)))
+      expect(sent.map((response) => [response.status, response.headers.get('Location')])).to.deep.eq([
+        [302, "http://localhost:3099/my/hunts"],
+        [302, "http://localhost:3099/"],
+        [302, "http://localhost:3099/"],
+      ])
     } finally {
       vi.unstubAllGlobals()
     }
   })
 })
-

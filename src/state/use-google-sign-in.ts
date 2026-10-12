@@ -144,7 +144,7 @@ export function forgetDeadSignIns(storage: Storage): void {
 /**
  * Where a Google sign-in comes back to: the page's path, query and fragment, relative, as Convex
  * Auth sends a browser back only within the app (`SITE_URL`); the front door for a page that does
- * not open the database, which the deployment would refuse to send it back to (`returnUrlFor`).
+ * not open the database, where the deployment would send it in any case (`returnUrlFor`).
  *
  * @example returnPathOf({ pathname: '/~flip_kromer/quiet_otter', search: '?q=1', hash: '' })  // => '/~flip_kromer/quiet_otter?q=1'
  * @example returnPathOf({ pathname: '/privacy', search: '', hash: '' })  // => '/'
