@@ -130,6 +130,13 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
    decision, and the app's own one-time hand-off would reverse the Coach's choice of the patch.
    **Production's Google keys wait until this is reviewed.**
 
+10. **The high review's finding on thread 5 is fixed in its own PR** (2026-10-12). The redirect
+    rule checked only a path's first segment, so a crafted link could land on a 404 that never
+    spends the code. A `thread-worker` in the review's worktree fixes it, and falls back to `/`
+    on a refused `redirectTo`. It also makes the unfinished-sign-in notice compare the session
+    id, not the refreshed JWT (the Coach's "no confusing state"). A second reviewer reads its
+    commits; then it lands as its own PR, stacked on #232.
+
 ## The Coach's guidance during the sprint
 
 * **2026-10-11: thread 5's verifier: option 1.** Hand the starting session on only from a recently

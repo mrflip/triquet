@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: thread 5 landed (#232); the Coach's high review of it (5r) and thread 6 underway (2026-10-12). 7, 2, 1, 8, 3 and 4 landed (#226-#231).**
+**Status: thread 5 landed (#232); its high review (5r) flagged and being fixed, and thread 6 underway (2026-10-12). 7, 2, 1, 8, 3 and 4 landed (#226-#231).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -12,8 +12,8 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 3 | `converge`: users and huntships, everywhere | landed #230 | `20261011-converge` | [#230](https://github.com/mrflip/triquet/pull/230) |
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | landed #231 | `20261011-adopt_script` | [#231](https://github.com/mrflip/triquet/pull/231) |
 | 5 | `google_signin`: the provider, the patch, the merge | landed #232 | `20261011-google_signin` | [#232](https://github.com/mrflip/triquet/pull/232) |
-| 5r | `signin_review`: the Coach's `high` review of thread 5, fixes as their own PR | underway | `20261012-signin_review` | |
-| 6 | `google_ui`: signing in, from both doors | underway | `20261012-google_ui` | |
+| 5r | `signin_review`: the Coach's `high` review of thread 5, fixes as their own PR | landing (full e2e) | `20261012-signin_review` | |
+| 6 | `google_ui`: signing in, from both doors | in review | `20261012-google_ui` | |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
 | 9 | `oauth_security`: a strong review | pending (1-8) | | |
@@ -264,6 +264,43 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   all of thread 5, `77286214...8383d5b2`, committing its fixes on its own branch; a
   `thread-worker` then proves it and lands it as its own PR, stacked on #232. No fixes: no PR,
   and its findings go on #232.
+  - *High review: flagged.* Kept: `startGoogleSignIn` takes back its note when `signIn` throws.
+    **Significant:** `Routes.isSyncedPath` checks only the first segment, so a crafted
+    `redirectTo` (`/h/x/y`, `/~any/hunt/nothing`) lands on a 404 that never spends the code
+    (confirmed); the guess window option 1 closed is open for crafted links, and
+    `notes/security.md` says otherwise. **Directed (YOLO 10):** a worker in the same worktree
+    matches the real page shapes; a refused `redirectTo` falls back to `/` instead of a 500;
+    the notice compares the session id in the JWT's `sub`, not the whole refreshed JWT; and
+    `useGoogleSignInOutcome` gets its own tests. Noted, not fixed: `forgetDeadSignIns` clears
+    other tabs' verifiers; the patch's duplicated deletion; two narrow races. A second reviewer
+    then reads the worker's commits.
+  - **Fixed** (`41f50a60`): `isSyncedPath` checks whole page paths (`Addresses.locationFrom`
+    for `~`, exact shapes otherwise, a filesystem test against `(synced)/`); a root
+    `not-found.tsx` was rejected, since it would open the database and sign in a new anonymous
+    user on every mistyped or scanned address. `returnUrlFor` falls back to `/`. The notice
+    compares `sessionOf(token)` (the session half of `sub`, via `jose`'s `decodeJwt`);
+    `fingerprintOf` is gone and `isUnfinished` is synchronous. Four DOM tests for
+    `useGoogleSignInOutcome`. **`jose` is now a direct dependency** (`^6.2.12`, already in the
+    tree through `@auth/core`), added under `notes/stack.md`'s rule for a plainly boring choice;
+    the Coach is told. *Second review: fixed.* An org address must be exactly what
+    `Addresses.urlOf` writes (an escaped page word, `quizze%73`, had landed on a 404 with the
+    code unspent); `sessionOf` reads an undecodable token as `'none'` instead of throwing. A
+    probe of 46 paths: every accepted path spends its code, no page the app writes is refused.
+    Noted: escaped letters and old `/h/` labels failing `CK.label` fall back to `/`.
+
+* **What thread 6 built, for thread 9** (`thread-6-google_ui.md`; wording for the Coach in
+  `human/20261012-google_ui.md`): `users.own`, the only function returning an email (to its
+  owner, in `Unscoped`); `User.suggestionsFor` (the Google name, the email's local part, then
+  `_2` to `_9`, never reserved, never held); `settle_name_choice { merged, keep }`, through
+  `User.relabelled`, retiring the handle not kept into a ghosting; the Google button (Google's
+  "G" written out from its published markup, not fetched; compare with Google's asset download
+  before brand verification) in Roboto Medium (`@fontsource/roboto`, added under
+  `notes/stack.md`'s rule); the name-choice dialog in the synced layout; sealing refusals
+  pointing at sign-in; the label field and delete hidden from a sealed smith via `mayOffer`.
+  New e2e stand-in `testing:mergeInto` (gated like `vouchFor`), and `vouchFor` may set an email.
+  A new soundness check: no userlabel held twice. **Open a lane's dev server at `localhost`,
+  not `127.0.0.1`:** Next 16 blocks its dev resources from another origin, and the page sits at
+  *Opening…*.
 
 ## Convex Auth, as installed (checked 2026-10-10)
 
