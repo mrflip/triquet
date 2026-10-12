@@ -123,6 +123,9 @@ describe('Routes.thenFrom', () => {
     ['/my/..//elsewhere.example/',  'another site, once a double dot segment is resolved'],
     ['/%2e//elsewhere.example/',    'another site, behind an escaped dot segment'],
     ['/./\t/elsewhere.example/',    'another site, behind a dot segment and a tab'],
+    ['/\t/[',                       'a host no browser could read, behind a tab'],
+    ['/\n/a b',                     'a host holding a space, behind a newline'],
+    ['/\t/a:99999',                 'a port out of range, behind a tab'],
   ] as const
   for (const [raw, story] of Refused) {
     it(`refuses ${story}`, () => {
@@ -214,6 +217,7 @@ describe("Routes.isSyncedPath", () => {
     ["/.//my/hunts",                                                false, 'a path beginning // once its dot segment is resolved'],
     ["https://example.com/my/hunts",                                false, 'another site'],
     ["//example.com/my/hunts",                                      false, 'another site, without its scheme'],
+    ["/\t/[",                                                       false, 'a host no browser could read, behind a tab (rather than throwing)'],
     [String.raw`/\example.com`,                                    false, 'a backslash a browser may read as a slash'],
     ["my/hunts",                                                    false, 'a path not from the root'],
     ["",                                                            false, 'nothing'],

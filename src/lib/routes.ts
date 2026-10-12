@@ -135,12 +135,18 @@ const PathBase = 'https://app.invalid'
  * an address before it reads it, so `/<tab>/elsewhere.example` is `//elsewhere.example`, another
  * site: reading it as the browser will, rather than by its first characters, is what refuses it.
  * And it resolves dot segments, so `/.//elsewhere.example` reads as the path
- * `//elsewhere.example`, which, written out again, names another site. Null for anything else:
- * what `thenFrom` and `isSyncedPath` both read a path by.
+ * `//elsewhere.example`, which, written out again, names another site. Null for anything else,
+ * an address no browser could read among it (`/<tab>/[`, a host that is no host): what `thenFrom`
+ * and `isSyncedPath` both read a path by.
  */
 function onSite(raw: string): URL | null {
   if (! raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) { return null }
-  const url = new URL(raw, PathBase)
+  let url: URL
+  try {
+    url = new URL(raw, PathBase)
+  } catch {
+    return null
+  }
   return url.origin === PathBase && ! url.pathname.startsWith('//') ? url : null
 }
 
