@@ -167,10 +167,19 @@ security expert who knows what questions to ask.
     account replaces its code. Verifiers of sign-ins never finished at Google stay, unbounded in
     number but useless past the bound (no sweep: `whiteboard/TODO.md`);
   - Convex Auth's `redirect` callback (`returnUrlFor`, `convex/auth.ts`) sends a browser back only
-    to a relative path of a page that opens the database (`Routes.isSyncedPath`: the
-    `src/app/(synced)/` routes), never another site or a page without Convex Auth's provider, so
-    the code is exchanged, and spent, the moment the clicker's browser lands: the guess window at
-    the 8-digit code closes then, not at its 2 minutes;
+    to a relative path of a page that opens the database (`Routes.isSyncedPath`), never another
+    site or a page without Convex Auth's provider, so the code is exchanged, and spent, the moment
+    the clicker's browser lands: the guess window at the 8-digit code closes then, not at its 2
+    minutes. *Corrected after the Coach's `high` review (thread 5r):* the rule first read only a
+    path's first segment, so a crafted path beneath a synced page that reaches none (`/h/x/y`,
+    `/~any/hunt/nothing`) passed, landed on a page not found (which mounts no provider), and left
+    the code in the address its whole 2 minutes. It now matches each page's whole path: an org's
+    address as `Addresses.locationFrom` reads it, for exactly the kinds its pages show (a mode for
+    a quiz alone), as those pages read their own; every other synced page shape for shape, each
+    label slot a label; no trailing slash. `tests/lib/routes.test.ts` walks `src/app/(synced)/`
+    and fails if a page is refused or a folder holding none is allowed. Chosen over a root
+    `not-found.tsx` that mounts the provider: that would open the database, and sign a new
+    anonymous user in, on every mistyped or scanned address;
   - a refused or failed exchange leaves the browser exactly as it was: no row of its user changes
     (tested for stale, wrong-verifier and expired codes, upgrade and merge alike), and the patched
     client keeps the session it had stored rather than signing out (the DOM test,

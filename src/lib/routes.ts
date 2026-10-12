@@ -11,6 +11,7 @@
  * still open, and move to their present form once the hunt they name says its org.
  */
 import * as Addresses from './addresses'
+import * as CK from './vv/checks/strings'
 
 /** How a resource is opened: `edit` (a smith works on it) or `playtest` (it is reviewed) */
 export type Mode = Addresses.Mode
@@ -54,33 +55,69 @@ export function termsPath(): string {
   return '/terms'
 }
 
+/** Stands in a page's shape (`SyncedShapes`) for any one label in that place */
+const AnyLabel = Symbol('any label')
+
 /**
- * The first segments of the app's own pages that open the database, the routes under
- * `src/app/(synced)/` but an org's address, which begins `~`. Every other page (About, Privacy,
- * Terms) shows without it.
+ * The app's own pages that open the database (`src/app/(synced)/`), but the front door and an
+ * org's: each the segments of its path, a word for itself and `AnyLabel` for a hunt's, realm's or
+ * quiz's label, as an old address names them. Exactly these: a path one segment short or long of
+ * one is no page, and is not found.
  */
-export const SyncedToplevel: readonly string[] = ['c', 'h', 'my', 'stats']
+const SyncedShapes: readonly (readonly (string | typeof AnyLabel)[])[] = [
+  ['my', 'hunts'],
+  ['stats'],
+  ['h', AnyLabel],                        // an old address of a hunt
+  ['h', AnyLabel, AnyLabel, AnyLabel],    // of a quiz
+  ['c', AnyLabel, 'categories'],          // of a hunt's categories
+]
+
+/** What an org's address (`/~<org>/…`) names that a page shows (`src/app/(synced)/[org]/`): each page reads its address with `Addresses.locationFrom`, and finds any other kind not found */
+const OrgPageKinds: ReadonlySet<Addresses.AddressKind> = new Set(['org', 'hunt', 'quizzes', 'categories', 'quiz'])
+
+/** Which of those a page shows in a mode, from a last `!edit` or `!playtest`: a quiz alone */
+const ModedKinds: ReadonlySet<Addresses.AddressKind> = new Set(['quiz'])
 
 /**
  * Whether `path` names a page of this app that opens the database (`src/app/(synced)/`), and so
- * finishes a sign-in sent back to it: a path from the root, its first segment an org's (`~…`), one
- * of `SyncedToplevel`, or none (the front door). An address of another site, one beginning `//`,
- * and anything not a path are not.
+ * spends a sign-in's code the moment a browser is sent back to it: the front door; an org's
+ * address (`/~…`, unescaped) naming what one of its pages shows, read by `Addresses.locationFrom` as those pages read
+ * it; or one of the app's other synced pages, shape for shape. A path that reaches no page
+ * (`/h/quiet_otter/home`, `/~pat_smith/quiet_otter/nothing`) is not, since a page not found opens
+ * no database; nor is a page that never opens one (`/privacy`), an address of another site, one
+ * beginning `//` or ending `/`, or anything not a path.
  *
  * @param path - Where a sign-in is to come back to.
  *
  * @example isSyncedPath('/~pat_smith/quiet_otter?x=1')  // => true
  * @example isSyncedPath('/')                            // => true
+ * @example isSyncedPath('/h/quiet_otter')               // => true
+ * @example isSyncedPath('/h/quiet_otter/home')          // => false
  * @example isSyncedPath('/privacy')                     // => false
  * @example isSyncedPath('https://example.com/my/hunts') // => false
  * @example isSyncedPath('//example.com/my/hunts')       // => false
  */
 export function isSyncedPath(path: string): boolean {
   if (! path.startsWith('/') || path.startsWith('//') || path.includes('\\')) { return false }
-  const url = new URL(path, PathBase)
-  if (url.origin !== PathBase) { return false }
-  const [, first = ''] = url.pathname.split('/', 2)
-  return first === '' || first.startsWith('~') || SyncedToplevel.includes(first)
+  const { origin, pathname } = new URL(path, PathBase)
+  if (origin !== PathBase) { return false }
+  if (pathname === '/') { return true }
+  if (pathname.endsWith('/')) { return false }
+  const segs = pathname.slice(1).split('/')
+  return segs[0]?.startsWith('~') ? isOrgPage(pathname) : SyncedShapes.some((shape) => fitsShape(segs, shape))
+}
+
+/** Whether an org's address names what one of its pages shows, in a mode only where that page takes one */
+function isOrgPage(pathname: string): boolean {
+  const location = Addresses.locationFrom(pathname)
+  if (location === null || location.raw) { return false }
+  const { kind } = location.address
+  return OrgPageKinds.has(kind) && (location.mode === null || ModedKinds.has(kind))
+}
+
+/** Whether a path's segments are a page's shape: as many, each the word the shape names, or a label where it takes any */
+function fitsShape(segs: readonly string[], shape: readonly (string | typeof AnyLabel)[]): boolean {
+  return segs.length === shape.length && shape.every((want, idx) => (want === AnyLabel ? CK.label.safeParse(segs[idx]).success : want === segs[idx]))
 }
 
 /** An origin no path of ours could name, to read a path against */
