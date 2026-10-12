@@ -99,8 +99,9 @@ In particular, address:
 Everything under `convex/` is tested in `tests/convex/`, path for path, under `convex-test` in
 Vitest's `convex` project (the edge runtime). The helpers are `tests/support/convex.ts`, each with
 its doc block: `openTester()` for a fresh, empty deployment, `seedHunt` for a hunt with a smith on
-it and the ways to act on it and read it back, and the sessions a test calls as (`identified`,
-`signedIn`, the bare `tt`). What the doc blocks do not say:
+it and the ways to act on it and read it back, and the sessions a test calls as, each named for
+the kind of user it is signed in as (`googleUser`, `anonymousUser`, `anonymousSession`, the bare
+`tt`). What the doc blocks do not say:
 
 * Reach past the functions with `tt.run(async (ctx) => ...)`, which must hand back a Convex value
   (no `Map`).

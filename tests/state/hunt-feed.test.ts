@@ -427,7 +427,7 @@ describe('watchHunt, with a failing watch', () => {
       for (const update of updates) { update() }
       await new Promise((resolve) => { setTimeout(resolve, 0) })
     }
-    const affirms = { user_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
+    const affirms = { user_id: 'user', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
     const feed = watchHunt({ watchQuery } as unknown as WatcherT, { orglabel: 'pat_smith', hunt_label: 'hunt', affirms, focus: null }, () => null)
     await moment()
     await moment()
@@ -493,7 +493,7 @@ describe('watchHunt, waited on', () => {
     const hunt = { ...shallow, realms: [{ ...present(shallow.realms[0]), quizzes: [{ _id: princes._id, label: princes.label }] }] }
     const { watcher, answer } = scripted()
     const readings: HuntReadingT[] = []
-    const affirms = { user_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
+    const affirms = { user_id: 'user', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
     const feed = watchHunt(watcher, { orglabel: hunt.org, hunt_label: hunt.label, affirms, focus: null }, (reading) => { readings.push(reading) })
     const heard = { read: false }
     void feed.whenRead().then(() => { heard.read = true })
@@ -516,7 +516,7 @@ describe('watchHunt, waited on', () => {
     const { feed } = await fed(held)
     await feed.whenRead()
     const { watcher } = scripted()
-    const affirms = { user_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
+    const affirms = { user_id: 'user', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
     const unheard = watchHunt(watcher, { orglabel: 'pat_smith', hunt_label: 'nowhere', affirms, focus: null }, () => null)
     const waiting = unheard.whenRead()
     unheard.stop()

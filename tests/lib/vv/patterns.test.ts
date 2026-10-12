@@ -83,7 +83,7 @@ const UnreservedCases: [string, boolean, string][] = [
   ["home",          true,   'the label every hunt\'s first realm takes is allowed'],
   ["main",          true,   'the branch every hunt starts on is allowed'],
   ["key",           false,  'a key, as fields and bags speak of one, is refused'],
-  ["pricing",       true,   'a top-level word is any other label\'s to take: only hunts and idents are kept from it'],
+  ["pricing",       true,   'a top-level word is any other label\'s to take: only hunts and userlabels are kept from it'],
   // trivial cases:
   ["",              true,   'an empty string is not reserved: refusing it is the label pattern\'s job'],
 ]
@@ -194,7 +194,7 @@ describe('ReservedToplevel', () => {
     expect(covered).to.deep.eq([])
   })
 
-  it("keeps every top-level route and public folder from a new hunt or ident, as any label a route could be", () => {
+  it("keeps every top-level route and public folder from a new hunt or userlabel, as any label a route could be", () => {
     const routes = toplevelSegments().filter((segment) => PA.Label.re.test(segment))
     expect(routes).to.include.members(['about', 'api', 'my', 'stats', 'privacy', 'terms', 'brand'])
     expect(routes.filter((segment) => PA.isUnreserved(segment) && PA.UnreservedToplevel.rule(segment))).to.deep.eq([])

@@ -73,7 +73,7 @@ describe('reviews.forQuiz', () => {
     expect(await tt.query(api.reviews.forQuiz, { affirms })).to.deep.eq([])
   })
 
-  it("reads nothing for affirms that are not so: a standing not held, another's ident, or a quiz of another hunt", async () => {
+  it("reads nothing for affirms that are not so: a standing not held, another's user, or a quiz of another hunt", async () => {
     const tt = openTester()
     const { act, open, join, smith } = await seedHunt(tt, Hunt.blank())
     const theirs = await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'carol_strays' })

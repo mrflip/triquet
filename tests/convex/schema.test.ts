@@ -257,3 +257,16 @@ describe("every table and its row validator", () => {
     })
   }
 })
+
+/** A table's indexes, each as `name:field,field`, in a stable order to compare: read off the definition, which types them as its own */
+function indexesOf(table: unknown): string[] {
+  const { indexes } = table as { indexes: { indexDescriptor: string, fields: string[] }[] }
+  return indexes.map(({ indexDescriptor, fields }) => [indexDescriptor, fields.join(',')].join(':')).toSorted(alphabetically)
+}
+
+describe("the users table", () => {
+  it("keeps Convex Auth's indexes, email and phone, by the names it queries them by, beside ours", () => {
+    expect(indexesOf(schema.tables.users)).to.include.members(indexesOf(authTables.users))
+    expect(indexesOf(schema.tables.users)).to.include('by_userlabel:userlabel')
+  })
+})

@@ -110,7 +110,7 @@ describe("hunts.perform: relabel_hunt", () => {
 })
 
 describe("hunts.perform: delete_hunt", () => {
-  it("takes every row the hunt and its last quiz hold with it, and leaves another hunt, the library, and the idents, alone", async () => {
+  it("takes every row the hunt and its last quiz hold with it, and leaves another hunt, the library, and the users, alone", async () => {
     const tt = openTester()
     const spared = await seedHunt(tt, huntOfTwo(), { smith: 'spared_smith' })
     const ante = await rowCounts(tt)

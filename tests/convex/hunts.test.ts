@@ -1169,7 +1169,7 @@ describe("hunts.perform", () => {
   })
 
   describe("open_review", () => {
-    it("opens an empty review for the acting ident", async () => {
+    it("opens an empty review for the acting user", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const member = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
@@ -1187,7 +1187,7 @@ describe("hunts.perform", () => {
       expect(await reviewsIn(tt, quiz_id)).to.have.length(1)
     })
 
-    it("gives each ident its own review of the same quiz", async () => {
+    it("gives each user its own review of the same quiz", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const quiz_id = openOf(await read())._id
       const [alice, bob] = [await join('alice_reviews', 'reviewer'), await join('bob_reviews', 'reviewer')]
@@ -2053,7 +2053,7 @@ describe("hunts.whole", () => {
     expect(await carol.as.query(api.hunts.whole, { affirms: carols.hunt })).to.be.null
   })
 
-  it("is null for affirms that are not so: a standing not held, or another's ident", async () => {
+  it("is null for affirms that are not so: a standing not held, or another's user", async () => {
     const tt = openTester()
     const { open, smith, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const bob = await join('bob_reviews', 'reviewer')

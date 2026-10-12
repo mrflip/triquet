@@ -1,6 +1,7 @@
 import _ from 'es-toolkit/compat'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
+import { authTables } from '@convex-dev/auth/server'
 import type { MutationCtx } from '../../convex/_generated/server'
 import { libraryWriter, ReadingRules, scopedReader, scopedWriter, WritingRules, type ScopeClaimsT } from '../../convex/policy_rules'
 import { reviewsOf } from '../../convex/reading'
@@ -260,6 +261,6 @@ describe("the rules", () => {
     expect(Object.keys(ReadingRules)).to.deep.eq(Object.keys(WritingRules))
     const differing = Object.keys(WritingRules).filter((tablename) => ReadingRules[tablename as keyof typeof ReadingRules] !== WritingRules[tablename as keyof typeof WritingRules])
     expect(differing).to.deep.eq(['reviews'])
-    expect(Object.keys(WritingRules)).to.not.include.members(['identings', 'users', 'authSessions'])
+    expect(Object.keys(WritingRules)).to.not.include.members(['users', 'ghostings', ...Object.keys(authTables)])
   })
 })

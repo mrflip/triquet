@@ -243,7 +243,7 @@ describe("Addresses.orgFrom", () => {
     expect([Addresses.orgFrom('~admin_pat'), Addresses.orgFrom('~google_fan')]).to.deep.eq(['admin_pat', 'google_fan'])
   })
 
-  it("reads a label of no ident's length as none", () => {
+  it("reads a label of no userlabel's length as none", () => {
     expect([Addresses.orgFrom('~pat'), Addresses.orgFrom(`~${'pat_smith'.repeat(3)}`), Addresses.orgFrom('~pat_sm')]).to.deep.eq([null, null, 'pat_sm'])
   })
 })

@@ -162,7 +162,7 @@ describe("quizzes.open", () => {
     expect(await tt.query(api.quizzes.open, { affirms: affirms.quiz })).to.be.null
   })
 
-  it("reads null for affirms that are not so: a standing not held, another's ident, or a quiz of another hunt", async () => {
+  it("reads null for affirms that are not so: a standing not held, another's user, or a quiz of another hunt", async () => {
     const { tt, alice, affirms } = await holding(Hunt.blank())
     const stranger = await googleUser(tt, 'carol_strays')
     const other = await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'carol_strays' })

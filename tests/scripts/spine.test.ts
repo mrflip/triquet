@@ -134,7 +134,7 @@ describe('Spine.reachOf', () => {
     ['src/app/(synced)/layout.tsx',         'the whole suite',              'all',                                         'the layout every synced page opens in'],
     ['src/app/(synced)/[org]/[hunt]/quizzes/[realm]/[quiz]/page.tsx', 'the whole suite', 'all',                          'the quiz page every grid spec works on'],
     ['src/components/QuizRoute.tsx',        'the whole suite',              'all',                                         'the frame of every quiz screen'],
-    ['src/state/use-ident.ts',              'the whole suite',              'all',                                         'who the visitor is, which every quiz screen asks'],
+    ['src/state/use-me.ts',                 'the whole suite',              'all',                                         'who the visitor is, which every quiz screen asks'],
     ['src/lib/routes.ts',                   'the whole suite',              'all',                                         'the addresses every quiz screen is opened by'],
     ['src/components/SiteHeader.tsx',       'the whole suite',              'all',                                         'the header every page draws'],
     ['e2e/support.ts',                      'the whole suite',              'all',                                         'the support every spec imports'],

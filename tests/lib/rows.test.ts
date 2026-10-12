@@ -452,15 +452,15 @@ describe('reviewBy', () => {
   const Other = { ...ReviewRow, _id: idOf('reviews', 'v2'), user_id: idOf('users', 'i2') }
   const Later = { ...ReviewRow, _id: idOf('reviews', 'v3'), _creationTime: 4, overall: 'Twice.' }
 
-  it('finds the review an ident wrote among a quiz\'s reviews', () => {
+  it("finds the review a user wrote among a quiz's reviews", () => {
     expect(reviewBy([Other, ReviewRow], user_id)?._id).to.eq(ReviewRow._id)
   })
 
-  it('takes the earliest, should an ident have written two', () => {
+  it("takes the earliest, should a user have written two", () => {
     expect(reviewBy([ReviewRow, Later], user_id)?.overall).to.eq('')
   })
 
-  it('is null for an ident who has written none, or a quiz with no reviews', () => {
+  it("is null for a user who has written none, or a quiz with no reviews", () => {
     expect([reviewBy([Other], user_id), reviewBy([], user_id)]).to.deep.eq([null, null])
   })
 })

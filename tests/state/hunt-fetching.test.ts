@@ -97,7 +97,7 @@ describe('dueAt', () => {
 
 const Princes = 'princes_id' as Id<'quizzes'>
 const Paris = 'paris_id' as Id<'quizzes'>
-const Affirms = { user_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
+const Affirms = { user_id: 'user', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
 
 /** A fetcher that answers every fetch with the quiz as `quizzes` holds it now (or fails, for one in `failing`), counting the fetches of each quiz */
 function servedFrom(quizzes: Map<string, QuizT>): { fetcher: FetcherT, fetches: (quiz_id: string) => number, failing: Set<string> } {

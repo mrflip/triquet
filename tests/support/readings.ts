@@ -20,8 +20,8 @@ export function shallowOf(held: Exporting.HuntSnapshotT, hunt_id = 'hunt'): Shal
 /** `held`'s reviews of `quiz` as `reviews.forQuiz` reads them, rows and all */
 export function reviewedOf(held: Exporting.HuntSnapshotT, quiz: QuizT): ReviewedT[] {
   return (held.reviews[quiz._id] ?? []).map((review, ii) => ({
-    ...review, _id: `review${String(ii)}`, _creationTime: ii, hunt_id: 'hunt', quiz_id: quiz._id, user_id: `ident${String(ii)}`,
-    reviewings: review.reviewings.map((reviewing) => ({ ...reviewing, _id: 'reviewing', _creationTime: 1, hunt_id: 'hunt', quiz_id: quiz._id, user_id: `ident${String(ii)}`, review_id: `review${String(ii)}`, peeked: true })),
+    ...review, _id: `review${String(ii)}`, _creationTime: ii, hunt_id: 'hunt', quiz_id: quiz._id, user_id: `user${String(ii)}`,
+    reviewings: review.reviewings.map((reviewing) => ({ ...reviewing, _id: 'reviewing', _creationTime: 1, hunt_id: 'hunt', quiz_id: quiz._id, user_id: `user${String(ii)}`, review_id: `review${String(ii)}`, peeked: true })),
   })) as unknown as ReviewedT[]
 }
 

@@ -101,7 +101,7 @@ describe('isReserved', () => {
     expect(Labelmaker.isReserved('pricing', { toplevel: true })).to.be.true
   })
 
-  it("keeps a hunt's or an ident's label from the top-level words only when asked", () => {
+  it("keeps a hunt's label or a userlabel from the top-level words only when asked", () => {
     expect(Labelmaker.isReserved('pricing')).to.be.false
     expect(Labelmaker.isReserved('security', { toplevel: true })).to.be.true
     expect(Labelmaker.isReserved('position', { toplevel: true })).to.be.true
@@ -113,7 +113,7 @@ describe('isReserved', () => {
     expect(Labelmaker.isReserved('min', { allowed: new Set() })).to.be.true
   })
 
-  it("keeps a top-level word from a hunt's or an ident's label though the allowlist names it", () => {
+  it("keeps a top-level word from a hunt's label or a userlabel though the allowlist names it", () => {
     expect(Labelmaker.isReserved('pricing', { toplevel: true, allowed: new Set(['pricing']) })).to.be.true
   })
 

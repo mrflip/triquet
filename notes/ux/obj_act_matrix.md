@@ -20,7 +20,7 @@ concerns.
 
 | Short name | What it is |
 |---|---|
-| gate | `/`, `IdentGate` |
+| gate | `/`, `UserlabelGate` |
 | hunts | `/my/hunts` and `/~org`, `HuntsList` |
 | hunt page | `/~org/hunt`, `HuntRoute` (`screen="hunt"`) |
 | quizzes page | `/~org/hunt/quizzes`, `HuntRoute` (`screen="quizzes"`) |
@@ -46,7 +46,7 @@ such verb, by decision or by omission (the Notes column says which).
 
 | Noun | Read, list | Create | Edit | Relabel | Reorder | Delete, archive | Bulk in, out | Home today | Policy | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| ident | top bar's user menu; hunts | gate (`assume_ident`) | name, in place: hunts, and the user menu (`retitle_ident`, one component, `IdentTitle`) | none | | none | | hunts | own | `/~org` is the ident's address and holds no editor. *Be someone else* at hunts and in the user menu. |
+| user | top bar's user menu; hunts | gate (`assume_userlabel`) | name, in place: hunts, and the user menu (`retitle_user`, one component, `UserTitle`) | none | | none | | hunts | own | `/~org` is the address of the hunts a userlabel made and holds no editor. A handle is chosen once: there is no *Be someone else*. |
 | hunt | hunts; hunt page; breadcrumb | hunts *+ New hunt* | title: hunt gear (explicit Save) **and** gear › Hunt (explicit Rename) | hunt gear **and** gear › Hunt | | gear › Danger, only as its last quiz goes (`delete_hunt`) | Raw Export (whole hunt, from a quiz); Full History | hunt page | `mayChangeHunt` | Its own page edits nothing of it but the branch. Two editors of one field, by different mechanisms. |
 | branch | hunt page › Branch | | hunt page, explicit Switch (`rebranch_hunt`) | | | | | hunt page | `mayChangeHunt` | Not shown in the gear's History. |
 | categories (wheel) | wheel; panels › Spread (as a chart) | | wheel, drag and double-click (`arrange_categories`) | | | | in the hunt's balls | wheel | `mayChangeHunt` | Linked from hunts, hunt page, gear › Hunt. Not from the Spread panel, which draws it. |
@@ -62,8 +62,8 @@ such verb, by decision or by omission (the Notes column says which).
 | widgeting | panels › Widgets (readout); gear › Widgetings; beneath its column | catalogue (`add_widgeting`), from gear › Widgetings and *+ New column… › A new entry…* | widgeting panel, in place (`edit_widgeting`) | widgeting panel, explicit Relabel | gear › Widgetings drag (`move_widgeting`) | widgeting panel *Remove*, refused while a column shows it (`delete_widgeting`) | Import tab, by label | gear › Widgetings | `mayReviseQuiz` | The Widgets panel reads and points ("add one from the gear"). Thread 5b makes its open state the widgeting panel. |
 | widgeted (a cell) | grid cell | ask: cell double-click (`record_widgeted`) | entry: cell, in place (`enter_widgeted`) | | | none: appended, never revised | Import carries entries | grid | `mayReviseQuiz`, `ask_anthropic_bot` | No *ask all*; no *ask* for a quiz-tier `aibot` (none exists). |
 | quiz entry (quiz-tier widgeted) | panels › Quiz entries | | there, in place (`enter_quiz_widgeted`) | | | | not carried by Import (TODO) | Quiz entries panel | `mayReviseQuiz` | |
-| review (own) | playtest | opened on arrival (`open_review`) | verdicts and overall, in place (`set_reviewing`, `set_overall`); answer lock (`peek_answer`) | | | none | `reviews/{ident}.tqr.json` | playtest | `mayWriteReview` | Share and withdraw are explicit (`set_review_phase`). |
-| reviews (others') | panels › Reviews; playtest, once own is shared | | none | | | none | | Reviews panel | `mayReadReview` | Addressed (`…/reviews/{ident}`), unserved. |
+| review (own) | playtest | opened on arrival (`open_review`) | verdicts and overall, in place (`set_reviewing`, `set_overall`); answer lock (`peek_answer`) | | | none | `reviews/{userlabel}.tqr.json` | playtest | `mayWriteReview` | Share and withdraw are explicit (`set_review_phase`). |
+| reviews (others') | panels › Reviews; playtest, once own is shared | | none | | | none | | Reviews panel | `mayReadReview` | Addressed (`…/reviews/{userlabel}`), unserved. |
 | library | library modal; Export/Import › Library | | | | — (`move_widget` has no control) | none, by decision | Export/Import › Library (`import_widgets`, copy out) | `/pub/widgets` is addressed, unserved | `mayReadLibrary`, `mayChangeLibrary` | Two doors to a modal, bulk in a third place, reorder nowhere. |
 | widget | library modal (label, title); widget editor | library modal *+ New widget…*; catalogue *New widget…*; *+ New column… › A new widget…* (`add_widget`) | widget editor, explicit Apply (`edit_widget`) | none: labels are fixed | — | widget editor *Remove*, refused while a widgeting works it (`delete_widget`) | Export/Import › Library | widget editor | `mayChangeLibrary` | The one Apply/Cancel editor in the app, on purpose: an edit is global. The modal's list shows no description and no usage. |
 
@@ -95,7 +95,7 @@ them into the purposeful and the accidental.
 9. **A member's role cannot be changed.** `mayChangeMembership`'s doc block promises it; no
    action kind carries it (remove and re-add is the workaround).
 10. **The quizzes page duplicates the hunt page's Quizzes panel**, with no verb of its own.
-11. **An ident has no home.** `/~org` is the ident's address and shows a filtered hunts list; the
+11. **A user has no home.** `/~org` is the address of its hunts and shows a filtered hunts list; the
     name is retitled only at `/my/hunts`.
 12. **Delete hunt is reached only through its last quiz.** Consistent with removal from the
     outside in; worth saying so somewhere a smith can read, since the hunts list offers no delete.

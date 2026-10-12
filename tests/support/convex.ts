@@ -201,8 +201,8 @@ export async function seedHunt(tt: Tester, hunt: HuntT, { openIdx = 0, smith: sm
 export async function affirmsOf(tt: Tester, by: Pick<Labelled, 'user_id'>, place: PlaceT): Promise<AffirmsBag> {
   const { user_id } = by
   const { hunt_id, realm_id, quiz_id } = place
-  const hunting = await tt.run(async (ctx) => await huntshipFor(ctx.db, hunt_id, user_id))
-  const hunt = { user_id, hunt_id, standing: hunting?.role ?? 'stranger' } as const
+  const huntship = await tt.run(async (ctx) => await huntshipFor(ctx.db, hunt_id, user_id))
+  const hunt = { user_id, hunt_id, standing: huntship?.role ?? 'stranger' } as const
   return { hunt, quiz: { ...hunt, quiz_id }, action: { ...hunt, quiz_id, realm_id } }
 }
 
