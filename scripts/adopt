@@ -8,7 +8,7 @@
 #
 # Usage: scripts/adopt (--email <address> | --holding <userlabel> | --id <user id>)
 #          [--userlabel <userlabel>] [--title <title>] [--admin | --no-admin]
-#          [--smith <~org/hunt>]... [--reviewer <~org/hunt>]... [--smith-all | --reviewer-all]
+#          [--smith <~org/hunt>]... [--reviewer <~org/hunt>]... [--smith-all] [--reviewer-all]
 #          [--deployment <name>]
 set -euo pipefail
 cd "$(dirname "$0")/.."

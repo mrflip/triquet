@@ -111,7 +111,7 @@ async function userFound(db: Reader, find: AdoptionT['find']): Promise<Doc<'user
   }
   const holders = await db.query('users').withIndex('email', (cvx) => cvx.eq('email', find.email)).take(EmailHoldersShown)
   const [user, ...others] = holders
-  if (! user) { throw new ConvexError(`No user has the email ${find.email}. Has its owner signed in with Google?`) }
+  if (! user) { throw new ConvexError(`No user has the email ${find.email}, letter for letter as Google sent it. Has its owner signed in with Google?`) }
   if (others.length > 0) {
     throw new ConvexError(`More than one user has the email ${find.email}, so none is chosen: ${holders.map((holder) => userline(holder)).join(', ')}. Name one by its id.`)
   }

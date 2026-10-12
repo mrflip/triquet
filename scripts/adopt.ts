@@ -24,7 +24,7 @@ export type RunT = (fnpath: string, args: Record<string, unknown>) => unknown
 export const Usage = [
   'Usage: scripts/adopt (--email <address> | --holding <userlabel> | --id <user id>)',
   '         [--userlabel <userlabel>] [--title <title>] [--admin | --no-admin]',
-  '         [--smith <~org/hunt>]... [--reviewer <~org/hunt>]... [--smith-all | --reviewer-all]',
+  '         [--smith <~org/hunt>]... [--reviewer <~org/hunt>]... [--smith-all] [--reviewer-all]',
   '         [--deployment <name>]',
 ].join('\n')
 

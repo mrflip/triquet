@@ -142,7 +142,7 @@ export function convexRun(fn: string, args?: Record<string, unknown>, opts: { cw
  */
 export function failureIn(stderr: string): string {
   const lines = stderr.trim().split('\n')
-  const thrown = lines.find((line) => line.startsWith('Uncaught '))
+  const thrown = lines.slice(1).find((line) => line.startsWith('Uncaught '))
   return (thrown ? [lines[0], thrown] : lines.slice(0, 2)).join(' ')
 }
 

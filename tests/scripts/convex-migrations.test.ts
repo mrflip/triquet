@@ -113,6 +113,10 @@ describe('failureIn', () => {
     expect(ConvexMigrations.failureIn('✖ Could not reach the deployment\nIs it running?\nTried three times')).to.eq('✖ Could not reach the deployment Is it running?')
   })
 
+  it("says a first line that is itself what was thrown once, not twice", () => {
+    expect(ConvexMigrations.failureIn('Uncaught Error: Boom\n    at somewhere')).to.eq('Uncaught Error: Boom     at somewhere')
+  })
+
   it('takes what there is of a short or empty stderr', () => {
     expect([ConvexMigrations.failureIn('✖ Boom\n'), ConvexMigrations.failureIn('')]).to.deep.eq(['✖ Boom', ''])
   })
