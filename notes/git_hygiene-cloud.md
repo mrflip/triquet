@@ -38,10 +38,12 @@ reclaimed when the session idles out, and an unpushed commit goes with it. Push 
 session's branches: never `main`, never another session's branch.
 
 **Rewrite only your own branches.** A branch is this session's when every commit on it past
-`origin/main` ends with this session's `Claude-Session:` trailer (`$CLAUDE_CODE_REMOTE_SESSION_ID`
+`origin/main` carries this session's `Claude-Session:` trailer (`$CLAUDE_CODE_REMOTE_SESSION_ID`
 holds the id; `git log origin/main..origin/<branch> --format='%(trailers:key=Claude-Session,valueonly)'`
 lists them). Only such a branch may be rebased or force-pushed. One holding anyone else's commit,
-or a blank trailer, takes plain new commits on top; ask before rewriting it.
+or a blank trailer, takes plain new commits on top; ask before rewriting it. The one exception is
+`/pullchef` (`.claude/skills/pullchef/SKILL.md`), which the Coach runs to keep every open PR's
+branch rebased for merging: it pushes any of them, each with an explicit lease, and never `main`.
 
 ## 3. Prove the thread, cheaply
 

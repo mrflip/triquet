@@ -23,6 +23,13 @@ for the next PR once one merges. It stops, pushing nothing, on anything a person
 
 `--dry-run` says what it would do.
 
+Past the trivial case, with a batch of PRs open: `/pullchef`, in a cloud session or on the laptop
+(`.claude/skills/pullchef/SKILL.md`). It sorts the open PRs into stacks, writes a merge runbook as
+a GitHub issue, and keeps each coming substack rebased onto `main` with leased pushes while you
+merge its head from the PR page, so the PRs beneath turn purple. On the laptop it works in
+scratch worktrees, and a line on the spine moves only by `pnpm restack`, as `automerge` has it;
+don't run it while a sprint is landing.
+
 ## Looking at the graph
 
 ```
