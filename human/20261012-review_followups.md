@@ -1,16 +1,19 @@
 # 2026-10-12: The stack review's follow-ups, on the Coach's word
 
 What the Coach decided of the review's leftovers (`human/20261012-oauth_stack_review.md`), done as
-one PR stacked on [#231](https://github.com/mrflip/triquet/pull/231):
+one PR, now stacked on [#235](https://github.com/mrflip/triquet/pull/235) at the top of the oauth stack, which
+also carries the stack review's own fixes (moved here from #229, #230 and #231 by Pullchef on the
+Coach's word, 2026-10-12):
 
-* **An anonymous visitor not on a hunt** is now told to sign in with Google first, and then to
+* **An anonymous visitor not on a hunt** is told to sign in with Google first, and then to
   contact the smith with their handle (`sealedNotOnHuntNotice`): "You are not yet a member of this
-  hunt. Sign in with Google first — coming soon — then contact its smith, Flip (flip_kromer), and
-  give them your handle, “ada_lovelace”: a handle is put on a hunt only once it is signed in. This
-  page opens for you as soon as they add you." There is no search for a person in the app, so
-  whoever holds the link is presumed to know the smith. `NotOnHunt` takes the visitor's actor to
-  tell; the three routes that show it hand it on. The friend-link spec asserts the new sentence.
-  The two whiteboard notes that recorded the old behaviour say what it is now.
+  hunt. Sign in with Google first, then contact its smith, Flip (flip_kromer), and give them your
+  handle, “ada_lovelace”: a handle is put on a hunt only once it is signed in. This page opens for
+  you as soon as they add you." There is no search for a person in the app, so whoever holds the
+  link is presumed to know the smith. #234 (thread 6) had already built the page's part, the
+  notice, its Google button and the routes' `sealed` flag; this sets its words, without "coming
+  soon" now that the button is beside them. The friend-link spec asserts the sentence. The two
+  whiteboard notes that recorded the old behaviour say what it is now.
 * **The since-reserved userlabel that can never make its sandbox** is in `whiteboard/TODO.md`
   under a new *Not yet* heading, with the fix to make when wanted.
 * **The privacy policy's email line** stays: it reads as the broader promise the Coach may build to.

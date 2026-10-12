@@ -97,7 +97,7 @@ smith, as the relabel fix made it fail in the full run.
     `NotOnHunt` page, which tells an anonymous visitor to sign in with Google first and then ask
     a smith to add them (`sealedNotOnHuntNotice`, the stack review of 2026-10-12: the Coach's
     word is that there is no search for a person, so whoever holds the link knows the smith). An
-    anonymous smith at its own sandbox's `!playtest` reads `sealedReview` since the same review.
+    anonymous smith at its own sandbox's `!playtest` reads *Reviewing comes with Google* (thread 6).
   - **Thread 9**: a smith adding a handle learns whether that user is anonymous (the `sealedJoin`
     refusal); the privacy policy's *Who sees what* does not say so.
   - `scripts/measure-latency.ts` was already stale (a *Continue* button, `/h/` addresses); its
