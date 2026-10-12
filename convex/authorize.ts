@@ -61,7 +61,7 @@ export const Unscoped = {
   "hunts:performOuter":    "A hunt made, or named from outside any quiz: one it names is asked of the actor's claims on it (`claimsFor`)",
   "widgets:library":       "The library belongs to no hunt: every hunt sees the same one",
   "widgets:usage":         "Counts the widgetings of every hunt, and hands back counts only (`Approve.mayCountUsage`)",
-  "stats:backfills":       "How far each backfill has run: the migrations component's state, of no hunt, names and counts only, for an admin (`Approve.mayReadBackfills`)",
+  "stats:backfills":       "How far each backfill has run: the migrations component's state, of no hunt, names and counts only, for an admin, or for anyone where the deployment sets `EXPOSE_INTERNAL_STATS_TO_ALL` (`Approve.mayReadBackfills`)",
 } as const satisfies Record<string, string>
 
 /** Affirms of any shape `affirmForHunt` checks: of a hunt, and perhaps a quiz of it, and that quiz's realm */

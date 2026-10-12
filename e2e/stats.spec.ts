@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test'
 import { version as convexVersion } from 'convex'
 import { assumeIdent, expect, test } from './support'
 
-// The stats page is an admin's, and about no hunt, so each test goes there itself.
+// The stats page's backfills are an admin's here (a local backend leaves EXPOSE_INTERNAL_STATS_TO_ALL unset), and it is about no hunt, so each test goes there itself.
 test.use({ startAt: null })
 
 const require = createRequire(import.meta.url)
@@ -40,12 +40,13 @@ test('names the build and what the browser runs, says it is connected, and shows
   await expect(backfills.getByRole('columnheader', { name: 'State' })).toBeVisible()
   // The header, then a row for each backfill this deployment defines.
   await expect(backfills.getByRole('row').nth(1)).toBeVisible()
-  await expect(page.getByText('Only an admin sees these')).toHaveCount(0)
+  // Exact, since the page prints the commit message, which may quote this line
+  await expect(page.getByText('Only an admin sees these: choose a handle first.', { exact: true })).toHaveCount(0)
 })
 
 test('tells a browser that has not said who it is nothing of the backfills', async ({ page }) => {
   await page.goto('/stats')
-  await expect(page.getByText('Only an admin sees these: choose a handle first.')).toBeVisible()
+  await expect(page.getByText('Only an admin sees these: choose a handle first.', { exact: true })).toBeVisible()
   await expect(page.getByRole('table', { name: 'Backfills' })).toHaveCount(0)
   // The rest of the page is anyone's.
   await expect(factOf(page, 'Connected')).toHaveText(/^yes, /)

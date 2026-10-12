@@ -6,8 +6,11 @@ import { Backfills } from '../../convex/migrations'
 import { Hunt } from '../../src/models/hunt'
 import { identified, openTester, seedHunt, signedIn } from '../support/convex'
 
-beforeEach(() => { vi.useFakeTimers() })
-afterEach(() => { vi.useRealTimers() })
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.stubEnv('EXPOSE_INTERNAL_STATS_TO_ALL', undefined) // Whatever the shell holds, the deployment has not said
+})
+afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs() })
 
 describe("stats.backfills", () => {
   it("answers null to anyone who is no admin: no session, or a session with no userlabel", async () => {
@@ -16,6 +19,30 @@ describe("stats.backfills", () => {
     const session = await signedIn(tt)
     expect([await tt.query(api.stats.backfills, {}), await session.as.query(api.stats.backfills, {})]).to.deep.eq([null, null])
   })
+
+  it("lists the backfills to anyone, with no session or no userlabel, where the deployment sets EXPOSE_INTERNAL_STATS_TO_ALL to true, and to an admin as ever", async () => {
+    vi.stubEnv('EXPOSE_INTERNAL_STATS_TO_ALL', 'true')
+    const tt = openTester()
+    migrationsTest.register(tt)
+    const session = await signedIn(tt)
+    const { as } = await identified(tt, 'pat_smiths')
+    const listed = await as.query(api.stats.backfills, {})
+    expect(listed).to.be.an('array').with.length.greaterThan(0)
+    expect(await tt.query(api.stats.backfills, {})).to.deep.eq(listed)
+    expect(await session.as.query(api.stats.backfills, {})).to.deep.eq(listed)
+  })
+
+  for (const exposeval of ['false', undefined]) {
+    it(`keeps the backfills an admin's where EXPOSE_INTERNAL_STATS_TO_ALL is ${String(exposeval)}`, async () => {
+      vi.stubEnv('EXPOSE_INTERNAL_STATS_TO_ALL', exposeval)
+      const tt = openTester()
+      migrationsTest.register(tt)
+      const session = await signedIn(tt)
+      const { as } = await identified(tt, 'pat_smiths')
+      expect([await tt.query(api.stats.backfills, {}), await session.as.query(api.stats.backfills, {})]).to.deep.eq([null, null])
+      expect(await as.query(api.stats.backfills, {})).to.be.an('array')
+    })
+  }
 
   it("lists each backfill still defined as never run, to an admin, on a deployment that has run none", async () => {
     const tt = openTester()

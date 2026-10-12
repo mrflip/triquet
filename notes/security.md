@@ -7,6 +7,10 @@ security expert who knows what questions to ask.
 
 ## Of Interest
 
+* 2026-10-12: a deployment that sets `EXPOSE_INTERNAL_STATS_TO_ALL=true` answers `stats:backfills` to
+  anyone, with or without a session: the name, state and row count of every backfill it defines or
+  has run, which says roughly how many rows it holds, of every hunt. `false` or unset, it is an admin's
+  (`Approve.mayReadBackfills`). The rest of `/stats` (the build) was always anyone's.
 * 2026-10-07: we allow the results of external bot calls (an `aibot` column's answer) to enter the
   column => Liquid => markdown => sanitizer => HTML pipeline, and the bbjank one beside it,
   wherever a field template or the recap template names that column (`src/lib/templating.ts`).

@@ -125,7 +125,7 @@ const StateColors: Record<BackfillStatusT['state'], 'success' | 'info' | 'error'
   unknown:    'default',
 }
 
-/** The deployment's backfills, those still defined first; a state of `unknown` is one never run here. An admin's alone. */
+/** The deployment's backfills, those still defined first; a state of `unknown` is one never run here. An admin's, or anyone's where the deployment exposes them. */
 function Backfills({ backfills }: Readonly<{ backfills: readonly BackfillStatusT[] | null | undefined }>) {
   if (backfills === undefined) { return <Typography variant="body2" color="text.secondary">Asking the deployment…</Typography> }
   if (backfills === null) { return <Typography variant="body2" color="text.secondary">Only an admin sees these: choose a handle first.</Typography> }

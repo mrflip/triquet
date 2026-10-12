@@ -17,8 +17,9 @@ follow the other.
 
 **What is live** is said at `/stats`, linked from nowhere: the commit the build came from, the pull
 request its merge names (number, title, description) and the commits it brought in, when it was
-built, a link to every change since the deployment before, and, to an admin (`Actor.isAdmin`),
-how far each backfill has run on the deployment it talks to. The build's facts are gathered as the page is prerendered
+built, a link to every change since the deployment before, and, to an admin (`Actor.isAdmin`), or
+to anyone where the deployment sets `EXPOSE_INTERNAL_STATS_TO_ALL`, how far each backfill has run
+on the deployment it talks to. The build's facts are gathered as the page is prerendered
 (`src/lib/build-stamp.ts`), from Vercel's git variables, or git itself elsewhere; each is a best
 effort, and a shallow clone may list no commits.
 
@@ -70,7 +71,9 @@ effort, and a shallow clone may list no commits.
   every userlabel, which only a local backend should have). Unset, nobody is an admin. Production:
   `./scripts/doppledo prd_janitor npx convex env set TRIQUET_ADMINS mrflip`. Previews take it from
   the same defaults; a local backend gets `*` from `scripts/convex_dev` unless `TRIQUET_ADMINS` is
-  in its environment.
+  in its environment. A fifth, `EXPOSE_INTERNAL_STATS_TO_ALL`, shows `/stats`'s backfills to
+  everyone rather than to an admin alone: `true` (`./scripts/doppledo prd_janitor npx convex env set
+  EXPOSE_INTERNAL_STATS_TO_ALL true`); `false` or unset, they stay an admin's, and any other value is refused.
 * **GitHub Actions** (`.github/workflows/ci.yml`) typechecks, lints, tests, builds and runs e2e
   (against the optimized build) on every pull request and every push to `main`, and checks that
   `convex/_generated/` was committed as the functions regenerate it. Every job runs against a local backend or none; CI
