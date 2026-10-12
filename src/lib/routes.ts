@@ -131,15 +131,17 @@ const PathBase = 'https://app.invalid'
 /**
  * `raw` read as a browser would read it, when it is a path on this site: it begins with one `/`,
  * holds no backslash (which a browser reads as a slash), and, read against an origin of our own,
- * stays on it. A browser drops tabs and newlines from an address before it reads it, so
- * `/<tab>/elsewhere.example` is `//elsewhere.example`, another site: reading it as the browser
- * will, rather than by its first characters, is what refuses it. Null for anything else: what
- * `thenFrom` and `isSyncedPath` both read a path by.
+ * stays on it, its path as read beginning with one `/` too. A browser drops tabs and newlines from
+ * an address before it reads it, so `/<tab>/elsewhere.example` is `//elsewhere.example`, another
+ * site: reading it as the browser will, rather than by its first characters, is what refuses it.
+ * And it resolves dot segments, so `/.//elsewhere.example` reads as the path
+ * `//elsewhere.example`, which, written out again, names another site. Null for anything else:
+ * what `thenFrom` and `isSyncedPath` both read a path by.
  */
 function onSite(raw: string): URL | null {
   if (! raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) { return null }
   const url = new URL(raw, PathBase)
-  return url.origin === PathBase ? url : null
+  return url.origin === PathBase && ! url.pathname.startsWith('//') ? url : null
 }
 
 /**

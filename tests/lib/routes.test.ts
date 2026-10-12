@@ -119,6 +119,10 @@ describe('Routes.thenFrom', () => {
     ['/\r\n/elsewhere.example/',    'another site, behind a carriage return and newline'],
     ['/\t\\elsewhere.example/',     'another site, behind a tab and a backslash'],
     [String.raw`/my\hunts`,         'a path holding a backslash'],
+    ['/.//elsewhere.example/',      'another site, once a dot segment is resolved'],
+    ['/my/..//elsewhere.example/',  'another site, once a double dot segment is resolved'],
+    ['/%2e//elsewhere.example/',    'another site, behind an escaped dot segment'],
+    ['/./\t/elsewhere.example/',    'another site, behind a dot segment and a tab'],
   ] as const
   for (const [raw, story] of Refused) {
     it(`refuses ${story}`, () => {
@@ -207,6 +211,7 @@ describe("Routes.isSyncedPath", () => {
     ["/api/ask",                                                    false, 'a route handler'],
     ["/favicon.ico",                                                false, 'a file'],
     ["/h/../privacy",                                               false, 'the privacy policy, by way of a dot segment'],
+    ["/.//my/hunts",                                                false, 'a path beginning // once its dot segment is resolved'],
     ["https://example.com/my/hunts",                                false, 'another site'],
     ["//example.com/my/hunts",                                      false, 'another site, without its scheme'],
     [String.raw`/\example.com`,                                    false, 'a backslash a browser may read as a slash'],
