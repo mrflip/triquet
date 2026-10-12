@@ -121,16 +121,23 @@ export function isUnfinished(started: string, token: string | null): boolean {
 /**
  * Which session a Convex Auth token is of: the session's id, after the user's in the token's
  * subject (`<user>|<session>`), read without checking the token's signature, which only the
- * deployment can and does; `none` for no session. A refreshed token keeps it, and a new sign-in
- * changes it. The id is no credential: it names the session, and grants nothing.
+ * deployment can and does; `none` for no session, or a token it cannot read (local storage holds
+ * whatever was last written there, and Convex Auth never reads it). A refreshed token keeps it, and
+ * a new sign-in changes it. The id is no credential: it names the session, and grants nothing.
  *
  * @example sessionOf(null)  // => 'none'
  * @example sessionOf(token)  // => 'k57a…', for a token whose subject is 'j97b…|k57a…'
+ * @example sessionOf('garbage')  // => 'none'
  */
 export function sessionOf(token: string | null): string {
   if (token === null) { return 'none' }
-  const [, session] = decodeJwt(token).sub?.split(SubjectDivider) ?? []
-  return session ?? 'none'
+  try {
+    const { sub } = decodeJwt(token)
+    const [, session] = typeof sub === 'string' ? sub.split(SubjectDivider) : []
+    return session ?? 'none'
+  } catch {
+    return 'none'
+  }
 }
 
 /**

@@ -66,6 +66,9 @@ describe('sessionOf', () => {
     [tokenOf("j97b|m12c"),        "m12c", "another session's, for the same user"],
     [null,                        "none", 'none, for no session'],
     [tokenOf("j97b"),             "none", 'none, for a subject naming no session'],
+    ["garbage",                   "none", 'none, for a token that is no JWT'],
+    ["",                          "none", 'none, for an empty token'],
+    [new UnsecuredJWT({ sub: 5 } as unknown as { sub: string }).encode(), "none", 'none, for a subject that is no string'],
   ]
   for (const [token, expected, describes] of Cases) {
     it(`is ${describes}`, () => {
