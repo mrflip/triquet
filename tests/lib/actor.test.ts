@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
+import { User } from '../../src/models/user'
 
 const user_id  = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
 const other_id = 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'users'>
@@ -21,6 +22,12 @@ describe('Actor.unlabelled', () => {
 describe('Actor.ofUser', () => {
   it('is the actor of a user holding a userlabel, by its own userlabel and title', () => {
     expect(Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip' }, Production)).to.deep.eq({ kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: false })
+  })
+
+  it("titles a user holding a userlabel and no title by its userlabel titleized, as its face is titled (`User.titleOf`)", () => {
+    const actor = Actor.ofUser(user_id, { userlabel: 'flip_kromer', isAnonymous: true }, Production)
+    expect(actor.kind === 'user' && actor.usertitle).to.eq('Flip Kromer')
+    expect(actor.kind === 'user' && actor.usertitle).to.eq(User.faceOf({ _id: user_id, userlabel: 'flip_kromer' })?.title)
   })
 
   it('is the unlabelled actor for a user holding no userlabel yet, anonymous or not, admin or not', () => {

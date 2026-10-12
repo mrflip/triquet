@@ -61,7 +61,8 @@ export const UserValidators = Validator(({ obj, str, num, bool, zid, userlabel, 
     // Ours
     userlabel:             held.optional()
       .describe('The user\'s userlabel, absent until chosen.'),
-    title:                 title.optional(),
+    title:                 title.optional()
+      .describe('What the user is called on screen; set with its userlabel, which titleized stands in for a title it lacks (`User.titleOf`).'),
     admin:                 bool.optional()
       .describe('Whether the user looks after what belongs to no hunt (the library): set only from the command line, absent for no. Read in one place, as the actor is built (`Actor.ofUser`), and counted only for a user signed in with Google.'),
     merged:                merged.optional(),
@@ -327,6 +328,18 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
   }
 
   /**
+   * What `user`, holding the userlabel `userlabel`, is called on screen: its title, or its
+   * userlabel titleized when it has none. The one fallback, read wherever a user is named (the
+   * actor, a face), so that every copy of the title agrees.
+   *
+   * @example User.titleOf({ userlabel: 'flip_kromer', title: 'Flip' })  // => 'Flip'
+   * @example User.titleOf({ userlabel: 'flip_kromer' })                 // => 'Flip Kromer'
+   */
+  static titleOf(user: Pick<UserRowT, 'title'> & { userlabel: string }): string {
+    return user.title ?? Labelmaker.titleize(user.userlabel)
+  }
+
+  /**
    * Whether `user` is anonymous: signed in with no proof of who holds it, and so sealed in its
    * sandbox (`Approve`). Convex Auth's `isAnonymous`, absent for no.
    *
@@ -345,6 +358,6 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    */
   static faceOf(user: Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous'> & { _id: Id<'users'> }): UserFaceT | null {
     if (user.userlabel === undefined) { return null }
-    return { _id: user._id, userlabel: user.userlabel, title: user.title ?? Labelmaker.titleize(user.userlabel), anonymous: this.isAnonymous(user) }
+    return { _id: user._id, userlabel: user.userlabel, title: this.titleOf({ ...user, userlabel: user.userlabel }), anonymous: this.isAnonymous(user) }
   }
 }

@@ -211,6 +211,16 @@ describe('User.titleFor', () => {
   })
 })
 
+describe('User.titleOf', () => {
+  it("is the user's title, when it has one", () => {
+    expect(User.titleOf({ userlabel: 'flip_kromer', title: 'Flip' })).to.eq('Flip')
+  })
+
+  it("is the userlabel titleized, for a user with none", () => {
+    expect(User.titleOf({ userlabel: 'flip_kromer' })).to.eq('Flip Kromer')
+  })
+})
+
 describe('User.anonymous', () => {
   it('is an anonymous user holding no userlabel, as an anonymous sign-in makes one', () => {
     expect(User.anonymous()).to.deep.eq({ isAnonymous: true })

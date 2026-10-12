@@ -59,6 +59,7 @@ export function isSignedInWithGoogle(user: Pick<UserRowT, 'isAnonymous'>): boole
  *
  * @example Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', isAnonymous: true }, { everyoneAdmin: false })  // => { kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: true }
  * @example Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', admin: true, isAnonymous: true }, { everyoneAdmin: false })  // => { ..., admin: false, anonymous: true }
+ * @example Actor.ofUser(user_id, { userlabel: 'flip_kromer', isAnonymous: true }, { everyoneAdmin: false })                 // => { ..., usertitle: 'Flip Kromer' }, as `User.titleOf` titles a user with no title
  * @example Actor.ofUser(user_id, { isAnonymous: true }, { everyoneAdmin: true })  // => Actor.unlabelled
  */
 export function ofUser(user_id: Id<'users'>, user: Pick<UserRowT, 'userlabel' | 'title' | 'admin' | 'isAnonymous'>, deployment: DeploymentT): ActorT {
@@ -68,7 +69,7 @@ export function ofUser(user_id: Id<'users'>, user: Pick<UserRowT, 'userlabel' | 
     kind:      'user',
     user_id,
     userlabel,
-    usertitle: user.title ?? userlabel,
+    usertitle: User.titleOf({ ...user, userlabel }),
     admin:     (user.admin === true && isSignedInWithGoogle(user)) || deployment.everyoneAdmin,
     anonymous: user.isAnonymous === true,
   }
