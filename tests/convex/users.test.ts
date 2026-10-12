@@ -4,6 +4,7 @@ import type { Id } from '../../convex/_generated/dataModel'
 import { userForUserlabel } from '../../convex/reading'
 import { RefusalNotices } from '../../src/lib/notices'
 import { failurekindOf, noticeOf } from '../../src/lib/refusals'
+import * as PA from '../../src/lib/vv/patterns'
 import { Quiz } from '../../src/models/quiz'
 import type { OwnUserT } from '../../src/models/user'
 import { present } from '../support/present'
@@ -288,6 +289,15 @@ describe('users.own', () => {
     const tt = openTester()
     expect(await toldOf(await googleUnlabelled(tt, { name: 'Google Fan' }), 'suggested')).to.deep.eq({ userlabel: null, title: 'Google Fan' })
     expect(await toldOf(await googleUnlabelled(tt, {}), 'suggested')).to.deep.eq({ userlabel: null, title: '' })
+  })
+
+  it('offers a Google name longer than a title may be shortened to one, which the front door can then take as it is offered', async () => {
+    const tt = openTester()
+    const session = await googleUnlabelled(tt, { name: `Flip ${'Kromer '.repeat(14)}the Last` })
+    const suggested = present(await toldOf(session, 'suggested'))
+    expect(suggested.title).to.have.length.within(1, PA.Titleish.max)
+    await assume(session, present(suggested.userlabel), suggested.title)
+    expect(await fieldOf(tt, session.user_id, 'title')).to.eq(suggested.title)
   })
 
   it('tells a user a merge left a name choice which two handles it is between', async () => {

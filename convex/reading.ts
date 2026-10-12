@@ -8,6 +8,7 @@ import type { HuntT } from '../src/models/hunt'
 import type { QuizT } from '../src/models/quiz'
 import * as Actor from '../src/lib/actor'
 import * as Labelmaker from '../src/lib/labelmaker'
+import * as SS from '../src/lib/strings'
 import { User, type NameChoiceT, type OwnUserT, type UserFaceT } from '../src/models/user'
 
 // Every read here goes through an index, and takes at most the cap `lib/vv/patterns.ts` sets for
@@ -71,12 +72,12 @@ export async function ownUserOf(db: Reader, user_id: Id<'users'>): Promise<OwnUs
 
 /**
  * What the front door offers a user signed in with Google that holds no userlabel: its Google
- * name as its title, and the first of `User.suggestionsFor` that is free (`holderOfUserlabel`:
- * held by no user, retired by no ghosting, and no hunt's address), asked one after another, so
- * the usual case reads three rows.
+ * name as its title, shortened to what a title may be (`PA.Titleish`), and the first of
+ * `User.suggestionsFor` that is free (`holderOfUserlabel`: held by no user, retired by no
+ * ghosting, and no hunt's address), asked one after another, so the usual case reads three rows.
  */
 async function suggestedFor(db: Reader, user: Pick<Doc<'users'>, 'name' | 'email'>): Promise<NonNullable<OwnUserT['suggested']>> {
-  const title = user.name?.trim() ?? ''
+  const title = SS.shorten(user.name ?? '', PA.Titleish.max)
   for (const userlabel of User.suggestionsFor(user)) {
     if (await holderOfUserlabel(db, userlabel) === null) { return { userlabel, title } }
   }
