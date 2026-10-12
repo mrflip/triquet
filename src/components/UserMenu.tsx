@@ -57,7 +57,7 @@ export function UserMenu({ user }: Readonly<UserMenuProps>) {
       >
         {user !== null && me !== null && <Whoami me={me} own={own} onRetitle={user.onRetitle} />}
         {user !== null && me === null && own?.google === true && <SignedInAs own={own} />}
-        {user !== null && me !== null && own?.google === false && (
+        {user !== null && me !== null && own?.google === false && user.google.offered && (
           <Box sx={{ px: 2, pb: 1.5, maxWidth: 320 }}><GoogleSignInOffer reason={keepHandleNotice(me.userlabel)} /></Box>
         )}
         {user !== null && (me !== null || own?.google === true) && <Divider />}
