@@ -177,7 +177,9 @@ security expert who knows what questions to ask.
     `/~any/hunt/nothing`) passed, landed on a page not found (which mounts no provider), and left
     the code in the address its whole 2 minutes. It now matches each page's whole path: an org's
     address as `Addresses.locationFrom` reads it, for exactly the kinds its pages show (a mode for
-    a quiz alone), as those pages read their own; every other synced page shape for shape, each
+    a quiz alone), as those pages read their own, and written exactly as `Addresses.urlOf` writes it
+    (the reader unescapes `quizze%73` to `quizzes`, which the router does not, so it is not found:
+    the second review of thread 5r); every other synced page shape for shape, each
     label slot a label; no trailing slash. `tests/lib/routes.test.ts` walks `src/app/(synced)/`
     and fails if a page is refused or a folder holding none is allowed. Chosen over a root
     `not-found.tsx` that mounts the provider: that would open the database, and sign a new

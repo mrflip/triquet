@@ -81,7 +81,7 @@ const ModedKinds: ReadonlySet<Addresses.AddressKind> = new Set(['quiz'])
 /**
  * Whether `path` names a page of this app that opens the database (`src/app/(synced)/`), and so
  * spends a sign-in's code the moment a browser is sent back to it: the front door; an org's
- * address (`/~…`, unescaped) naming what one of its pages shows, read by `Addresses.locationFrom` as those pages read
+ * address (`/~…`, written as the app writes it, nothing escaped) naming what one of its pages shows, read by `Addresses.locationFrom` as those pages read
  * it; or one of the app's other synced pages, shape for shape. A path that reaches no page
  * (`/h/quiet_otter/home`, `/~pat_smith/quiet_otter/nothing`) is not, since a page not found opens
  * no database; nor is a page that never opens one (`/privacy`), an address of another site, one
@@ -107,12 +107,17 @@ export function isSyncedPath(path: string): boolean {
   return segs[0]?.startsWith('~') ? isOrgPage(pathname) : SyncedShapes.some((shape) => fitsShape(segs, shape))
 }
 
-/** Whether an org's address names what one of its pages shows, in a mode only where that page takes one */
+/**
+ * Whether an org's address names what one of its pages shows, in a mode only where that page takes
+ * one, written as the app writes it (`Addresses.urlOf`): the router matches a page's own words
+ * (`quizzes`, `categories`) unescaped, so `quizze%73`, which the reader would take for them, is
+ * not found.
+ */
 function isOrgPage(pathname: string): boolean {
   const location = Addresses.locationFrom(pathname)
   if (location === null || location.raw) { return false }
-  const { kind } = location.address
-  return OrgPageKinds.has(kind) && (location.mode === null || ModedKinds.has(kind))
+  const { address, mode } = location
+  return OrgPageKinds.has(address.kind) && (mode === null || ModedKinds.has(address.kind)) && Addresses.urlOf(address, mode ?? undefined) === pathname
 }
 
 /** Whether a path's segments are a page's shape: as many, each the word the shape names, or a label where it takes any */
