@@ -102,9 +102,13 @@ Then start the next thread (step 1).
 
 ## 6. See each PR through
 
-The session watches every PR it opens. A red CI run, a merge conflict, or a review comment is
-yours to answer: fix and push, or say in one comment why not. More commits for a PR go on its own
-branch, pushed the same way. Never merge, and never enable auto-merge.
+The session watches a PR it opens until CI is green and the PR is ready, then unsubscribes
+(`unsubscribe_pr_activity`) unless the Coach asks otherwise: every event wakes the session on its
+whole context, and at the end of a thread that is the dearest context it will have, mostly to read
+a bot's notice. Until then, a red CI run, a merge conflict, or a review comment is yours to answer:
+fix and push, or say in one comment why not. After you unsubscribe, a new push of yours to that
+PR's branch puts you back on the hook: subscribe again and watch it to green. More commits for a
+PR go on its own branch, pushed the same way. Never merge, and never enable auto-merge.
 
 **Vercel is not CI.** A preview is built only when the PR opens, reopens or is marked ready, and
 when someone adds the `preview` label (`.github/workflows/preview.yml`). It is never built by a

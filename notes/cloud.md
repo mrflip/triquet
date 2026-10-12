@@ -48,7 +48,7 @@ One branch and one PR per thread, all worked in the clone: a session may file se
 short: cut each thread's branch from `origin/main` (or from the thread it builds on),
 commit and push as you go, prove cheaply (the corner or the smoke tier; CI runs the rest), rebase
 onto `origin/main` (never merge it in), open the PR ready for review with the GitHub MCP tools,
-and see it through CI and review.
+and watch it until CI is green and it is ready, then unsubscribe unless the Coach asks otherwise.
 
 `human/` and `whiteboard/` entries are committed on the thread's branch: there is no sweep to
 carry them, and the PR is how they reach the Coach.
