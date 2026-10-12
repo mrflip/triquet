@@ -16,7 +16,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 6 | `google_ui`: signing in, from both doors | landed #234 | `20261012-google_ui` | [#234](https://github.com/mrflip/triquet/pull/234) |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
-| 9 | `oauth_security`: a strong review | underway | `20261012-oauth_security` | |
+| 9 | `oauth_security`: a strong review | landing (full e2e, the sprint's closing run) | `20261012-oauth_security` | |
 
 Full e2e runs at landing: threads 3 and 5, and every fourth landing (thread 8 carries the fourth). So far every landing's `--touched` ran the whole suite: 7 (299/299), 2 (293/293), 1 (299/299), no flakes.
 
@@ -313,6 +313,30 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   sign-out can leave a handle-less anonymous user (the anonymous sign-in races the reload;
   holding it off interacts with page-hold's beforeunload prompt), and a write in flight at
   sign-out goes without auth.
+
+## Thread 9's findings, for the Coach
+
+*Orchestrator:* thread 9 reviewed `29850126...bbbcd155` (`/code-review high`, `security-review`,
+`convex-reviewer`, and every public function's authorization by hand). The recorded decisions were
+carried out. One fix: the front door's `?then=` open redirect (tabs and newlines), through a
+shared `onSite` reader. *Review: fixed.* That fix opened a dot-segment redirect
+(`/?then=/.//evil.example` read as `//evil.example`), now refused; and `new URL` threw on an
+unparseable address (crashing the front door, and the redirect callback), now null. Left, in `notes/security.md` and TODO, full detail in
+`oauth-security-review.md`:
+
+* **F2, decide before production's keys:** `hunts:open` lists any hunt's smiths' handles and
+  titles to any caller; `/h/<label>` looks across every org, and labels are guessable (about
+  430,000), so a script lists every hunt's smiths. Since thread 6, titles start as the Google name.
+* **F3, decide before production's keys:** Convex Auth signs a verifier as often as asked, so a
+  leaked verifier id still upgrades or merges for its 15 minutes. "Sign a verifier once" would
+  be a fifth part to the patch.
+* **F4:** `adopt --email` trusts Google's email claim (`email_verified` dropped).
+* **F5:** `isSignedInWithGoogle` is `isAnonymous !== true`, so a row missing the field counts as
+  Google; recommend failing closed.
+* **F6:** `adopt`'s sandbox reach, second sandbox, and a relabel leaving the old handle free.
+* **F7:** `sealedJoin` reveals anonymity; the policy doesn't say so.
+* **F8:** sign-out leaves hunt histories (IndexedDB) for the next person at a shared browser.
+* **F9:** `/api/ask` answers any POST (O1); bring-your-own-key can now go ahead.
 
 ## For thread 9: what the sprint has gathered
 
