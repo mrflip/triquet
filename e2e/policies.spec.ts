@@ -28,13 +28,18 @@ test.describe('the footer', () => {
 
 test.describe('the privacy policy and the terms', () => {
   test('show without the database, which they never open', async ({ page, baseURL }) => {
-    // With the database unreachable no page that reads it gets past its opening notice.
+    // With the database unreachable no page that reads it gets past its opening notice; and a page
+    // that never opens it makes no connection to any host but the app's own.
     const appHost = new URL(String(baseURL)).host
+    const elsewhere: string[] = []
+    page.on('websocket', (socket) => { if (new URL(socket.url()).host !== appHost) { elsewhere.push(socket.url()) } })
+    page.on('request', (request) => { if (new URL(request.url()).host !== appHost) { elsewhere.push(request.url()) } })
     await page.routeWebSocket((url) => url.host !== appHost, (socket) => { void socket.close() })
     await page.goto('/privacy')
     await expect(page.getByRole('heading', { name: 'Who sees what' })).toBeVisible()
     await page.goto('/terms')
     await expect(page.getByRole('heading', { name: 'Your content is yours' })).toBeVisible()
+    expect(elsewhere).toEqual([])
   })
 
   test('link each other', async ({ page }) => {
