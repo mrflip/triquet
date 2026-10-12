@@ -115,10 +115,11 @@ it and the ways to act on it and read it back, and the sessions a test calls as 
   integrity is a new entry there.
 
 The browser's hooks (`src/state/use-*.ts`) are not unit tested: what they add to the functions is
-React's and Convex's client's, and the e2e suite drives them. The one exception is how `useSession`
-meets Convex Auth's provider when a browser comes back from Google (`use-session.dom.test.tsx`,
-below), which no e2e test can reach, since nothing automated signs in to Google. Anything pure inside one (`placeIn`
-in `use-hunt`) is exported and tested on its own.
+React's and Convex's client's, and the e2e suite drives them. The exceptions are the hooks that
+meet Convex Auth's provider when a browser comes back from Google (`use-session.dom.test.tsx` and
+`use-google-sign-in.dom.test.tsx`, below), which no e2e test can reach, since nothing automated
+signs in to Google. Anything pure inside one (`placeIn` in `use-hunt`) is exported and tested on its
+own.
 
 A view is unit tested only for what it chooses to say: a notice in place of the page, a dash in
 place of a zero. Such a test is a `tests/**/*.test.tsx`, and reads the view through `renderedText`
@@ -132,9 +133,11 @@ Vitest's `dom` project, under happy-dom, and renders a screen with `react-dom/cl
 their identity until the test changes them, as the client's do). It counts renders by spying on a
 function each render calls once (`QuizRoute.dom.test.tsx` counts the Workbench by its offers and a
 row by its grip), and asserts the counts: the guard on a memo. It is not for asserting what a
-view looks like or does. The same project holds one other test: `tests/state/use-session.dom.test.tsx`
-renders Convex Auth's real provider over a stand-in client, to prove that a browser back from
-Google with `?code=` in its address is never signed in anonymously while the code is exchanged.
+view looks like or does. The same project holds two other tests, each rendering Convex Auth's real
+provider over a stand-in client: `tests/state/use-session.dom.test.tsx`, to prove that a browser
+back from Google with `?code=` in its address is never signed in anonymously while the code is
+exchanged; and `tests/state/use-google-sign-in.dom.test.tsx`, to prove that a tab back from a
+sign-in that did not finish says so, and one that did says nothing.
 
 ## Validation Boundaries
 
