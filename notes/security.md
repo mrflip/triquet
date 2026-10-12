@@ -71,6 +71,39 @@ security expert who knows what questions to ask.
   Google would have sent it, for the user menu's spec), and `testing:mergeInto` marks one user
   merged into another (the mark alone: no sandbox handed on, no session ended), so e2e can reach
   the name choice. Neither is a provider, and neither signs anyone in.
+* 2026-10-12 (oauth sprint, thread 9, the sprint's review; whole review in
+  `whiteboard/20261010-oauth/oauth-security-review.md`). Left open, each for a Coach:
+  - `hunts:open` names a hunt's smiths (handle and title) to any caller not on it, with no session
+    needed, and from an old address (`/h/<label>`, `orglabel` null) finds a hunt by its label
+    across every org. Hunt labels are drawn from about 430,000 adjective_animal pairs, so a
+    script can list the smiths of every hunt; a title signed in with Google starts as the Google
+    name (the front door offers it). The privacy policy says smiths are shown to whoever opens an
+    address.
+  - Convex Auth's sign-in route (`/api/auth/signin/google?code=<verifier id>`) signs any verifier
+    still there, as often as asked, so within its 15 minutes (`SIGN_IN_START_MAX_AGE_MS`) a leaked
+    verifier id still upgrades or merges the starting browser's anonymous user into the leaker's
+    Google account; once the starting browser's own visit has signed it, nothing needs it signed
+    again.
+  - `adopt:perform` finds a user by the `email` on its row, which a Google sign-in copies from
+    Google's profile without `email_verified` (dropped by Auth.js's Google profile and by
+    `UserValidators.googleProfile`); the dry run names the user by id and handle alone.
+  - "Signed in with Google" is `isAnonymous !== true` (`User.isAnonymous`, `Actor.isSignedInWithGoogle`):
+    a user row without the field counts as signed in with Google, unsealed and able to be an admin.
+    Every writer of `users` sets it today.
+  - `adopt --smith-all` (and `--smith ~anon/anon`) puts a user on anonymous users' sandboxes past
+    sealing; `adopt` relabelling an anonymous user that holds a sandbox lets it make a second
+    (`mayMakeHunt` reads only label == userlabel); a userlabel `adopt` relabels a user away from is
+    left free, with no ghosting.
+  - A smith adding a handle learns from the refusal (`sealedJoin`) that its user is anonymous; the
+    privacy policy does not say so.
+  - *Sign out* leaves the hunt histories (the in-browser git mirrors) in the browser's storage for
+    whoever uses it next; the question before it does not say so.
+  - `/api/ask` still answers any POST on the server's Anthropic key (TODO, O1), now that the sign-in
+    the Coach meant to hang bring-your-own-key on exists.
+* 2026-10-12 (oauth sprint, thread 9): the front door sends a visitor who holds a handle on to
+  its `?then=` (`Routes.thenFrom`), which is read as the browser reads an address (`onSite`, shared
+  with `isSyncedPath`): the browser drops tabs and newlines first, so `/<tab>/elsewhere.example`,
+  which a test of its first characters passed, is another site and refused.
 * 2026-10-11 (oauth sprint, thread 3): `testing:vouchFor`, an internal mutation refused on any
   deployment without `TRIQUET_CLEARABLE=yes`, marks a user no longer anonymous, standing in for a
   Google sign-in so e2e can test what sealing keeps from anonymous users. It is no provider and

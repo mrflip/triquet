@@ -434,11 +434,13 @@ headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (abo
   needs no `eval`. An `img-src` rule could also answer O9. (Coach, 2026-10-08.)
 * **O1, the ask route answers any POST** on the server's Anthropic key (Opus tier, `max_tokens` as
   asked): no session, no rate limit. *Coach, 2026-10-08:* once there is OAuth, asking becomes
-  bring-your-own-key.
+  bring-your-own-key. *The oauth sprint's thread 9 (2026-10-12):* Google sign-in exists now, and
+  the route is as open as it was.
 * ~~**O3, unheld legacy idents.**~~ *Struck by the oauth sprint's thread 3 (2026-10-11):* idents are
   gone, and with them the ident nobody held (`claimFor`); a userlabel is now a user's, set once,
   and free only while nothing holds it (`holderOfUserlabel`). Its other half stands: `hunts.open`
-  tells anyone with a userlabel a hunt's smiths' handles, which thread 9 (`oauth_security`) weighs.
+  tells anyone a hunt's smiths' handles and titles, with no session needed. Weighed by thread 9
+  (`oauth_security`): see *From oauth sprint, thread 9*, below.
 * **O9, info.** An image may be any `https` address, the viewer's own network included.
 
 ## From perf_improvements sprint, thread 1: spine_test_split
@@ -487,3 +489,38 @@ headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (abo
   write not yet sent would go without auth (and be refused). Page-hold's prompt appears, but the
   sign-out question says nothing of pending work. Asking page-hold first, or saying so in the
   question, would close it.
+
+## From oauth sprint, thread 9: oauth_security
+
+The sprint's security review: `whiteboard/20261010-oauth/oauth-security-review.md` has each
+finding's evidence and the recommendation; `notes/security.md` (2026-10-12, thread 9) briefs them.
+Fixed in the thread: the front door's `?then=` open redirect. Left, each a Coach's call:
+
+* **Smiths listed to strangers, enumerably.** `hunts:open` hands any caller, with no session, the
+  smiths' handles and titles of a hunt it is not on; the old address (`/h/<label>`) finds a hunt by
+  label across every org, and labels come from ~430k adjective_animal pairs. A Google user's title
+  starts as their Google name. Options: list smiths only to a caller holding a handle, and only for
+  an address naming the org; or show strangers handles without titles. The privacy policy changes
+  with either.
+* **Sign a verifier once.** Patch Convex Auth's `verifierSignature` to refuse a verifier signed
+  before (its own browser signed it on the way to Google; our callback clears the signature, so it
+  needs a mark of its own), so a verifier id leaked (local storage, a log) cannot be finished by
+  someone else within its 15 minutes. A fifth part to the patch.
+* **`adopt --email`**: show the user's Google name and when it was made in the dry run (or adopt by
+  id after confirming it), since the email is Google's claim with `email_verified` dropped.
+* **Fail closed on `isAnonymous`**: "signed in with Google" as `isAnonymous === false`, and sealed
+  otherwise, so a row missing the field is sealed rather than trusted. Every writer sets it today;
+  three convex-tests insert users without it.
+* **`adopt` and sandboxes**: skip anonymous users' sandboxes in `--smith-all` and refuse
+  `--smith ~anon/anon`; refuse relabelling an anonymous user that holds a sandbox; ghost (or at
+  least report) the userlabel a relabel leaves behind.
+* **`sealedJoin` tells a smith a handle is anonymous**: say so in the privacy policy, or word the
+  refusal so it does not.
+* **Sign out on a shared browser** leaves the hunt histories (IndexedDB) behind: say so in the
+  sign-out question, or offer to clear them.
+* **Code review leftovers, not security**: `holderOfUserlabel` reads up to `HuntsPerOrg.max` hunts
+  to test for one (`.first()` would do); `auth:offered` is a `zQuery`, so it reads the session and
+  user it never uses and reruns when the user changes; `retitleUser` repeats `rewriteUserlabel`'s
+  copy loop, and `adopt`'s `relabelFor` its stale-copy filter; `UserlabelGate` names a variable
+  `name`; the patch deletes a code's verifier in two places (`userOAuth.js`,
+  `verifyCodeAndSignIn.js`).
