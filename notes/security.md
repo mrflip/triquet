@@ -186,9 +186,14 @@ security expert who knows what questions to ask.
     (tested for stale, wrong-verifier and expired codes, upgrade and merge alike), and the patched
     client keeps the session it had stored rather than signing out (the DOM test,
     `use-session.dom.test.tsx`). The tab then says the sign-in did not finish
-    (`useGoogleSignInOutcome`): it compares a SHA-256 fingerprint of its session's token, kept in
-    its own session storage as it left (never the token), with the token it came back on, and
-    clears any verifier Convex Auth left in local storage. A provisional user a refused sign-in
+    (`useGoogleSignInOutcome`): it compares the session it left as, its id noted in its own
+    session storage (the session half of the token's subject, read with `jose`'s `decodeJwt`
+    without checking the signature; never the token), with the session of the token it came back
+    on, and clears any verifier Convex Auth left in local storage. *Changed after the Coach's
+    `high` review (thread 5r):* it first compared a SHA-256 of the whole token, which the Convex
+    client refreshes as a page loads, so the notice showed only when the page's user query
+    answered before the refresh; an expired token would have hidden it. A session's id grants
+    nothing: it is in the token already, and a token is what the deployment checks. A provisional user a refused sign-in
     leaves has no session, and the account's next finished sign-in folds it away or keeps it.
 * 2026-10-11 (oauth sprint, thread 5): a Google sign-in's user is decided, at the code's exchange,
   by whose the account is and whose the starting browser was (`userForGoogle`,

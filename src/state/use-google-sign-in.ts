@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from 'react'
 import { useAuthActions, useAuthToken, useConvexAuth, type ConvexAuthActionsContext } from '@convex-dev/auth/react'
 import { useQuery } from 'convex/react'
+import { decodeJwt } from 'jose'
 import { api } from '../../convex/_generated/api'
 import { GoogleSignInUnfinished, googleSignInUnfinishedNotice } from '../lib/notices'
 import * as Routes from '../lib/routes'
@@ -26,6 +27,9 @@ const StartedKey = 'triquet.googleSignInStarted'
 /** What Convex Auth names the key it keeps a sign-in's verifier under, in local storage, before the deployment's address */
 const VerifierKeyPrefix = '__convexAuthOAuthVerifier'
 
+/** What Convex Auth puts between the user and the session in its token's subject (`<user>|<session>`) */
+const SubjectDivider = '|'
+
 /**
  * Signing in with Google, for any door that offers it: whether to offer it, and how to start it.
  * Each door calls this, and nothing else starts a Google sign-in.
@@ -42,8 +46,8 @@ export function useGoogleSignIn(): GoogleSignInHandle {
 }
 
 /**
- * Start a Google sign-in: note in this tab that it has left, with a fingerprint of the session it
- * leaves as (`fingerprintOf`), so that coming back it can tell whether the sign-in finished; then
+ * Start a Google sign-in: note in this tab that it has left, with the session it leaves as
+ * (`sessionOf`), so that coming back it can tell whether the sign-in finished; then
  * Convex Auth sends the browser on to Google, by way of the deployment, and Google sends it back to
  * `here`, where the provider finishes signing in (`?code=`). The browser's session goes with the
  * request, so the sign-in knows whose browser it was. A start that fails takes its note back, as
@@ -57,7 +61,7 @@ export function useGoogleSignIn(): GoogleSignInHandle {
  * @example await startGoogleSignIn(signIn, location, { token, storage: sessionStorage })  // the browser leaves for Google
  */
 export async function startGoogleSignIn(signIn: ConvexAuthActionsContext['signIn'], here: Pick<Location, 'pathname' | 'search' | 'hash'>, leaving: { token: string | null, storage: Storage }): Promise<void> {
-  leaving.storage.setItem(StartedKey, await fingerprintOf(leaving.token))
+  leaving.storage.setItem(StartedKey, sessionOf(leaving.token))
   try {
     await signIn('google', { redirectTo: returnPathOf(here) })
   } catch (err) {
@@ -72,7 +76,8 @@ export async function startGoogleSignIn(signIn: ConvexAuthActionsContext['signIn
  * was, on the session it had (a refused exchange keeps it: our patch of Convex Auth), and the
  * page's alarm says so (`googleSignInUnfinishedNotice`), and any verifier Convex Auth left in
  * local storage for the dead sign-in is cleared. Says nothing when no sign-in was started from this
- * tab, or it finished (the session is a new one).
+ * tab, or it finished (the session is a new one). It reads the session, not the token, which the
+ * Convex client refreshes as a page loads: the same session comes back in a new token.
  *
  * @param me - Who this browser is, and whether the server has said yet (`useMe`).
  */
@@ -84,12 +89,9 @@ export function useGoogleSignInOutcome(me: { loaded: boolean, user: Pick<UserT, 
   useEffect(() => {
     if (isLoading || ! loaded) { return }
     const started = takeStarted(sessionStorage)
-    if (started === null) { return }
-    void (async () => {
-      if (! await isUnfinished(started, token)) { return }
-      forgetDeadSignIns(localStorage)
-      raise({ headline: GoogleSignInUnfinished, notice: googleSignInUnfinishedNotice(user?.userlabel ?? null), request_id: null })
-    })()
+    if (started === null || ! isUnfinished(started, token)) { return }
+    forgetDeadSignIns(localStorage)
+    raise({ headline: GoogleSignInUnfinished, notice: googleSignInUnfinishedNotice(user?.userlabel ?? null), request_id: null })
   }, [isLoading, loaded, user, token, raise])
 }
 
@@ -97,7 +99,7 @@ export function useGoogleSignInOutcome(me: { loaded: boolean, user: Pick<UserT, 
  * The note a tab left as it started a Google sign-in, taken away as it is read; null when it left
  * none.
  *
- * @example takeStarted(sessionStorage)  // => '3f2a…', once, after startGoogleSignIn
+ * @example takeStarted(sessionStorage)  // => 'k57a…', the session's id, once, after startGoogleSignIn
  */
 export function takeStarted(storage: Storage): string | null {
   const started = storage.getItem(StartedKey)
@@ -106,26 +108,29 @@ export function takeStarted(storage: Storage): string | null {
 }
 
 /**
- * Whether a Google sign-in started as the session `started` fingerprints did not finish: the
- * browser's session now is the same one. A finished sign-in always signs the browser in to a new
- * session.
+ * Whether a Google sign-in started from the session `started` did not finish: the browser's token
+ * now is of the same session, however often it has been refreshed since. A finished sign-in always
+ * signs the browser in to a new session.
  *
- * @example await isUnfinished(await fingerprintOf(token), token)  // => true
+ * @example isUnfinished(sessionOf(token), refreshedToken)  // => true, while the session is the one it left as
  */
-export async function isUnfinished(started: string, token: string | null): Promise<boolean> {
-  return started === await fingerprintOf(token)
+export function isUnfinished(started: string, token: string | null): boolean {
+  return started === sessionOf(token)
 }
 
 /**
- * A fingerprint of a session's token, to tell the session it is again without keeping the token
- * twice: its SHA-256, in hex; `none` for no session.
+ * Which session a Convex Auth token is of: the session's id, after the user's in the token's
+ * subject (`<user>|<session>`), read without checking the token's signature, which only the
+ * deployment can and does; `none` for no session. A refreshed token keeps it, and a new sign-in
+ * changes it. The id is no credential: it names the session, and grants nothing.
  *
- * @example await fingerprintOf(null)  // => 'none'
+ * @example sessionOf(null)  // => 'none'
+ * @example sessionOf(token)  // => 'k57a…', for a token whose subject is 'j97b…|k57a…'
  */
-export async function fingerprintOf(token: string | null): Promise<string> {
+export function sessionOf(token: string | null): string {
   if (token === null) { return 'none' }
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+  const [, session] = decodeJwt(token).sub?.split(SubjectDivider) ?? []
+  return session ?? 'none'
 }
 
 /**

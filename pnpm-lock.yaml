@@ -251,6 +251,9 @@ importers:
       isomorphic-git:
         specifier: ^1.42.2
         version: 1.42.2
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.12
       jsonata:
         specifier: 1.8.9
         version: 1.8.9

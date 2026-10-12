@@ -269,6 +269,11 @@ Settled; reach for these before writing the equivalent.
     and rename `authUserId` and the two steps in `userForGoogle` to match it; a bump of
     `@convex-dev/auth` re-cuts it until then. `tests/convex/auth.test.ts` and the sign-in tests in
     `tests/convex/writing/user_actions.test.ts` fail without it.
+* **jose** (`decodeJwt`), for reading a session's token in the browser: which session it names
+  (`sessionOf`, `src/state/use-google-sign-in.ts`), never whether it is genuine, which is the
+  deployment's to check. Convex Auth signs its tokens with it, and `@auth/core` depends on the same
+  major; installed directly (October 2026, the oauth sprint) without asking first, as the boring
+  answer beside both.
 
 ### AI
 
