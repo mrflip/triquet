@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: thread 5 landing on the Coach's word (2026-10-11). 7, 2, 1, 8, 3 and 4 landed (#226-#231).**
+**Status: thread 5 landed (#232); the Coach's high review of it (5r) and thread 6 underway (2026-10-12). 7, 2, 1, 8, 3 and 4 landed (#226-#231).**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -11,8 +11,9 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 2 | `clear_people`: delete production's people, keep its hunts | landed #227 | `20261011-clear_people` | [#227](https://github.com/mrflip/triquet/pull/227) |
 | 3 | `converge`: users and huntships, everywhere | landed #230 | `20261011-converge` | [#230](https://github.com/mrflip/triquet/pull/230) |
 | 4 | `adopt_script`: give a user a userlabel, admin, and hunts | landed #231 | `20261011-adopt_script` | [#231](https://github.com/mrflip/triquet/pull/231) |
-| 5 | `google_signin`: the provider, the patch, the merge | landing (full e2e), on the Coach's word | `20261011-google_signin` | |
-| 6 | `google_ui`: signing in, from both doors | pending (5, 8) | | |
+| 5 | `google_signin`: the provider, the patch, the merge | landed #232 | `20261011-google_signin` | [#232](https://github.com/mrflip/triquet/pull/232) |
+| 5r | `signin_review`: the Coach's `high` review of thread 5, fixes as their own PR | underway | `20261012-signin_review` | |
+| 6 | `google_ui`: signing in, from both doors | underway | `20261012-google_ui` | |
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
 | 9 | `oauth_security`: a strong review | pending (1-8) | | |
@@ -61,6 +62,11 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   anonymous user holding a sandbox lets it make a second. Full e2e 298/299, one flake
   (`routing.spec.ts`'s hunt-history test, timing out after `forgetSession`, twice under load,
   green alone): **watch it**. Thread 5 now switches `adopt.ts` to its predicate.
+* **Thread 5, #232**, stacked on #231; merge after the clear; production's Google keys only
+  after it deploys. *Reviews:* first `flagged` (login CSRF, fixed at the exchange); second
+  `flagged` (verifier lifetime); the Coach chose option 1 and approved the result unreviewed.
+  Full e2e 284/301 under load climbing to 46, all 17 failures (3 `sheets`, 14 `widgets`) green
+  alone: flakes. **The Coach asked for a `high` review of thread 5 as its own PR** (5r).
 * **Thread 1's notes for thread 3** (`thread-1-split_account.md`): move the `hunts.performOuter`
   tests to `hunts.test.ts`; sealing goes in `mayMakeHunt` and `newHunt`; "anonymous" means two
   things today (Convex Auth's `isAnonymous`, no proof; and the actor's `{ kind: 'anonymous' }`,
@@ -253,6 +259,11 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   - **A near miss with the ground rule:** the first draft of the e2e spec followed the 302 to
     Google's real sign-in page (Playwright's `page.route` does not catch a server redirect).
     Nothing signed in; the spec now reads the 302 without following it. Reported to the Coach.
+
+* **Thread 5r, `signin_review`** (the Coach, 2026-10-12): a `thread-reviewer` at `high` over
+  all of thread 5, `77286214...8383d5b2`, committing its fixes on its own branch; a
+  `thread-worker` then proves it and lands it as its own PR, stacked on #232. No fixes: no PR,
+  and its findings go on #232.
 
 ## Convex Auth, as installed (checked 2026-10-10)
 

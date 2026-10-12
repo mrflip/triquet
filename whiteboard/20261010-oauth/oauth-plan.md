@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-11. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `/sprint oath YOLO`, "plan and execute the sprint described in
 whiteboard/20261010-oauth", which is `20261011-oauth_preplan.md` beside this file.
-**Status: threads 1, 2, 3, 4, 7, 8 landed (#226-#231); 5 landing on the Coach's word (2026-10-11); 6 and 9 next.** `oauth-progress.md`, beside this file, is newer
+**Status: threads 1-5, 7, 8 landed (#226-#232); the Coach's high review of 5 and thread 6 underway (2026-10-12); 9 last.** `oauth-progress.md`, beside this file, is newer
 than this plan wherever the two disagree.
 
 The earlier plan in this file (three threads, an app-made hand-off, 2026-10-10) is superseded and
@@ -142,6 +142,9 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
   Coach before it lands.
 * **2026-10-11: thread 5 approved to land,** and the notice wording ("Google sign-in didn't
   finish" / "You're still `<handle>`, as before. Try again.") approved as it stands.
+* **2026-10-12: "please run a code reviewer on high as its own pr".** *Orchestrator's reading:*
+  review all of thread 5 (#232) at `high`, with its fixes landing as a PR of their own, stacked
+  on #232. Thread 6 runs beside it.
 
 * **2026-10-11: an anonymous (sealed) user may not delete a hunt.** "No new hunt, no delete hunt
   for anonymous seems easier to reason about." `deleteHunt` takes a hunt holding up to one quiz
