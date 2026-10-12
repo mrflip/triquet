@@ -4,7 +4,7 @@ import { version as convexVersion } from 'convex'
 import { assumeIdent, expect, test } from './support'
 
 // The stats page's backfills are an admin's here (a local backend leaves EXPOSE_INTERNAL_STATS_TO_ALL unset), and it is about no hunt, so each test goes there itself.
-test.use({ startAt: null })
+test.use({ startAt: null, permissions: ['clipboard-read', 'clipboard-write'] })
 
 const require = createRequire(import.meta.url)
 
@@ -50,4 +50,31 @@ test('tells a browser that has not said who it is nothing of the backfills', asy
   await expect(page.getByRole('table', { name: 'Backfills' })).toHaveCount(0)
   // The rest of the page is anyone's.
   await expect(factOf(page, 'Connected')).toHaveText(/^yes, /)
+})
+
+test('offers all of it as compact JSON in a box that can be dragged taller, and copies it from beside the heading too', async ({ page }) => {
+  await assumeIdent(page)
+  await page.goto('/stats')
+  await expect(page.getByRole('table', { name: 'Backfills' })).toBeVisible()
+  const box = page.getByRole('textbox', { name: 'Stats as JSON' })
+  expect(await box.inputValue()).not.toContain('\n')
+  const shown = JSON.parse(await box.inputValue()) as { build: { sha: string }, next: string, browser: { convex: string, connected: boolean }, backfills: unknown[] }
+  expect(shown.next).toBe(nextVersion)
+  expect(shown.build.sha).toMatch(/^[0-9a-f]{40}$/)
+  expect(shown.browser).toMatchObject({ convex: convexVersion, connected: true })
+  expect(shown.backfills.length).toBeGreaterThan(0)
+  await expect(box).toHaveCSS('resize', 'vertical')
+
+  await page.getByRole('button', { name: 'Copy stats' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Copied' })).toBeVisible()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await box.inputValue())
+})
+
+test('serves the build\'s part of it at /stats.json', async ({ page }) => {
+  const served = await page.request.get('/stats.json')
+  expect(served.ok()).toBe(true)
+  expect(served.headers()['content-type']).toContain('application/json')
+  const body = await served.json() as { build: { sha: string }, next: string }
+  expect(body.next).toBe(nextVersion)
+  expect(body.build.sha).toMatch(/^[0-9a-f]{40}$/)
 })

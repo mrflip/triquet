@@ -19,7 +19,10 @@ follow the other.
 request its merge names (number, title, description) and the commits it brought in, when it was
 built, a link to every change since the deployment before, and, to an admin (`Actor.isAdmin`), or
 to anyone where the deployment sets `EXPOSE_INTERNAL_STATS_TO_ALL`, how far each backfill has run
-on the deployment it talks to. The build's facts are gathered as the page is prerendered
+on the deployment it talks to. All of it is also compact JSON, in a box at the foot of the page and
+behind a *Copy stats* button beside the heading; `/stats.json` serves the build's part of it as a
+file written at build (`force-static`, so no server function: *Client-first*). The build's facts
+are gathered as the page is prerendered
 (`src/lib/build-stamp.ts`), from Vercel's git variables, or git itself elsewhere; each is a best
 effort, and a shallow clone may list no commits.
 
