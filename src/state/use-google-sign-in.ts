@@ -46,17 +46,24 @@ export function useGoogleSignIn(): GoogleSignInHandle {
  * leaves as (`fingerprintOf`), so that coming back it can tell whether the sign-in finished; then
  * Convex Auth sends the browser on to Google, by way of the deployment, and Google sends it back to
  * `here`, where the provider finishes signing in (`?code=`). The browser's session goes with the
- * request, so the sign-in knows whose browser it was.
+ * request, so the sign-in knows whose browser it was. A start that fails takes its note back, as
+ * the tab never left.
  *
  * @param signIn - Convex Auth's sign-in, from `useAuthActions`.
  * @param here - The page to come back to.
  * @param leaving - The session's token as it leaves, and the tab's session storage to note it in.
+ * @throws What `signIn` throws, the note taken back.
  *
  * @example await startGoogleSignIn(signIn, location, { token, storage: sessionStorage })  // the browser leaves for Google
  */
 export async function startGoogleSignIn(signIn: ConvexAuthActionsContext['signIn'], here: Pick<Location, 'pathname' | 'search' | 'hash'>, leaving: { token: string | null, storage: Storage }): Promise<void> {
   leaving.storage.setItem(StartedKey, await fingerprintOf(leaving.token))
-  await signIn('google', { redirectTo: returnPathOf(here) })
+  try {
+    await signIn('google', { redirectTo: returnPathOf(here) })
+  } catch (err) {
+    leaving.storage.removeItem(StartedKey)
+    throw err
+  }
 }
 
 /**

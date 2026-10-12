@@ -35,6 +35,13 @@ describe('startGoogleSignIn', () => {
     expect(signIn.mock.calls).to.deep.eq([['google', { redirectTo: '/~flip_kromer/quiet_otter' }]])
     expect(takeStarted(storage)).to.eq(await fingerprintOf('the-jwt'))
   })
+
+  it('takes its note back when the sign-in cannot start, so no later visit says a sign-in did not finish', async () => {
+    const storage = new HeldStorage()
+    const refused = vi.fn<ConvexAuthActionsContext['signIn']>(() => Promise.reject(new Error('the deployment could not be reached')))
+    await expect(startGoogleSignIn(refused, { pathname: '/', search: '', hash: '' }, { token: 'the-jwt', storage })).rejects.toThrow('could not be reached')
+    expect(takeStarted(storage)).to.be.null
+  })
 })
 
 describe('takeStarted', () => {
