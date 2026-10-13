@@ -196,6 +196,19 @@ describe('users.perform: retitle_user', () => {
     await expectSound(tt)
   })
 
+  it("rewrites a huntship's copy of the userlabel too, should it have drifted from the user's", async () => {
+    const tt = openTester()
+    const { open, smith } = await seedHunt(tt, huntHolding([Quiz.blank()]), { smith: 'quiet_otter' })
+    await tt.run(async (ctx) => {
+      const huntship = present(await ctx.db.query('huntships').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', open.hunt_id)).first())
+      await ctx.db.patch('huntships', huntship._id, { userlabel: 'drifted_otter' })
+    })
+    await retitle(smith, 'Otto')
+    const huntships = await allOf(tt, 'huntships')
+    expect(huntships.map((row) => [row.userlabel, row.usertitle])).to.deep.eq([['quiet_otter', 'Otto']])
+    await expectSound(tt)
+  })
+
   it('lets an anonymous user retitle itself', async () => {
     const tt = openTester()
     const anon = await anonymousUser(tt, 'anon_otter')
