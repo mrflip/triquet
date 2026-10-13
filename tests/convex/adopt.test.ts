@@ -67,6 +67,12 @@ async function madeAt(tt: Tester, user_id: Id<'users'>): Promise<number> {
   return Stamps.of(await userRow(tt, user_id)).created_at
 }
 
+/** When Google last said the user `user_id`'s email is verified, as its row holds it; null for never */
+async function verifiedAt(tt: Tester, user_id: Id<'users'>): Promise<number | null> {
+  const user = await userRow(tt, user_id)
+  return user.emailVerificationTime ?? null
+}
+
 /** An anonymous user holding `label`, and its sandbox, `~label/label`, made as an anonymous user makes its one hunt */
 async function sandboxed(tt: Tester, label: string): Promise<{ anon: Session & { label: string }, sandbox_id: Id<'hunts'> }> {
   const anon = await anonymousUser(tt, label)
@@ -88,7 +94,7 @@ describe('adopt:perform, the Coach taking back mrflip', () => {
     const { tt, quiet_otter, loud_heron } = await clearedProduction()
     const coach = await googleUnlabelled(tt)
     expect(await adopted(tt, CoachAdoption)).to.deep.eq({
-      user:    { user_id: coach.user_id, userlabel: null, title: null, anonymous: false, admin: false, name: null, created_at: await madeAt(tt, coach.user_id) },
+      user:    { user_id: coach.user_id, userlabel: null, title: null, anonymous: false, admin: false, name: null, created_at: await madeAt(tt, coach.user_id), email_verified_at: await verifiedAt(tt, coach.user_id) },
       changes: [
         { kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null },
         { kind: 'admin', to: true },
@@ -111,7 +117,7 @@ describe('adopt:perform, the Coach taking back mrflip', () => {
     await adopted(tt, CoachAdoption)
     const ante = await heldIn(tt)
     expect(await adopted(tt, CoachAdoption)).to.deep.eq({
-      user:    { user_id: coach.user_id, userlabel: 'mrflip', title: 'Mrflip', anonymous: false, admin: true, name: null, created_at: await madeAt(tt, coach.user_id) },
+      user:    { user_id: coach.user_id, userlabel: 'mrflip', title: 'Mrflip', anonymous: false, admin: true, name: null, created_at: await madeAt(tt, coach.user_id), email_verified_at: await verifiedAt(tt, coach.user_id) },
       changes: [],
       kept:    4,
       skipped: 0,

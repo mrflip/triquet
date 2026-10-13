@@ -1,7 +1,8 @@
-import Google from '@auth/core/providers/google'
+import Google, { type GoogleProfile } from '@auth/core/providers/google'
 import { Anonymous } from '@convex-dev/auth/providers/Anonymous'
 import { convexAuth } from '@convex-dev/auth/server'
 import * as Routes from '../src/lib/routes'
+import type { GoogleProfileT } from '../src/models/user'
 import { env } from './_generated/server'
 import { zPlainQuery } from './functions'
 import { triggers } from './triggers'
@@ -12,9 +13,35 @@ const DayMs = 24 * 60 * 60 * 1000
 
 /**
  * What a Google sign-in asks Google for: who the person is, their email, and their name and
- * picture, and nothing more. The privacy policy (`/privacy`) promises exactly this.
+ * picture, and nothing more. The privacy policy (`/privacy`) promises exactly this, and what of it
+ * is kept (`googleProfileOf`).
  */
 export const GoogleScope = 'openid email profile'
+
+/**
+ * What a Google sign-in keeps of the claims Google's token carries, as the user's fields name them
+ * (`UserValidators.googleProfile`), beside the account's id: the email, and when Google said it is
+ * verified (the token's issue time, only when `email_verified` is true); the name and picture; and
+ * the locale and Workspace domain (`hd`) when Google sends them. Nothing else: the given and family
+ * names, among the rest, are dropped here. The Google provider's `profile`.
+ *
+ * @param claims - The claims of Google's ID token.
+ * @returns The account's id, and what the user keeps.
+ *
+ * @example googleProfileOf({ sub: '1098', email: 'flip@example.com', email_verified: true, iat: 1760300000, name: 'Flip', picture: 'https://…', hd: 'example.com', … })
+ *   // => { id: '1098', email: 'flip@example.com', emailVerificationTime: 1760300000000, name: 'Flip', image: 'https://…', hosted_domain: 'example.com' }
+ */
+export function googleProfileOf(claims: GoogleProfile): GoogleProfileT & { id: string } {
+  return {
+    id:    claims.sub,
+    email: claims.email,
+    ...(claims.email_verified && { emailVerificationTime: claims.iat * 1000 }),
+    name:  claims.name,
+    image: claims.picture,
+    ...(claims.locale !== undefined && { locale: claims.locale }),
+    ...(claims.hd !== undefined && { hosted_domain: claims.hd }),
+  }
+}
 
 /**
  * Whether this deployment offers Google sign-in: only where both of Google's keys are set on it
@@ -56,7 +83,8 @@ export function returnUrlFor(redirectTo: string): string {
  * Sessions, by Convex Auth. A browser signs in anonymously on its first visit and keeps its
  * session, signed in as a new anonymous user; who it is in the app is the userlabel that user then
  * takes (`users.perform`), its own from then on. Where the deployment has Google's keys, Google
- * joins `Anonymous`: a sign-in that proves who someone is, asking Google only for `GoogleScope`.
+ * joins `Anonymous`: a sign-in that proves who someone is, asking Google only for `GoogleScope`, and
+ * keeping only `googleProfileOf` of what it sends.
  *
  * The user a sign-in is signed in as is ours to write (`createOrUpdateUser`, `userForSignIn`):
  * through the database the triggers run on, so the row is stamped, and through our row validator.
@@ -72,7 +100,7 @@ export function returnUrlFor(redirectTo: string): string {
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Anonymous,
-    ...(googleKeyed() ? [Google({ authorization: { params: { scope: GoogleScope } } })] : []),
+    ...(googleKeyed() ? [Google({ authorization: { params: { scope: GoogleScope } }, profile: googleProfileOf })] : []),
   ],
   session: {
     totalDurationMs:    3650 * DayMs,

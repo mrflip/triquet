@@ -1,4 +1,4 @@
-*Last changed: 11 October 2026.*
+*Last changed: 13 October 2026.*
 
 This is what Triquet keeps about the people who use it, where it keeps it, who can see it, and how to have it deleted. "We" are the people who run Triquet.
 
@@ -6,7 +6,7 @@ This is what Triquet keeps about the people who use it, where it keeps it, who c
 
 * **Your handle**, and the name you give beside it.
 * **What you write**: your hunts and quizzes, the questions and answers in them, your reviews, and the answers a bot gave when asked. Also which hunts you are on, and your role on each.
-* **If you sign in with Google**: the email address, name and picture Google sends us, and Google's identifier for your account. We ask Google for nothing more, so Triquet cannot read your mail, your files or anything else in your Google account.
+* **If you sign in with Google**: the email address, name and picture Google sends us, whether Google has verified that email address, the language and region set for your Google account, the domain of your organization if your account is a Google Workspace one, and Google's identifier for your account. We ask Google for nothing more, so Triquet cannot read your mail, your files or anything else in your Google account.
 * **Your sessions**: a record of each browser you use Triquet in, so that it stays signed in.
 
 All of it is kept in Triquet's database, which [Convex](https://www.convex.dev) hosts. [Vercel](https://vercel.com) serves the pages. Like any web service, they keep logs of requests and errors, which we read to find and fix faults.

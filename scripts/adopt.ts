@@ -108,19 +108,21 @@ function parsedFlags(rest: readonly string[]) {
 
 /**
  * The user an adoption found, as a line for a person: its id, userlabel and title, how it stood,
- * and, so the person knows it for theirs before it acts, the name Google sent and when its row was
- * made.
+ * and, so the person knows it for theirs before it acts, the name Google sent, when its row was
+ * made, and, for a user signed in with Google, when Google last said its email is verified.
  *
- * @example userLine({ user_id, userlabel: 'flippy_kromer', title: 'Flip', anonymous: false, admin: false, name: 'Flip Kromer', created_at: 1791813787000 })
- *   // => 'The user <id>: @flippy_kromer (Flip), signed in with Google as "Flip Kromer", not an admin; made 2026-10-12T14:03:07.000Z.'
- * @example userLine({ user_id, userlabel: null, title: null, anonymous: true, admin: false, name: null, created_at: 1791813787000 })
+ * @example userLine({ user_id, userlabel: 'flippy_kromer', title: 'Flip', anonymous: false, admin: false, name: 'Flip Kromer', created_at: 1791813787000, email_verified_at: 1791813787000 })
+ *   // => 'The user <id>: @flippy_kromer (Flip), signed in with Google as "Flip Kromer", not an admin; made 2026-10-12T14:03:07.000Z; email verified 2026-10-12T14:03:07.000Z.'
+ * @example userLine({ user_id, userlabel: null, title: null, anonymous: true, admin: false, name: null, created_at: 1791813787000, email_verified_at: null })
  *   // => 'The user <id>: no userlabel, anonymous, not an admin; made 2026-10-12T14:03:07.000Z.'
  */
 export function userLine(user: AdoptedT['user']): string {
   const held = user.userlabel === null ? 'no userlabel' : `@${user.userlabel} (${user.title ?? user.userlabel})`
   const named = user.name === null ? 'with no name sent' : `as "${user.name}"`
   const how = user.anonymous ? 'anonymous' : `signed in with Google ${named}`
-  return `The user ${user.user_id}: ${held}, ${how}, ${user.admin ? 'an admin' : 'not an admin'}; made ${String(Stamps.isoOf(user.created_at))}.`
+  const verified = user.email_verified_at === null ? 'email not verified' : `email verified ${String(Stamps.isoOf(user.email_verified_at))}`
+  const vouched = user.anonymous ? '' : `; ${verified}`
+  return `The user ${user.user_id}: ${held}, ${how}, ${user.admin ? 'an admin' : 'not an admin'}; made ${String(Stamps.isoOf(user.created_at))}${vouched}.`
 }
 
 /**

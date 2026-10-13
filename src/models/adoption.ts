@@ -57,8 +57,10 @@ export const AdoptionValidators = Validator(({ obj, arr, bool, discrim, lit, one
       .describe('The name Google sent for it; null for none (an anonymous user has none).'),
     created_at: timestamp
       .describe('When its row was made, in epoch milliseconds.'),
+    email_verified_at: timestamp.nullable()
+      .describe('When Google last said its email is verified, in epoch milliseconds; null when Google has not, or the user last signed in before that was kept.'),
   })
-    .describe('The user found, as it stood before: its userlabel and title (null until it holds one), whether it is anonymous, its admin flag, and, so whoever runs the command knows it for theirs before it acts, its Google name and when it was made.')
+    .describe('The user found, as it stood before: its userlabel and title (null until it holds one), whether it is anonymous, its admin flag, and, so whoever runs the command knows it for theirs before it acts, its Google name, when it was made, and when Google last said its email is verified.')
 
   const change = discrim('kind', [
     obj({

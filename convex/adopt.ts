@@ -46,15 +46,15 @@ type PlanT = {
  * Coach watching it once: emails are no standing way to name a user (one can be reassigned), so
  * nothing else here or in the app finds a user by one.
  *
- * The user found is named by its Google name and when its row was made, beside its id and
- * userlabel, so whoever runs the command knows it for theirs before anything is written: an
- * email is Google's claim, kept without Google's word that it was verified.
+ * The user found is named by its Google name, when its row was made, and when Google last said
+ * its email is verified, beside its id and userlabel, so whoever runs the command knows it for
+ * theirs before anything is written: an email Google has not verified is only Google's claim.
  *
  * @returns The user as it stands, what `perform` would change, how much of what was asked it holds already, and how many anonymous users' sandboxes a grant on every hunt passes over.
  * @throws When the user is not found (or an email names more than one), it is provisional (a Google sign-in not yet finished), the userlabel is held by another user or a ghosting (or, for an anonymous user, a hunt's address), an anonymous user holding a sandbox is relabelled, an anonymous user is to be an admin or put on a hunt, a user with no userlabel is put on one, or a hunt named is not there or is an anonymous user's sandbox.
  *
  * @example npx convex run adopt:plan '{"find": {"email": "pat@example.com"}, "userlabel": "mrflip", "admin": true, "grants": [{"role": "smith", "hunts": "every"}]}'
- *   // => { user: { user_id, userlabel: null, title: null, anonymous: false, admin: false, name: 'Pat Smith', created_at: 1760300000000 }, changes: [{ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null }, { kind: 'admin', to: true }, { kind: 'huntship', org: 'mrflip', hunt: 'quiet_otter', role: 'smith', from: null }], kept: 0, skipped: 0 }
+ *   // => { user: { user_id, userlabel: null, title: null, anonymous: false, admin: false, name: 'Pat Smith', created_at: 1760300000000, email_verified_at: 1760300000000 }, changes: [{ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null }, { kind: 'admin', to: true }, { kind: 'huntship', org: 'mrflip', hunt: 'quiet_otter', role: 'smith', from: null }], kept: 0, skipped: 0 }
  */
 export const plan = zInternalQuery({
   args:    AdoptionValidators.request.shape,
@@ -254,6 +254,7 @@ function outcomeOf(planned: PlanT, huntships: number): AdoptedT {
       admin:      user.admin === true,
       name:       user.name ?? null,
       created_at: Stamps.of(user).created_at,
+      email_verified_at: user.emailVerificationTime ?? null,
     },
     changes,
     kept,

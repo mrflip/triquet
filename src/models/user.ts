@@ -19,8 +19,14 @@ export const UserValidators = Validator(({ obj, str, num, bool, zid, userlabel, 
       .describe('The name Google sends.'),
     image: str.optional()
       .describe('The address of the picture Google sends.'),
+    emailVerificationTime: num.optional()
+      .describe("When Google last said the email is verified (`email_verified`): the moment it issued the sign-in's token, in epoch milliseconds; absent when Google says it is not."),
+    locale: str.optional()
+      .describe('The language and region Google sends for the account (`locale`), when it sends one.'),
+    hosted_domain: str.optional()
+      .describe("The Google Workspace domain the account belongs to (`hd`); absent for a personal account."),
   })
-    .describe("What a Google sign-in keeps of what Google sends: the email, name and picture the privacy policy names, and nothing more (Google's account id is the account's, not the user's). Anything else is dropped here.")
+    .describe("What a Google sign-in keeps of what Google sends: the email (and whether Google has verified it), name, picture, locale and Workspace domain the privacy policy names, and nothing more (Google's account id is the account's, not the user's). Anything else is dropped here.")
   const merged = obj({
     into_user_id: zid('users')
       .describe('The user it merged into, which carries on: signed in with Google, and made smith of its sandbox, if it had one.'),
@@ -59,6 +65,10 @@ export const UserValidators = Validator(({ obj, str, num, bool, zid, userlabel, 
     isAnonymous:           bool.optional()
       .describe("Convex Auth's: whether the user was signed in with no proof (the Anonymous provider). An anonymous user is sealed: a userlabel and one sandbox, nothing more (`Approve`)."),
     // Ours
+    locale:                str.optional()
+      .describe('The language and region Google last sent for the account; absent when it sent none.'),
+    hosted_domain:         str.optional()
+      .describe("The Google Workspace domain Google last said the account belongs to; absent for a personal account."),
     userlabel:             held.optional()
       .describe('The user\'s userlabel, absent until chosen.'),
     title:                 title.optional()
@@ -260,15 +270,20 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
   /**
    * The fields of a user signed in with Google, as a Google sign-in writes them: no longer
    * anonymous, and holding what Google sent of its email, name and picture, which every sign-in
-   * with the account brings up to date. A field Google did not send is left as it was.
+   * with the account brings up to date; a field of these Google did not send is left as it was.
+   * What Google says only while it holds (that the email is verified, the locale, the Workspace
+   * domain) is written every time, and taken away when Google no longer sends it: a patch's
+   * undefined removes the field.
    *
-   * @param profile - What Google sent, already kept to the email, name and picture.
+   * @param profile - What Google sent, already kept to `UserValidators.googleProfile`.
    * @returns The fields to insert, or to patch onto the row.
    *
-   * @example User.fromGoogle({ email: 'flip@example.com', name: 'Flip' })  // => { isAnonymous: false, email: 'flip@example.com', name: 'Flip' }
+   * @example User.fromGoogle({ email: 'flip@example.com', name: 'Flip' })  // => { isAnonymous: false, email: 'flip@example.com', name: 'Flip', emailVerificationTime: undefined, locale: undefined, hosted_domain: undefined }
    */
   static fromGoogle(profile: GoogleProfileT): UserRowT {
-    return UserValidators.row({ ...UserValidators.googleProfile(profile), isAnonymous: false })
+    const sent = UserValidators.googleProfile(profile)
+    const { emailVerificationTime, locale, hosted_domain } = sent
+    return { ...UserValidators.row({ ...sent, isAnonymous: false }), emailVerificationTime, locale, hosted_domain }
   }
 
   /**
@@ -276,7 +291,7 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    * Google, holding what Google sent, and provisional until the browser finishing the sign-in
    * proves it started it (`userForSignIn`).
    *
-   * @example User.provisional({ email: 'flip@example.com' })  // => { isAnonymous: false, email: 'flip@example.com', provisional: true }
+   * @example User.provisional({ email: 'flip@example.com' })  // => { isAnonymous: false, email: 'flip@example.com', provisional: true, … }
    */
   static provisional(profile: GoogleProfileT): UserRowT {
     return { ...this.fromGoogle(profile), provisional: true }

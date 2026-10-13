@@ -323,8 +323,9 @@ It stands behind the guard: the first run is dry, and says who it found and what
 (`adopt:plan`, which writes nothing); the second, with `--deployment`, changes it in one transaction
 (`adopt:perform`) and says what it changed. Run again, it changes nothing more, and says how much of
 what was asked the user holds already. A refusal changes nothing, and says why. **Read the user it
-found before you act**: its id, handle, the name Google sent and when its row was made. An email is
-Google's claim, kept without Google's word that it was verified, so make sure the user is yours.
+found before you act**: its id, handle, the name Google sent, when its row was made, and when Google
+last said its email is verified. An email Google has not verified (or one from before 13 October
+2026, when that began to be kept) is only Google's claim, so make sure the user is yours.
 
 On a local backend it runs the same way, under `scripts/convex_dev`: `./scripts/doppledo
 dev_<you> scripts/convex_dev dev scripts/adopt --holding <userlabel> --smith ~org/hunt`. Every user

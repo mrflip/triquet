@@ -17,7 +17,7 @@ const CoachArgv = ['--email', 'flip@example.com', '--userlabel', 'mrflip', '--ad
 
 /** What the deployment answers the Coach's command with, on production after the clear */
 const CoachAdopted: AdoptedT = {
-  user:    { user_id: UserId, userlabel: null, title: null, anonymous: false, admin: false, name: 'Flip Kromer', created_at: MadeAt },
+  user:    { user_id: UserId, userlabel: null, title: null, anonymous: false, admin: false, name: 'Flip Kromer', created_at: MadeAt, email_verified_at: MadeAt },
   changes: [
     { kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null },
     { kind: 'admin', to: true },
@@ -101,16 +101,17 @@ describe('requestFrom', () => {
 
 describe('userLine', () => {
   it("reads the doc block's examples, naming the user by its Google name and when it was made", () => {
-    expect(Adopt.userLine({ user_id: UserId, userlabel: 'flippy_kromer', title: 'Flip', anonymous: false, admin: false, name: 'Flip Kromer', created_at: MadeAt })).to.eq(`The user ${UserId}: @flippy_kromer (Flip), signed in with Google as "Flip Kromer", not an admin; made 2026-10-12T14:03:07.000Z.`)
-    expect(Adopt.userLine({ user_id: UserId, userlabel: null, title: null, anonymous: true, admin: false, name: null, created_at: MadeAt })).to.eq(`The user ${UserId}: no userlabel, anonymous, not an admin; made 2026-10-12T14:03:07.000Z.`)
+    expect(Adopt.userLine({ user_id: UserId, userlabel: 'flippy_kromer', title: 'Flip', anonymous: false, admin: false, name: 'Flip Kromer', created_at: MadeAt, email_verified_at: MadeAt })).to.eq(`The user ${UserId}: @flippy_kromer (Flip), signed in with Google as "Flip Kromer", not an admin; made 2026-10-12T14:03:07.000Z; email verified 2026-10-12T14:03:07.000Z.`)
+    expect(Adopt.userLine({ user_id: UserId, userlabel: 'flippy_kromer', title: 'Flip', anonymous: false, admin: false, name: 'Flip Kromer', created_at: MadeAt, email_verified_at: null })).to.match(/; email not verified\.$/)
+    expect(Adopt.userLine({ user_id: UserId, userlabel: null, title: null, anonymous: true, admin: false, name: null, created_at: MadeAt, email_verified_at: null })).to.eq(`The user ${UserId}: no userlabel, anonymous, not an admin; made 2026-10-12T14:03:07.000Z.`)
   })
 
   it('says when the user is an admin', () => {
-    expect(Adopt.userLine({ user_id: UserId, userlabel: 'mrflip', title: 'Flip', anonymous: false, admin: true, name: 'Flip Kromer', created_at: MadeAt })).to.match(/, an admin; made /)
+    expect(Adopt.userLine({ user_id: UserId, userlabel: 'mrflip', title: 'Flip', anonymous: false, admin: true, name: 'Flip Kromer', created_at: MadeAt, email_verified_at: null })).to.match(/, an admin; made /)
   })
 
   it('says when Google sent no name', () => {
-    expect(Adopt.userLine({ user_id: UserId, userlabel: 'mrflip', title: 'Flip', anonymous: false, admin: false, name: null, created_at: MadeAt })).to.match(/signed in with Google with no name sent, not an admin/)
+    expect(Adopt.userLine({ user_id: UserId, userlabel: 'mrflip', title: 'Flip', anonymous: false, admin: false, name: null, created_at: MadeAt, email_verified_at: null })).to.match(/signed in with Google with no name sent, not an admin/)
   })
 })
 
@@ -152,7 +153,7 @@ describe('adopt', () => {
     const { run, calls } = fakeDeployment(CoachAdopted)
     expect(said(CoachArgv, run)).to.deep.eq([
       'Aimed at 127.0.0.1:3431 (http://127.0.0.1:3431): a dry run, which changes nothing.',
-      `The user ${UserId}: no userlabel, signed in with Google as "Flip Kromer", not an admin; made 2026-10-12T14:03:07.000Z.`,
+      `The user ${UserId}: no userlabel, signed in with Google as "Flip Kromer", not an admin; made 2026-10-12T14:03:07.000Z; email verified 2026-10-12T14:03:07.000Z.`,
       'Would change it to:',
       '  userlabel mrflip, titled "Mrflip" (it held none)',
       '  an admin',
