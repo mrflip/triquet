@@ -201,9 +201,9 @@ security expert who knows what questions to ask.
   nothing goes to a bot unasked. Code that changes any of these
   changes the policy, and its date, in the same PR.
 * 2026-10-11 (oauth sprint, thread 8): the reserved list keeps a new hunt label or userlabel from
-  passing for the app, its pages, its roles, Google or the bot (`PA.ReservedToplevelGroups`, and
-  the prefixes `google`, `triquet`, `admin`, `support`, `official`, `verif`, `secur`, `login`,
-  `help`). It is matched exactly against labels, which hold only lowercase ASCII letters, digits
+  passing for the app, its pages, its roles, its trials and the craft's words, Google or the bot
+  (`PA.ReservedToplevelGroups`, and the prefixes `google`, `triquet`, `admin`, `support`,
+  `official`, `verif`, `secur`, `login`, `help`). It is matched exactly against labels, which hold only lowercase ASCII letters, digits
   and underscores, so near spellings (`go0gle`, `triquett`) pass. It governs a hunt's label only as
   it is made or relabelled, but a userlabel always: since the auth_todos sprint (2026-10-13, thread
   2) there is one userlabel check (`CK.userlabel`), for one claimed and one held alike, the held
@@ -211,7 +211,9 @@ security expert who knows what questions to ask.
   no hunt and be put on none, and every hunt of an org so named is out of reach at its address and
   refuses every write to its row. The list is grown only after `scripts/check_reserved`, run
   against production from the branch growing it (it judges by the checkout's list), names no
-  holder.
+  holder. Once waived: thread 7 of the same sprint added `bots`, `test`, `demo`, `sync` and `meta`
+  with production nearly empty, the Coach waiving the run ("the db is mostly empty right now"); the
+  guard ran against a local backend only.
 * 2026-10-11 (oauth sprint, thread 2): `clear_people:clearBatch` (`convex/clear_people.ts`), an
   internal mutation, deletes every row of Convex Auth's tables (`users`, `authAccounts`,
   `authSessions`, `authRefreshTokens`, `authVerifiers`, `authVerificationCodes`,
