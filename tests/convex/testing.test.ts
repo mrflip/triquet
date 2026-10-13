@@ -235,7 +235,7 @@ describe("testing.putOnHunt", () => {
     const address = await huntAndFriend(tt)
     await anonymousUser(tt, 'tester_anon')
     const before = await countsIn(tt)
-    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), userlabel: 'tester_anon', role: 'reviewer' })).rejects.toThrow(/signed in with Google/)
+    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), userlabel: 'tester_anon', role: 'reviewer' })).rejects.toThrow(/standalone account/)
     expect(await countsIn(tt)).to.deep.eq(before)
   })
 

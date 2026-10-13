@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Button, IconButton, Link, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import * as Actor from '../lib/actor'
@@ -17,8 +17,9 @@ import { useRaiseAlarm } from '../state/alarms'
 import { useOuterHuntActions } from '../state/use-outer-hunt-actions'
 import { useHuntsList } from '../state/use-hunts-list'
 import { useMe } from '../state/use-me'
-import { GoogleSignInOffer } from './GoogleSignIn'
+import { useShown } from '../state/shown'
 import { HuntEditModal } from './HuntEditModal'
+import { SealedNotice, StandaloneAccountPanel } from './StandaloneAccount'
 import { UserTitle, useRetitleUser } from './UserTitle'
 import NextLink from './NextLink'
 import { OrphanedRepos } from './OrphanedRepos'
@@ -69,9 +70,11 @@ export type HuntsListProps = {
  * for quizzes no longer among them, to download.
  *
  * Given an `org`, only that org's hunts, without the histories; a new hunt is offered only on the
- * visitor's own. An anonymous visitor (`Actor.isSealed`) is offered one hunt, their sandbox,
- * labelled with their own handle, and once it is made, told that more come with signing in with
- * Google, and offered it. A visitor who has not said who they are is sent to say so first, and brought back.
+ * visitor's own. A standalone account (anonymous: `Actor.isSealed`) is offered one hunt, its
+ * sandbox, labelled with its own handle, and once it is made, told that more come with a verified
+ * account. Above the hunts, where the deployment offers Google, a standalone account is told it has
+ * limits, and offered a verified account (`StandaloneAccountPanel`). A visitor who has not said who
+ * they are is sent to say so first, and brought back to the page they asked for.
  */
 export function HuntsList({ org }: Readonly<HuntsListProps>) {
   const router = useRouter()
@@ -80,7 +83,8 @@ export function HuntsList({ org }: Readonly<HuntsListProps>) {
   const { act, busy } = useOuterHuntActions()
   const retitle = useRetitleUser()
   const raise = useRaiseAlarm()
-  const here = org === undefined ? Routes.huntsPath() : Routes.orgPath(org)
+  const googleOffered = useShown().user?.google.offered === true
+  const here = usePathname()
 
   useEffect(() => {
     if (loaded && ! user) { router.replace(Routes.rootPath(here)) }
@@ -93,7 +97,7 @@ export function HuntsList({ org }: Readonly<HuntsListProps>) {
   const ownOrg = listed.filter((hunt) => hunt.org === user.userlabel)
   const sealed = Actor.isSealed(actor)
   const making = org === undefined || org === user.userlabel
-  // An anonymous visitor makes one hunt, their sandbox, and is told what comes with Google once it is made.
+  // A standalone account makes one hunt, its sandbox, and is told what comes with a verified account once it is made.
   const offering = making && ! (sealed && ownOrg.length > 0)
 
   const onNew = async () => {
@@ -124,13 +128,13 @@ export function HuntsList({ org }: Readonly<HuntsListProps>) {
         <UserTitle user={user} onRetitle={retitle} />
         <Typography>({User.atLabel(user)}).</Typography>
       </Stack>
+      {sealed && googleOffered && <StandaloneAccountPanel userlabel={user.userlabel} />}
       <Panel
         title={org === undefined ? 'Hunts' : `Hunts of ~${org}`}
         blurb={org === undefined ? HuntsBlurb : `The hunts of ~${org} you are on, and the quizzes in each. ${OrgBlurb}`}
       >
         {offering && <Button variant="outlined" size="small" disabled={busy} onClick={() => { void onNew() }}>+ New hunt</Button>}
-        {making && ! offering && <p className={styles.microcopy}>{RefusalNotices.sealedHunts}</p>}
-        {making && ! offering && <GoogleSignInOffer />}
+        {making && ! offering && <SealedNotice notice={RefusalNotices.sealedHunts} />}
         {hunts.length === 0 && <p className={styles.microcopy}>{org === undefined ? AppNotices.noHunts : `You are on none of ~${org}'s hunts.`}</p>}
         {hunts.length > 0 && (
           <TableContainer sx={{ mt: 1, containerType: 'inline-size' }}>

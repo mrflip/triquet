@@ -2,10 +2,10 @@ import * as Actor from '../src/lib/actor'
 import { ValidatorKit } from '../src/lib/validator'
 import { refuse, refusingInvalid } from '../src/lib/refusals'
 import { ActionValidators } from '../src/models/actions'
-import type { CurrentUserT, OwnUserT } from '../src/models/user'
-import { zMutation, zQuery } from './functions'
+import { UserValidators, type CurrentUserT, type OwnUserT, type UserlabelHolderT } from '../src/models/user'
+import { zMutation, zPlainQuery, zQuery } from './functions'
 import { affirmUserAction } from './authorize'
-import { ownUserOf } from './reading'
+import { holderOfUserlabel, ownUserOf, userForUserlabel } from './reading'
 import { performUser } from './writing/user_actions'
 
 const { zid } = ValidatorKit
@@ -38,6 +38,25 @@ export const own = zQuery({
     const { user_id } = ctx
     if (user_id === null) { return null }
     return await ownUserOf(ctx.db, user_id)
+  },
+})
+
+/**
+ * What holds the userlabel `userlabel` (`UserlabelHolderT`), as the front door asks while a handle
+ * is typed: a verified account, a standalone one, something else that keeps it (`holderOfUserlabel`),
+ * or nothing. Of the deployment alone, asking nobody who is asking (`zPlainQuery`): it tells what
+ * anyone learns by trying to take the handle, or by putting it on a hunt, and whether a verified
+ * account holds it, which anyone shown its face is told already (`UserFaceT`'s `anonymous`). The
+ * browser asks only of a userlabel (`User.flawIn`), as any other is refused.
+ *
+ * @example await ctx.runQuery(api.users.holder, { userlabel: 'flip_kromer' })  // => 'verified', once a user signed in with Google holds it
+ */
+export const holder = zPlainQuery({
+  args:    { userlabel: UserValidators.userlabel },
+  handler: async (ctx, { userlabel }): Promise<UserlabelHolderT> => {
+    const user = await userForUserlabel(ctx.db, userlabel)
+    if (user !== null) { return Actor.isSignedInWithGoogle(user) ? 'verified' : 'standalone' }
+    return await holderOfUserlabel(ctx.db, userlabel) === null ? null : 'kept'
   },
 })
 

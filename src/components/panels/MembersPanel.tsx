@@ -89,9 +89,9 @@ function MemberDoor({ member, claims, carryOut }: Readonly<Pick<MembersPanelProp
  * The row that puts someone on the hunt: their handle (userlabel), their role, and a button. The
  * userlabel is checked as the front door checks one (`User.flawToSay`): one no typing on would
  * mend is said at once, one too short once the field is left. One refused, here, by the policy
- * (one's own: `ownHuntship`; any, by an anonymous smith: `sealedMembers`), or by the server (an
- * anonymous user: `sealedJoin`), says why beneath it until it is changed; an anonymous smith is
- * offered signing in with Google beneath that.
+ * (one's own: `ownHuntship`; any, by a standalone account's smith: `sealedMembers`), or by the
+ * server (a standalone account: `sealedJoin`), says why beneath it until it is changed; a
+ * standalone account's smith is offered a verified account beneath that.
  */
 function AddMember({ claims, carryOut, saveNotice }: Readonly<Pick<MembersPanelProps, 'claims' | 'carryOut' | 'saveNotice'>>) {
   const [labelDraft, setLabelDraft] = useState('')

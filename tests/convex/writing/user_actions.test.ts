@@ -234,10 +234,11 @@ describe('userForSignIn, with a new Google account', () => {
     expect(await usersIn(tt)).to.have.lengthOf(2)
   })
 
-  it('keeps only the email, name and picture of what Google sends', async () => {
+  it('keeps only the email, when it was verified, the name, picture, locale and Workspace domain of what Google sends', async () => {
     const tt = openTester()
-    const user = await userRow(tt, present(await signInWithGoogle(tt, tt, NewSub, { ...Profile, locale: 'en', given_name: 'Flip', emailVerified: true, admin: true, userlabel: 'mrflip' })))
-    expect(Object.keys(user).filter((field) => ! field.startsWith('_')).toSorted((aa, bb) => aa.localeCompare(bb))).to.deep.eq(['created_at', 'email', 'image', 'isAnonymous', 'name', 'updated_at'])
+    const sent = { ...Profile, emailVerificationTime: 1_760_300_000_000, locale: 'en', hosted_domain: 'example.com', given_name: 'Flip', emailVerified: true, admin: true, userlabel: 'mrflip' }
+    const user = await userRow(tt, present(await signInWithGoogle(tt, tt, NewSub, sent)))
+    expect(Object.keys(user).filter((field) => ! field.startsWith('_')).toSorted((aa, bb) => aa.localeCompare(bb))).to.deep.eq(['created_at', 'email', 'emailVerificationTime', 'hosted_domain', 'image', 'isAnonymous', 'locale', 'name', 'updated_at'])
   })
 })
 

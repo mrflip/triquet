@@ -7,6 +7,12 @@ security expert who knows what questions to ask.
 
 ## Of Interest
 
+* 2026-10-13: `users:holder` answers anyone, with or without a session and with no rate limit,
+  whether a userlabel is free, held by a verified account (signed in with Google), held by a standalone
+  (anonymous) one, or kept by a ghosting or a hunt's address. The front door watches it as a handle
+  is typed, to say "Account exists: click Sign in with Google" in place of its button. Before it,
+  the same answers came one at a time from trying to take the handle, and the full-or-standalone
+  split from a user's face (`UserFaceT`) to anyone on a hunt with them.
 * 2026-10-13: `/stats` and `/stats.json`, which anyone may read, list the name of every variable in
   the environment the app was built in. A value is shown in full, or its ends with the rest
   starred out (`snip`, which also gives its length), only where `ENV_VAR_VIZ` (`src/lib/env-viz.ts`)

@@ -8,12 +8,13 @@ export const ContactAddress = 'info@triquet.me'
 /** The app's own pages every page links, in the order the footer shows them */
 const Pages = [
   { title: 'About',   href: Routes.aboutPath() },
+  { title: 'Help',    href: Routes.helpPath() },
   { title: 'Privacy', href: Routes.privacyPath() },
   { title: 'Terms',   href: Routes.termsPath() },
 ] as const
 
 /**
- * The strip across the foot of every page: About, the privacy policy and the terms, and the address
+ * The strip across the foot of every page: About, Help, the privacy policy and the terms, and the address
  * to write to. It sits at the bottom of the window on a short page, and after the content on a long
  * one.
  */

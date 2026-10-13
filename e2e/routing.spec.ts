@@ -58,10 +58,10 @@ test.describe('the front door', () => {
     await page.goto('/')
     const name = page.getByRole('textbox', { name: 'Your name' })
     const box = page.getByRole('textbox', { name: 'Handle', exact: true })
-    await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: AppNotices.signUp, exact: true })).toBeDisabled()
     await name.fill('Flip')
     await expect(box).toHaveValue('flip')
-    await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: AppNotices.signUp, exact: true })).toBeDisabled()
     // Not yet: the render that holds 'flip' has said nothing, while the name is still being typed.
     await expect(page.getByText(AppNotices.userlabelUnfinished)).toBeHidden()
     await name.blur()
@@ -74,11 +74,11 @@ test.describe('the front door', () => {
     const box = page.getByRole('textbox', { name: 'Handle', exact: true })
     await page.getByRole('textbox', { name: 'Your name' }).fill('Flip (the) Kromer!')
     await expect(box).toHaveValue('flip_the_kromer')
-    await expect(page.getByRole('button', { name: 'Log in as flip_the_kromer' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: AppNotices.signUp, exact: true })).toBeEnabled()
     await box.fill('Flip_Kromer')
     await expect(page.getByText(AppNotices.userlabelShape)).toBeVisible()
     await expect(box).toHaveAttribute('aria-invalid', 'true')
-    await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: AppNotices.signUp, exact: true })).toBeDisabled()
   })
 
   test('makes the userlabel follow the name until it is typed in itself, and again once it is emptied', async ({ page }) => {
@@ -92,7 +92,7 @@ test.describe('the front door', () => {
     await expect(box).toHaveValue('mrflip')
     await box.fill('')
     // Emptied, it follows again: blank while it is being cleared, the name's userlabel once the name changes or the field is left.
-    await expect(page.getByRole('button', { name: 'Log in as philip_kromer' })).toBeVisible()
+    await expect(box).toHaveAttribute('placeholder', 'philip_kromer')
     await box.blur()
     await expect(box).toHaveValue('philip_kromer')
     await name.fill('Phil Kromer')
@@ -115,7 +115,7 @@ test.describe('the front door', () => {
     const label = freshUserlabel()
     await page.goto('/')
     await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
-    await page.getByRole('button', { name: `Log in as ${label}` }).click()
+    await page.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue(Labelmaker.titleize(label))
   })
@@ -132,12 +132,12 @@ test.describe('the front door', () => {
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('Menu Named')
     await expect(page.getByRole('banner').getByRole('button', { name: 'You', exact: true })).toHaveText('M')
 
-    // A handle is chosen once: there is no becoming someone else.
+    // A handle is chosen once: there is no becoming someone else. (Signing in follows, where the backend has Google's keys: `google-sign-in.spec`.)
     menu = await openUserMenu(page)
-    await expect(menu.getByRole('menuitem')).toHaveText(['Your hunts', 'About'])
+    await expect(menu.getByRole('menuitem')).toHaveText([AppNotices.profile])
   })
 
-  test('turns a second browser away from a userlabel the first holds, saying what to do, and lets it choose another', async ({ page, browser }) => {
+  test('tells a second browser, in place of its button, that a userlabel the first holds is taken, and lets it choose another', async ({ page, browser }) => {
     const label = await assumeUserlabel(page)
     await page.getByRole('textbox', { name: 'Your name' }).fill('The First')
     await page.getByRole('textbox', { name: 'Your name' }).blur()
@@ -146,14 +146,16 @@ test.describe('the front door', () => {
     const elsewhere = await otherVisitor(browser)
     await elsewhere.goto('/')
     await elsewhere.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
-    await elsewhere.getByRole('button', { name: `Log in as ${label}` }).click()
+    // A standalone account holds it, which no sign-in reaches: taken, whether or not Google is offered
     const gate = elsewhere.getByRole('region', { name: AppNotices.userlabelGateTitle })
-    await expect(gate.getByRole('alert')).toHaveText(RefusalNotices.userlabelClaimed)
+    await expect(gate.getByRole('status')).toHaveText(AppNotices.heldOtherwise)
+    await expect(elsewhere.getByRole('button', { name: AppNotices.signUp, exact: true })).toHaveCount(0)
+    await elsewhere.getByRole('textbox', { name: 'Handle', exact: true }).press('Enter') // nor does the form go on Enter
     await expect(elsewhere).toHaveURL((url) => url.pathname === '/')
 
     const other = freshUserlabel()
     await elsewhere.getByRole('textbox', { name: 'Handle', exact: true }).fill(other)
-    await elsewhere.getByRole('button', { name: `Log in as ${other}` }).click()
+    await elsewhere.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
     await expect(elsewhere).toHaveURL(/\/my\/hunts$/)
     await expect(elsewhere.getByText(`(@${other})`)).toBeVisible()
     await loadAfresh(page, '/my/hunts')
@@ -170,8 +172,24 @@ test.describe('the hunts', () => {
     await expect(page).toHaveURL(/\/\?then=%2Fmy%2Fhunts$/)
     const label = freshUserlabel()
     await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
-    await page.getByRole('button', { name: `Log in as ${label}` }).click()
+    await page.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
+  })
+
+  test("are shown on the profile too, which the user menu leads to, and which brings a visitor back after they have said who they are", async ({ page }) => {
+    await page.goto(Routes.profilePath())
+    await expect(page).toHaveURL(/\/\?then=%2Fmy%2Fprofile$/)
+    const label = freshUserlabel()
+    await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
+    await page.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
+    await expect(page).toHaveURL(/\/my\/profile$/)
+    await expect(page.getByText(`(@${label})`)).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Hunts' })).toBeVisible()
+    await page.goto(Routes.huntsPath())
+    const menu = await openUserMenu(page)
+    await menu.getByRole('menuitem', { name: AppNotices.profile }).click()
+    await expect(page).toHaveURL(/\/my\/profile$/)
+    await expect(page.getByRole('region', { name: 'Hunts' })).toBeVisible()
   })
 
   test('make a new one under their own org, whose quiz shares its label and title, open for work', async ({ page }) => {
@@ -331,9 +349,8 @@ test.describe('a hunt', () => {
     await expect(page.getByRole('heading', { name: `Hunts of ~${userlabel}` })).toBeVisible()
     await expect(page.getByRole('table', { name: 'Your hunts' }).getByRole('rowheader', { name: huntTitle })).toBeVisible()
 
-    // A page about no hunt names none.
-    const menu = await openUserMenu(page)
-    await menu.getByRole('menuitem', { name: 'About' }).click()
+    // A page about no hunt names none. Followed from the keyboard: the dev server's badge sits over the footer's corner.
+    await page.getByRole('contentinfo').getByRole('link', { name: 'About' }).press('Enter')
     await expect(page).toHaveURL('/about')
     await expect(whereYouAre(page).getByRole('link')).toHaveCount(1)
   })
@@ -494,7 +511,7 @@ test.describe('an address naming a quiz that is not there', () => {
       await page.goto('/')
       const other = freshUserlabel()
       await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(other)
-      await page.getByRole('button', { name: `Log in as ${other}` }).click()
+      await page.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
       await expect(page.getByText(`(@${other})`)).toBeVisible()
       await expect(page.getByRole('button', { name: 'Orphaned histories (1)' })).toBeVisible()
 
@@ -584,11 +601,11 @@ test.describe('a link handed to a friend', () => {
     await friend.goto(link)
     await expect(friend.getByRole('heading', { name: AppNotices.userlabelGateTitle })).toBeVisible()
     await friend.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
-    await friend.getByRole('button', { name: `Log in as ${label}` }).click()
+    await friend.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
     await expect(friend).toHaveURL(link)
     const notice = friend.getByRole('region', { name: 'Not yet on this hunt' })
     // Still anonymous: no smith can put them on until they sign in with Google, and they are told so
-    await expect(notice).toContainText('You are not yet a member of this hunt. Sign in with Google first')
+    await expect(notice).toContainText('You are not yet a member of this hunt. Verify your account first')
     await expect(notice).toContainText(`(${author}), and give them your handle`)
     await expect(notice).toContainText(`your handle, “${label}”`)
     await expect(friend.getByLabel('Quiz name')).toBeHidden()
@@ -677,7 +694,7 @@ test.describe('a link handed to a friend', () => {
     await expect(members.getByText(userUnknownNotice(label))).toBeVisible()
   })
 
-  test("tells a smith who adds an anonymous visitor that they cannot be put on a hunt until they sign in with Google", async ({ page, browser }) => {
+  test("tells a smith who adds a standalone account that it cannot be put on a hunt until it becomes a verified account", async ({ page, browser }) => {
     const stranger = await otherVisitor(browser)
     const label = await assumeUserlabel(stranger)
     const members = await openPanel(page, 'Members')

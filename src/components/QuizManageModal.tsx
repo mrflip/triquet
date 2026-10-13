@@ -10,6 +10,7 @@ import { DangerZone, type DangerousAct } from './DangerZone'
 import { ExplicitField } from './ExplicitField'
 import { GoogleSignInOffer } from './GoogleSignIn'
 import { InfoTip } from './InfoTip'
+import { SealedNotice } from './StandaloneAccount'
 import NextLink from './NextLink'
 import { RunOrderLine, RunOrderList } from './RunOrder'
 import { TemplateableEditor } from './TemplateableEditor'
@@ -260,7 +261,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
 function SealedOffer({ refusal }: Readonly<{ refusal: string }>) {
   return (
     <Stack spacing={1}>
-      <p className={styles.microcopy}>{refusal}</p>
+      <SealedNotice notice={refusal} />
       <GoogleSignInOffer />
     </Stack>
   )

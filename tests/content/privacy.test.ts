@@ -31,11 +31,12 @@ describe('privacy.md', () => {
   })
 
   it("says what is kept from a Google account, and that nothing more is asked for", () => {
-    expect(Text).to.include('the email address, name and picture Google sends us')
+    expect(Text).to.include('the email address Google sends us')
+    expect(Text).to.include('the name and picture Google sends us')
     expect(Text).to.include('We ask Google for nothing more')
   })
 
   it("says that a bot's prompt goes to Anthropic", () => {
-    expect(Text).to.match(/goes from our server to \[Anthropic\]/)
+    expect(Text).to.match(/sends a prompt made from the question and its quiz to \[Anthropic\]/)
   })
 })

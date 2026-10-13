@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, it, vi } from 'vitest'
+import * as EST from 'es-toolkit'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { GoogleScope, googleKeyed, returnUrlFor } from '../../convex/auth'
+import { GoogleScope, googleKeyed, googleProfileOf, returnUrlFor } from '../../convex/auth'
 import { GoogleProfile as Profile, anonymousSession, googleCallback, googleUser, openTester, signInWithGoogle, type Tester } from '../support/convex'
 import { present } from '../support/present'
 
@@ -144,5 +145,39 @@ describe('returnUrlFor, the redirect callback', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+})
+
+describe('googleProfileOf', () => {
+  /** The claims of a Google ID token, as Google sends them for a Workspace account */
+  const Claims = {
+    sub: '109800000000000000001', aud: 'test-google-client-id', azp: 'test-google-client-id', iss: 'https://accounts.google.com', iat: 1_760_300_000, exp: 1_760_303_600,
+    email: 'flip@example.com', email_verified: true, name: 'Flip Kromer', given_name: 'Flip', family_name: 'Kromer', picture: 'https://lh3.googleusercontent.com/a/flip', locale: 'en-GB', hd: 'example.com',
+  }
+
+  it("keeps the account's id, the email and when Google said it was verified, the name, picture, locale and Workspace domain, and nothing else", () => {
+    expect(googleProfileOf(Claims)).to.deep.eq({
+      id: Claims.sub, email: 'flip@example.com', emailVerificationTime: 1_760_300_000_000, name: 'Flip Kromer', image: Claims.picture, locale: 'en-GB', hosted_domain: 'example.com',
+    })
+  })
+
+  it('keeps no verification for an email Google has not verified, and no locale or domain Google did not send', () => {
+    const personal = EST.omit(Claims, ['locale', 'hd'])
+    expect(googleProfileOf({ ...personal, email_verified: false })).to.deep.eq({ id: Claims.sub, email: 'flip@example.com', name: 'Flip Kromer', image: Claims.picture })
+  })
+})
+
+describe("what a Google sign-in keeps of what Google said", () => {
+  it('is brought up to date at every sign-in, and what Google no longer says is taken away', async () => {
+    const tt = openTester()
+    const said = { ...Profile, emailVerificationTime: 1_760_300_000_000, locale: 'en-GB', hosted_domain: 'example.com' }
+    const user_id = present(await signInWithGoogle(tt, tt, 'google-sub-kept', said))
+    const fieldsOf = async () => await tt.run(async (ctx) => {
+      const user = present(await ctx.db.get('users', user_id))
+      return [user.name, user.emailVerificationTime ?? null, user.locale ?? null, user.hosted_domain ?? null]
+    })
+    expect(await fieldsOf()).to.deep.eq(['Flip Kromer', 1_760_300_000_000, 'en-GB', 'example.com'])
+    await signInWithGoogle(tt, tt, 'google-sub-kept', Profile)
+    expect(await fieldsOf()).to.deep.eq(['Flip Kromer', null, null, null])
   })
 })

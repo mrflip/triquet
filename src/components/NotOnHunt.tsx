@@ -29,10 +29,10 @@ export type NotOnHuntProps = {
 
 /**
  * What an address shows someone it is not for, in place of what it names, the address left as it
- * is: a visitor not on its hunt, a reviewer asking for the smiths' mode, or an anonymous smith
- * asking to review its own sandbox's quiz, which only signing in with Google allows. Names the
- * smiths to ask and what to ask them for, and where the visitor may go instead. An anonymous
- * visitor is told a smith can put them on only once they sign in with Google, and offered it.
+ * is: a visitor not on its hunt, a reviewer asking for the smiths' mode, or a standalone account's
+ * smith asking to review its own sandbox's quiz, which only a verified account may. Names the smiths
+ * to ask and what to ask them for, and where the visitor may go instead. A standalone account is
+ * told a smith can put it on only once it is a verified account, and offered one.
  */
 export function NotOnHunt({ playtestPath, editPath = null, user, sealed, claims, smiths }: Readonly<NotOnHuntProps>) {
   // Someone on the hunt who may not work on the quiz may still be able to review it; a sealed smith, the other way about.

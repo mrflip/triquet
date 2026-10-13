@@ -452,7 +452,7 @@ describe("users, each session's own", () => {
       'quizzes:open', 'quizzes:signals', 'quizzes:whole',
       'reviews:forQuiz',
       'stats:backfills',
-      'users:current', 'users:own', 'users:perform',
+      'users:current', 'users:holder', 'users:own', 'users:perform',
       'widgets:library', 'widgets:perform', 'widgets:usage',
     ])
   })

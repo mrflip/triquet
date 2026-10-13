@@ -167,24 +167,32 @@ describe('User.relabelled', () => {
 })
 
 describe('User.fromGoogle', () => {
+  /** What Google says only while it holds, none of it said: each taken away by a patch */
+  const Unsaid = { emailVerificationTime: undefined, locale: undefined, hosted_domain: undefined }
+
   it('is a user signed in with Google, holding the email, name and picture Google sent', () => {
-    expect(User.fromGoogle({ email: 'flip@example.com', name: 'Flip' })).to.deep.eq({ isAnonymous: false, email: 'flip@example.com', name: 'Flip' })
-    expect(User.fromGoogle({ email: 'f@example.com', name: 'F', image: 'https://lh3.googleusercontent.com/a/f' })).to.deep.eq({ isAnonymous: false, email: 'f@example.com', name: 'F', image: 'https://lh3.googleusercontent.com/a/f' })
+    expect(User.fromGoogle({ email: 'flip@example.com', name: 'Flip' })).to.deep.eq({ isAnonymous: false, email: 'flip@example.com', name: 'Flip', ...Unsaid })
+    expect(User.fromGoogle({ email: 'f@example.com', name: 'F', image: 'https://lh3.googleusercontent.com/a/f' })).to.deep.eq({ isAnonymous: false, email: 'f@example.com', name: 'F', image: 'https://lh3.googleusercontent.com/a/f', ...Unsaid })
+  })
+
+  it('holds when Google said the email is verified, the locale and the Workspace domain, when Google sent them', () => {
+    const sent = { email: 'flip@example.com', emailVerificationTime: 1_760_300_000_000, locale: 'en-GB', hosted_domain: 'example.com' }
+    expect(User.fromGoogle(sent)).to.deep.eq({ isAnonymous: false, ...sent })
   })
 
   it('drops anything else Google sends, so a profile cannot set a userlabel, an admin flag, or anonymity', () => {
-    const sent = { email: 'flip@example.com', locale: 'en', userlabel: 'mrflip', admin: true, isAnonymous: true } as never
-    expect(User.fromGoogle(sent)).to.deep.eq({ isAnonymous: false, email: 'flip@example.com' })
+    const sent = { email: 'flip@example.com', given_name: 'Flip', userlabel: 'mrflip', admin: true, isAnonymous: true } as never
+    expect(User.fromGoogle(sent)).to.deep.eq({ isAnonymous: false, email: 'flip@example.com', ...Unsaid })
   })
 
   it('is no longer anonymous even when Google sends nothing', () => {
-    expect(User.fromGoogle({})).to.deep.eq({ isAnonymous: false })
+    expect(User.fromGoogle({})).to.deep.eq({ isAnonymous: false, ...Unsaid })
   })
 })
 
 describe('User.provisional', () => {
   it('is a user signed in with Google, holding what Google sent, marked provisional', () => {
-    expect(User.provisional({ email: 'flip@example.com' })).to.deep.eq({ isAnonymous: false, email: 'flip@example.com', provisional: true })
+    expect(User.provisional({ email: 'flip@example.com' })).to.deep.eq({ isAnonymous: false, email: 'flip@example.com', provisional: true, emailVerificationTime: undefined, locale: undefined, hosted_domain: undefined })
   })
 })
 

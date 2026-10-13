@@ -1,15 +1,24 @@
-*Last changed: 11 October 2026.*
+*Last changed: 13 October 2026.*
 
 This is what Triquet keeps about the people who use it, where it keeps it, who can see it, and how to have it deleted. "We" are the people who run Triquet.
 
 ## What we keep
 
 * **Your handle**, and the name you give beside it.
-* **What you write**: your hunts and quizzes, the questions and answers in them, your reviews, and the answers a bot gave when asked. Also which hunts you are on, and your role on each.
-* **If you sign in with Google**: the email address, name and picture Google sends us, and Google's identifier for your account. We ask Google for nothing more, so Triquet cannot read your mail, your files or anything else in your Google account.
+* **What you write**:
+  - your hunts and quizzes, the questions and answers in them, your reviews, and results from external agents and services you designate;
+  - which hunts you are on, and your role on each.
+* **If you sign in with Google**:
+  - the email address Google sends us, to contact you as you permit;
+  - the name and picture Google sends us, as starting settings in your profile;
+  - your preferred language and region, so that we display information conventionally;
+  - whether Google has verified that email address, and the domain of your Google Workspace organization (if any), so that we can combat spam;
+  - Google's account identifier, to preserve access even if your email changes.
+
+  We ask Google for nothing more: Triquet cannot read your mail, your files or anything else in your Google account.
 * **Your sessions**: a record of each browser you use Triquet in, so that it stays signed in.
 
-All of it is kept in Triquet's database, which [Convex](https://www.convex.dev) hosts. [Vercel](https://vercel.com) serves the pages. Like any web service, they keep logs of requests and errors, which we read to find and fix faults.
+All of it is kept in Triquet's database, hosted by [Convex](https://www.convex.dev). [Vercel](https://vercel.com) serves the pages. Like any web service, those keep logs of requests and errors, which we read to find and fix faults.
 
 ## Who sees what
 
@@ -30,7 +39,7 @@ Clearing this site's data in your browser removes both. If you have not signed i
 
 ## Asking a bot
 
-When someone working on a quiz asks a bot about a question, a prompt made from the question and its quiz goes from our server to [Anthropic](https://www.anthropic.com), whose AI model answers it. The answer is kept with the question. Anthropic handles what it is sent under its own [privacy policy](https://www.anthropic.com/legal/privacy). Nothing is sent to a bot unless someone asks.
+If you add external services to your hunt, we send the information you designate. For example, the evaluator agent sends a prompt made from the question and its quiz to [Anthropic](https://www.anthropic.com), whose AI model answers it. The answer is kept with the question. Anthropic handles what it is sent under its own [privacy policy](https://www.anthropic.com/legal/privacy).
 
 ## Deleting your data
 
