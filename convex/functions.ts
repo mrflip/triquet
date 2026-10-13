@@ -93,7 +93,7 @@ const AskingToWrite = {
   },
 }
 
-/** Our Zod error map alone, for an internal query, which nobody asks and which writes nothing */
+/** Our Zod error map alone, for a query that asks nobody who is asking: an internal one, or a public one of the deployment alone */
 const InOurWords = {
   args:  {},
   input: () => {
@@ -127,6 +127,17 @@ export const zQuery            = zCustomQuery(query, Asking)
 export const zMutation         = zCustomMutation(mutation, AskingToWrite)
 export const zInternalMutation = zCustomMutation(internalMutation, InOurWordsToWrite)
 export const zInternalQuery    = zCustomQuery(internalQuery, InOurWords)
+
+/**
+ * The builder of a public query that asks nobody who is asking: one answering of the deployment
+ * alone, the same for every caller, with or without a session. It reads no session and no user
+ * (`ctx` carries neither `actor` nor `user_id`), so their changes never rerun a watch of it. Named
+ * in `Unscoped` (`authorize.ts`) with why, as every public function holding the whole database is.
+ * A query that answers anything of who is asking is a `zQuery`.
+ *
+ * @example export const offered = zPlainQuery({ args: {}, handler: () => ({ google: googleKeyed() }) })
+ */
+export const zPlainQuery = zCustomQuery(query, InOurWords)
 
 // --- A hunt's functions
 

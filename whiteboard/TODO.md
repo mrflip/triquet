@@ -550,7 +550,8 @@ Fixed in the thread: the front door's `?then=` open redirect. Left, each a Coach
     stale-copy filter~~. *Struck by thread 11:* one loop (`recopyOntoHuntships`) and one rule
     (`Huntship.isStale`). Thread 10's reviewer's find came with it: `adopt` gives no anonymous user
     a userlabel a hunt's address holds.
-  - `auth:offered` is a `zQuery`, so it reads the session and user it never uses and reruns when
-    the user changes.
+  - ~~`auth:offered` is a `zQuery`, so it reads the session and user it never uses and reruns when
+    the user changes~~. *Struck by thread 11:* it is a `zPlainQuery`, a public query that asks
+    nobody who is asking (`convex/functions.ts`; `notes/convex.md`, *Who is asking*).
   - `UserlabelGate` names a variable `name`.
   - The patch deletes a code's verifier in two places (`userOAuth.js`, `verifyCodeAndSignIn.js`).
