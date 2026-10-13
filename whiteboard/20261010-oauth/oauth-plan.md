@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-11. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `/sprint oath YOLO`, "plan and execute the sprint described in
 whiteboard/20261010-oauth", which is `20261011-oauth_preplan.md` beside this file.
-**Status: done (2026-10-12). Every thread landed: #226-#235, one stack, plus #233 from the Coach's high review of thread 5. Closing full e2e 309/309. See `human/20261012-sprint_oauth_done.md`.** `oauth-progress.md`, beside this file, is newer
+**Status: follow-ups underway (2026-10-13): threads 1-9 landed and merged (#226-#235, #237); threads 10 and 11 added below, 10 underway.** `oauth-progress.md`, beside this file, is newer
 than this plan wherever the two disagree.
 
 The earlier plan in this file (three threads, an app-made hand-off, 2026-10-10) is superseded and
@@ -575,6 +575,70 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
   a hand read of every public function's authorization.
 * **The review of this thread** is of its fixes, as for any thread.
 * **Depends on:** threads 1 to 8 landed.
+
+## Follow-up threads (2026-10-13)
+
+*The Coach's text:* "while I read the 'what needs your word', continue implementing the plan",
+then, on the orchestrator's proposal (threads 10 and 11 below, the main checkout back on `main`),
+"yes go ahead on the local repo".
+
+*Orchestrator:* the stack merged (#226-#235 and #237's review follow-ups, under new SHAs where
+#237 restacked them), so these start a fresh spine on `main`. They take only the security review's
+recommendations that wait on no decision of the Coach's. **Held for the Coach, and built by
+neither:** F2 (smiths shown to strangers), F3 (sign a verifier once: a fifth part to the patch),
+F7 and F8 (wording), the reserved words, upstream #306, and anything touching production.
+
+| # | Thread | Depends on |
+|---|---|---|
+| 10 | `seal_hardening`: fail closed on `isAnonymous`; `adopt` and sandboxes; `adopt`'s dry run | nothing (on `main`) |
+| 11 | `oauth_tidy`: the code review's leftovers | 10 |
+
+### 10. `seal_hardening`: fail closed, and `adopt` kept off sandboxes
+
+*Orchestrator's text* (from `oauth-security-review.md`, F4 to F6, and `whiteboard/TODO.md`,
+*From oauth sprint, thread 9*):
+
+> * **F5:** "signed in with Google" is `isAnonymous === false`; a user row without the field is
+>   sealed, not trusted (its `admin` does not count). Repair the three convex-tests that insert
+>   users without the field (`huntship_actions.test.ts`, `hunts.test.ts`, `testing.test.ts`) by
+>   writing the field, not by loosening the predicate.
+> * **F6:** `adopt` skips anonymous users' sandboxes in `--smith-all`, refuses `--smith` on one,
+>   and refuses relabelling an anonymous user that holds a sandbox. A relabel's outcome says the
+>   userlabel it leaves is now free (thread 4's decision, no ghosting, stands).
+> * **F4:** `adopt`'s dry run names the user it found: its Google name and when its row was made,
+>   so the Coach recognizes their own before it acts. No new stored field.
+> * Strike each from `whiteboard/TODO.md` and `notes/security.md` as it lands, saying what was done.
+
+*Orchestrator's gloss.*
+
+* **Touches** `src/models/user.ts` (`User.isAnonymous`), `src/lib/actor.ts`
+  (`Actor.isSignedInWithGoogle`), wherever sealing reads either, `convex/adopt.ts` and
+  `scripts/adopt`, and their tests.
+* **Look-ahead:** thread 11 edits `adopt`'s `relabelFor` after this; leave its shape alone beyond
+  what F6 needs.
+* **Depends on:** nothing.
+
+### 11. `oauth_tidy`: the code review's leftovers
+
+*Orchestrator's text* (from `whiteboard/TODO.md`, *From oauth sprint, thread 9*, *Code review
+leftovers, not security*):
+
+> * `holderOfUserlabel` reads up to `HuntsPerOrg.max` hunts to test for one: `.first()`.
+> * `auth:offered` is a `zQuery`, so it reads a session and user it never uses and reruns when the
+>   user changes: build it on the plain query wrapper `notes/convex.md` names for an unscoped read.
+> * `retitleUser` repeats `rewriteUserlabel`'s copy loop, and `adopt`'s `relabelFor` its stale-copy
+>   filter: one helper each.
+> * `UserlabelGate` names a variable `name`.
+> * The patch deletes a code's verifier in two places (`userOAuth.js`, `verifyCodeAndSignIn.js`):
+>   one, if the patch's shape allows it without changing behaviour; otherwise say why in the thread
+>   file. No behaviour change to the patch: F3 is the Coach's.
+> * Strike each from `whiteboard/TODO.md` as it lands.
+
+*Orchestrator's gloss.*
+
+* **Touches** `convex/reading.ts`, `convex/auth.ts`, `convex/writing/`, `convex/adopt.ts`,
+  `src/components/` (`UserlabelGate`), `patches/@convex-dev__auth@0.0.96.patch`.
+* **Depends on:** 10 (both edit `adopt`).
 
 ## For the Coach
 
