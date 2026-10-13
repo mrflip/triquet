@@ -1,14 +1,14 @@
-*Last changed: 11 October 2026.*
+*Last changed: 13 October 2026.*
 
-These are the terms Triquet is offered on. Using it means accepting them. "We" are the people who run Triquet.
+Using Triquet means accepting the following terms. "We" and "our" refer to the people who run Triquet.
 
 ## The service, as it is
 
-Triquet is offered as it is. It may change, pause or stop, and we cannot promise that it will always be there or that nothing will ever be lost. Download a hunt's Full History to keep a copy of your own.
+Triquet is offered as it is. It may change, pause or stop, and we cannot promise that it will always be there or that nothing will ever be lost. Download a hunt's Full History to keep a copy of your own. You may also [download and run your own copy of Triquet](https://github.com/mrflip/triquet). We invite and encourage you to add and share features.
 
 ## Your content is yours
 
-What you write in Triquet stays yours. You let us keep it, show it to the people you share it with, and send it to Anthropic when you ask a bot about it, so that Triquet can do what you ask of it. What we keep, and who sees it, is in the [privacy policy](/privacy).
+What you write in Triquet stays yours. So that Triquet can do what you ask of it, you let us keep it, show it to the people you share it with, and send it to external services. What we keep, and who sees it, is in the [privacy policy](/privacy).
 
 ## No abuse
 
@@ -16,12 +16,17 @@ Don't use Triquet to:
 
 * break the law, or anyone's rights, including by posting what is not yours to share;
 * harass, threaten or deceive anyone;
-* reach a hunt, a quiz or a user that is not yours, or get around Triquet's limits;
-* overload Triquet, or the bots it asks.
+* access data that is not yours, or get around Triquet's limits;
+* overload Triquet or external services it relies on.
 
-## When the rules are broken
+## Recourse
 
-We may remove what breaks these terms, and take away the handle or the access of whoever put it there.
+For any reasonable cause, according to our sole judgement, we may:
+
+* disable access to your account
+* remove your account altogether
+* alter the handle or title of your account
+* remove or alter your content
 
 ## Questions
 
