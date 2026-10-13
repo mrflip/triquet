@@ -335,6 +335,15 @@ Settled; reach for these before writing the equivalent.
   remember to remove. Widely used, small (three dependencies), and settled at 4.1.2 since 2022.
   Named by the e2e_triage sprint's plan and added Oct 2026 under the rule above. The spine's own
   hold (`withSpineHeld`) is older, synchronous, and stays a directory of its own.
+* **`oauth2-mock-server`** (devDependency), a stand-in for Google that the e2e suite signs in with
+  all the way through (`scripts/mock-google.ts`; `notes/e2e.md`): an OpenID Connect issuer in Node,
+  in-process, with discovery, keys, consent, a token exchange that checks PKCE, and hooks to set a
+  token's claims per request. Named by the Coach (auth_todos sprint, Oct 2026) and kept over a
+  Docker issuer (`mock-oauth2-server`, Kotlin, a container per lane) and over Playwright's route
+  stubs, which cannot reach the token exchange: the Convex backend makes it, not the browser.
+  Convex Auth already fetches a provider over plain `http` (it sets oauth4webapi's
+  `allowInsecureRequests` itself), so nothing was patched to reach it; `convex/auth.ts` points the
+  Google provider at it only on a local backend (`mockGoogleIssuerOf`, `notes/security.md`).
 * **`eslint-plugin-playwright`** on `e2e/**`: the mechanical form of notes/e2e.md's Playwright
   section (`no-wait-for-selector`, `prefer-web-first-assertions`, `prefer-to-have-count` and
   the rest of its recommended set). Added Sept 2026 after a review found one-shot reads and

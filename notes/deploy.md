@@ -93,8 +93,12 @@ effort, and a shallow clone may list no commits.
   picks them up without a redeploy (a local backend served the Google routes at once, 2026-10-11).
   **A local backend** takes them from the Doppler config `scripts/convex_dev` runs under (all three
   dev configs carry the dev client, which accepts lane 0's `dev` and `agent` callbacks, ports 3500
-  and 3501), and has them taken away under a config without them. **Previews and CI** never have
-  them: Google allows no wildcard redirect URI, and nothing automated signs in to Google.
+  and 3501), and has them taken away under a config without them. **An e2e role's** local backend,
+  CI's included, never has them: it signs in with a stand-in for Google on the same machine
+  (`scripts/mock-google.ts`), with placeholder keys and the stand-in's address
+  (`TRIQUET_MOCK_GOOGLE_ISSUER`, honoured only on a local backend), all set by `scripts/convex_dev`.
+  **Previews** never have them: Google allows no wildcard redirect URI, and nothing automated signs
+  in to Google.
 * **GitHub Actions** (`.github/workflows/ci.yml`) typechecks, lints, tests, builds and runs e2e
   (against the optimized build) on every pull request and every push to `main`, and checks that
   `convex/_generated/` was committed as the functions regenerate it. Every job runs against a local backend or none; CI
