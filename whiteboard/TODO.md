@@ -9,7 +9,9 @@
 * rename “triquet.vercel.app” to “triquet.me” everywhere
 * Review microcontent for consistency and style (eg title caps consistency)
 * remove heldUserlabel. It skips the top-level reserved words, so a handle claimed before a word was reserved stays valid.
-* Set up oauth2-mock-server
+* Set up oauth2-mock-server and beef up the tests around signup signin and verify
+* set username cap to four, not six, characters
+* weird "leave site?" popup when signing out
 * Make a list of all possible states for a user: is/isn't signed in with google, has/hasn't a username, was/wasn't standalone, ...
 
 ## Viz fixes
