@@ -5,6 +5,11 @@ Branch `20261013-seal_hardening`, PR filed at landing; see the report. Cut from 
 yet: the thread touches `convex/` and `src/models/`, so the landing's `--touched` reaches the
 whole suite.
 
+**Review: clean** (medium; no fixes). Left for the record: a sandbox whose anonymous user an
+`adopt` run relabelled away before this thread is not seen as sealed by `isSealedSandbox` (it
+matters only if such a run happened); and, outside this diff, `relabelFor` can give an anonymous
+user a userlabel only a hunt's address holds (no harm found; thread 11 may weigh it).
+
 * **Built**:
   - **F5, fail closed.** `User.isAnonymous` (`src/models/user.ts`) is `isAnonymous !== false`;
     `Actor.isSignedInWithGoogle` (`src/lib/actor.ts`) stays its negation, so it is
