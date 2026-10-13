@@ -44,8 +44,8 @@ admin key, `e2e/admin.ts`). A spec that is not about the gear asks for its quiz'
 `test.use({ layout: { widgetings: [...], columns: [...] } })`, rather than walking the dialogs
 (`addWidgetings`, `addColumns`), which stay for the specs about them. A spec that is about the way
 in itself (the front door, the hunts list, making a hunt) says `test.use({ startAt: null })` and
-goes there itself, in a fresh anonymous session (`startHunt(page)` walks the front door and the
-hunts list); a file whose tests are only partly about it says so in a `describe`, or in an
+goes there itself, in a fresh anonymous session (`startHunt(page)` walks the front door to the
+sandbox a new user lands at, and opens its quiz); a file whose tests are only partly about it says so in a `describe`, or in an
 anonymous one, `test.describe(() => { test.use({ startAt: null }) ... })`, which leaves the
 titles of the tests in it as they were; one that must stub a route before the page first asks for it stubs it and reloads. A
 helper two specs need lives in support with a doc block; a helper one spec needs lives at the top
@@ -108,7 +108,9 @@ Workspace domain), or `'refused'` for a consent said no to; `e2e/google.ts` hold
 `continueWithGoogle` (the user menu's button), and `mockIssuerUrl`. What a sign-in kept that no
 screen shows (the verification, locale and domain) is read with `keptOf` (`e2e/admin.ts`, through
 `testing:keptOf`). Where a new user lands after signing up, either way, is one helper,
-`landedAfterSignUp` in support: change it there, never in each spec. `vouchFor` stays the quick way
+`landedAfterSignUp` in support, which asks the app's own rule (`Routes.signedUpPath`): the page a
+link sent them from, when it is worth coming back to, and their sandbox otherwise. Change it there,
+never in each spec. `vouchFor` stays the quick way
 to an unsealed visitor for a spec whose way in is not what it is about.
 The grid is `grid(page)`, the table named *Questions*: the page holds other tables.
 

@@ -114,6 +114,7 @@ test.describe("verifying a standalone account", () => {
     await answerGoogleAs(page, 'refused')
     await continueWithGoogle(page)
     await expect(page.getByRole('alert').filter({ hasText: GoogleSignInUnfinished })).toContainText(googleSignInUnfinishedNotice(label))
+    await page.goto(Routes.huntsPath())
     await expect(page.getByText(`(@${label})`)).toBeVisible()
     expect(await keptOf(label)).toMatchObject({ anonymous: true })
   })
@@ -140,6 +141,7 @@ test.describe("signing in again", () => {
     await expect(dialog).toContainText(nameChoiceQuestion(merged, own))
     await dialog.getByRole('button', { name: `Keep ${merged}` }).click()
     await expect(dialog).toBeHidden()
+    await elsewhere.goto(Routes.huntsPath())
     await expect(elsewhere.getByText(`(@${merged})`)).toBeVisible()
     expect(await keptOf(merged)).toMatchObject({ anonymous: false, email: account.email })
   })
@@ -156,6 +158,7 @@ test.describe("signing in again", () => {
     await elsewhere.reload()
     await dialog.getByRole('button', { name: `Keep ${own}` }).click()
     await expect(dialog).toBeHidden()
+    await elsewhere.goto(Routes.huntsPath())
     await expect(elsewhere.getByText(`(@${own})`)).toBeVisible()
     await elsewhere.reload()
     await expect(elsewhere.getByText(`(@${own})`)).toBeVisible()
@@ -240,9 +243,12 @@ test.describe("the sign-in page", () => {
     await expect(page).toHaveURL(/\/my\/hunts$/)
   })
 
-  test("sends a visitor holding no handle to the front door, which brings them back to their profile after", async ({ page }) => {
+  test("sends a visitor holding no handle to the front door, which lands them at their sandbox after, as their profile is no page to come back to", async ({ page }) => {
     await page.goto(Routes.signInPath())
     await expect(page).toHaveURL(/\/\?then=%2Fmy%2Fprofile$/)
-    await expect(page.getByRole('textbox', { name: 'Handle', exact: true })).toBeVisible()
+    const label = freshUserlabel()
+    await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
+    await page.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
+    await landedAfterSignUp(page, label, Routes.profilePath())
   })
 })

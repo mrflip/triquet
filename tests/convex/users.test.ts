@@ -5,7 +5,7 @@ import { userForUserlabel } from '../../convex/reading'
 import { RefusalNotices } from '../../src/lib/notices'
 import { failurekindOf, noticeOf } from '../../src/lib/refusals'
 import * as PA from '../../src/lib/vv/patterns'
-import { Quiz } from '../../src/models/quiz'
+import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import type { OwnUserT } from '../../src/models/user'
 import { present } from '../support/present'
 import { anonymousSession, anonymousUser, callerOf, googleUser, huntHolding, openTester, putOn, refusedAs, seedHunt, type Session, type Tester } from '../support/convex'
@@ -48,14 +48,58 @@ async function userOf(tt: Tester, user_id: Id<'users'>) {
 }
 
 describe('users.perform: assume_userlabel', () => {
-  it('gives the user a userlabel nobody holds, titled as asked: one write to the user, and nothing else', async () => {
+  it("gives the user a userlabel nobody holds, titled as asked, and makes it its sandbox, ~label/label, with it the one smith", async () => {
     const tt = openTester()
     const session = await anonymousSession(tt)
     expect(await assume(session, 'flip_kromer', 'Flip')).to.eq(session.user_id)
     const user = await userOf(tt, session.user_id)
     expect([user.userlabel, user.title, user.isAnonymous]).to.deep.eq(['flip_kromer', 'Flip', true])
-    const users = await allOf(tt, 'users')
-    expect([users.length, await allOf(tt, 'hunts'), await allOf(tt, 'huntships')]).to.deep.eq([1, [], []])
+    const [users, hunts, huntships] = [await allOf(tt, 'users'), await allOf(tt, 'hunts'), await allOf(tt, 'huntships')]
+    expect(users).to.have.lengthOf(1)
+    expect(hunts.map((hunt) => [hunt.orglabel, hunt.label, hunt.title])).to.deep.eq([['flip_kromer', 'flip_kromer', 'Flip Kromer']])
+    expect(huntships.map((huntship) => [huntship.hunt_id, huntship.user_id, huntship.userlabel, huntship.usertitle, huntship.role])).to.deep.eq([[hunts[0]?._id, session.user_id, 'flip_kromer', 'Flip', 'smith']])
+    await expectSound(tt)
+  })
+
+  it("makes the sandbox's first quiz, holding the blank questions every new quiz does, and lists the sandbox among the user's hunts", async () => {
+    const tt = openTester()
+    const session = await anonymousSession(tt)
+    await assume(session, 'flip_kromer', 'Flip')
+    const listed = await session.as.query(api.hunts.list, {})
+    expect(listed.map((hunt) => [hunt.org, hunt.label, hunt.role])).to.deep.eq([['flip_kromer', 'flip_kromer', 'smith']])
+    expect(listed[0]?.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => [quiz.label, quiz.title, quiz.locked])])).to.deep.eq([['home', [['flip_kromer', 'Flip Kromer', false]]]])
+    const questions = await tt.run(async (ctx) => await ctx.db.query('questions').collect())
+    expect(questions).to.have.lengthOf(BlankQuestionQty)
+  })
+
+  it("makes a user signed in with Google its sandbox too, as it takes its handle", async () => {
+    const tt = openTester()
+    const session = await anonymousSession(tt)
+    await tt.run(async (ctx) => { await ctx.db.patch('users', session.user_id, { isAnonymous: false, email: 'flip@example.com' }) })
+    await assume(session, 'flip_kromer', 'Flip')
+    const listed = await session.as.query(api.hunts.list, {})
+    expect(listed.map((hunt) => [hunt.org, hunt.label, hunt.role])).to.deep.eq([['flip_kromer', 'flip_kromer', 'smith']])
+  })
+
+  it("leaves an anonymous user its sandbox as its one hunt: making another is refused, as sealing refuses it", async () => {
+    const tt = openTester()
+    const session = await anonymousSession(tt)
+    await assume(session, 'flip_kromer', 'Flip')
+    expect(await refusedAs(session.as.mutation(api.hunts.performOuter, { action: { kind: 'new_hunt', label: 'flip_kromer' } }))).to.eq('sealedHunts')
+    expect(await allOf(tt, 'hunts')).to.have.lengthOf(1)
+  })
+
+  it("refuses the handle, and makes no sandbox, when the app holds all the hunts it may: no user holds a handle taken here without one", async () => {
+    const tt = openTester()
+    await tt.run(async (ctx) => {
+      for (let idx = 0; idx < PA.HuntsInApp.max; idx += 1) {
+        await ctx.db.insert('hunts', { label: `hunt_${String(idx)}`, orglabel: 'seed_smith', title: '', branch: 'main' })
+      }
+    })
+    const session = await anonymousSession(tt)
+    expect(await refusedAs(assume(session, 'flip_kromer', 'Flip'))).to.eq('huntsFull')
+    expect(await fieldOf(tt, session.user_id, 'userlabel')).to.be.undefined
+    expect(await tt.run(async (ctx) => await ctx.db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', 'flip_kromer')).collect())).to.deep.eq([])
   })
 
   it('titles the user after its userlabel when no title is given', async () => {
@@ -72,6 +116,7 @@ describe('users.perform: assume_userlabel', () => {
     const ante = await userOf(tt, session.user_id)
     expect(await assume(session, 'flip_kromer', 'Ignored')).to.eq(session.user_id)
     expect(await userOf(tt, session.user_id)).to.deep.eq(ante)
+    expect(await allOf(tt, 'hunts')).to.have.lengthOf(1)
   })
 
   it('refuses a second userlabel: a userlabel is chosen once, and the first stays', async () => {
@@ -90,6 +135,7 @@ describe('users.perform: assume_userlabel', () => {
     expect([failurekindOf(err), noticeOf(err)]).to.deep.eq(['userlabelClaimed', RefusalNotices.userlabelClaimed])
     expect(noticeOf(err)).to.match(/different one.*the browser where you first chose it/)
     expect(await fieldOf(tt, theirs.user_id, 'userlabel')).to.be.undefined
+    expect(await allOf(tt, 'hunts')).to.have.lengthOf(1)
   })
 
   it('refuses a userlabel a ghosting holds, retired by a merge', async () => {
@@ -119,6 +165,7 @@ describe('users.perform: assume_userlabel', () => {
     expect(outcomes.map((outcome) => outcome.status)).to.have.members(['fulfilled', 'rejected'])
     const users = await allOf(tt, 'users')
     expect(users.filter((user) => user.userlabel === 'fresh_name')).to.have.lengthOf(1)
+    expect(await allOf(tt, 'hunts')).to.have.lengthOf(1)
   })
 
   it("refuses a userlabel too short to be one, and a word kept for the app's own use, writing nothing", async () => {

@@ -6,23 +6,30 @@ import { Huntship } from '../../src/models/huntship'
 import { User, UserValidators, type SignInDNA, type SignInT } from '../../src/models/user'
 import type { UserActionT } from '../../src/models/actions'
 import { googleAccountOf, holderOfUserlabel, huntInOrg, huntshipFor, huntshipsFor, userForUserlabel } from '../reading'
+import { makeSandboxFor } from './hunt_actions'
 import { removeHuntship, smithOfSandbox } from './huntship_actions'
 import type { Writer } from './quiz_writing'
 
 /**
- * Give the user `user_id` the userlabel `userlabel`, titled `title`: one write to the user. A user
- * holds one userlabel, set once, so a user already holding this one is left as it is (whether it
- * may take another is policy's to say first: `Approve.mayAssertUserlabel`). In order:
+ * Give the user `user_id` the userlabel `userlabel`, titled `title`, and make it its sandbox: one
+ * write. A user holds one userlabel, set once, so a user already holding this one is left as it is
+ * (whether it may take another is policy's to say first: `Approve.mayAssertUserlabel`). In order:
  *
  * * The user holds it already: nothing to do.
  * * Something else holds it (`holderOfUserlabel`): another user, a ghosting that keeps a userlabel
  *   a merge retired, or a hunt carrying it as its address (`orglabel`). Refused,
  *   `userlabelClaimed`, which says what to do instead.
- * * It is free: the user takes it, and the title, a blank one its userlabel titleized.
+ * * It is free: the user takes it, and the title, a blank one its userlabel titleized; and it is
+ *   made its sandbox, `~label/label`, holding its first quiz (`makeSandboxFor`), anonymous or
+ *   signed in with Google alike, so a new user has somewhere to begin.
  *
  * The userlabel is looked up and taken inside the one write, so two users taking one userlabel at
  * once leave one holder: Convex runs the second again once the first has landed, and it finds the
- * userlabel held.
+ * userlabel held. The sandbox is made in that write too, so no user is left holding a userlabel
+ * taken here without one. Only this makes one: a user that took its handle before sandboxes were
+ * made for it has none until it makes one from its hunts (`HuntsList`); one the command line gives
+ * a userlabel (`adopt`) gets none; and one that takes a userlabel by a merge takes the merged
+ * user's sandbox with it (`mergeInto`).
  *
  * @param db - The mutation's database.
  * @param user_id - The user taking the userlabel.
@@ -30,14 +37,16 @@ import type { Writer } from './quiz_writing'
  * @param userlabel - The userlabel, already validated.
  * @param title - What to call the user; its userlabel titleized when blank.
  * @returns The user's row id.
- * @throws A refusal (`userlabelClaimed`); nothing is written.
+ * @throws A refusal (`userlabelClaimed`, or `huntsFull` when the app holds all the hunts it may); nothing is written.
  *
- * @example await assumeUserlabel(ctx.db, user_id, ctx.actor, 'flip_kromer', 'Flip')
+ * @example await assumeUserlabel(ctx.db, user_id, ctx.actor, 'flip_kromer', 'Flip')  // flip_kromer, smith of ~flip_kromer/flip_kromer
  */
 export async function assumeUserlabel(db: Writer, user_id: Id<'users'>, actor: Actor.ActorT, userlabel: string, title: string): Promise<Id<'users'>> {
   if (! Actor.isUnlabelled(actor) && actor.userlabel === userlabel) { return user_id } // the user's own already
   if (await holderOfUserlabel(db, userlabel) !== null) { refuse('userlabelClaimed') }   // not free
-  await db.patch('users', user_id, User.labelled(userlabel, title))                    // free: the user's now
+  const labelled = User.labelled(userlabel, title)
+  await db.patch('users', user_id, labelled)                                           // free: the user's now
+  await makeSandboxFor(db, { _id: user_id, ...labelled })                              // and its sandbox
   return user_id
 }
 

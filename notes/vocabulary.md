@@ -171,7 +171,7 @@ can tell.
   screen, *anonymous*, beside *signed in with Google*. Read to fail closed: only `isAnonymous:
   false`, which a Google sign-in writes, is signed in with Google, and a row without the field is
   anonymous. An anonymous user is **sealed** in its
-  sandbox (`Actor.isSealed`): it may take a userlabel and make its one sandbox, and may not be put
+  sandbox (`Actor.isSealed`): it may take a userlabel, which makes its one sandbox, and may not be put
   on any other hunt, bring anyone onto its own, or review. Each refusal says "Sign in with Google
   to ..." (`sealedHunts`, `sealedMembers`, `sealedJoin`, `sealedReview`). Never the actor's
   `unlabelled` kind, which is a user holding no userlabel yet, anonymous or not (*actor*).
@@ -189,9 +189,13 @@ can tell.
   most one per hunt and user: putting someone on again changes their role. A **member** of a hunt
   is a user with a huntship on it. A hunt's maker is its first smith, and nobody changes their own
   huntship: another smith does. Replaced the **hunting**.
-* **sandbox** -- the one hunt an anonymous user may make: labelled with its own userlabel, so at
-  `~label/label` (`Hunt.isSandbox`), with no other member. Its address stays when a merge hands it
-  to a user signed in with Google (`smithOfSandbox`).
+* **sandbox** -- the hunt labelled with its user's own userlabel, so at `~label/label`
+  (`Hunt.isSandbox`), made for every user, anonymous or signed in with Google, in the same write
+  that takes its handle (`makeSandboxFor`), holding one blank quiz; the page a new user lands at,
+  unless a link sent them to the front door from a page worth coming back to
+  (`Routes.signedUpPath`). The one hunt an anonymous user may have, with no other member; a user
+  that took its handle before sandboxes were made makes it by hand from its hunts. Its address
+  stays when a merge hands it to a user signed in with Google (`smithOfSandbox`).
 * **upgrade**, **switch**, **merge** -- what a Google sign-in does with the browser's user
   (`userForSignIn`): a new Google account **upgrades** an anonymous browser's user in place, which
   is then signed in with Google; a known one **switches** the browser to the account's user; and

@@ -1,8 +1,9 @@
 import { test as base, expect, type Browser, type BrowserContext, type BrowserContextOptions, type Locator, type Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices } from '../src/lib/notices'
-import type * as Routes from '../src/lib/routes'
+import * as Routes from '../src/lib/routes'
 import { namesFor, type QuestionField, type QuestionView } from '../src/models/column'
+import { HomeRealmLabel } from '../src/models/realm'
 import * as Z from 'zod'
 import { runAsAdmin, vouchFor } from './admin'
 
@@ -526,25 +527,38 @@ export async function assumeUserlabel(page: Page, label = freshUserlabel()): Pro
 /**
  * Wait until a visitor who has just taken the handle `label` at the front door, by signing up
  * there (`assumeUserlabel`) or with Google (`signUpWithGoogle` in `google.ts`), has landed where a
- * new user lands: the page a link sent them to the front door from (its `?then=`), when one did;
- * otherwise their hunts, which name them. The one place a spec says where a sign-up lands.
+ * new user lands (`Routes.signedUpPath`): the page a link sent them to the front door from (its
+ * `?then=`), when one did and it is worth coming back to (`Routes.isCompelling`); otherwise their
+ * sandbox, `~label/label`, made as they took the handle, with them its smith. The one place a spec
+ * says where a sign-up lands.
  *
  * @param label - The handle taken.
  * @param then - The path the front door was to send them on to, if a link sent them there.
  *
  * @example await landedAfterSignUp(page, label)
  * @example await landedAfterSignUp(page, label, '/~pat_smith/quiet_otter')
+ * @example await landedAfterSignUp(page, label, '/my/hunts')  // at ~label/label all the same
  */
 export async function landedAfterSignUp(page: Page, label: string, then?: string): Promise<void> {
-  if (then !== undefined) {
-    await expect(page).toHaveURL((url) => `${url.pathname}${url.search}` === then)
-    return
-  }
-  await expect(page).toHaveURL(/\/my\/hunts$/)
-  await expect(page.getByText(`(@${label})`)).toBeVisible()
+  const landing = Routes.signedUpPath(then ?? null, label)
+  await expect(page).toHaveURL((url) => `${url.pathname}${url.search}` === landing)
+  if (landing !== Routes.huntPath({ org: label, hunt: label })) { return }
+  await expect(page.getByRole('table', { name: 'Members of this hunt' }).getByRole('row').filter({ hasText: label })).toContainText('Smith')
 }
 
-/** Where a new hunt's quiz is worked on: under its maker's org, its hunt and quiz share a label, in the realm `home`; an anonymous maker's, its sandbox, labelled as its org is */
+/**
+ * Open the quiz of the sandbox of the user holding `label` for work, from the sandbox's own page,
+ * where a new user lands (`landedAfterSignUp`): its first quiz, sharing its label, in the realm
+ * `home`.
+ */
+async function openSandboxQuiz(page: Page, label: string): Promise<void> {
+  const quiz = Routes.quizPath({ org: label, hunt: label, realm: HomeRealmLabel, quiz: label }, 'edit')
+  await page.getByRole('region', { name: 'Quizzes' }).getByRole('link').first().click()
+  await expect(page).toHaveURL(quiz)
+  await expect(grid(page)).toBeVisible()
+}
+
+/** Where a new hunt's quiz is worked on: under its maker's org, its hunt and quiz share a label, in the realm `home`; a sandbox's, labelled as its org is, too */
 export const NewHuntUrl = /\/~[a-z0-9_]+\/([a-z0-9_]+)\/quizzes\/home\/\1\/!edit$/
 
 /** Make a hunt from the hunts list, and wait until its quiz is on screen */
@@ -555,14 +569,14 @@ export async function newHunt(page: Page): Promise<void> {
 }
 
 /**
- * A fresh browser's way in to a quiz: say who it is, make a hunt (its anonymous user's sandbox,
- * `~label/label`), and open the hunt's quiz.
+ * A fresh browser's way in to a quiz: say who it is, which makes it its sandbox (`~label/label`),
+ * and open the sandbox's quiz from the sandbox's page, where it lands.
  *
  * @returns The userlabel.
  */
 export async function startHunt(page: Page): Promise<string> {
   const label = await assumeUserlabel(page)
-  await newHunt(page)
+  await openSandboxQuiz(page, label)
   return label
 }
 

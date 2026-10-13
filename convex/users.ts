@@ -61,14 +61,16 @@ export const holder = zPlainQuery({
 })
 
 /**
- * Carry out what a visitor did as themselves: take a userlabel, retitle the user they are, or
- * settle the name choice a merge left them. See `writing/user_actions`.
+ * Carry out what a visitor did as themselves: take a userlabel (and with it their sandbox),
+ * retitle the user they are, or settle the name choice a merge left them. See
+ * `writing/user_actions`.
  *
  * @returns The user that took the userlabel, or was retitled.
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`: `notSignedIn` for a request
  *   with no session, `notIdentified` for a retitle by a user holding no userlabel, `userlabelSet`
  *   for a user taking a second one, `userlabelClaimed` for a userlabel that is not free,
- *   `nameChoiceGone` for a name choice not pending), or
+ *   `huntsFull` for one taken while the app holds all the hunts it may, so there is no room for
+ *   its sandbox, `nameChoiceGone` for a name choice not pending), or
  *   `{ ZodError }` for an argument that is not valid; nothing is written.
  */
 export const perform = zMutation({

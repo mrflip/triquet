@@ -276,6 +276,24 @@ describe('userForSignIn, with a known Google account', () => {
   })
 })
 
+describe("userForSignIn, merging users that each took their handle at the front door", () => {
+  it("carries both sandboxes on with the account's user: its own, made as it took its handle, and the anonymous browser's", async () => {
+    const tt = openTester()
+    const [anon, alice] = [await anonymousSession(tt), await anonymousSession(tt)]
+    await tt.run(async (ctx) => {
+      await ctx.db.patch('users', alice.user_id, { isAnonymous: false, email: 'alice@example.com' })
+      await ctx.db.insert('authAccounts', { userId: alice.user_id, provider: 'google', providerAccountId: 'google-sub-alice_google' })
+    })
+    for (const [by, userlabel] of [[anon, 'anon_alice'], [alice, 'alice_google']] as const) {
+      await by.as.mutation(api.users.perform, { action: { kind: 'assume_userlabel', userlabel, title: '' } })
+    }
+    expect(await signInWithGoogle(tt, anon, 'google-sub-alice_google')).to.eq(alice.user_id)
+    const listed = await alice.as.query(api.hunts.list, {})
+    expect(listed.map((hunt) => [hunt.org, hunt.label, hunt.role])).to.deep.eq([['anon_alice', 'anon_alice', 'smith'], ['alice_google', 'alice_google', 'smith']])
+    await expectSound(tt)
+  })
+})
+
 /** An anonymous user with its sandbox and a kept session, and a Google user whose account its browser signs in to */
 async function merging() {
   const tt = openTester()
