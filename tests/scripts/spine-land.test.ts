@@ -19,6 +19,18 @@ describe('node scripts/spine.ts, in a repository with worktrees', { timeout: Spi
       expect(world.git(root, 'rev-parse', '--abbrev-ref', 'HEAD')).to.eq('HEAD')
     })
 
+    it('narrates its fetch, typecheck, switch and push on stderr as it goes, leaving stdout to say how it ended', ({ world }) => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      const ran = world.bid(root)
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.narrated).to.contain('spine: fetching origin')
+        .and.contain(`spine: running typecheck and the unit tests on ${Today}-alpha`)
+        .and.contain(`spine: switching the main checkout onto ${Today}-alpha`)
+        .and.contain(`spine: pushing ${Today}-alpha`)
+      expect(ran.printed).not.to.contain('spine: ')
+    })
+
     it("stops when typecheck or the tests fail under the hold, leaving the spine alone", ({ world }) => {
       const root = world.cut('alpha')
       world.commit(root, 'alpha.txt', 'alpha\n')

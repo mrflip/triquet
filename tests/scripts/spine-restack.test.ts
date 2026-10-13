@@ -36,7 +36,11 @@ const standOnMergedBranch = (world: WorldT) => {
 describe('node scripts/spine.ts, in a repository with worktrees', { timeout: SpineTimeout }, () => {
   describe('restack', () => {
     it('says so when the spine already stands on origin/main', ({ world }) => {
-      expect(world.spine(world.main, ['restack']).said.trim()).to.eq('The spine already stands on origin/main.')
+      expect(world.spine(world.main, ['restack']).printed.trim()).to.eq('The spine already stands on origin/main.')
+    })
+
+    it('narrates its fetch on stderr, though it has nothing to do', ({ world }) => {
+      expect(world.spine(world.main, ['restack']).narrated).to.contain('spine: fetching origin')
     })
 
     it('starts the spine afresh on main once all of it has merged, and pushes no branch origin has deleted', ({ world }) => {
@@ -60,13 +64,13 @@ describe('node scripts/spine.ts, in a repository with worktrees', { timeout: Spi
     it('goes back to main when it already stands on origin/main, on a branch origin has deleted', ({ world }) => {
       standOnMergedBranch(world)
       const ran = world.spine(world.main, ['restack'])
-      expect(ran.said.trim()).to.eq('The whole spine has merged: the main checkout stands on main again, and leftover is done.')
+      expect(ran.printed.trim()).to.eq('The whole spine has merged: the main checkout stands on main again, and leftover is done.')
       expect(world.top()).to.eq('main')
     })
 
     it('leaves the Coach on a branch they cut by hand, though it stands on origin/main', ({ world }) => {
       world.git(world.main, 'switch', '--quiet', '--create', 'mine')
-      expect(world.spine(world.main, ['restack']).said.trim()).to.eq('The spine already stands on origin/main.')
+      expect(world.spine(world.main, ['restack']).printed.trim()).to.eq('The spine already stands on origin/main.')
       expect(world.top()).to.eq('mine')
       world.git(world.main, 'switch', '--quiet', '--create', 'mine_too', 'origin/main')
       world.spine(world.main, ['restack'])
