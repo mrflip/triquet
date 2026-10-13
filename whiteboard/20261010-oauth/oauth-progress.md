@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: follow-ups underway (2026-10-13). Threads 1-9 merged (#226-#235, #237); thread 10 landed #242; thread 11 underway.**
+**Status: done (2026-10-13). Threads 1-9 merged (#226-#235, #237); follow-ups 10 and 11 landed as #242 and #243 (stacked), closing full e2e 311/311 on the top, no flakes. See `human/20261013-sprint_oauth_followups_done.md`.**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -18,7 +18,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
 | 9 | `oauth_security`: a strong review | landed #235 | `20261012-oauth_security` | [#235](https://github.com/mrflip/triquet/pull/235) |
 | 10 | `seal_hardening`: fail closed on `isAnonymous`; `adopt` and sandboxes | landed #242 | `20261013-seal_hardening` | [#242](https://github.com/mrflip/triquet/pull/242) |
-| 11 | `oauth_tidy`: the code review's leftovers | landing | `20261013-oauth_tidy` | |
+| 11 | `oauth_tidy`: the code review's leftovers | landed #243 | `20261013-oauth_tidy` | [#243](https://github.com/mrflip/triquet/pull/243) |
 
 Full e2e runs at landing: threads 3 and 5, and every fourth landing (thread 8 carries the fourth). So far every landing's `--touched` ran the whole suite: 7 (299/299), 2 (293/293), 1 (299/299), no flakes.
 
