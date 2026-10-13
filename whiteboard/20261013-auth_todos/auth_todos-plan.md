@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-13. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip), as `/sprint auth_todos` (the threads, verbatim below; the same items
-head `whiteboard/TODO.md`'s *Tiny Tasks*). **Status: threads 1, 2 landed (#247, #248); thread 3 landing; thread 4 in review.** `auth_todos-progress.md`, beside
+head `whiteboard/TODO.md`'s *Tiny Tasks*). **Status: threads 1-3 landed (#247, #248, #250); thread 4 landing; thread 5 underway.** `auth_todos-progress.md`, beside
 this file, is newer than this plan wherever the two disagree.
 
 The spine was empty at planning: the oauth sprint and its follow-ups (#226-#246) are merged, and
