@@ -7,7 +7,6 @@
   chooses? (I'm not sure, discuss)
 * Auto-create the sandbox / first quiz
 * Review microcontent for consistency and style (eg title caps consistency)
-* remove heldUserlabel. It skips the top-level reserved words, so a handle claimed before a word was reserved stays valid.
 * Set up oauth2-mock-server
 * Make a list of all possible states for a user: is/isn't signed in with google, has/hasn't a username, was/wasn't standalone, ...
 
@@ -22,14 +21,6 @@
   `eslint.config.mjs`, so nothing catches it; a rule for test titles would settle it for good.
 
 ## Not yet
-
-* **A sealed user whose userlabel is reserved at top level after it took it can never make its
-  sandbox.** `new_hunt.label` is held to `HuntValidators.newLabel` (the full reserved list), while
-  a held userlabel is only `CK.heldUserlabel`, so *+ New hunt* alarms on every click for such a
-  user and no other label is allowed it (`mayMakeHunt`). It arises only when a word is reserved
-  after a claim, which the OAuth sprint's clear makes moot for now. The fix, when wanted: take the
-  sandbox's label as `heldUserlabel` when it equals the maker's own userlabel, in the action's
-  validator or in `newHunt`. From the stack review, 2026-10-12.
 
 ## Known Bugs
 

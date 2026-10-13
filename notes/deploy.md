@@ -274,20 +274,27 @@ even dry.
 ### Checking the reserved list against production
 
 The reserved list (`src/lib/vv/patterns.ts`, `ReservedToplevelGroups` and the prefixes beside it)
-keeps a new hunt's label and a userlabel being claimed from the words for the app's own pages and
-people. It governs only new labels: a hunt or an org named before a word joined the list keeps
-it, at its address, and stays writable, since a hunt's row holds its label and org to their shape
-and the words every label is kept from alone. After the list grows, see what it leaves standing:
+keeps a new hunt's label and every userlabel from the words for the app's own pages and people. A
+hunt's own label is held to it only as it is made or relabelled, but a userlabel always
+(`CK.userlabel`), wherever it is held: a user's, a huntship's copy, a ghosting's, and a hunt's org.
+So a word added while someone holds it locks them out: that user can make no hunt and be put on
+none, a name choice of it cannot be settled, and every hunt of an org so named is out of reach at
+its address, its own row refusing every write. **Before the list grows**, from the branch that
+grows it:
 
 ```
 ./scripts/doppledo prd_janitor scripts/check_reserved
 ```
 
-It reads every hunt (`check_reserved:refused`) and names each one whose label or org the list
-would refuse were it made now, as `~org/label`, saying which of the two. It writes nothing, and
-behind the guard it names the deployment it reached first; `--deployment` changes nothing but which
-deployment it insists on. A hunt it names needs nothing done: it is there to tell you who holds a
-word now kept, if you want to ask them to move.
+It reads every label production holds (`check_reserved:held`: users' and ghostings' userlabels,
+hunts' orgs and labels) and judges them against the list of the checkout it runs from, so it sees
+the new words before production does. It names each holder the list would lock out (`~userlabel`,
+or `~org/label` for a hunt of such an org), and, apart, each hunt whose own label the list keeps
+from new ones, which keeps it and needs nothing done. Deploy the grown list only once it names no
+holder: a user is moved with `scripts/adopt --userlabel` (found by its email or id: a reserved word
+is no userlabel to find it by), and a hunt's org never moves, so a word one holds stays off the
+list. It writes nothing, and behind the guard it names the deployment it reached first;
+`--deployment` changes nothing but which deployment it insists on.
 
 ### Adopting a user
 
