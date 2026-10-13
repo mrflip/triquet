@@ -120,6 +120,14 @@ export type OwnUserT = {
   nameChoice: NameChoiceT | null
 }
 
+/**
+ * What holds a userlabel, as the front door is told while a handle is typed (`users.holder`): a verified
+ * account (signed in with Google), which its owner can sign in to; a standalone account (anonymous,
+ * held by one browser); something else that keeps it from being taken (a ghosting a merge retired,
+ * or a hunt's address); or nothing, null, when it is free.
+ */
+export type UserlabelHolderT = 'verified' | 'standalone' | 'kept' | null
+
 /** What `User.suggestionsFor` puts after a userlabel to make another */
 const SuggestionNumbers = [2, 3, 4, 5, 6, 7, 8, 9] as const
 

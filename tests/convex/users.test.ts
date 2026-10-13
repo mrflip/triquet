@@ -323,3 +323,38 @@ describe('users.own', () => {
     expect(await toldOf(alice, 'nameChoice')).to.deep.eq({ merged: { userlabel: 'anon_alice', title: 'Anon Alice' }, own: { userlabel: 'alice_google', title: 'Alice Google' } })
   })
 })
+
+/** What the front door is told of the userlabel `userlabel`, asked with no session */
+async function holderOf(tt: Tester, userlabel: string) {
+  return await tt.query(api.users.holder, { userlabel })
+}
+
+describe('users.holder', () => {
+  it('is nothing for a userlabel nobody holds', async () => {
+    expect(await holderOf(openTester(), 'fresh_name')).to.be.null
+  })
+
+  it('tells a verified account (signed in with Google) from a standalone one', async () => {
+    const tt = openTester()
+    await googleUser(tt, 'alice_google')
+    await anonymousUser(tt, 'anon_alice')
+    expect(await holderOf(tt, 'alice_google')).to.eq('verified')
+    expect(await holderOf(tt, 'anon_alice')).to.eq('standalone')
+  })
+
+  it('says a userlabel a ghosting or a hunt\'s address keeps is kept, as no user holds it', async () => {
+    const tt = openTester()
+    const flip = await googleUser(tt, 'flip_kromer')
+    await tt.run(async (ctx) => {
+      const account = present(await ctx.db.query('authAccounts').first())
+      await ctx.db.insert('ghostings', { userlabel: 'old_flip', user_id: flip.user_id, into_user_id: flip.user_id, account_id: account._id })
+      await ctx.db.insert('hunts', { label: 'spring_hunt', orglabel: 'mrflip_hunts', title: '', branch: 'main' })
+    })
+    expect(await holderOf(tt, 'old_flip')).to.eq('kept')
+    expect(await holderOf(tt, 'mrflip_hunts')).to.eq('kept')
+  })
+
+  it('refuses what is not a userlabel, which the front door never asks of', async () => {
+    await expect(holderOf(openTester(), 'flip')).rejects.toThrow(/should have «6» or more/)
+  })
+})

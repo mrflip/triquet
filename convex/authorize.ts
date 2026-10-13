@@ -58,6 +58,7 @@ export const Unscoped = {
   "auth:offered":          "Which ways of signing in the deployment offers: of the deployment alone, asked before anyone signs in",
   "users:current":         "Who the session is: asked before any hunt is in play",
   "users:own":             "What the session's own user is told of itself (its email among it): of that user alone, by the session's id, asked before any hunt is in play",
+  "users:holder":          "Whether a handle typed at the front door is free, and if not whether a verified account holds it: of no hunt, and no more than trying to take it, or a user's face, would tell",
   "users:perform":         "A userlabel taken, a user retitled, or a name choice settled, before any hunt is in play: of the actor alone",
   "hunts:list":            "The hunts the actor is on, read through the actor's own huntships: many hunts, none affirmed",
   "hunts:open":            "Finds a hunt by its org and label (or, from an old address, its label alone) and tells the browser its standing there, which is what the browser goes on to affirm",
