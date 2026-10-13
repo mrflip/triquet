@@ -143,27 +143,13 @@ describe('User.labelled', () => {
     ['x'.repeat(25),           'a userlabel longer than twenty-four'],
     ['Flip_Kromer',            'a userlabel that is not one'],
     ['support',                'a word kept for the app\'s own use'],
+    ['google_fan',             'a word kept for the app\'s own use since it was claimed, as a merge would take it over'],
   ] as const
   for (const [userlabel, describes] of Refused) {
     it(`refuses ${describes}`, () => {
       expect(() => User.labelled(userlabel, 'Flip')).to.throw(Z.ZodError)
     })
   }
-})
-
-describe('User.relabelled', () => {
-  it('takes over a userlabel already held, titled as given or after it', () => {
-    expect([User.relabelled('flip_kromer', 'Flip'), User.relabelled('flip_kromer', '')]).to.deep.eq([{ userlabel: 'flip_kromer', title: 'Flip' }, { userlabel: 'flip_kromer', title: 'Flip Kromer' }])
-  })
-
-  it('takes a userlabel the top-level list has kept since it was claimed, as a claim would not', () => {
-    expect(User.relabelled('google_fan', '').userlabel).to.eq('google_fan')
-    expect(() => User.labelled('google_fan', '')).to.throw(Z.ZodError)
-  })
-
-  it('refuses what no userlabel is', () => {
-    expect(() => User.relabelled('Flip Kromer', '')).to.throw(Z.ZodError)
-  })
 })
 
 describe('User.fromGoogle', () => {
@@ -267,13 +253,9 @@ describe('UserValidators.row', () => {
     expect([UserValidators.row({}), UserValidators.row(row)]).to.deep.eq([{}, row])
   })
 
-  it("takes a userlabel already held that the top-level list has kept since, as a claim would not", () => {
-    expect(UserValidators.row({ userlabel: 'google_fan', title: 'Fan' }).userlabel).to.eq('google_fan')
-    expect(UserValidators.userlabel.safeParse('google_fan').success).to.be.false
-  })
-
   const Refused: [object, string][] = [
     [{ userlabel: 'Flip K' },    'a userlabel that is not one'],
+    [{ userlabel: 'google_fan' }, "a userlabel the top-level list keeps, though held already"],
     [{ title: '' },              'a title left blank, which no user has'],
     [{ admin: 'yes' },           'an admin flag that is not a yes or no'],
     [{ isAnonymous: 'true' },    'an isAnonymous that is not a yes or no'],

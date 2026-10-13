@@ -19,7 +19,7 @@ import { addHuntship } from './writing/huntship_actions'
 import { addColumn, performLayout } from './writing/layout_actions'
 import type { OpenQuizT, Writer } from './writing/quiz_writing'
 
-const { arr, label, oneof, str, heldUserlabel: userlabel, zod } = ValidatorKit
+const { arr, label, oneof, str, userlabel, zod } = ValidatorKit
 
 /** How many rows one run deletes before handing the rest to the next: a delete reads, and its triggers read, and a function may read only so much */
 const BatchSize = 500
