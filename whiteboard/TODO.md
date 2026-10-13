@@ -525,9 +525,11 @@ Fixed in the thread: the front door's `?then=` open redirect. Left, each a Coach
   someone else within its 15 minutes. A fifth part to the patch.
 * **`adopt --email`**: show the user's Google name and when it was made in the dry run (or adopt by
   id after confirming it), since the email is Google's claim with `email_verified` dropped.
-* **Fail closed on `isAnonymous`**: "signed in with Google" as `isAnonymous === false`, and sealed
-  otherwise, so a row missing the field is sealed rather than trusted. Every writer sets it today;
-  three convex-tests insert users without it.
+* ~~**Fail closed on `isAnonymous`**~~. *Struck by the oauth sprint's thread 10 (2026-10-13):*
+  `User.isAnonymous` is `isAnonymous !== false`, and `Actor.isSignedInWithGoogle` its negation, so
+  a row missing the field is sealed and its `admin` counts for nothing; the actor's `anonymous`
+  reads the same predicate. The three convex-tests now write the field, and one proves a row
+  without it is refused as `sealedJoin`.
 * **`adopt` and sandboxes**: skip anonymous users' sandboxes in `--smith-all` and refuse
   `--smith ~anon/anon`; refuse relabelling an anonymous user that holds a sandbox; ghost (or at
   least report) the userlabel a relabel leaves behind.

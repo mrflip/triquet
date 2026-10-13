@@ -341,20 +341,22 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
 
   /**
    * Whether `user` is anonymous: signed in with no proof of who holds it, and so sealed in its
-   * sandbox (`Approve`). Convex Auth's `isAnonymous`, absent for no.
+   * sandbox (`Approve`). Convex Auth's `isAnonymous`, read to fail closed: only `false`, which a
+   * Google sign-in writes, says otherwise, so a row without the field is sealed, not trusted.
    *
-   * @example User.isAnonymous({ isAnonymous: true })  // => true
-   * @example User.isAnonymous({})                     // => false
+   * @example User.isAnonymous({ isAnonymous: true })   // => true
+   * @example User.isAnonymous({ isAnonymous: false })  // => false
+   * @example User.isAnonymous({})                      // => true
    */
   static isAnonymous(user: Pick<UserRowT, 'isAnonymous'>): boolean {
-    return user.isAnonymous === true
+    return user.isAnonymous !== false
   }
 
   /**
    * `user` as anyone else may be told of it (`UserFaceT`): its userlabel, title and whether it is
    * anonymous. Null for a user that has no userlabel yet, which nobody can name.
    *
-   * @example User.faceOf({ _id, userlabel: 'flip_kromer', title: 'Flip', email: 'f@example.com' })  // => { _id, userlabel: 'flip_kromer', title: 'Flip', anonymous: false }
+   * @example User.faceOf({ _id, userlabel: 'flip_kromer', title: 'Flip', isAnonymous: false, email: 'f@example.com' })  // => { _id, userlabel: 'flip_kromer', title: 'Flip', anonymous: false }
    */
   static faceOf(user: Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous'> & { _id: Id<'users'> }): UserFaceT | null {
     if (user.userlabel === undefined) { return null }

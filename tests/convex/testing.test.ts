@@ -58,7 +58,7 @@ describe("testing.clearAll", () => {
     const tt = openTester()
     const labels = Array.from({ length: 501 }, (_unused, idx) => `user_${String(idx)}`)
     await tt.run(async (ctx) => {
-      for (const label of labels) { await ctx.db.insert('users', { userlabel: label, title: 'Someone' }) }
+      for (const label of labels) { await ctx.db.insert('users', { isAnonymous: false, userlabel: label, title: 'Someone' }) }
     })
     expect(await tt.mutation(internal.testing.clearAll, {})).to.eq(500)
     expect(await countsIn(tt)).to.deep.eq({ users: 1 })

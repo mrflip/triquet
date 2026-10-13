@@ -228,8 +228,8 @@ describe('User.anonymous', () => {
 })
 
 describe('User.isAnonymous', () => {
-  it("is Convex Auth's isAnonymous, its absence meaning no", () => {
-    expect([User.isAnonymous({ isAnonymous: true }), User.isAnonymous({ isAnonymous: false }), User.isAnonymous({})]).to.deep.eq([true, false, false])
+  it("is Convex Auth's isAnonymous, failing closed: only false, as a Google sign-in writes it, says no", () => {
+    expect([User.isAnonymous({ isAnonymous: true }), User.isAnonymous({ isAnonymous: false }), User.isAnonymous({})]).to.deep.eq([true, false, true])
   })
 })
 
@@ -237,7 +237,7 @@ describe('User.faceOf', () => {
   const _id = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
 
   it('tells of a user its userlabel, title and whether it is anonymous, and never its email', () => {
-    expect(User.faceOf({ _id, userlabel: 'flip_kromer', title: 'Flip', email: 'flip@example.com', name: 'Flip K' } as never)).to.deep.eq({ _id, userlabel: 'flip_kromer', title: 'Flip', anonymous: false })
+    expect(User.faceOf({ _id, userlabel: 'flip_kromer', title: 'Flip', isAnonymous: false, email: 'flip@example.com', name: 'Flip K' } as never)).to.deep.eq({ _id, userlabel: 'flip_kromer', title: 'Flip', anonymous: false })
     expect(User.faceOf({ _id, userlabel: 'flip_kromer', title: 'Flip', isAnonymous: true })).to.deep.eq({ _id, userlabel: 'flip_kromer', title: 'Flip', anonymous: true })
   })
 

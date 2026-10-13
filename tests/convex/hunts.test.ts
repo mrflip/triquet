@@ -1767,7 +1767,7 @@ describe("hunts.perform, at the caps", () => {
     await tt.run(async (ctx) => {
       const reviewers = Array.from({ length: 999 }, (_unused, idx) => `reviewer_${String(idx)}`)
       for (const label of reviewers) {
-        const user_id = await ctx.db.insert('users', { userlabel: label, title: 'Reviewer' })
+        const user_id = await ctx.db.insert('users', { isAnonymous: false, userlabel: label, title: 'Reviewer' })
         await ctx.db.insert('reviews', { hunt_id: open.hunt_id, quiz_id: open.quiz_id, user_id, overall: '', phase: 'empty' })
       }
     })

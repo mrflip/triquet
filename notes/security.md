@@ -87,9 +87,11 @@ security expert who knows what questions to ask.
   - `adopt:perform` finds a user by the `email` on its row, which a Google sign-in copies from
     Google's profile without `email_verified` (dropped by Auth.js's Google profile and by
     `UserValidators.googleProfile`); the dry run names the user by id and handle alone.
-  - "Signed in with Google" is `isAnonymous !== true` (`User.isAnonymous`, `Actor.isSignedInWithGoogle`):
-    a user row without the field counts as signed in with Google, unsealed and able to be an admin.
-    Every writer of `users` sets it today.
+  - ~~"Signed in with Google" is `isAnonymous !== true`~~. *Done (thread 10, 2026-10-13):* it is
+    `isAnonymous === false` (`User.isAnonymous`, `Actor.isSignedInWithGoogle`, the actor's
+    `anonymous`), so a user row without the field is sealed, and its `admin` counts for nothing.
+    The code's exchange reads the same predicate: a browser's user without the field is upgraded
+    or merged as an anonymous one is.
   - `adopt --smith-all` (and `--smith ~anon/anon`) puts a user on anonymous users' sandboxes past
     sealing; `adopt` relabelling an anonymous user that holds a sandbox lets it make a second
     (`mayMakeHunt` reads only label == userlabel); a userlabel `adopt` relabels a user away from is

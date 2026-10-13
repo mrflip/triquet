@@ -21,7 +21,7 @@ describe('Actor.unlabelled', () => {
 
 describe('Actor.ofUser', () => {
   it('is the actor of a user holding a userlabel, by its own userlabel and title', () => {
-    expect(Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip' }, Production)).to.deep.eq({ kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: false })
+    expect(Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', isAnonymous: false }, Production)).to.deep.eq({ kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: false })
   })
 
   it("titles a user holding a userlabel and no title by its userlabel titleized, as its face is titled (`User.titleOf`)", () => {
@@ -57,6 +57,11 @@ describe('Actor.ofUser', () => {
     })
   }
 
+  it("counts the admin flag of a user whose row says nothing of anonymity for nothing, and seals it", () => {
+    const actor = Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', admin: true }, Production)
+    expect(actor).to.deep.include({ admin: false, anonymous: true })
+  })
+
   it("counts an anonymous user's admin flag for nothing", () => {
     const actor = Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', admin: true, isAnonymous: true }, Production)
     expect(actor).to.deep.include({ admin: false, anonymous: true })
@@ -70,7 +75,7 @@ describe('Actor.isSignedInWithGoogle', () => {
   const Cases: [{ isAnonymous?: boolean }, boolean, string][] = [
     [{ isAnonymous: false }, true,  'a user a Google sign-in made, or upgraded'],
     [{ isAnonymous: true },  false, 'an anonymous user, signed in with no proof'],
-    [{},                     true,  'a user saying nothing, as only an anonymous one says so'],
+    [{},                     false, 'a user whose row says nothing, which is sealed rather than trusted'],
   ]
   for (const [user, expected, describes] of Cases) {
     it(`is ${String(expected)} for ${describes}`, () => {
