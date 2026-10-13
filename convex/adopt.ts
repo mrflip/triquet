@@ -1,11 +1,13 @@
 import { ConvexError } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import * as Actor from '../src/lib/actor'
+import * as Stamps from '../src/lib/stamps'
 import { AdoptionValidators, type AdoptChangeT, type AdoptedT, type AdoptionT } from '../src/models/adoption'
+import { Hunt } from '../src/models/hunt'
 import { Huntship, type HuntRole } from '../src/models/huntship'
 import { User } from '../src/models/user'
 import { zInternalMutation, zInternalQuery } from './functions'
-import { holderOfUserlabel, huntInOrg, huntsOf, huntshipFor, huntshipsFor, userForUserlabel, type Reader } from './reading'
+import { holderOfUserlabel, huntInOrg, huntsCountedInOrg, huntsOf, huntshipFor, huntshipsFor, userForUserlabel, type Reader } from './reading'
 import { grantHuntship } from './writing/huntship_actions'
 import { relabelUser } from './writing/user_actions'
 import type { Writer } from './writing/quiz_writing'
@@ -17,6 +19,8 @@ import type { Writer } from './writing/quiz_writing'
 // (`notes/deploy.md`, *Adopting a user*). `plan` says what `perform` would do and writes nothing;
 // `perform` does it, and running it again changes nothing more. A refusal is a `ConvexError` whose
 // data is its reason, in words for the person at the command line, which `convex run` shows them.
+// It keeps to sealing where sealing has no actor to ask: it puts nobody on an anonymous user's
+// sandbox, and relabels no anonymous user holding one.
 
 /** How many users an email that more than one holds is answered with, for the Coach to choose among */
 const EmailHoldersShown = 9
@@ -28,9 +32,11 @@ type GrantPlanT = { hunt: Doc<'hunts'>, role: HuntRole, from: HuntRole | null }
 type PlanT = {
   user:    Doc<'users'>
   relabel: { userlabel: string, title: string, huntships: number } | null
+  leaves:  'free' | 'address' | null
   admin:   boolean | null
   grants:  GrantPlanT[]
   kept:    number
+  skipped: number
 }
 
 /**
@@ -39,11 +45,15 @@ type PlanT = {
  * Coach watching it once: emails are no standing way to name a user (one can be reassigned), so
  * nothing else here or in the app finds a user by one.
  *
- * @returns The user as it stands, what `perform` would change, and how much of what was asked it holds already.
- * @throws When the user is not found (or an email names more than one), it is provisional (a Google sign-in not yet finished), the userlabel is held by another user or a ghosting, an anonymous user is to be an admin or put on a hunt, a user with no userlabel is put on one, or a hunt named is not there.
+ * The user found is named by its Google name and when its row was made, beside its id and
+ * userlabel, so whoever runs the command knows it for theirs before anything is written: an
+ * email is Google's claim, kept without Google's word that it was verified.
+ *
+ * @returns The user as it stands, what `perform` would change, how much of what was asked it holds already, and how many anonymous users' sandboxes a grant on every hunt passes over.
+ * @throws When the user is not found (or an email names more than one), it is provisional (a Google sign-in not yet finished), the userlabel is held by another user or a ghosting, an anonymous user holding a sandbox is relabelled, an anonymous user is to be an admin or put on a hunt, a user with no userlabel is put on one, or a hunt named is not there or is an anonymous user's sandbox.
  *
  * @example npx convex run adopt:plan '{"find": {"email": "pat@example.com"}, "userlabel": "mrflip", "admin": true, "grants": [{"role": "smith", "hunts": "every"}]}'
- *   // => { user: { user_id, userlabel: null, title: null, anonymous: false, admin: false }, changes: [{ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0 }, { kind: 'admin', to: true }, { kind: 'huntship', org: 'mrflip', hunt: 'quiet_otter', role: 'smith', from: null }], kept: 0 }
+ *   // => { user: { user_id, userlabel: null, title: null, anonymous: false, admin: false, name: 'Pat Smith', created_at: 1760300000000 }, changes: [{ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null }, { kind: 'admin', to: true }, { kind: 'huntship', org: 'mrflip', hunt: 'quiet_otter', role: 'smith', from: null }], kept: 0, skipped: 0 }
  */
 export const plan = zInternalQuery({
   args:    AdoptionValidators.request.shape,
@@ -65,7 +75,7 @@ export const plan = zInternalQuery({
  * @throws As `plan` does, or a refusal from a hunt holding as many members as a hunt may; nothing is written.
  *
  * @example npx convex run adopt:perform '{"find": {"userlabel": "flippy"}, "admin": true}'
- *   // => { user: { ..., admin: false }, changes: [{ kind: 'admin', to: true }], kept: 0 }
+ *   // => { user: { ..., admin: false }, changes: [{ kind: 'admin', to: true }], kept: 0, skipped: 0 }
  */
 export const perform = zInternalMutation({
   args:    AdoptionValidators.request.shape,
@@ -83,6 +93,7 @@ async function planFor(db: Reader, request: AdoptionT): Promise<PlanT> {
   // A provisional user's next finished sign-in, from an anonymous browser, deletes it and all it was given
   if (user.provisional === true) { throw new ConvexError(`The user ${userline(user)} is provisional: its owner began signing in with Google and did not finish. Have them sign in with Google again, then adopt the user they are.`) }
   const relabel = await relabelFor(db, user, request)
+  const leaves = await leftBehind(db, user, relabel)
   const userlabel = relabel?.userlabel ?? user.userlabel
   const signedIn = Actor.isSignedInWithGoogle(user)
   if (! signedIn && request.admin === true) { throw new ConvexError(`The user ${userline(user)} is anonymous: only a user signed in with Google is made an admin.`) }
@@ -94,7 +105,7 @@ async function planFor(db: Reader, request: AdoptionT): Promise<PlanT> {
   const grants = await grantsFor(db, user._id, request.grants)
   const keptLabel = relabel === null && (request.userlabel !== undefined || request.title !== undefined) ? 1 : 0
   const keptAdmin = admin === null && request.admin !== undefined ? 1 : 0
-  return { user, relabel, admin, grants: grants.planned, kept: keptLabel + keptAdmin + grants.kept }
+  return { user, relabel, leaves, admin, grants: grants.planned, kept: keptLabel + keptAdmin + grants.kept, skipped: grants.skipped }
 }
 
 /** The user `find` names, by id, userlabel or email; refused when there is none, or an email names several */
@@ -140,13 +151,32 @@ async function relabelFor(db: Reader, user: Doc<'users'>, request: AdoptionT): P
 }
 
 /**
- * The roles `grants` would give `user_id`, hunt by hunt, the highest asked of each, but for those
- * it holds already (or a higher one), which are counted as kept.
+ * What becomes of the userlabel `user` holds when `relabel` moves it to another: `free` for anyone
+ * to claim, since an adoption is no merge and retires nothing into a ghosting (thread 4's
+ * decision), or still held by a hunt's `address`; null when nothing moves. An anonymous user
+ * holding its sandbox is refused: relabelled, it could make a second (sealing lets it make the one
+ * labelled with its userlabel), and a merge would find only that.
  */
-async function grantsFor(db: Reader, user_id: Id<'users'>, grants: AdoptionT['grants']): Promise<{ planned: GrantPlanT[], kept: number }> {
+async function leftBehind(db: Reader, user: Doc<'users'>, relabel: PlanT['relabel']): Promise<PlanT['leaves']> {
+  const held = user.userlabel
+  if (relabel === null || held === undefined || relabel.userlabel === held) { return null }
+  if (User.isAnonymous(user) && await huntInOrg(db, held, held)) {
+    throw new ConvexError(`The user ${userline(user)} is anonymous and holds its sandbox, ~${held}/${held}: relabelled, it could make a second. Have its owner sign in with Google first.`)
+  }
+  return await huntsCountedInOrg(db, held) > 0 ? 'address' : 'free'
+}
+
+/**
+ * The roles `grants` would give `user_id`, hunt by hunt, the highest asked of each, but for those
+ * it holds already (or a higher one), which are counted as kept, and anonymous users' sandboxes,
+ * which a grant on every hunt passes over and counts as skipped.
+ */
+async function grantsFor(db: Reader, user_id: Id<'users'>, grants: AdoptionT['grants']): Promise<{ planned: GrantPlanT[], kept: number, skipped: number }> {
   const wanted = new Map<Id<'hunts'>, { hunt: Doc<'hunts'>, role: HuntRole }>()
+  const skipped = new Set<Id<'hunts'>>()
   for (const grant of grants) {
-    const hunts = await huntsGranted(db, grant.hunts)
+    const { hunts, sealed } = await huntsGranted(db, grant.hunts)
+    for (const hunt of sealed) { skipped.add(hunt._id) }
     for (const hunt of hunts) {
       const prev = wanted.get(hunt._id)
       if (! prev || ! Huntship.holdsAtLeast(prev.role, grant.role)) { wanted.set(hunt._id, { hunt, role: grant.role }) }
@@ -157,15 +187,37 @@ async function grantsFor(db: Reader, user_id: Id<'users'>, grants: AdoptionT['gr
     return { hunt, role, from: held?.role ?? null }
   }))
   const planned = sought.filter(({ role, from }) => from === null || ! Huntship.holdsAtLeast(from, role))
-  return { planned, kept: sought.length - planned.length }
+  return { planned, kept: sought.length - planned.length, skipped: skipped.size }
 }
 
-/** The hunts a grant is for: the one at its address, refused when there is none there; or every hunt */
-async function huntsGranted(db: Reader, hunts: AdoptionT['grants'][number]['hunts']): Promise<Doc<'hunts'>[]> {
-  if (hunts === 'every') { return await huntsOf(db) }
+/**
+ * The hunts a grant is for, and the anonymous users' sandboxes it passes over (`isSealedSandbox`):
+ * the one at its address, refused when there is none there or it is such a sandbox; or every hunt
+ * but those.
+ */
+async function huntsGranted(db: Reader, hunts: AdoptionT['grants'][number]['hunts']): Promise<{ hunts: Doc<'hunts'>[], sealed: Doc<'hunts'>[] }> {
+  if (hunts === 'every') {
+    const every = await huntsOf(db)
+    const judged = await Promise.all(every.map(async (hunt) => ({ hunt, sealed: await isSealedSandbox(db, hunt) })))
+    return { hunts: judged.filter(({ sealed }) => ! sealed).map(({ hunt }) => hunt), sealed: judged.filter(({ sealed }) => sealed).map(({ hunt }) => hunt) }
+  }
   const hunt = await huntInOrg(db, hunts.org, hunts.hunt)
   if (! hunt) { throw new ConvexError(`There is no hunt at ~${hunts.org}/${hunts.hunt}.`) }
-  return [hunt]
+  if (await isSealedSandbox(db, hunt)) { throw new ConvexError(`~${hunts.org}/${hunts.hunt} is an anonymous user's sandbox, which sealing keeps its own alone: nobody is put on it.`) }
+  return { hunts: [hunt], sealed: [] }
+}
+
+/**
+ * Whether `hunt` is an anonymous user's sandbox: labelled with its own org (`Hunt.isSandbox`), whose
+ * userlabel an anonymous user holds, and with that user on it. Sealing keeps such a hunt its user's
+ * alone; this keeps the command line to it, there being no actor to ask. A sandbox merged into a
+ * user signed in with Google, its anonymous user taken off it, is that user's hunt, and no longer one.
+ */
+async function isSealedSandbox(db: Reader, hunt: Doc<'hunts'>): Promise<boolean> {
+  if (! Hunt.isSandbox(hunt)) { return false }
+  const holder = await userForUserlabel(db, hunt.orglabel)
+  if (! holder || ! User.isAnonymous(holder)) { return false }
+  return await huntshipFor(db, hunt._id, holder._id) !== null
 }
 
 /** Write what `planned` says, in order: the userlabel first, so every huntship made after carries it. Answers how many huntships' copies were rewritten */
@@ -182,16 +234,25 @@ async function carryOut(db: Writer, planned: PlanT): Promise<number> {
 
 /** What an adoption came to, as the command line is told: the user as it stood, and each change */
 function outcomeOf(planned: PlanT, huntships: number): AdoptedT {
-  const { user, relabel, admin, grants, kept } = planned
+  const { user, relabel, leaves, admin, grants, kept, skipped } = planned
   const changes: AdoptChangeT[] = [
-    ...(relabel ? [{ kind: 'userlabel' as const, from: user.userlabel ?? null, to: relabel.userlabel, title: relabel.title, huntships }] : []),
+    ...(relabel ? [{ kind: 'userlabel' as const, from: user.userlabel ?? null, to: relabel.userlabel, title: relabel.title, huntships, leaves }] : []),
     ...(admin === null ? [] : [{ kind: 'admin' as const, to: admin }]),
     ...grants.map(({ hunt, role, from }) => ({ kind: 'huntship' as const, org: hunt.orglabel, hunt: hunt.label, role, from })),
   ]
   return {
-    user:    { user_id: user._id, userlabel: user.userlabel ?? null, title: user.title ?? null, anonymous: User.isAnonymous(user), admin: user.admin === true },
+    user:    {
+      user_id:    user._id,
+      userlabel:  user.userlabel ?? null,
+      title:      user.title ?? null,
+      anonymous:  User.isAnonymous(user),
+      admin:      user.admin === true,
+      name:       user.name ?? null,
+      created_at: Stamps.of(user).created_at,
+    },
     changes,
     kept,
+    skipped,
   }
 }
 

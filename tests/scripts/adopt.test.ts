@@ -9,19 +9,23 @@ const reach = () => Local
 
 const UserId = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as AdoptedT['user']['user_id']
 
+/** When the users here were made, 2026-10-12T14:03:07.000Z */
+const MadeAt = 1_791_813_787_000
+
 /** The Coach's command line, as the pre-plan writes it */
 const CoachArgv = ['--email', 'flip@example.com', '--userlabel', 'mrflip', '--admin', '--smith-all']
 
 /** What the deployment answers the Coach's command with, on production after the clear */
 const CoachAdopted: AdoptedT = {
-  user:    { user_id: UserId, userlabel: null, title: null, anonymous: false, admin: false },
+  user:    { user_id: UserId, userlabel: null, title: null, anonymous: false, admin: false, name: 'Flip Kromer', created_at: MadeAt },
   changes: [
-    { kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0 },
+    { kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null },
     { kind: 'admin', to: true },
     { kind: 'huntship', org: 'mrflip', hunt: 'quiet_otter', role: 'smith', from: null },
     { kind: 'huntship', org: 'pat_smith', hunt: 'loud_heron', role: 'smith', from: 'reviewer' },
   ],
-  kept: 1,
+  kept:    1,
+  skipped: 0,
 }
 
 /** A deployment answering every function with `outcome`, and the functions it was asked to run, with what */
@@ -96,20 +100,26 @@ describe('requestFrom', () => {
 })
 
 describe('userLine', () => {
-  it("reads the doc block's examples", () => {
-    expect(Adopt.userLine({ user_id: UserId, userlabel: 'flippy_kromer', title: 'Flip', anonymous: false, admin: false })).to.eq(`The user ${UserId}: @flippy_kromer (Flip), signed in with Google, not an admin.`)
-    expect(Adopt.userLine({ user_id: UserId, userlabel: null, title: null, anonymous: true, admin: false })).to.eq(`The user ${UserId}: no userlabel, anonymous, not an admin.`)
+  it("reads the doc block's examples, naming the user by its Google name and when it was made", () => {
+    expect(Adopt.userLine({ user_id: UserId, userlabel: 'flippy_kromer', title: 'Flip', anonymous: false, admin: false, name: 'Flip Kromer', created_at: MadeAt })).to.eq(`The user ${UserId}: @flippy_kromer (Flip), signed in with Google as "Flip Kromer", not an admin; made 2026-10-12T14:03:07.000Z.`)
+    expect(Adopt.userLine({ user_id: UserId, userlabel: null, title: null, anonymous: true, admin: false, name: null, created_at: MadeAt })).to.eq(`The user ${UserId}: no userlabel, anonymous, not an admin; made 2026-10-12T14:03:07.000Z.`)
   })
 
   it('says when the user is an admin', () => {
-    expect(Adopt.userLine({ user_id: UserId, userlabel: 'mrflip', title: 'Flip', anonymous: false, admin: true })).to.match(/, an admin\.$/)
+    expect(Adopt.userLine({ user_id: UserId, userlabel: 'mrflip', title: 'Flip', anonymous: false, admin: true, name: 'Flip Kromer', created_at: MadeAt })).to.match(/, an admin; made /)
+  })
+
+  it('says when Google sent no name', () => {
+    expect(Adopt.userLine({ user_id: UserId, userlabel: 'mrflip', title: 'Flip', anonymous: false, admin: false, name: null, created_at: MadeAt })).to.match(/signed in with Google with no name sent, not an admin/)
   })
 })
 
 describe('changeLine', () => {
   const ChangeCases: [Parameters<typeof Adopt.changeLine>[0], string, string][] = [
-    [{ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0 },                "  userlabel mrflip, titled \"Mrflip\" (it held none)",                                           'a first userlabel'],
-    [{ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flip', huntships: 2 },       "  userlabel mrflip, titled \"Flip\" (it held flippy_kromer), and the copies on its 2 huntships", 'a userlabel in place of another, its copies rewritten'],
+    [{ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null },                "  userlabel mrflip, titled \"Mrflip\" (it held none)",                                           'a first userlabel'],
+    [{ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flip', huntships: 2, leaves: 'free' },     "  userlabel mrflip, titled \"Flip\" (it held flippy_kromer), and the copies on its 2 huntships; flippy_kromer is left free for anyone to claim", 'a userlabel in place of another, its copies rewritten, the old one left free'],
+    [{ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flip', huntships: 2, leaves: 'address' },  "  userlabel mrflip, titled \"Flip\" (it held flippy_kromer), and the copies on its 2 huntships; flippy_kromer stays held by its hunts' address, ~flippy_kromer/…, so only this command gives it out", "a userlabel in place of another, the old one still a hunt's address"],
+    [{ kind: 'userlabel', from: 'flippy_kromer', to: 'flippy_kromer', title: 'Flip', huntships: 0, leaves: null }, "  userlabel flippy_kromer, titled \"Flip\" (it held flippy_kromer)",                            'a retitle, the userlabel kept'],
     [{ kind: 'admin', to: true },                                                                   "  an admin",                                                                                     'the flag set'],
     [{ kind: 'admin', to: false },                                                                  "  no longer an admin",                                                                           'the flag cleared'],
     [{ kind: 'huntship', org: 'pat_smith', hunt: 'quiet_otter', role: 'smith', from: 'reviewer' }, "  Smith of ~pat_smith/quiet_otter (a Reviewer there until now)",                               'a reviewer made a smith'],
@@ -130,6 +140,11 @@ describe('outcomeLines', () => {
   it('says nothing of what was held when nothing was', () => {
     expect(Adopt.outcomeLines({ ...CoachAdopted, kept: 0 }, true).at(-1)).to.eq('  Smith of ~pat_smith/loud_heron (a Reviewer there until now)')
   })
+
+  it("says how many anonymous users' sandboxes a grant on every hunt passed over", () => {
+    expect(Adopt.outcomeLines({ ...CoachAdopted, skipped: 2 }, false).slice(-2)).to.deep.eq(['Held already: 1 of what was asked.', "Passed over 2 anonymous users' sandboxes, which sealing keeps their own."])
+    expect(Adopt.outcomeLines({ ...CoachAdopted, changes: [], kept: 0, skipped: 1 }, true).slice(1)).to.deep.eq(['Nothing to change.', "Passed over 1 anonymous user's sandbox, which sealing keeps its own."])
+  })
 })
 
 describe('adopt', () => {
@@ -137,7 +152,7 @@ describe('adopt', () => {
     const { run, calls } = fakeDeployment(CoachAdopted)
     expect(said(CoachArgv, run)).to.deep.eq([
       'Aimed at 127.0.0.1:3431 (http://127.0.0.1:3431): a dry run, which changes nothing.',
-      `The user ${UserId}: no userlabel, signed in with Google, not an admin.`,
+      `The user ${UserId}: no userlabel, signed in with Google as "Flip Kromer", not an admin; made 2026-10-12T14:03:07.000Z.`,
       'Would change it to:',
       '  userlabel mrflip, titled "Mrflip" (it held none)',
       '  an admin',

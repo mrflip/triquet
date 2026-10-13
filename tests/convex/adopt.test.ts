@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { internal } from '../../convex/_generated/api'
+import { api, internal } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { membersOf } from '../../convex/reading'
+import { holderOfUserlabel, huntshipFor, membersOf } from '../../convex/reading'
+import * as Stamps from '../../src/lib/stamps'
 import type { AdoptionDNA } from '../../src/models/adoption'
 import { Hunt } from '../../src/models/hunt'
 import { User } from '../../src/models/user'
-import { anonymousSession, anonymousUser, googleUser, openTester, seedHunt, type Session, type Tester } from '../support/convex'
+import { anonymousSession, anonymousUser, googleUser, openTester, putOn, seedHunt, type Session, type Tester } from '../support/convex'
 import { present } from '../support/present'
 import { expectSound, heldIn } from '../support/soundness'
 
@@ -61,6 +62,18 @@ async function userRow(tt: Tester, user_id: Id<'users'>) {
   return present(await tt.run(async (ctx) => await ctx.db.get('users', user_id)), 'the user')
 }
 
+/** When the user `user_id`'s row was made, as an adoption names it */
+async function madeAt(tt: Tester, user_id: Id<'users'>): Promise<number> {
+  return Stamps.of(await userRow(tt, user_id)).created_at
+}
+
+/** An anonymous user holding `label`, and its sandbox, `~label/label`, made as an anonymous user makes its one hunt */
+async function sandboxed(tt: Tester, label: string): Promise<{ anon: Session & { label: string }, sandbox_id: Id<'hunts'> }> {
+  const anon = await anonymousUser(tt, label)
+  const sandbox_id = await anon.as.mutation(api.hunts.performOuter, { action: { kind: 'new_hunt', label } })
+  return { anon, sandbox_id }
+}
+
 /** Who is on the hunt `hunt_id`, as label and role, in the order they were put on it */
 async function membersIn(tt: Tester, hunt_id: Id<'hunts'>): Promise<[string, string][]> {
   const members = await tt.run(async (ctx) => await membersOf(ctx.db, hunt_id))
@@ -75,14 +88,15 @@ describe('adopt:perform, the Coach taking back mrflip', () => {
     const { tt, quiet_otter, loud_heron } = await clearedProduction()
     const coach = await googleUnlabelled(tt)
     expect(await adopted(tt, CoachAdoption)).to.deep.eq({
-      user:    { user_id: coach.user_id, userlabel: null, title: null, anonymous: false, admin: false },
+      user:    { user_id: coach.user_id, userlabel: null, title: null, anonymous: false, admin: false, name: null, created_at: await madeAt(tt, coach.user_id) },
       changes: [
-        { kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0 },
+        { kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null },
         { kind: 'admin', to: true },
         { kind: 'huntship', org: 'mrflip', hunt: 'quiet_otter', role: 'smith', from: null },
         { kind: 'huntship', org: 'pat_smith', hunt: 'loud_heron', role: 'smith', from: null },
       ],
-      kept: 0,
+      kept:    0,
+      skipped: 0,
     })
     const user = await userRow(tt, coach.user_id)
     expect([user.userlabel, user.title, user.admin, user.isAnonymous]).to.deep.eq(['mrflip', 'Mrflip', true, false])
@@ -97,9 +111,10 @@ describe('adopt:perform, the Coach taking back mrflip', () => {
     await adopted(tt, CoachAdoption)
     const ante = await heldIn(tt)
     expect(await adopted(tt, CoachAdoption)).to.deep.eq({
-      user:    { user_id: coach.user_id, userlabel: 'mrflip', title: 'Mrflip', anonymous: false, admin: true },
+      user:    { user_id: coach.user_id, userlabel: 'mrflip', title: 'Mrflip', anonymous: false, admin: true, name: null, created_at: await madeAt(tt, coach.user_id) },
       changes: [],
       kept:    4,
+      skipped: 0,
     })
     expect(await heldIn(tt)).to.deep.eq(ante)
   })
@@ -123,11 +138,26 @@ describe('adopt:plan', () => {
     expect(await adopted(tt, CoachAdoption)).to.deep.eq(plan)
   })
 
+  it('names the user it found by the name Google sent and when its row was made, for the Coach to know it for theirs', async () => {
+    const tt = openTester()
+    const coach = await googleUnlabelled(tt)
+    await tt.run(async (ctx) => { await ctx.db.patch('users', coach.user_id, { name: 'Flip Kromer' }) })
+    const { user } = await planned(tt, { find: { email: CoachEmail } })
+    expect([user.user_id, user.name, user.created_at]).to.deep.eq([coach.user_id, 'Flip Kromer', await madeAt(tt, coach.user_id)])
+  })
+
+  it('names no Google name for an anonymous user', async () => {
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'anon_alice')
+    const { user } = await planned(tt, { find: { userlabel: 'anon_alice' } })
+    expect([user.anonymous, user.name, user.created_at]).to.deep.eq([true, null, await madeAt(tt, anon.user_id)])
+  })
+
   it('counts the huntships whose copies a relabel would rewrite', async () => {
     const tt = openTester()
     await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'flippy_kromer' })
     const plan = await planned(tt, { find: { userlabel: 'flippy_kromer' }, userlabel: 'mrflip' })
-    expect(plan.changes).to.deep.eq([{ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flippy Kromer', huntships: 1 }])
+    expect(plan.changes).to.deep.eq([{ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flippy Kromer', huntships: 1, leaves: 'address' }])
   })
 })
 
@@ -210,7 +240,7 @@ describe('adopt:perform, the userlabel', () => {
     const tt = openTester()
     const { open, smith } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'flippy_kromer' })
     const outcome = await adopted(tt, { find: { user_id: smith.user_id }, userlabel: 'mrflip', title: 'Flip' })
-    expect(outcome.changes).to.deep.eq([{ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flip', huntships: 1 }])
+    expect(outcome.changes).to.deep.eq([{ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flip', huntships: 1, leaves: 'address' }])
     expect(await membersIn(tt, open.hunt_id)).to.deep.eq([['mrflip', 'smith']])
     expect(present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id))).orglabel).to.eq('flippy_kromer')
     await expectSound(tt)
@@ -219,7 +249,7 @@ describe('adopt:perform, the userlabel', () => {
   it('retitles a user alone, keeping its userlabel', async () => {
     const tt = openTester()
     const flippy = await googleUser(tt, 'flippy_kromer')
-    expect(await changed(tt, { find: { user_id: flippy.user_id }, title: 'Flip' })).to.deep.eq([{ kind: 'userlabel', from: 'flippy_kromer', to: 'flippy_kromer', title: 'Flip', huntships: 0 }])
+    expect(await changed(tt, { find: { user_id: flippy.user_id }, title: 'Flip' })).to.deep.eq([{ kind: 'userlabel', from: 'flippy_kromer', to: 'flippy_kromer', title: 'Flip', huntships: 0, leaves: null }])
   })
 
   it('retitles a user whose userlabel a word reserved since would refuse, plan and perform agreeing, its userlabel kept', async () => {
@@ -232,12 +262,36 @@ describe('adopt:perform, the userlabel', () => {
     })
     const request: AdoptionDNA = { find: { userlabel: 'handles' }, title: 'Handy' }
     const plan = await planned(tt, request)
-    expect(plan.changes).to.deep.eq([{ kind: 'userlabel', from: 'handles', to: 'handles', title: 'Handy', huntships: 1 }])
+    expect(plan.changes).to.deep.eq([{ kind: 'userlabel', from: 'handles', to: 'handles', title: 'Handy', huntships: 1, leaves: null }])
     expect(await adopted(tt, request)).to.deep.eq(plan)
     const { userlabel, title } = await userRow(tt, smith.user_id)
     expect([userlabel, title]).to.deep.eq(['handles', 'Handy'])
     expect(await membersIn(tt, open.hunt_id)).to.deep.eq([['handles', 'smith']])
     await expectSound(tt)
+  })
+
+  it('says the userlabel it relabels a user away from is left free, when no hunt\'s address holds it, and it is', async () => {
+    const tt = openTester()
+    const flippy = await googleUser(tt, 'flippy_kromer')
+    expect(await changed(tt, { find: { user_id: flippy.user_id }, userlabel: 'mrflip' })).to.deep.eq([{ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flippy Kromer', huntships: 0, leaves: 'free' }])
+    expect(await tt.run(async (ctx) => await holderOfUserlabel(ctx.db, 'flippy_kromer'))).to.be.null
+  })
+
+  it('refuses to relabel an anonymous user holding its sandbox, which could then make a second; nothing is written', async () => {
+    const tt = openTester()
+    const { anon, sandbox_id } = await sandboxed(tt, 'anon_alice')
+    const ante = await heldIn(tt)
+    const request: AdoptionDNA = { find: { user_id: anon.user_id }, userlabel: 'mrflip' }
+    await expect(planned(tt, request)).rejects.toThrow(/is anonymous and holds its sandbox, ~anon_alice\/anon_alice: relabelled, it could make a second/)
+    await expect(adopted(tt, request)).rejects.toThrow(/is anonymous and holds its sandbox/)
+    expect(await heldIn(tt)).to.deep.eq(ante)
+    expect(await membersIn(tt, sandbox_id)).to.deep.eq([['anon_alice', 'smith']])
+  })
+
+  it('retitles an anonymous user holding its sandbox, its userlabel kept', async () => {
+    const tt = openTester()
+    const { anon } = await sandboxed(tt, 'anon_alice')
+    expect(await changed(tt, { find: { user_id: anon.user_id }, title: 'Alice' })).to.deep.eq([{ kind: 'userlabel', from: 'anon_alice', to: 'anon_alice', title: 'Alice', huntships: 1, leaves: null }])
   })
 
   it('gives an anonymous user a userlabel, as nothing but admin and grants needs Google', async () => {
@@ -300,6 +354,50 @@ describe('adopt:perform, roles on hunts', () => {
     expect([outcome.changes, outcome.kept]).to.deep.eq([[{ kind: 'huntship', org: 'mrflip', hunt: 'quiet_otter', role: 'smith', from: 'reviewer' }], 1])
     expect(await membersIn(tt, quiet_otter)).to.deep.eq([['bob_reviews', 'smith']])
     expect(await membersIn(tt, loud_heron)).to.deep.eq([['pat_smith', 'smith'], ['bob_reviews', 'reviewer']])
+  })
+
+  it("passes over anonymous users' sandboxes in a grant on every hunt, counting each once, and puts nobody on them", async () => {
+    const { tt, quiet_otter, loud_heron } = await clearedProduction()
+    const { sandbox_id } = await sandboxed(tt, 'anon_alice')
+    await googleUnlabelled(tt)
+    const plan = await planned(tt, { ...CoachAdoption, grants: [{ role: 'smith', hunts: 'every' }, { role: 'reviewer', hunts: 'every' }] })
+    expect([plan.changes.filter((change) => change.kind === 'huntship').map((change) => change.org), plan.skipped]).to.deep.eq([['mrflip', 'pat_smith'], 1])
+    const outcome = await adopted(tt, CoachAdoption)
+    expect(outcome.skipped).to.eq(1)
+    expect(await membersIn(tt, sandbox_id)).to.deep.eq([['anon_alice', 'smith']])
+    expect([await membersIn(tt, quiet_otter), await membersIn(tt, loud_heron)]).to.deep.eq([[['mrflip', 'smith']], [['pat_smith', 'smith'], ['mrflip', 'smith']]])
+    await expectSound(tt)
+  })
+
+  it('reaches a sandbox no anonymous user is sealed in: one merged into a user signed in with Google, or upgraded in place', async () => {
+    const { tt } = await clearedProduction()
+    const merged = await sandboxed(tt, 'anon_merged')
+    const upgraded = await sandboxed(tt, 'anon_upgraded')
+    const alice = await googleUser(tt, 'alice_google')
+    await putOn(tt, merged.sandbox_id, alice.user_id, 'smith')
+    await tt.run(async (ctx) => {
+      const held = present(await huntshipFor(ctx.db, merged.sandbox_id, merged.anon.user_id))
+      await ctx.db.delete('huntships', held._id)
+      await ctx.db.patch('users', upgraded.anon.user_id, { isAnonymous: false })
+    })
+    await googleUnlabelled(tt)
+    const outcome = await adopted(tt, CoachAdoption)
+    expect(outcome.skipped).to.eq(0)
+    expect(await membersIn(tt, merged.sandbox_id)).to.deep.eq([['alice_google', 'smith'], ['mrflip', 'smith']])
+    expect(await membersIn(tt, upgraded.sandbox_id)).to.deep.eq([['anon_upgraded', 'smith'], ['mrflip', 'smith']])
+  })
+
+  it("refuses a role on an anonymous user's sandbox named by its address, writing nothing", async () => {
+    const { tt } = await clearedProduction()
+    const { sandbox_id } = await sandboxed(tt, 'anon_alice')
+    const coach = await googleUnlabelled(tt)
+    const ante = await heldIn(tt)
+    for (const role of ['smith', 'reviewer'] as const) {
+      const pending = adopted(tt, { find: { user_id: coach.user_id }, userlabel: 'mrflip', grants: [{ role, hunts: { org: 'anon_alice', hunt: 'anon_alice' } }] })
+      await expect(pending).rejects.toThrow(/~anon_alice\/anon_alice is an anonymous user's sandbox, which sealing keeps its own alone: nobody is put on it/)
+    }
+    expect(await heldIn(tt)).to.deep.eq(ante)
+    expect(await membersIn(tt, sandbox_id)).to.deep.eq([['anon_alice', 'smith']])
   })
 
   it('refuses an anonymous user any role, writing nothing', async () => {

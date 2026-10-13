@@ -306,11 +306,21 @@ and a place on a hunt without its smiths adding them. `scripts/adopt` gives them
   hunts, never lowering one it holds: `--smith <~org/hunt>`, `--reviewer <~org/hunt>` (each as often
   as needed), `--smith-all`, `--reviewer-all`. Only a user signed in with Google (not anonymous) is
   made an admin or put on a hunt.
+* **What it keeps to.** Sealing keeps an anonymous user's sandbox its own alone, and the command
+  keeps to that: `--smith-all` and `--reviewer-all` pass over such sandboxes (and say how many),
+  and `--smith` or `--reviewer` naming one is refused. A sandbox merged into a user signed in with
+  Google, or whose user signed in with Google, is a hunt like any other. An anonymous user holding
+  its sandbox is not relabelled (relabelled, it could make a second), though it may be retitled.
+* **The userlabel it leaves.** Relabelling a user that held one retires nothing (an adoption is no
+  merge): the old userlabel is left free for anyone to claim, unless a hunt's address still holds
+  it. The outcome says which.
 
 It stands behind the guard: the first run is dry, and says who it found and what it would change
 (`adopt:plan`, which writes nothing); the second, with `--deployment`, changes it in one transaction
 (`adopt:perform`) and says what it changed. Run again, it changes nothing more, and says how much of
-what was asked the user holds already. A refusal changes nothing, and says why.
+what was asked the user holds already. A refusal changes nothing, and says why. **Read the user it
+found before you act**: its id, handle, the name Google sent and when its row was made. An email is
+Google's claim, kept without Google's word that it was verified, so make sure the user is yours.
 
 On a local backend it runs the same way, under `scripts/convex_dev`: `./scripts/doppledo
 dev_<you> scripts/convex_dev dev scripts/adopt --holding <userlabel> --smith ~org/hunt`. Every user

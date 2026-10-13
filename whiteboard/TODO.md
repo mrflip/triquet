@@ -523,16 +523,21 @@ Fixed in the thread: the front door's `?then=` open redirect. Left, each a Coach
   before (its own browser signed it on the way to Google; our callback clears the signature, so it
   needs a mark of its own), so a verifier id leaked (local storage, a log) cannot be finished by
   someone else within its 15 minutes. A fifth part to the patch.
-* **`adopt --email`**: show the user's Google name and when it was made in the dry run (or adopt by
-  id after confirming it), since the email is Google's claim with `email_verified` dropped.
+* ~~**`adopt --email`**~~. *Struck by the oauth sprint's thread 10 (2026-10-13):* the dry run (and
+  the run) names the user it found by the name Google sent and when its row was made (`created_at`,
+  as `Stamps.of` reads it), beside its id and handle. Nothing new is stored; `email_verified` is
+  still dropped, and `notes/deploy.md` says to read the user before acting.
 * ~~**Fail closed on `isAnonymous`**~~. *Struck by the oauth sprint's thread 10 (2026-10-13):*
   `User.isAnonymous` is `isAnonymous !== false`, and `Actor.isSignedInWithGoogle` its negation, so
   a row missing the field is sealed and its `admin` counts for nothing; the actor's `anonymous`
   reads the same predicate. The three convex-tests now write the field, and one proves a row
   without it is refused as `sealedJoin`.
-* **`adopt` and sandboxes**: skip anonymous users' sandboxes in `--smith-all` and refuse
-  `--smith ~anon/anon`; refuse relabelling an anonymous user that holds a sandbox; ghost (or at
-  least report) the userlabel a relabel leaves behind.
+* ~~**`adopt` and sandboxes**~~. *Struck by the oauth sprint's thread 10 (2026-10-13):*
+  `--smith-all` and `--reviewer-all` pass over anonymous users' sandboxes and count them
+  (`skipped`); `--smith`/`--reviewer` on one is refused; relabelling an anonymous user holding its
+  sandbox is refused (retitling is not). The userlabel a relabel leaves is not ghosted (thread 4's
+  decision stands): the outcome says it is left free, or still held by a hunt's address
+  (`leaves`).
 * **`sealedJoin` tells a smith a handle is anonymous**: say so in the privacy policy, or word the
   refusal so it does not.
 * **Sign out on a shared browser** leaves the hunt histories (IndexedDB) behind: say so in the

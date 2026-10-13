@@ -11,7 +11,7 @@ import { UserValidators } from './user'
  * that came to. Nothing here is stored: it is the request and the answer of a trusted command, run
  * with the deployment's admin key.
  */
-export const AdoptionValidators = Validator(({ obj, arr, bool, discrim, lit, str, uint, union, zid, zod, label }) => {
+export const AdoptionValidators = Validator(({ obj, arr, bool, discrim, lit, oneof, str, timestamp, uint, union, zid, zod, label }) => {
   const { role } = HuntshipValidators
   const finding = union([
     zod.strictObject({ user_id: zid('users') })
@@ -48,17 +48,29 @@ export const AdoptionValidators = Validator(({ obj, arr, bool, discrim, lit, str
     .describe('What to give one user from the command line.')
 
   const found = obj({
-    user_id:   zid('users'),
-    userlabel: str.nullable(),
-    title:     str.nullable(),
-    anonymous: bool,
-    admin:     bool,
+    user_id:    zid('users'),
+    userlabel:  str.nullable(),
+    title:      str.nullable(),
+    anonymous:  bool,
+    admin:      bool,
+    name:       str.nullable()
+      .describe('The name Google sent for it; null for none (an anonymous user has none).'),
+    created_at: timestamp
+      .describe('When its row was made, in epoch milliseconds.'),
   })
-    .describe('The user found, as it stood before: its userlabel and title (null until it holds one), whether it is anonymous, and its admin flag.')
+    .describe('The user found, as it stood before: its userlabel and title (null until it holds one), whether it is anonymous, its admin flag, and, so whoever runs the command knows it for theirs before it acts, its Google name and when it was made.')
 
   const change = discrim('kind', [
-    obj({ kind: lit('userlabel'), from: str.nullable(), to: str, title: str, huntships: uint })
-      .describe('Its userlabel and title, from what it held (null for none), with how many of its huntships\' copies were rewritten.'),
+    obj({
+      kind:      lit('userlabel'),
+      from:      str.nullable(),
+      to:        str,
+      title:     str,
+      huntships: uint,
+      leaves:    oneof(['free', 'address']).nullable()
+        .describe("What becomes of the userlabel it held, when it changes: `free` for anyone to claim (an adoption is no merge, so no ghosting keeps it), or still held by a hunt's `address`, so only the command line gives it out. Null when it held none, or keeps it."),
+    })
+      .describe('Its userlabel and title, from what it held (null for none), with how many of its huntships\' copies were rewritten, and what becomes of the userlabel it leaves.'),
     obj({ kind: lit('admin'), to: bool })
       .describe('Its admin flag, set or cleared.'),
     obj({ kind: lit('huntship'), org: str, hunt: str, role, from: role.nullable() })
@@ -71,6 +83,8 @@ export const AdoptionValidators = Validator(({ obj, arr, bool, discrim, lit, str
     changes: arr(change),
     kept:    uint
       .describe('How many of the things asked for it held already: its userlabel and title, its admin flag, its role on a hunt (or a higher one).'),
+    skipped: uint
+      .describe("How many anonymous users' sandboxes a grant on every hunt passed over: sealing keeps each its own user's alone."),
   })
     .describe('What an adoption came to: the user, what was (or would be) changed, and how much was already so.')
 
