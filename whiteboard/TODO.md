@@ -553,5 +553,6 @@ Fixed in the thread: the front door's `?then=` open redirect. Left, each a Coach
   - ~~`auth:offered` is a `zQuery`, so it reads the session and user it never uses and reruns when
     the user changes~~. *Struck by thread 11:* it is a `zPlainQuery`, a public query that asks
     nobody who is asking (`convex/functions.ts`; `notes/convex.md`, *Who is asking*).
-  - `UserlabelGate` names a variable `name`.
+  - ~~`UserlabelGate` names a variable `name`~~. *Struck by thread 11:* it is `title`, the
+    user's title as typed into "Your name" (`titleDraft` beside it).
   - The patch deletes a code's verifier in two places (`userOAuth.js`, `verifyCodeAndSignIn.js`).
