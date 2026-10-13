@@ -1,6 +1,6 @@
 # Sprint `auth_todos`: progress
 
-**Status: thread 1 landed (#247); thread 2 landing; thread 3 landing (2026-10-13).**
+**Status: threads 1, 2 landed (#247, #248); thread 3 landing; thread 4 in review (2026-10-13).**
 
 The running handoff, newer than `auth_todos-plan.md` wherever the two disagree. Each thread writes
 its own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -8,13 +8,13 @@ its own section to `thread-<N>-<label>.md` beside this file; the orchestrator cu
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
 | 1 | `domain`: the domain is triquet.me | landed #247 | `20261013-domain` | [#247](https://github.com/mrflip/triquet/pull/247) |
-| 2 | `one_userlabel`: no held userlabel | landing | `20261013-one_userlabel` | |
+| 2 | `one_userlabel`: no held userlabel | landed #248 | `20261013-one_userlabel` | [#248](https://github.com/mrflip/triquet/pull/248) |
 | 3 | `mock_google`: a mock Google; signup, signin, verify tested through | landing | `20261013-mock_google` | |
-| 4 | `short_userlabel`: a userlabel may be four letters | pending | | |
+| 4 | `short_userlabel`: a userlabel may be four letters | in review | `20261013-short_userlabel` | |
 | 5 | `auto_sandbox`: the sandbox and its first quiz, made for you | pending | | |
 | 6 | `microcontent`: the microcontent, consistent | pending | | |
 
-Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only).
+Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only); thread 2's `--touched` ran the whole suite, 319/319, no flakes; thread 3 was asked for a full run (harness change).
 
 ## What the threads have taught
 
@@ -27,7 +27,7 @@ Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 la
   redirect URI, on `<prod>.convex.site`, does not change). `thread-1-domain.md`, *For the Coach*.
 
 * **One userlabel check, `CK.userlabel`**, top-level words and all, for every row and argument
-  that held `heldUserlabel` (thread 2, in review). `User.relabelled` is folded into
+  that held `heldUserlabel` (thread 2, #248). `User.relabelled` is folded into
   `User.labelled`; `Addresses.isHeldUserlabel` is `isUserlabel`. A userlabel now always passes
   `HuntValidators.newLabel`, so **thread 5's sandbox needs no check of its own**.
 * **`scripts/check_reserved` is the guard before the reserved list grows** (thread 2): it now
@@ -51,9 +51,24 @@ Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 la
   (`ShowUser` hands the header `null` while `useMe` reloads). Thread 3's spec waits it out
   (`userMenuSaying`); thread 6 takes it if it is cheap, else TODO.
 * `testing:mergeInto` is gone (the merge is real now); `vouchFor` stays for kept sessions.
+* **A userlabel is 4 to 24 characters** (thread 4, in review), stated once in `PA.Userlabel`;
+  the unfinished-handle notices read the minimum from it. Every name now gets a handle suggestion
+  (`Flip` -> `flip`, `Jo` -> `jo_2`). No reserved words added: the short words were already kept,
+  since hunt labels have always been allowed from two characters. A four-letter sandbox label is
+  a valid hunt label (tested), as thread 5 needs.
+* **Watch at thread 3's landing**: thread 3's specs were written on six-character handles; one
+  expecting a numbered suggestion for a short name would now differ. The full runs will show it.
 
 ## Reviews of landed threads
 
 * **Thread 1, #247.** *Review: none* (no code in the diff). e2e skipped, reason in the PR. Minor
   left: the finished oauth sprint's `google-oauth-keys.md` still shows the old consent-screen
   values; left as a record.
+* **Thread 2, #248.** *Review: fixed.* Kept: `adopt:plan` refuses a grant to a user whose
+  userlabel the list now keeps (perform threw in `placeOn`); `check_reserved:held` walks only
+  holders through `by_userlabel`. Left, minor, both recorded in the thread file's *Discoveries*
+  before landing: `mergeInto` refuses an anonymous browser holding a newly reserved handle signing
+  in to an account holding none; the guard covers growth of the **top-level** list only (a word
+  added to `PA.ReservedLabelGroups` locks every row so labelled, which needs its own survey: a
+  Coach's scope call). Worker's note: a hunt's org never moves, so a word an org holds must stay
+  off the list.
