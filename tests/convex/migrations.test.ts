@@ -37,10 +37,10 @@ async function stampsIn(tt: Tester) {
   })
 }
 
-/** Take the stamps off every stamped row, as rows written before rows were stamped hold none */
+/** Take the stamps off every row of a table with a stamp backfill, as rows written before rows were stamped hold none */
 async function unstamp(tt: Tester): Promise<void> {
   await tt.run(async (ctx) => {
-    for (const tablename of StampedTables) {
+    for (const tablename of Backfilled) {
       const rows = await ctx.db.query(tablename).collect()
       for (const row of rows) { await ctx.db.patch(tablename, row._id, { created_at: undefined, updated_at: undefined }) }
     }
@@ -58,12 +58,15 @@ async function reviewedHunt(tt: Tester) {
 }
 
 /** Each stamped table's backfill: every one but those made after stamps began, whose rows the trigger has always stamped */
-const StampBackfillFor: Record<Exclude<StampedTablename, 'quiz_widgeteds'>, string> = {
-  idents: 'backfillIdentStamps', hunts: 'backfillHuntStamps', realms: 'backfillRealmStamps', widgets: 'backfillWidgetStamps', quizzes: 'backfillQuizStamps',
+const StampBackfillFor: Record<Exclude<StampedTablename, 'quiz_widgeteds' | 'users' | 'huntships'>, string> = {
+  hunts: 'backfillHuntStamps', realms: 'backfillRealmStamps', widgets: 'backfillWidgetStamps', quizzes: 'backfillQuizStamps',
   widgetings: 'backfillWidgetingStamps', columns: 'backfillColumnStamps', questions: 'backfillQuestionStamps', widgeteds: 'backfillWidgetedStamps',
-  reviews: 'backfillReviewStamps', reviewings: 'backfillReviewingStamps', huntings: 'backfillHuntingStamps',
+  reviews: 'backfillReviewStamps', reviewings: 'backfillReviewingStamps',
 }
 const StampBackfills = Object.values(StampBackfillFor)
+
+/** The tables that have a stamp backfill, whose rows may predate stamps */
+const Backfilled = Object.keys(StampBackfillFor) as (keyof typeof StampBackfillFor)[]
 
 describe("the stamp backfills", () => {
   it("stamp each row written before rows were stamped as made, and last edited, in the whole millisecond the database made it", async () => {
@@ -72,8 +75,8 @@ describe("the stamp backfills", () => {
     await unstamp(tt)
     for (const fn of StampBackfills) { await migrate(tt, `migrations:${fn}`) }
     const held = await stampsIn(tt)
-    const written = StampedTables.filter((tablename) => present(held[tablename]).length > 0)
-    expect(written).to.include.members(['idents', 'hunts', 'realms', 'widgets', 'quizzes', 'columns', 'questions', 'reviews', 'reviewings', 'huntings'])
+    const written = Backfilled.filter((tablename) => present(held[tablename]).length > 0)
+    expect(written).to.include.members(['hunts', 'realms', 'widgets', 'quizzes', 'columns', 'questions', 'reviews', 'reviewings'])
     for (const tablename of written) {
       const rows = present(held[tablename])
       for (const [made, created_at, updated_at] of rows) { expect([created_at, updated_at], tablename).to.deep.eq([made, made]) }
@@ -211,7 +214,7 @@ describe("migrations.runAll", () => {
     await tt.mutation(internal.migrations.runAll, {})
     await tt.finishAllScheduledFunctions(vi.runAllTimers)
     const held = await stampsIn(tt)
-    expect(StampedTables.flatMap((tablename) => present(held[tablename]).filter(([, created_at, updated_at]) => created_at === null || updated_at === null))).to.deep.eq([])
+    expect(Backfilled.flatMap((tablename) => present(held[tablename]).filter(([, created_at, updated_at]) => created_at === null || updated_at === null))).to.deep.eq([])
   })
 })
 

@@ -4,7 +4,7 @@ import * as Approve from '../lib/approve'
 /**
  * What the smith's screen offers its author beyond reading, each decided by the policy of the
  * action it sends (`Approve`), so the screen offers exactly what the server would accept. Changing
- * the hunt and its quizzes is not here: the screen is shown only to whoever may (`Hunting.mayOpen`).
+ * the hunt and its quizzes is not here: the screen is shown only to whoever may (`Huntship.mayOpen`).
  * Who may be put on or taken off the hunt turns on who, and the members panel asks of each.
  */
 export type WorkbenchOffersT = {
@@ -20,6 +20,10 @@ export type WorkbenchOffersT = {
   changeLibrary:   boolean
   /** Read the hunt whole, for the Raw Export */
   exportHunt:      boolean
+  /** Relabel the hunt (the gear's *Hunt label*): never an anonymous smith, whose sandbox's label is its handle */
+  relabelHunt:     boolean
+  /** Delete the hunt with its last quiz (the gear's danger zone): never an anonymous smith */
+  deleteHunt:      boolean
 }
 
 /**
@@ -39,5 +43,7 @@ export function workbenchOffers(claims: Actor.QuizClaimsT): WorkbenchOffersT {
     reviseLayout:    Approve.mayOffer('edit_column', claims),
     changeLibrary:   Approve.may('change_library', claims),
     exportHunt:      Approve.may('export_hunt', claims),
+    relabelHunt:     Approve.mayOffer('relabel_hunt', claims),
+    deleteHunt:      Approve.mayOffer('delete_hunt', claims),
   }
 }

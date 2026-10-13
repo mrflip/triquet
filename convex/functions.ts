@@ -9,26 +9,36 @@ import * as Approve from '../src/lib/approve'
 import { refusingInvalid } from '../src/lib/refusals'
 import { installErrorMap } from '../src/lib/vv/reporting'
 import { libraryWriter, scopedReader, scopedWriter, type ScopeClaimsT } from './policy_rules'
-import { censusOf, identFor, type CensusT, type Reader } from './reading'
+import { censusOf, type CensusT, type Reader } from './reading'
 import { triggers } from './triggers'
 
 /**
  * Who is asking, as every public function's `ctx` carries it.
  *
- * * `actor` -- who the request is from: the ident its session asserted last, or `Actor.anonymous`.
+ * * `actor` -- who the request is from: the session's user, once it holds a userlabel, or
+ *   `Actor.unlabelled`.
  * * `user_id` -- the session's Convex Auth user; null for a request with no session, which may
  *   read nothing and write nothing, but needs no actor of its own to be told so.
  */
 export type AskerT = { actor: Actor.ActorT, user_id: Id<'users'> | null }
 
 /** A request with no session: no user, and nobody acting */
-const NoSession: AskerT = Object.freeze({ actor: Actor.anonymous, user_id: null })
+const NoSession: AskerT = Object.freeze({ actor: Actor.unlabelled, user_id: null })
 
 /**
- * Who is asking: the session the request's token names, if Convex Auth still holds it; its user;
- * and the ident that user asserted last, while it still holds it (`identFor`). A token outliving
- * its session (signed out, or the backend emptied) is no session. One round of reads, made once per request by the builders
- * below; a builder layered over them calls this rather than reading identity a second way.
+ * What the deployment says of who is an admin, beside each user's own flag: a local backend makes
+ * every user one (`TRIQUET_EVERYONE_ADMIN`, set by `scripts/convex_dev`); production never does.
+ */
+function deployment(): Actor.DeploymentT {
+  return { everyoneAdmin: env.TRIQUET_EVERYONE_ADMIN === 'yes' }
+}
+
+/**
+ * Who is asking: the session the request's token names, if Convex Auth still holds it, and its
+ * user, whose own row says who it is (`Actor.ofUser`: its userlabel and title, whether it is an
+ * admin, whether it is anonymous). A token outliving its session (signed out, or the backend
+ * emptied) is no session. One round of reads, made once per request by the builders below; a
+ * builder layered over them calls this rather than reading identity a second way.
  *
  * @param ctx - A query's or mutation's context.
  * @returns The actor, and the session's user.
@@ -38,9 +48,9 @@ const NoSession: AskerT = Object.freeze({ actor: Actor.anonymous, user_id: null 
 export async function askerOf(ctx: { auth: Auth, db: Reader }): Promise<AskerT> {
   const [user_id, session_id] = await Promise.all([getAuthUserId(ctx), getAuthSessionId(ctx)])
   if (user_id === null || session_id === null) { return NoSession }
-  const [session, ident] = await Promise.all([ctx.db.get('authSessions', session_id), identFor(ctx.db, user_id)])
-  if (session === null) { return NoSession }
-  return { user_id, actor: ident ? Actor.asIdent(user_id, ident, Actor.namesAdmin(env.TRIQUET_ADMINS, ident.label)) : Actor.anonymous }
+  const [session, user] = await Promise.all([ctx.db.get('authSessions', session_id), ctx.db.get('users', user_id)])
+  if (session === null || user === null) { return NoSession }
+  return { user_id, actor: Actor.ofUser(user_id, user, deployment()) }
 }
 
 /**
@@ -126,10 +136,10 @@ export type AskingQueryCtx = QueryCtx & AskerT
 /** A mutation's context as `zMutation` hands it on: Convex's own, and who is asking */
 export type AskingMutationCtx = MutationCtx & AskerT
 
-/** A hunt's query's context: its `db` sees only the hunt (`policy_rules.ts`), and `claims` are what was checked to get there */
-export type HuntQueryCtx<CT extends ScopeClaimsT> = AskingQueryCtx & { claims: CT }
+/** A hunt's query's context: its `db` sees only the hunt (`policy_rules.ts`), `claims` are what was checked to get there, and `census` says what lies beyond it (`reading.ts`) */
+export type HuntQueryCtx<CT extends ScopeClaimsT> = AskingQueryCtx & { claims: CT, census: CensusT }
 
-/** A hunt's mutation's context: as a hunt's query's, its `db` writing only the hunt, and `census` for what spans every hunt (`reading.ts`) */
+/** A hunt's mutation's context: as a hunt's query's, its `db` writing only the hunt */
 export type HuntMutationCtx<CT extends ScopeClaimsT> = AskingMutationCtx & { claims: CT, census: CensusT }
 
 /** A function's arguments, as Zod schemas by name */
@@ -168,8 +178,8 @@ export function scopeOf(fn: unknown): ScopeT | null {
  * The builder of a query about one hunt. Its `affirm` checks what the browser affirms and hands
  * back the claims (an `affirm…` of `authorize.ts`, given the plain database); its `handler` runs
  * on those claims (`ctx.claims`) with a database that sees only their hunt (`ctx.db`: see
- * `ReadingRules`). A denial, from `affirm` or anywhere after, answers `empty`, the facet's empty
- * value (`emptyIfDenied`).
+ * `ReadingRules`), asking `ctx.census` what lies beyond it (who a user is). A denial, from
+ * `affirm` or anywhere after, answers `empty`, the facet's empty value (`emptyIfDenied`).
  *
  * @example
  *   export const open = zHuntQuery({
@@ -190,7 +200,7 @@ export function zHuntQuery<AV extends ZodFieldsT, CT extends ScopeClaimsT, RT, E
     args,
     handler: async (ctx, parsed): Promise<RT | ET> => await emptyIfDenied(empty, async () => {
       const claims = await affirm(ctx, parsed as ArgsOfT<AV>)
-      return await handler({ ...ctx, db: scopedReader(ctx.db, claims), claims }, parsed as ArgsOfT<AV>)
+      return await handler({ ...ctx, db: scopedReader(ctx.db, claims), census: censusOf(ctx.db), claims }, parsed as ArgsOfT<AV>)
     }),
   }))
 }

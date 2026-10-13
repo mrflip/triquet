@@ -2,6 +2,7 @@ allowBuilds:
   esbuild: true
   unrs-resolver: true
 patchedDependencies:
+  '@convex-dev/auth@0.0.96': patches/@convex-dev__auth@0.0.96.patch
   zod@4.6.5: patches/zod@4.6.5.patch
 ignoredOptionalDependencies:
   - recheck-jar

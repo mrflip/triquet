@@ -5,9 +5,12 @@
 #   1. Starts the role's backend (scripts/convex_backend) unless it is already answering, logging
 #      to data/convex-<role>/backend.log, and stops it again on the way out. One already running,
 #      someone else's or your own, is used and left alone.
-#   2. Pushes convex/ to it (regenerating convex/_generated/), marks it clearable
-#      (TRIQUET_CLEARABLE=yes, which testing:clearAll asks for), and gives it Convex Auth's keys
-#      when it has none (scripts/convex_auth_keys).
+#   2. Gives it Google's keys for signing in with Google (AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET) from
+#      the Doppler config this runs under, or takes them away where that config has none, so the
+#      backend offers Google exactly when its config does (convex/auth.ts). Pushes convex/ to it
+#      (regenerating convex/_generated/), marks it clearable (TRIQUET_CLEARABLE=yes, which
+#      testing:clearAll asks for), and gives it Convex Auth's keys when it has none
+#      (scripts/convex_auth_keys).
 #   3. With --reset, empties it (scripts/convex_reset). A push that a schema change refuses, for
 #      rows the new schema no longer fits, is then retried once the backend is empty. One refused
 #      without --reset says how to catch the backend up instead (scripts/deploy.ts --role).
@@ -90,6 +93,29 @@ while IFS='=' read -r envname val; do
   esac
 done < "${datadir}/cli.env"
 
+# Google's keys, from this environment (the Doppler config), or neither. Set before the push: the
+# push is when the backend learns the HTTP routes Convex Auth adds for Google. The secret goes
+# through a file only this user can read, removed at once, never a command line or the output.
+googleKeys() {
+  if [[ -n "${AUTH_GOOGLE_ID:-}" && -n "${AUTH_GOOGLE_SECRET:-}" ]]; then
+    (
+      keyfile="$(umask 077 && mktemp "${TMPDIR:-/tmp}/triquet-google-keys.XXXXXX")"
+      trap 'rm -f "$keyfile"' EXIT
+      printf 'AUTH_GOOGLE_ID=%s\nAUTH_GOOGLE_SECRET=%s\n' "$AUTH_GOOGLE_ID" "$AUTH_GOOGLE_SECRET" > "$keyfile"
+      # Its output, and any failure's, is dropped whole: a refusal could quote the file it read
+      if ! "$convex" env set --force --from-file "$keyfile" > /dev/null 2>&1; then
+        echo "Could not give the ${role} backend Google's keys." >&2
+        exit 1
+      fi
+    )
+  else
+    for envname in AUTH_GOOGLE_ID AUTH_GOOGLE_SECRET; do
+      "$convex" env remove "$envname" > /dev/null 2>&1 || true
+    done
+  fi
+}
+googleKeys
+
 push() { "$convex" dev --once --typecheck disable --tail-logs disable; }
 if ! push; then
   if [[ "$reset" != yes ]]; then
@@ -101,8 +127,8 @@ if ! push; then
   push
 fi
 "$convex" env set TRIQUET_CLEARABLE yes > /dev/null
-# Every userlabel an admin of a local backend, unless the environment names its admins (Actor.namesAdmin)
-"$convex" env set TRIQUET_ADMINS "${TRIQUET_ADMINS:-*}" > /dev/null
+# Every user an admin of a local backend (Actor.ofUser); production never sets it
+"$convex" env set TRIQUET_EVERYONE_ADMIN yes > /dev/null
 scripts/convex_auth_keys "$role"
 if [[ "$reset" == yes ]]; then scripts/convex_reset "$role"; fi
 # The step this backend now holds, in its migrations table (an empty backend fits any schema, so a

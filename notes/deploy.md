@@ -68,15 +68,30 @@ effort, and a shallow clone may list no commits.
   own for them, set on the deployment (the Convex dashboard, or `npx convex env set`), never in
   Doppler's app configs: `JWT_PRIVATE_KEY` and `JWKS`, a key pair minted for that deployment alone
   (`scripts/convex_auth_keys` shows how), and `SITE_URL`, the web app's address. Without them no
-  browser can sign in, and so none can assert a userlabel. Preview deployments take theirs from
-  the project's default environment variables for previews. A fourth names the admins, who may
-  change the widget library: `TRIQUET_ADMINS`, userlabels parted by commas or spaces (`*` for
-  every userlabel, which only a local backend should have). Unset, nobody is an admin. Production:
-  `./scripts/doppledo prd_janitor npx convex env set TRIQUET_ADMINS mrflip`. Previews take it from
-  the same defaults; a local backend gets `*` from `scripts/convex_dev` unless `TRIQUET_ADMINS` is
-  in its environment. A fifth, `EXPOSE_INTERNAL_STATS_TO_ALL`, shows `/stats`'s backfills to
-  everyone rather than to an admin alone: `true` (`./scripts/doppledo prd_janitor npx convex env set
-  EXPOSE_INTERNAL_STATS_TO_ALL true`); `false` or unset, they stay an admin's, and any other value is refused.
+  browser can sign in, and so none can take a userlabel. Preview deployments take theirs from
+  the project's default environment variables for previews. No variable names the admins, who may
+  change the widget library: a user is one when its own `admin` flag says so, set only from the
+  command line (`scripts/adopt`, *Adopting a user*, below). A local backend makes every user an
+  admin (`TRIQUET_EVERYONE_ADMIN=yes`, set by `scripts/convex_dev`); production and previews never
+  set it. A `TRIQUET_ADMINS` left on a deployment from before is read by nothing, and may be unset
+  (`./scripts/doppledo prd_janitor npx convex env remove TRIQUET_ADMINS`). An admin must be signed
+  in with Google: an anonymous user's flag counts for nothing (`Actor.ofUser`). Another,
+  `EXPOSE_INTERNAL_STATS_TO_ALL`, shows `/stats`'s backfills to everyone rather than to an admin
+  alone: `true` (`./scripts/doppledo prd_janitor npx convex env set EXPOSE_INTERNAL_STATS_TO_ALL
+  true`); `false` or unset, they stay an admin's, and any other value is refused.
+* **Google sign-in** is offered only on a deployment holding both of Google's keys,
+  `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` (`googleKeyed`, `convex/auth.ts`); everywhere else the
+  browser sees only the anonymous way in. Like the session keys they live on the deployment, never
+  in Doppler's app configs. **Production's** are a web client of a Google Cloud project of its own,
+  made by *path A* in `whiteboard/20261010-oauth/google-oauth-keys.md` (published, unbranded; the
+  consent screen names `<prod>.convex.site`), whose one redirect URI is production's HTTP-actions
+  address plus `/api/auth/callback/google`; a Coach sets them with `npx convex env set` under
+  `prd_janitor`, or in the dashboard, and keeps the secret out of chat and files. A deployment
+  picks them up without a redeploy (a local backend served the Google routes at once, 2026-10-11).
+  **A local backend** takes them from the Doppler config `scripts/convex_dev` runs under (all three
+  dev configs carry the dev client, which accepts lane 0's `dev` and `agent` callbacks, ports 3500
+  and 3501), and has them taken away under a config without them. **Previews and CI** never have
+  them: Google allows no wildcard redirect URI, and nothing automated signs in to Google.
 * **GitHub Actions** (`.github/workflows/ci.yml`) typechecks, lints, tests, builds and runs e2e
   (against the optimized build) on every pull request and every push to `main`, and checks that
   `convex/_generated/` was committed as the functions regenerate it. Every job runs against a local backend or none; CI
@@ -253,6 +268,55 @@ command against their own lane's backend (`./scripts/doppledo dev_claude scripts
 <role> scripts/<command>`) and in convex-test, and never run it under a production config, not
 even dry.
 
+### Checking the reserved list against production
+
+The reserved list (`src/lib/vv/patterns.ts`, `ReservedToplevelGroups` and the prefixes beside it)
+keeps a new hunt's label and a userlabel being claimed from the words for the app's own pages and
+people. It governs only new labels: a hunt or an org named before a word joined the list keeps
+it, at its address, and stays writable, since a hunt's row holds its label and org to their shape
+and the words every label is kept from alone. After the list grows, see what it leaves standing:
+
+```
+./scripts/doppledo prd_janitor scripts/check_reserved
+```
+
+It reads every hunt (`check_reserved:refused`) and names each one whose label or org the list
+would refuse were it made now, as `~org/label`, saying which of the two. It writes nothing, and
+behind the guard it names the deployment it reached first; `--deployment` changes nothing but which
+deployment it insists on. A hunt it names needs nothing done: it is there to tell you who holds a
+word now kept, if you want to ask them to move.
+
+### Adopting a user
+
+Some things only the command line may give a user: the admin flag (no variable names admins), a
+userlabel that a hunt's address holds (`~mrflip/…` keeps `mrflip` from being claimed in the app),
+and a place on a hunt without its smiths adding them. `scripts/adopt` gives them, to one user:
+
+```
+./scripts/doppledo prd_janitor scripts/adopt --email <address> --userlabel mrflip --admin --smith-all
+```
+
+* **Which user**, one way: `--email <address>` (the one user whose row holds that email, as Google
+  sent it; refused when none does, or more than one, which it names), `--holding <userlabel>`, or
+  `--id <user id>`. An email is for a lookup you are watching, once: it is no standing way to name
+  a user, since an address can change hands. Once it holds a userlabel, name it by that.
+* **What to give it**, any of: `--userlabel <userlabel>` (refused when another user or a ghosting
+  holds it, or it is not a userlabel one may claim; a hunt's address holding it is no bar, and
+  the user's huntships' copies follow), `--title <title>`, `--admin` or `--no-admin`, and a role on
+  hunts, never lowering one it holds: `--smith <~org/hunt>`, `--reviewer <~org/hunt>` (each as often
+  as needed), `--smith-all`, `--reviewer-all`. Only a user signed in with Google (not anonymous) is
+  made an admin or put on a hunt.
+
+It stands behind the guard: the first run is dry, and says who it found and what it would change
+(`adopt:plan`, which writes nothing); the second, with `--deployment`, changes it in one transaction
+(`adopt:perform`) and says what it changed. Run again, it changes nothing more, and says how much of
+what was asked the user holds already. A refusal changes nothing, and says why.
+
+On a local backend it runs the same way, under `scripts/convex_dev`: `./scripts/doppledo
+dev_<you> scripts/convex_dev dev scripts/adopt --holding <userlabel> --smith ~org/hunt`. Every user
+of a local backend is an admin already (`TRIQUET_EVERYONE_ADMIN`), and one that has not signed in
+with Google is anonymous, so is put on no hunt, unless `testing:vouchFor` has vouched for it.
+
 ### Clearing production's people (the OAuth sprint, October 2026)
 
 Production keeps its hunts and loses its people (the Coach, 2026-10-11): the sprint makes Convex
@@ -287,13 +351,34 @@ The Coach's steps, in order:
    - Then merge the sprint's remaining threads straight away, and let them deploy. A visit in
      between leaves a row the new schema refuses, and the push stops, naming it: clear again and
      redeploy.
-4. **Sign in with Google**, with any handle or none (`mrflip` is held by hunts' addresses, so it
+4. **Set production's two Google keys** (*Google sign-in*, under *The pieces*, above), only once
+   the sprint's `google_signin` thread is merged and deployed (the Coach, 2026-10-11; the pre-plan
+   had them before the clear). The deployment picks them up without another deploy.
+5. **Sign in with Google**, with any handle or none (`mrflip` is held by hunts' addresses, so it
    cannot be claimed in the app).
-5. **Adopt**: the orchestrator runs the sprint's adopt command, on the Coach's word at the time,
-   giving that user `mrflip`, admin, and smith of every hunt.
+6. **Adopt** (*Adopting a user*, above), on the Coach's word at the time, said in chat before it
+   runs, its output relayed whole: give the user the Coach signed in as `mrflip`, admin, and smith
+   of every hunt.
+   - `./scripts/doppledo prd_janitor scripts/adopt --email <the Coach's> --userlabel mrflip --admin
+     --smith-all`: a dry run. Check that the user it found is the Coach's (no userlabel, or the one
+     they chose, and signed in with Google), and the deployment's name is production's.
+   - The same, with `--deployment <that name>`: the adoption. Reload the app: the handle is
+     `mrflip`, and every hunt is in the list.
 
 The `converge` thread deletes `scripts/clear_people` and `convex/clear_people.ts` with the tables
-they empty, and keeps the guard.
+they empty, and keeps the guard. So step 3's clear runs from a checkout of `main` as step 2 left
+it, holding the script, before the remaining threads merge: once `converge` is on `main`, the
+script is no longer there to run (`git switch --detach <step 2's merge>` brings it back).
+
+`converge` is a schema step with no backfill and no tightening: it drops `idents`, `identings`
+and `huntings`, adds `huntships` and `ghostings`, gives `reviews` and `reviewings` a required
+`user_id`, and makes `users` ours (our row validator, Convex Auth's fields kept). Its push fits
+only a deployment the clear left empty of people; one row of them left (a visit between the clear
+and the push) and Convex refuses the push, naming it, and production keeps serving the step before:
+clear again and redeploy. A browser still running the bundle from before the push is turned away
+by the functions it calls (`idents:*` are gone) until it reloads, and its session is gone with
+the clear anyway. A Coach's own local backends (`dev`, `e2e`) refuse the new schema too:
+`scripts/convex_reset <role>` empties one, or `scripts/convex_dev <role> --reset`.
 
 ## History
 

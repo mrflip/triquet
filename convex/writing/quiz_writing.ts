@@ -295,7 +295,7 @@ export async function deleteQuiz(db: Writer, quiz_id: Id<'quizzes'>): Promise<vo
  *
  * @param db - The mutation's database.
  * @param label - The hunt's label, already validated.
- * @param orglabel - The org it is made in: its maker's ident label.
+ * @param orglabel - The org it is made in: its maker's userlabel.
  * @returns The hunt's row id.
  * @throws When a row is not valid; the mutation writes nothing.
  *

@@ -1,47 +1,51 @@
-import type { Doc, Id } from '../_generated/dataModel'
+import type { Id } from '../_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
 import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import type { OuterHuntActionT } from '../../src/models/actions'
 import type { WheelT } from '../../src/models/category'
-import { HuntingValidators } from '../../src/models/hunting'
-import { censusOf, huntingsOf, huntInOrg, huntsCountedInOrg, huntsOf, realmsOf, type CensusT } from '../reading'
+import { HuntshipValidators } from '../../src/models/huntship'
+import type { UserFaceT } from '../../src/models/user'
+import { censusOf, huntshipsOf, huntInOrg, huntsCountedInOrg, huntsOf, realmsOf, type CensusT } from '../reading'
 import { deleteQuiz, insertHunt, updateHunt, type Writer } from './quiz_writing'
 
 /**
  * Make a fresh hunt under `label`: one realm, `home`, holding one blank quiz of the same label,
- * with the ident `actor` is as its smith, and its org (`orglabel`). An actor who has asserted no
- * userlabel is refused, since a hunt nobody is on is a hunt nobody can open. So is one hunt more
- * than their org may hold (`PA.HuntsPerOrg`), so no one userlabel takes up the app's room; and
- * whatever `makeHuntFor` refuses.
+ * with the user `actor` is as its smith, and its org (`orglabel`) their userlabel. An actor
+ * without a userlabel is refused, since a hunt nobody is on is a hunt nobody can open. A sealed
+ * one (`Actor.isSealed`: anonymous) makes only its sandbox, whose label policy has already held to
+ * its userlabel (`Approve.mayMakeHunt`), and so only once: its org holding any hunt refuses a
+ * second. Anyone is refused one hunt more than their org may hold (`PA.HuntsPerOrg`), so no one
+ * userlabel takes up the app's room; and whatever `makeHuntFor` refuses.
  *
  * @returns The hunt's row id.
- * @throws A refusal (`notIdentified`, `orgFull`, `labelTaken`, `huntsFull`); nothing is written.
+ * @throws A refusal (`notIdentified`, `sealedHunts`, `orgFull`, `labelTaken`, `huntsFull`); nothing is written.
  */
 export async function newHunt(db: Writer, actor: Actor.ActorT, label: string): Promise<Id<'hunts'>> {
-  if (Actor.isAnonymous(actor)) { refuse('notIdentified') }
-  const ident = await db.get('idents', actor.ident_id)
-  if (! ident) { refuse('notIdentified') }
-  if (await huntsCountedInOrg(db, ident.label) >= PA.HuntsPerOrg.max) { refuse('orgFull') }
-  return await makeHuntFor(db, ident, label)
+  if (Actor.isUnlabelled(actor)) { refuse('notIdentified') }
+  const counted = await huntsCountedInOrg(db, actor.userlabel)
+  if (Actor.isSealed(actor) && counted > 0) { refuse('sealedHunts') }
+  if (counted >= PA.HuntsPerOrg.max) { refuse('orgFull') }
+  return await makeHuntFor(db, { _id: actor.user_id, userlabel: actor.userlabel, title: actor.usertitle }, label)
 }
 
 /**
- * Make a fresh hunt under `label` for `ident`, as `newHunt` does, however many hunts its org
- * already holds: for the deployment's admin alone (`testing:makeHunt`, by which the e2e suite makes
- * a whole run's hunts, under one ident per worker). A label some hunt of the org already answers to
- * (`huntInOrg`) is refused, as a quiz's is: the caller has already put it in an address. So is one
- * hunt more than the app may hold.
+ * Make a fresh hunt under `label` for `maker`, as `newHunt` does, however many hunts its org
+ * already holds and whatever sealing says: for the deployment's admin alone (`testing:makeHunt`,
+ * by which the e2e suite makes a whole run's hunts, under one user per worker). A label some hunt
+ * of the org already answers to (`huntInOrg`) is refused, as a quiz's is: the caller has already
+ * put it in an address. So is one hunt more than the app may hold.
  *
+ * @param maker - Who makes it, its first smith, whose userlabel is its org.
  * @returns The hunt's row id.
  * @throws A refusal (`labelTaken`, `huntsFull`); nothing is written.
  */
-export async function makeHuntFor(db: Writer, ident: Doc<'idents'>, label: string): Promise<Id<'hunts'>> {
-  const [hunts, taken] = await Promise.all([huntsOf(db), huntInOrg(db, ident.label, label)])
+export async function makeHuntFor(db: Writer, maker: Pick<UserFaceT, '_id' | 'userlabel' | 'title'>, label: string): Promise<Id<'hunts'>> {
+  const [hunts, taken] = await Promise.all([huntsOf(db), huntInOrg(db, maker.userlabel, label)])
   if (taken) { refuse('labelTaken') }
   if (hunts.length >= PA.HuntsInApp.max) { refuse('huntsFull') }
-  const hunt_id = await insertHunt(db, label, ident.label)
-  await db.insert('huntings', HuntingValidators.row({ hunt_id, ident_id: ident._id, ident_label: ident.label, ident_title: ident.title, role: 'smith' }))
+  const hunt_id = await insertHunt(db, label, maker.userlabel)
+  await db.insert('huntships', HuntshipValidators.row({ hunt_id, user_id: maker._id, userlabel: maker.userlabel, usertitle: maker.title, role: 'smith' }))
   return hunt_id
 }
 
@@ -118,7 +122,7 @@ export async function rebranchHunt(db: Writer, hunt_id: Id<'hunts'>, branch: str
 /**
  * Delete `hunt_id` along with its last quiz, and everything they hold: the quiz's questions, its
  * widgetings and what they stored, the reviews and their verdicts; its realms; and everyone's
- * place on it. The library's widgets stay, being every hunt's. The idents themselves stay. A hunt is deleted only once it is down to one quiz, so that
+ * place on it. The library's widgets stay, being every hunt's. The users themselves stay. A hunt is deleted only once it is down to one quiz, so that
  * no single act loses a hunt's worth of quizzes. A hunt already gone is nothing to do.
  *
  * @param db - The mutation's database.
@@ -128,13 +132,13 @@ export async function rebranchHunt(db: Writer, hunt_id: Id<'hunts'>, branch: str
 export async function deleteHunt(db: Writer, hunt_id: Id<'hunts'>): Promise<void> {
   const held = await db.get('hunts', hunt_id)
   if (! held) { return }
-  const [realms, huntings] = await Promise.all([realmsOf(db, hunt_id), huntingsOf(db, hunt_id)])
+  const [realms, huntships] = await Promise.all([realmsOf(db, hunt_id), huntshipsOf(db, hunt_id)])
   if (realms.flatMap(({ quizzes }) => quizzes).length > 1) { refuse('huntNotEmptied') }
   for (const { realm, quizzes } of realms) {
     for (const quiz of quizzes) { await deleteQuiz(db, quiz._id) }
     await db.delete('realms', realm._id)
   }
-  for (const hunting of huntings) { await db.delete('huntings', hunting._id) }
+  for (const huntship of huntships) { await db.delete('huntships', huntship._id) }
   await db.delete('hunts', hunt_id)
 }
 
@@ -145,7 +149,7 @@ export async function deleteHunt(db: Writer, hunt_id: Id<'hunts'>): Promise<void
  * (`authorize`).
  *
  * @param db - The mutation's database.
- * @param actor - Who the visitor is now; anonymous until they have asserted a userlabel.
+ * @param actor - Who the visitor is now; unlabelled until their user holds a userlabel.
  * @param action - What the visitor did.
  * @returns The id of the hunt made or changed.
  * @throws A refusal when the action cannot be carried out; nothing is written.

@@ -517,7 +517,7 @@ export function useHuntFeed(orglabel: string | null, hunt_label: string | null, 
 
   useEffect(() => {
     if (hunt_label === null || affirms === null || ! ready || ! Question.isSentWhole(affirms.standing)) { return }
-    const feedkey = JSON.stringify([orglabel, hunt_label, affirms.ident_id, affirms.hunt_id, affirms.standing])
+    const feedkey = JSON.stringify([orglabel, hunt_label, affirms.user_id, affirms.hunt_id, affirms.standing])
     const kept = keptFeeds.get(feedkey) ?? keepFeed(feedkey, convex, { orglabel, hunt_label, affirms, focus: latest.current.open_quiz_id })
     if (kept.letGo !== null) { clearTimeout(kept.letGo) }
     kept.letGo = null

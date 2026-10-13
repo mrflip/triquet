@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import { Hunt } from '../../src/models/hunt'
 import { present } from '../support/present'
-import { affirmsOf, identified, openOf, openTester, putOn, seedHunt, type Identified, type PlaceT, type Tester } from '../support/convex'
+import { affirmsOf, googleUser, openOf, openTester, putOn, seedHunt, type Labelled, type PlaceT, type Tester } from '../support/convex'
 
 /** The reviews of the quiz `place` names that `by` reads, affirming what a browser that has read the hunt would */
-async function reviewsFor(tt: Tester, by: Identified, place: PlaceT) {
+async function reviewsFor(tt: Tester, by: Labelled, place: PlaceT) {
   const { quiz: affirms } = await affirmsOf(tt, by, place)
   return await by.as.query(api.reviews.forQuiz, { affirms })
 }
@@ -34,7 +34,7 @@ describe('reviews.forQuiz', () => {
     const theirs = await seedHunt(tt, Hunt.blank())
     const alice = await theirs.join('alice_reviews', 'reviewer')
     await theirs.act({ kind: 'open_review', quiz_id: theirs.open.quiz_id }, alice)
-    await putOn(tt, mine.open.hunt_id, alice.ident_id, 'reviewer')
+    await putOn(tt, mine.open.hunt_id, alice.user_id, 'reviewer')
     expect(await reviewsFor(tt, alice, mine.open)).to.deep.eq([])
     expect(await reviewsFor(tt, alice, theirs.open)).to.have.lengthOf(1)
   })
@@ -46,7 +46,7 @@ describe('reviews.forQuiz', () => {
     const [alice, bob] = [await join('alice_reviews', 'reviewer'), await join('bob_reviews', 'reviewer')]
     await act({ kind: 'open_review', quiz_id }, alice)
     await act({ kind: 'set_overall', quiz_id, overall: 'Not yet.' }, alice)
-    const seenBy = async (by: Identified) => {
+    const seenBy = async (by: Labelled) => {
       const reviews = await reviewsFor(tt, by, open)
       return reviews.map((review) => review.reviewer?.label)
     }
@@ -67,13 +67,13 @@ describe('reviews.forQuiz', () => {
     const alice = await join('alice_reviews', 'reviewer')
     await act({ kind: 'open_review', quiz_id: open.quiz_id }, alice)
     await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, alice)
-    const stranger = await identified(tt, 'carol_strays')
+    const stranger = await googleUser(tt, 'carol_strays')
     const { quiz: affirms } = await affirmsOf(tt, alice, open)
     expect(await reviewsFor(tt, stranger, open)).to.deep.eq([])
     expect(await tt.query(api.reviews.forQuiz, { affirms })).to.deep.eq([])
   })
 
-  it("reads nothing for affirms that are not so: a standing not held, another's ident, or a quiz of another hunt", async () => {
+  it("reads nothing for affirms that are not so: a standing not held, another's user, or a quiz of another hunt", async () => {
     const tt = openTester()
     const { act, open, join, smith } = await seedHunt(tt, Hunt.blank())
     const theirs = await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'carol_strays' })

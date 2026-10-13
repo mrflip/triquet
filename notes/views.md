@@ -39,15 +39,15 @@ A view offers the author what the server would accept of them, and decides it wi
 policies the server decides by (`src/lib/approve.ts`), from the claims the screen hook hands it
 (`useHunt`'s `claims`): never by testing a role or a lock itself. A field or button stands for an
 action, and asks that action's policy: by kind alone with `Approve.mayOffer('edit_question',
-claims)`, or with the action itself where its policy reads it (`Approve.may('remove_hunting',
+claims)`, or with the action itself where its policy reads it (`Approve.may('remove_huntship',
 claims, action)`). The smith's screen works its offers out once (`workbenchOffers`,
 `src/components/offers.ts`) and hands each component a boolean; what a quiz is shown as at all is
-`Hunting.mayOpen`. A refusal the author could trip into (adding oneself to the hunt) is asked of
+`Huntship.mayOpen`. A refusal the author could trip into (adding oneself to the hunt) is asked of
 the policy and said beside the field before anything is sent. The dispatcher asks again before
 sending (`denialOf` in `use-hunt`; `libraryDenialOf` in `use-library-actions` for the library's
 own): a refusal there is said in the console as a bug, and to the author as the server would have
 said it. The library belongs to no quiz: its doors ask `change_library` of the actor, which the
-claims carry, and outside a quiz a view asks it of `useIdent().actor`.
+claims carry, and outside a quiz a view asks it of `useMe().actor`.
 
 ## Styling
 

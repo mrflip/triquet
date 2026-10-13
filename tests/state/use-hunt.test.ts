@@ -4,6 +4,7 @@ import * as Actor from '../../src/lib/actor'
 import type { ShallowHuntT } from '../../src/lib/rows'
 import { claimsOf, denialOf, placeIn } from '../../src/state/use-hunt'
 import * as Wheel from '../../src/lib/wheel'
+import { userActor } from '../support/actors'
 
 /** A quiz's row as a realm lists it */
 function quizRow(tail: string, label: string): Doc<'quizzes'> {
@@ -69,7 +70,7 @@ describe('placeIn', () => {
   })
 })
 
-const Alice = Actor.asIdent('m57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>, { _id: 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>, label: 'alice_smiths' }, true)
+const Alice = userActor('m57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>, 'alice_smiths', { admin: true })
 
 describe('claimsOf', () => {
   it("holds who is looking, the hunt, their standing there and the quiz on screen's lock", () => {
@@ -98,7 +99,7 @@ describe('denialOf', () => {
     [lockedSmith, { kind: 'set_lock', quiz_id, locked: false },                    null,           'lets a smith unlock it'],
     [reviewer,    { kind: 'open_review', quiz_id },                                null,           'lets a reviewer open their review'],
     [reviewer,    { kind: 'retitle_quiz', title: 'Kings' },                        'notPermitted', 'refuses a reviewer a change to the quiz'],
-    [smith,       { kind: 'remove_hunting', ident_id: Alice.ident_id },            'ownHunting',   "refuses a smith's taking themselves off, as the server would"],
+    [smith,       { kind: 'remove_huntship', user_id: Alice.user_id },            'ownHuntship',   "refuses a smith's taking themselves off, as the server would"],
     [lockedSmith, { kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum' } }, 'quizLocked', 'judges an action whose defaults a view left out, read as the server will read it'],
     // weird cases:
     [reviewer,    { kind: 'retitle_quiz', title: 'x'.repeat(5000) },               null,           'leaves an action that does not read as one to the server, which says what is wrong with it'],

@@ -184,7 +184,9 @@ Settled; reach for these before writing the equivalent.
   directly so the import is ours to rely on. Reach for it before writing a percentile, a nice
   tick step, a bisect or a bin. Added Oct 2026 under the rule above.
 * **Fontsource** (`@fontsource/zilla-slab`, `work-sans`, `jetbrains-mono`) for the three
-  typefaces, whose woff2 files `src/app/fonts.ts` hands to `next/font/local`. Never
+  typefaces, whose woff2 files `src/app/fonts.ts` hands to `next/font/local`; and
+  `@fontsource/roboto`, Roboto Medium alone, for Google's sign-in button, which Google's branding
+  guidelines set in it (added Oct 2026, oauth sprint thread 6, under the rule above). Never
   `next/font/google`: it downloads the fonts at build time, and a bad answer from Google failed
   the CI build now and then (Turbopack's "next/font/google queries have exactly one entry"). MUI's
   own install docs load Roboto the same way. Added Sept 2026 without asking first.
@@ -231,13 +233,49 @@ Settled; reach for these before writing the equivalent.
 * **Convex Auth** (`@convex-dev/auth`, with the `@auth/core` it asks for, both pinned exact):
   sessions, chosen October 2026 (the `dbpolicy` sprint) over a hosted hub. Client-side only: the
   React provider (`ConvexAuthProvider`) keeps a session's tokens in the browser's storage; no
-  Next.js middleware, no server function. Only the **Anonymous** provider for now: a browser is
-  signed in silently on its first visit and then asserts a userlabel, which its session holds.
-  **Google is deferred**, and joins `Anonymous` in the list in `convex/auth.ts` when it comes, with
-  the "anonymous here, signed in there" collision (a userlabel held by the anonymous session on
-  another device) designed then. Its keys (`JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL`) live on the
+  Next.js middleware, no server function. Two providers (`convex/auth.ts`): **Anonymous**, with
+  which every browser is signed in silently on its first visit, and **Google** (`@auth/core`'s,
+  asking only `openid email profile`), joining it on a deployment that holds Google's keys
+  (`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`; `notes/deploy.md`). We stay on v1 (0.0.96, in
+  maintenance) rather than the v2 alpha: `whiteboard/20261010-oauth/convex-auth-v2.md`. Our
+  `createOrUpdateUser` writes `users` (`userForSignIn`): a Google sign-in upgrades the browser's
+  anonymous user in place, switches the browser to the account's user, or merges an anonymous
+  user holding a handle into it, by whose the account and the browser are and never by email
+  (`notes/security.md`). Its session keys (`JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL`) live on the
   deployment: `scripts/convex_auth_keys` mints throwaway ones for a local backend, and a Coach sets
   production's (`notes/deploy.md`).
+  - Convex Auth is **patched** (`patches/@convex-dev__auth@0.0.96.patch`, `dist/` only). It starts
+    from the `authUserId` half of upstream's PR #306 (https://github.com/get-convex/convex-auth/pull/306,
+    open): `createOrUpdateUser` is handed the user of the session recorded on the sign-in's
+    verifier, which Convex Auth records but passes nowhere. #306 hands it on at Google's callback,
+    which is open to login CSRF (`notes/security.md`), so the patch adds, beyond #306:
+    1. **At the callback** (`mutations/userOAuth.js`), no session is handed on, and the verifier is
+       kept, its signature cleared, rather than deleted.
+    2. **At the code's exchange** (`mutations/verifyCodeAndSignIn.js`), for an OAuth account, once
+       the code and the verifier the browser kept have matched: the verifier's session is handed
+       to `createOrUpdateUser` (asked a second time, `type: 'verification'`, empty profile), and
+       the verifier deleted. A verifier gone, or made more than `SIGN_IN_START_MAX_AGE_MS` (15
+       minutes, named and explained in that file) before the exchange, refuses the exchange whole.
+    3. **A verifier dies with its code** (the same file, and `userOAuth.js`): a code presented
+       with the wrong verifier is spent with its verifier, so a code leaked from the browser Google
+       sent it to cannot be used by the verifier's holder; an expired code's verifier is deleted;
+       and a code replaced at a later callback for the same account takes its verifier with it.
+    4. **A refused or failed exchange keeps the browser's session** (`dist/react/client.js`):
+       upstream clears the stored tokens when the exchange answers no tokens, signing the browser
+       out (our `useSession` would then sign it in afresh as a new anonymous user, stranding the old
+       one), and leaves `isLoading` true for ever when it throws. Both now keep the session stored
+       before the round trip.
+    The PR's other half, a browser-chosen `scope`, is left out. **Upstream needs the same fix:**
+    #306 as written lets a link to someone's sign-in attach the clicker's account to them. **Drop
+    the patch only when a release decides at the exchange** (not merely when it carries #306),
+    and rename `authUserId` and the two steps in `userForGoogle` to match it; a bump of
+    `@convex-dev/auth` re-cuts it until then. `tests/convex/auth.test.ts` and the sign-in tests in
+    `tests/convex/writing/user_actions.test.ts` fail without it.
+* **jose** (`decodeJwt`), for reading a session's token in the browser: which session it names
+  (`sessionOf`, `src/state/use-google-sign-in.ts`), never whether it is genuine, which is the
+  deployment's to check. Convex Auth signs its tokens with it, and `@auth/core` depends on the same
+  major; installed directly (October 2026, the oauth sprint) without asking first, as the boring
+  answer beside both.
 
 ### AI
 

@@ -19,7 +19,7 @@ function readingOf(reading: QuestionReading): SeenQuestionT | null | undefined {
 }
 
 /**
- * The quiz `quiz_id`, live, as this browser's ident may read it: its frame (`quizzes.open`) and
+ * The quiz `quiz_id`, live, as this browser's user may read it: its frame (`quizzes.open`) and
  * each of its questions (`questions.open`) are queries of their own, so an edit to one question
  * reruns that question's query alone, and only it is sent again. Each is sent what the browser
  * affirms of itself on the quiz's hunt. A smith is sent each question whole; a reviewer what a
@@ -33,7 +33,7 @@ function readingOf(reading: QuestionReading): SeenQuestionT | null | undefined {
  *
  * @param affirms - What this browser affirms of itself on the quiz's hunt (`useAffirms`); null until known.
  * @param quiz_id - The quiz; null for none.
- * @returns The quiz; undefined until it is first read whole, null when there is no such quiz or it is not this ident's to read.
+ * @returns The quiz; undefined until it is first read whole, null when there is no such quiz or it is not this user's to read.
  */
 export function useQuiz(affirms: HuntAffirmsDNA | null, quiz_id: Id<'quizzes'> | null): QuizT | null | undefined {
   const { ready } = useSession()

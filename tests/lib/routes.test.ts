@@ -1,3 +1,5 @@
+import { existsSync, readdirSync } from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as Routes from '../../src/lib/routes'
 
@@ -46,12 +48,6 @@ describe('Routes.rootPath', () => {
 
   it('carries where to go next, encoded', () => {
     expect(Routes.rootPath('/~pat_smith/quiet_otter/quizzes/home/loud_heron/!playtest')).to.eq('/?then=%2F%7Epat_smith%2Fquiet_otter%2Fquizzes%2Fhome%2Floud_heron%2F%21playtest')
-  })
-})
-
-describe('Routes.switchIdentPath', () => {
-  it('keeps the login screen open with ?switch', () => {
-    expect(Routes.switchIdentPath()).to.eq('/?switch')
   })
 })
 
@@ -118,10 +114,130 @@ describe('Routes.thenFrom', () => {
     [String.raw`/\elsewhere.example/`, 'another site, behind a backslash browsers read as a slash'],
     ['javascript:alert(1)',         'a script'],
     ['my/hunts',                    'a relative path'],
+    ['/\t/elsewhere.example/',      'another site, behind a tab the browser drops'],
+    ['/\n/elsewhere.example/',      'another site, behind a newline the browser drops'],
+    ['/\r\n/elsewhere.example/',    'another site, behind a carriage return and newline'],
+    ['/\t\\elsewhere.example/',     'another site, behind a tab and a backslash'],
+    [String.raw`/my\hunts`,         'a path holding a backslash'],
+    ['/.//elsewhere.example/',      'another site, once a dot segment is resolved'],
+    ['/my/..//elsewhere.example/',  'another site, once a double dot segment is resolved'],
+    ['/%2e//elsewhere.example/',    'another site, behind an escaped dot segment'],
+    ['/./\t/elsewhere.example/',    'another site, behind a dot segment and a tab'],
+    ['/\t/[',                       'a host no browser could read, behind a tab'],
+    ['/\n/a b',                     'a host holding a space, behind a newline'],
+    ['/\t/a:99999',                 'a port out of range, behind a tab'],
   ] as const
   for (const [raw, story] of Refused) {
     it(`refuses ${story}`, () => {
       expect(Routes.thenFrom(raw)).to.be.null
     })
   }
+
+  it('answers a path as the browser reads it, so what is followed is what was judged', () => {
+    expect(Routes.thenFrom('/my/\thunts#top')).to.eq('/my/hunts#top')
+  })
+
+  it('refuses another site sent by a link, its tab escaped in the address the front door reads', () => {
+    const then = new URLSearchParams('then=/%09/elsewhere.example').get('then')
+    expect(Routes.thenFrom(then)).to.be.null
+  })
+})
+
+/** The directories in `dir`, by name */
+function dirsOf(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+}
+
+/** What each dynamic folder of the app's pages is filled with, to make an address that reaches it */
+const SampleForFolder: Record<string, string> = {
+  '[org]':   '~pat_smith',
+  '[hunt]':  'quiet_otter',
+  '[realm]': 'home',
+  '[quiz]':  'loud_heron',
+  '[mode]':  '!edit',
+}
+
+/** Every folder beneath `dir`, as the path it answers to (`SampleForFolder` filling each dynamic one), and whether it holds a page */
+function foldersBeneath(dir: string, segs: readonly string[] = []): { where: string, page: boolean }[] {
+  const here = { where: `/${segs.join('/')}`, page: existsSync(path.join(dir, 'page.tsx')) }
+  const below = dirsOf(dir).flatMap((dirname) => {
+    const seg = dirname.startsWith('[') ? SampleForFolder[dirname] : dirname
+    if (seg === undefined) { throw new Error(`No sample for the folder ${dirname}: add one to SampleForFolder`) }
+    return foldersBeneath(path.join(dir, dirname), [...segs, seg])
+  })
+  return [here, ...below]
+}
+
+describe("Routes.isSyncedPath", () => {
+  const Cases: [string, boolean, string][] = [
+    // pages that open the database:
+    ["/",                                                           true,  'the front door'],
+    ["/?then=%2Fmy%2Fhunts",                                        true,  'the front door, sending on'],
+    ["/~pat_smith",                                                 true,  "an org's hunts"],
+    ["/~pat_smith/quiet_otter?x=1",                                 true,  'a hunt, under its org'],
+    ["/~pat_smith/quiet_otter/quizzes",                             true,  "a hunt's quizzes"],
+    ["/~pat_smith/quiet_otter/categories",                          true,  "a hunt's categories"],
+    ["/~pat_smith/quiet_otter/quizzes/home/loud_heron",             true,  'a quiz'],
+    ["/~pat_smith/quiet_otter/quizzes/home/loud_heron/!edit",       true,  'a quiz, opened in a mode'],
+    ["/~pat_smith/quiet_otter/quizzes/home/loud_heron#q3",          true,  'a quiz, with a fragment'],
+    ["/my/hunts",                                                   true,  'the hunts'],
+    ["/stats",                                                      true,  'the stats'],
+    ["/h/quiet_otter",                                              true,  'an old hunt address'],
+    ["/h/quiet_otter/home/loud_heron?act=smith",                    true,  'an old quiz address'],
+    ["/c/quiet_otter/categories",                                   true,  "an old address of a hunt's categories"],
+    // addresses beneath the synced pages that reach no page, and so open no database:
+    ["/h/x/y",                                                      false, 'an old address a segment short of a quiz (the review)'],
+    ["/~any/hunt/nothing",                                          false, 'an org too short to be one, beneath a hunt (the review)'],
+    ["/~pat_smith/quiet_otter/nothing",                             false, 'nothing a hunt has a page for'],
+    ["/~pat_smith/quiet_otter/members",                             false, "a hunt's members, which no page shows"],
+    ["/~pat_smith/quiet_otter/quizzes/home",                        false, 'a realm, which no page shows'],
+    ["/~pat_smith/quiet_otter/quizzes/home/loud_heron/questions",   false, "a quiz's questions alone, which no page shows"],
+    ["/~pat_smith/quiet_otter/quizzes/home/loud_heron.json",        false, "a quiz's raw record, which no page serves"],
+    ["/~pat_smith/quiet_otter/!edit",                               false, 'a hunt in a mode, which its page takes none of'],
+    ["/~pat_smith/quiet_otter/quizzes/home/loud_heron/!admin",      false, 'a quiz in a mode the app has not'],
+    ["/pat_smith/quiet_otter",                                      false, 'an org without its ~'],
+    ["/%7Epat_smith/quiet_otter",                                   false, 'an org with its ~ escaped, which no browser writes so'],
+    ["/~pat_smith/quiet_otter/quizze%73",                           false, "a hunt's quizzes with a letter escaped, which the router finds no page for"],
+    ["/~pat_smith/quiet_otter/categorie%73",                        false, "a hunt's categories with a letter escaped, likewise"],
+    ["/~pat%5Fsmith/quiet_otter",                                   false, 'an org with a letter of its label escaped, which the app never writes'],
+    ["/my",                                                         false, 'a folder of pages, not a page'],
+    ["/my/hunts/nothing",                                           false, 'beneath the hunts'],
+    ["/h",                                                          false, 'the old addresses, bare'],
+    ["/h/Quiet Otter",                                              false, 'an old address whose hunt is no label'],
+    ["/c/quiet_otter",                                              false, 'an old categories address, cut short'],
+    ["/stats/nothing",                                              false, 'beneath the stats'],
+    ["/my/hunts/",                                                  false, 'a page, with a slash after'],
+    ["/pub/widgets/dumdum",                                         false, 'a widget, which no page shows'],
+    // pages that never open the database, and what is no page of ours:
+    ["/privacy",                                                    false, 'the privacy policy, which opens no database'],
+    ["/about",                                                      false, 'About'],
+    ["/api/ask",                                                    false, 'a route handler'],
+    ["/favicon.ico",                                                false, 'a file'],
+    ["/h/../privacy",                                               false, 'the privacy policy, by way of a dot segment'],
+    ["/.//my/hunts",                                                false, 'a path beginning // once its dot segment is resolved'],
+    ["https://example.com/my/hunts",                                false, 'another site'],
+    ["//example.com/my/hunts",                                      false, 'another site, without its scheme'],
+    ["/\t/[",                                                       false, 'a host no browser could read, behind a tab (rather than throwing)'],
+    [String.raw`/\example.com`,                                    false, 'a backslash a browser may read as a slash'],
+    ["my/hunts",                                                    false, 'a path not from the root'],
+    ["",                                                            false, 'nothing'],
+  ]
+  for (const [where, expected, describes] of Cases) {
+    it(`is ${String(expected)} for ${describes}`, () => {
+      expect(Routes.isSyncedPath(where)).to.eq(expected)
+    })
+  }
+
+  const app = path.join(import.meta.dirname, '..', '..', 'src', 'app')
+
+  it("is true for every page under src/app/(synced)/, and false for every folder there that holds none", () => {
+    const folders = foldersBeneath(path.join(app, '(synced)'))
+    expect(folders.filter(({ where, page }) => Routes.isSyncedPath(where) !== page)).to.deep.eq([])
+    expect(folders.filter(({ page }) => page)).to.have.lengthOf(12)
+  })
+
+  it("is false for every page outside src/app/(synced)/", () => {
+    const outside = dirsOf(app).filter((dirname) => ! dirname.startsWith('('))
+    expect(outside.filter((dirname) => Routes.isSyncedPath(`/${dirname}`))).to.deep.eq([])
+  })
 })

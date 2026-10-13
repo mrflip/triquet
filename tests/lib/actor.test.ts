@@ -1,78 +1,109 @@
 import { describe, expect, it } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
+import { User } from '../../src/models/user'
 
 const user_id  = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
-const ident_id = 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>
+const other_id = 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'users'>
 
-describe('Actor.anonymous', () => {
-  it('is the one actor of a request that has asserted no userlabel, and cannot be changed', () => {
-    expect(Actor.anonymous).to.deep.eq({ kind: 'anonymous' })
-    expect(Object.isFrozen(Actor.anonymous)).to.be.true
+/** A deployment where only a user's own flag makes it an admin, as production is */
+const Production = { everyoneAdmin: false }
+
+/** A deployment where every user is an admin, as a local backend is */
+const Local = { everyoneAdmin: true }
+
+describe('Actor.unlabelled', () => {
+  it('is the one actor of a request whose user holds no userlabel, and cannot be changed', () => {
+    expect(Actor.unlabelled).to.deep.eq({ kind: 'unlabelled' })
+    expect(Object.isFrozen(Actor.unlabelled)).to.be.true
   })
 })
 
-describe('Actor.asIdent', () => {
-  it('is the actor of a session, by the ident it took on last, saying whether it is an admin', () => {
-    expect(Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false)).to.deep.eq({ kind: 'ident', user_id, ident_id, ident_label: 'flip_kromer', admin: false })
+describe('Actor.ofUser', () => {
+  it('is the actor of a user holding a userlabel, by its own userlabel and title', () => {
+    expect(Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip' }, Production)).to.deep.eq({ kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: false })
+  })
+
+  it("titles a user holding a userlabel and no title by its userlabel titleized, as its face is titled (`User.titleOf`)", () => {
+    const actor = Actor.ofUser(user_id, { userlabel: 'flip_kromer', isAnonymous: true }, Production)
+    expect(actor.kind === 'user' && actor.usertitle).to.eq('Flip Kromer')
+    expect(actor.kind === 'user' && actor.usertitle).to.eq(User.faceOf({ _id: user_id, userlabel: 'flip_kromer' })?.title)
+  })
+
+  it('is the unlabelled actor for a user holding no userlabel yet, anonymous or not, admin or not', () => {
+    expect(Actor.ofUser(user_id, { isAnonymous: true }, Production)).to.eq(Actor.unlabelled)
+    expect(Actor.ofUser(user_id, { admin: true }, Local)).to.eq(Actor.unlabelled)
+  })
+
+  it('says a user signed in with no proof is anonymous, and so sealed', () => {
+    const actor = Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', isAnonymous: true }, Production)
+    expect([actor, Actor.isSealed(actor)]).to.deep.eq([{ kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: true }, true])
+  })
+
+  const AdminCases: [boolean | undefined, boolean, boolean, boolean, string][] = [
+    //  the flag   anonymous everyone  admin
+    [true,         false,    false,    true,  "a user signed in with Google whose own flag says so, where the deployment says nothing"],
+    [false,        false,    false,    false, "a user whose flag says no"],
+    [undefined,    false,    false,    false, "a user with no flag, as every user is until the command line sets one"],
+    [true,         true,     false,    false, "never an anonymous user, whatever its flag says: an admin is signed in with Google"],
+    [undefined,    false,    true,     true,  "anyone at all, where the deployment makes everyone an admin (a local backend)"],
+    [false,        false,    true,     true,  "even a user whose flag says no, where everyone is one"],
+    [undefined,    true,     true,     true,  "even an anonymous user, where everyone is one"],
+  ]
+  for (const [admin, isAnonymous, everyoneAdmin, expected, describes] of AdminCases) {
+    it(`reads the admin flag once: ${describes}`, () => {
+      const actor = Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', isAnonymous, ...(admin !== undefined && { admin }) }, { everyoneAdmin })
+      expect(actor.kind === 'user' && Actor.isAdmin(actor)).to.eq(expected)
+    })
+  }
+
+  it("counts an anonymous user's admin flag for nothing", () => {
+    const actor = Actor.ofUser(user_id, { userlabel: 'flip_kromer', title: 'Flip', admin: true, isAnonymous: true }, Production)
+    expect(actor).to.deep.include({ admin: false, anonymous: true })
   })
 })
 
-const AdminCases: [string | undefined, string, boolean, string][] = [
-  // regular usage:
-  ['mrflip',         'mrflip',        true,  'the one userlabel named'],
-  ['mrflip, ada_l',  'ada_l',         true,  'one of several, parted by a comma and a space'],
-  ['mrflip,ada_l',   'ada_l',         true,  'one of several, parted by a comma alone'],
-  ['mrflip ada_l',   'ada_l',         true,  'one of several, parted by a space alone'],
-  ['*',              'anyone_at_all', true,  'every userlabel, as a local backend has it'],
-  // who is not:
-  ['mrflip',         'ada_l',         false, 'a userlabel not named'],
-  ['mrflip',         'mrflip_two',    false, 'a userlabel the named one begins'],
-  ['mrflip',         'mrfli',         false, 'a userlabel that begins the named one'],
-  ['mr*',            'mrflip',        false, 'a star inside a name, which is no pattern'],
-  // naming nobody:
-  [undefined,        'mrflip',        false, 'unset'],
-  ['',               'mrflip',        false, 'blank'],
-  [' , ',            'mrflip',        false, 'nothing but partings'],
-]
+const Flip  = { kind: 'user', user_id, userlabel: 'flip_kromer', usertitle: 'Flip', admin: false, anonymous: false } as const satisfies Actor.UserActorT
+const Anon  = { ...Flip, anonymous: true } as const satisfies Actor.UserActorT
 
-describe('Actor.namesAdmin', () => {
-  for (const [admins, label, expected, describes] of AdminCases) {
-    it(describes, () => {
-      expect(Actor.namesAdmin(admins, label)).to.eq(expected)
+describe('Actor.isSignedInWithGoogle', () => {
+  const Cases: [{ isAnonymous?: boolean }, boolean, string][] = [
+    [{ isAnonymous: false }, true,  'a user a Google sign-in made, or upgraded'],
+    [{ isAnonymous: true },  false, 'an anonymous user, signed in with no proof'],
+    [{},                     true,  'a user saying nothing, as only an anonymous one says so'],
+  ]
+  for (const [user, expected, describes] of Cases) {
+    it(`is ${String(expected)} for ${describes}`, () => {
+      expect(Actor.isSignedInWithGoogle(user)).to.eq(expected)
     })
   }
 })
 
-describe('Actor.isAdmin', () => {
-  it('is what the server decided as it built the actor', () => {
-    expect(Actor.isAdmin(Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, true))).to.be.true
-    expect(Actor.isAdmin(Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false))).to.be.false
+describe('Actor.isUnlabelled', () => {
+  it('is true for the unlabelled actor, and false for a user holding a userlabel', () => {
+    expect([Actor.isUnlabelled(Actor.unlabelled), Actor.isUnlabelled(Flip), Actor.isUnlabelled(Anon)]).to.deep.eq([true, false, false])
   })
 })
 
-describe('Actor.isAnonymous', () => {
-  it('is true for the anonymous actor, and false for an ident', () => {
-    expect(Actor.isAnonymous(Actor.anonymous)).to.be.true
-    expect(Actor.isAnonymous(Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false))).to.be.false
+describe('Actor.isSealed', () => {
+  it('is true only for an anonymous user holding a userlabel: the unlabelled actor is refused for having none first', () => {
+    expect([Actor.isSealed(Anon), Actor.isSealed(Flip), Actor.isSealed(Actor.unlabelled)]).to.deep.eq([true, false, false])
   })
 })
 
 const hunt_id  = 'k17ah9c4r1hm0z5y1ad0bbn7wn7fn9x1' as Id<'hunts'>
-const other_id = 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'idents'>
-const Flip = Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' }, false)
 
 describe('Actor.claimsOn', () => {
-  it("takes the standing of the actor's hunting, as a role", () => {
+  it("takes the standing of the actor's huntship, as a role", () => {
     expect(Actor.claimsOn(Flip, hunt_id, { role: 'reviewer' })).to.deep.eq({ ...Flip, hunt_id, standing: 'reviewer' })
   })
 
-  it('makes a stranger of an actor with no hunting there', () => {
+  it('makes a stranger of an actor with no huntship there', () => {
     expect(Actor.claimsOn(Flip, hunt_id, null)).to.deep.eq({ ...Flip, hunt_id, standing: 'stranger' })
   })
 
-  it('makes a stranger of the anonymous actor', () => {
-    expect(Actor.claimsOn(Actor.anonymous, hunt_id, null)).to.deep.eq({ kind: 'anonymous', hunt_id, standing: 'stranger' })
+  it('makes a stranger of the unlabelled actor', () => {
+    expect(Actor.claimsOn(Actor.unlabelled, hunt_id, null)).to.deep.eq({ kind: 'unlabelled', hunt_id, standing: 'stranger' })
   })
 })
 
@@ -102,12 +133,12 @@ describe('Actor.roleOf', () => {
 })
 
 describe('Actor.isOneself', () => {
-  const Cases: [Actor.ActorT, Actor.IdentRefT, boolean, string][] = [
-    [Flip,            { ident_id },                  true,   'the actor, by id'],
-    [Flip,            { ident_label: 'flip_kromer' }, true,   'the actor, by label'],
-    [Flip,            { ident_id: other_id },         false,  'someone else, by id'],
-    [Flip,            { ident_label: 'ada_lovelace' }, false, 'someone else, by label'],
-    [Actor.anonymous, { ident_id },                  false,  'nobody is the anonymous actor'],
+  const Cases: [Actor.ActorT, Actor.UserRefT, boolean, string][] = [
+    [Flip,             { user_id },                   true,  'the actor, by id'],
+    [Flip,             { userlabel: 'flip_kromer' },  true,  'the actor, by userlabel'],
+    [Flip,             { user_id: other_id },         false, 'someone else, by id'],
+    [Flip,             { userlabel: 'ada_lovelace' }, false, 'someone else, by userlabel'],
+    [Actor.unlabelled, { user_id },                   false, 'nobody is the unlabelled actor'],
   ]
   for (const [actor, target, expected, describes] of Cases) {
     it(describes, () => {

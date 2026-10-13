@@ -69,7 +69,7 @@ export const Loalnumbar   = { re: /^[a-z0-9_]*$/,            msg: 'should have o
 export const Plain        = { re: /^[A-Za-z0-9 ]*$/, msg: 'should have only plain letters, numbers, and the occasional space' } as const satisfies Patternbag
 
 export const Label      = { re: /^[a-z](_?[a-z0-9])+$/, min: 2, max: 40, msg: 'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
-/** A userlabel -- an ident's label: label-shaped, and long enough to be a name someone chose rather than an initial */
+/** A userlabel -- a user's handle: label-shaped, and long enough to be a name someone chose rather than an initial */
 export const Userlabel  = { re: /^[a-z](_?[a-z0-9])+$/, min: 6, max: 24, msg: 'should be 6 to 24 plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
 /** A userlabel as far as it has been typed: empty, or what typing on could still make a `Userlabel` -- every character one it keeps, with at most a trailing underscore or too few characters between it and done */
 export const Userbegun  = { re: /^(?:[a-z](?:_?[a-z0-9])*_?)?$/, max: Userlabel.max, msg: 'should be plain lowercase letters/_/numbers, with a letter first and no __ in a row' } as const satisfies Patternbag
@@ -100,7 +100,7 @@ export function reservedOf(words: readonly string[], msg = 'is a name already in
   return { rule: (label) => ! reserved.has(label), msg }
 }
 
-/** The tool's own nouns, one and many: its tables, and the things its rows and bags are made of */
+/** The tool's own nouns, one and many: its tables (and those it has had: the idents, identings and huntings of before the OAuth sprint), and the things its rows and bags are made of */
 const ModelNouns = [
   ['hunt', 'hunts'], ['realm', 'realms'], ['quiz', 'quizzes'], ['question', 'questions'],
   ['column', 'columns'], ['widget', 'widgets'], ['widgeting', 'widgetings'], ['widgeted', 'widgeteds'],
@@ -186,9 +186,11 @@ export function isUnreserved(val: string, allowed?: ReadonlySet<string>): boolea
 }
 
 /**
- * The words no hunt and no ident may be labelled, beyond those no label may be. A hunt's label and
- * an ident's are each global, the first word of an address or the name a person goes by, so these
- * are kept for the app's own pages and for whoever speaks for it.
+ * The words no new hunt may be labelled and no userlabel may be claimed as, beyond those no label
+ * may be. A hunt's label and a userlabel are each global, the first word of an address or the name a person goes
+ * by, so these are kept for the app's own pages and for whoever speaks for it. They govern a label
+ * being made or claimed, and never one already held: a word added here leaves every hunt and org
+ * already so labelled at its address (`CK.heldUserlabel`), which `scripts/check_reserved` names.
  */
 export const ReservedToplevelGroups = {
   /** The app's own corners, and the words for signing in and keeping an account */
@@ -207,6 +209,18 @@ export const ReservedToplevelGroups = {
   voices:  [
     'staff', 'system', 'moderator', 'mod', 'everyone', 'anonymous',
     'guest', 'nobody', 'webmaster', 'postmaster', 'hostmaster', 'abuse', 'noreply', 'no_reply',
+    'info', 'hello', 'sales', 'marketing', 'mailer_daemon', 'mailerdaemon', 'donotreply', 'do_not_reply',
+    'someone', 'anyone', 'unknown', 'deleted', 'claude', 'anthropic', 'gmail',
+  ],
+  /** What the screen calls a person's name and their way in: a handle so named would read as the screen's own word */
+  identity: [
+    'handle', 'handles', 'profile', 'profiles', 'password', 'passwords', 'session', 'sessions',
+    'sandbox', 'sandboxes', 'anon', 'sign_in', 'sign_out', 'sign_up', 'log_in', 'log_out',
+  ],
+  /** Who may do what, on a hunt and over the app: a handle so named would pass for a role the screen names */
+  roles:   [
+    'smith', 'smiths', 'reviewer', 'reviewers', 'member', 'members', 'owner', 'owners',
+    'moderators', 'mods', 'superuser', 'sysadmin', 'sudo',
   ],
 } as const
 
@@ -214,12 +228,13 @@ export const ReservedToplevelGroups = {
 export const ReservedToplevel: readonly string[] = Object.values(ReservedToplevelGroups).flat()
 
 /**
- * How no hunt's or ident's label may begin: what would pass for the app's own desk or its say-so
- * with anything after it (`help_desk`, `triquet_team`, `verified_ben`). A prefix is here when
+ * How no new hunt's label or claimed userlabel may begin: what would pass for the app's own desk, its say-so
+ * or its sign-in's with anything after it (`help_desk`, `triquet_team`, `verified_ben`,
+ * `google_support`). A prefix is here when
  * the trick it plays is a bad one and few real names begin with it; one too common to refuse
  * (`staff`, as Stafford; `mod`, as modern) is reserved only as the whole word.
  */
-export const ReservedToplevelPrefixes: readonly string[] = ['secur', 'login', 'triquet', 'help', 'admin', 'support', 'official', 'verif']
+export const ReservedToplevelPrefixes: readonly string[] = ['secur', 'login', 'triquet', 'help', 'admin', 'support', 'official', 'verif', 'google']
 
 /** Whole labels of these forms are kept too, each a regex of the whole label: `pub` and two characters more, for scopes of the library beside `pub` */
 export const ReservedToplevelForms: readonly string[] = ['pub..']
@@ -228,7 +243,7 @@ const ReservedToplevelSet: ReadonlySet<string> = new Set(ReservedToplevel)
 const ReservedToplevelFormRe = new RegExp(`^(?:${ReservedToplevelForms.join('|')})$`)
 
 /**
- * A hunt's or an ident's label that is no top-level reserved word or form, and begins with no
+ * A new hunt's label or a claimed userlabel that is no top-level reserved word or form, and begins with no
  * reserved prefix. Says nothing of the words every label is kept from, which is `Unreserved`'s
  * business.
  */
@@ -242,8 +257,11 @@ export const UnreservedToplevel = {
 /** A web address: `http://` or `https://`, then no space, up to what a browser's address bar holds comfortably */
 export const Weburl     = { re: /^https?:\/\/[^\p{White_Space}/?#]\P{White_Space}*$/iu, max: 2000, msg: 'should be a web address, beginning http:// or https://' } as const satisfies Patternbag
 
-/** A Convex document id: lowercase letters and digits, about 32 of them */
-export const Convexid   = { re: /^[0-9a-z]{31,37}$/, min: 31, max: 37, msg: 'should be a document id, 31 to 37 lowercase letters/numbers' } as const satisfies Patternbag
+/**
+ * A Convex document id: lowercase letters and digits, about 32 of them; or convex-test's, twenty
+ * digits and then its table's name, which may hold a capital (`authAccounts`).
+ */
+export const Convexid   = { re: /^(?:[0-9a-z]{31,37}|\d{20}[a-z]\w{10,16})$/, min: 31, max: 37, msg: 'should be a document id, 31 to 37 lowercase letters/numbers' } as const satisfies Patternbag
 
 //
 // == [String lengths] ==
@@ -330,7 +348,7 @@ export const WidgetsInLibrary   = { min: 0, max: 999 } as const
 export const WidgetingsCounted  = { min: 0, max: 999 } as const
 /** Columns in one quiz */
 export const ColumnsPerQuiz     = { min: 0, max: 99 } as const
-/** Reviews of one quiz, one per ident that opened one */
+/** Reviews of one quiz, one per user that opened one */
 export const ReviewsPerQuiz     = { min: 0, max: 999 } as const
 /** Questions one review picks as its top 3, and likewise as its meh 3 */
 export const PicksPerReview     = { min: 0, max: 3 } as const
@@ -338,8 +356,8 @@ export const PicksPerReview     = { min: 0, max: 3 } as const
 export const QuizzesPerRealm    = { min: 1, max: 999 } as const
 /** Realms in one hunt; every hunt has at least its home realm */
 export const RealmsPerHunt      = { min: 1, max: 99 } as const
-/** Idents on one hunt, one hunting each */
-export const HuntingsPerHunt    = { min: 0, max: 999 } as const
+/** Users on one hunt, one huntship each */
+export const HuntshipsPerHunt   = { min: 0, max: 999 } as const
 /** Hunts in the whole app: roomy enough for a whole e2e run's, each spec making its own */
 export const HuntsInApp         = { min: 0, max: 999 } as const
 /** Hunts one org may make, a tenth of the app's: roomy for a person, but no one userlabel fills the app */

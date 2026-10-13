@@ -91,15 +91,20 @@ describe('HuntValidators.row', () => {
     expect(() => HuntValidators.row({ ...Row, label: 'Quiet Otter' })).to.throw(Z.ZodError)
   })
 
-  it("refuses an org that is not an ident's label", () => {
+  it("refuses an org that is not a userlabel", () => {
     expect(() => HuntValidators.row({ ...Row, orglabel: 'pat' })).to.throw(Z.ZodError)
   })
 
-  it("refuses a label kept for the app's own pages, which a hunt's address would shadow", () => {
-    expect(() => HuntValidators.row({ ...Row, label: 'pricing' })).to.throw(Z.ZodError)
+  it("refuses a label or an org that is a word every label is kept from", () => {
+    expect(() => HuntValidators.row({ ...Row, label: 'position' })).to.throw(Z.ZodError)
+    expect(() => HuntValidators.row({ ...Row, orglabel: 'constructor' })).to.throw(Z.ZodError)
   })
 
-  it("takes a branch a hunt's label could not be: only the hunt's label is top-level", () => {
+  it("takes a label and an org kept for the app's own pages since they were made, so the hunt stays writable at its address", () => {
+    expect(HuntValidators.row({ ...Row, label: 'pricing', orglabel: 'google_fan' })).to.deep.eq({ ...Row, label: 'pricing', orglabel: 'google_fan' })
+  })
+
+  it("takes a branch kept for the app's own pages", () => {
     expect(HuntValidators.row({ ...Row, branch: 'pricing' }).branch).to.eq('pricing')
   })
 
@@ -115,5 +120,32 @@ describe('HuntValidators.row', () => {
 
   it("refuses a wheel that is not one", () => {
     expect(() => HuntValidators.row({ ...Row, wheel: [...CategoryLabelVals, null] })).to.throw(Z.ZodError)
+  })
+})
+
+describe('HuntValidators.newLabel', () => {
+  it("takes a label a hunt may be given", () => {
+    expect(HuntValidators.newLabel('quiet_otter')).to.eq('quiet_otter')
+  })
+
+  it("refuses a word kept for the app's own pages and people, which only a label already held may be", () => {
+    for (const label of ['pricing', 'privacy', 'google', 'handle', 'smith', 'security_desk']) {
+      expect(() => HuntValidators.newLabel(label), label).to.throw(Z.ZodError)
+    }
+  })
+
+  it('refuses what is no label', () => {
+    expect(() => HuntValidators.newLabel('Quiet Otter')).to.throw(Z.ZodError)
+    expect(() => HuntValidators.newLabel('position')).to.throw(Z.ZodError)
+  })
+})
+
+describe('Hunt.isSandbox', () => {
+  it('is a hunt labelled with its own org, as an anonymous user makes its one hunt', () => {
+    expect(Hunt.isSandbox({ label: 'flip_kromer', orglabel: 'flip_kromer' })).to.be.true
+  })
+
+  it('is no other hunt', () => {
+    expect(Hunt.isSandbox({ label: 'quiet_otter', orglabel: 'flip_kromer' })).to.be.false
   })
 })

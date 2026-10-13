@@ -19,7 +19,7 @@ import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import { useRaiseAlarm } from './alarms'
 import { useAffirms } from './use-affirms'
-import { useIdent } from './use-ident'
+import { useMe } from './use-me'
 import { holdThePage } from './page-hold'
 import { useSession } from './use-session'
 import * as HuntMirror from './hunt-mirror'
@@ -44,7 +44,7 @@ export type HuntHandle = {
   quiz:       QuizT | null
   /** The library: every widget a quiz can put to work; empty until it has arrived */
   library:    readonly WidgetT[]
-  /** The quiz's reviews this browser's ident may read (its own, and the shared ones), oldest first; empty until the quiz is found */
+  /** The quiz's reviews this browser's user may read (its own, and the shared ones), oldest first; empty until the quiz is found */
   reviews:    readonly ReviewedT[]
   /**
    * What this browser holds of itself on the hunt, as the server would verify it: who it is, the
@@ -206,7 +206,7 @@ export function useHunt(orglabel: string | null, labels: QuizLabels): HuntHandle
   const quiz_id = placing.quizRow?._id ?? null
   // What this browser affirms of itself with every request about the quiz: see `useAffirms`.
   const { huntAffirms, quizAffirms } = useAffirms(hunt, quiz_id)
-  const { actor, ident } = useIdent()
+  const { actor, user } = useMe()
   const quizSeen = useQuiz(huntAffirms, quiz_id)
   const reviewsSeen = useQuery(api.reviews.forQuiz, quizAffirms === null || ! ready ? 'skip' : { affirms: quizAffirms })
   const library = useQuery(api.widgets.library, ready ? {} : 'skip')
@@ -215,7 +215,7 @@ export function useHunt(orglabel: string | null, labels: QuizLabels): HuntHandle
   const finding = findingOf(opening, placing, quizSeen, reviewsSeen, library)
   const found = finding === 'found' && quizSeen ? { realm: placing.realm, quiz: quizSeen, reviews: reviewsSeen ?? [] } : { realm: null, quiz: null, reviews: [] }
   const locked = found.quiz?.locked ?? null
-  const claims = useMemo(() => claimsOf(ident === null ? null : actor, hunt, locked), [actor, ident, hunt, locked])
+  const claims = useMemo(() => claimsOf(user === null ? null : actor, hunt, locked), [actor, user, hunt, locked])
 
   // Kept as React keeps state derived from a render: set during the render, which React redoes.
   const foundId = found.quiz?._id ?? null

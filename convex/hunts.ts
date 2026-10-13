@@ -8,24 +8,24 @@ import { ActionValidators } from '../src/models/actions'
 import type { HuntT } from '../src/models/hunt'
 import { zHuntMutation, zHuntQuery, zMutation, zQuery } from './functions'
 import { affirmExportHunt, affirmOuterHuntAction, affirmPerform, claimsFor } from './authorize'
-import { huntForLabel, huntInOrg, huntingsFor, huntRowsOf, membersOf, realmsOf, wholeHuntOf } from './reading'
+import { huntForLabel, huntInOrg, huntshipsFor, huntRowsOf, membersOf, realmsOf, wholeHuntOf } from './reading'
 import { performOuterHunt } from './writing/hunt_actions'
 import { perform as performAction } from './writing/perform'
 
-const { userlabel, label, zid, zod } = ValidatorKit
+const { heldUserlabel, label, zid, zod } = ValidatorKit
 
 /**
  * The hunts the asking actor is on, as the hunts list shows them, each with its role there and
- * the org it is addressed under, in the order they were made. None for an actor who has asserted no userlabel. It spans hunts, and
- * so holds the whole database (`Unscoped` in `authorize.ts`), needing no rule: it reads the
- * actor's own huntings, and only the hunts those name.
+ * the org it is addressed under, in the order they were made. None for an actor without a
+ * userlabel. It spans hunts, and so holds the whole database (`Unscoped` in `authorize.ts`),
+ * needing no rule: it reads the actor's own huntships, and only the hunts those name.
  */
 export const list = zQuery({
   args:    {},
   handler: async (ctx): Promise<ListedHuntT[]> => {
     const { actor } = ctx
-    const huntings = Actor.isAnonymous(actor) ? [] : await huntingsFor(ctx.db, actor.ident_id)
-    const listed = await Promise.all(huntings.map(async ({ hunt_id, role }) => {
+    const huntships = Actor.isUnlabelled(actor) ? [] : await huntshipsFor(ctx.db, actor.user_id)
+    const listed = await Promise.all(huntships.map(async ({ hunt_id, role }) => {
       const hunt = await ctx.db.get('hunts', hunt_id)
       if (! hunt) { return null }
       const realms = await realmsOf(ctx.db, hunt_id)
@@ -45,7 +45,7 @@ export const list = zQuery({
  * no hunt answers.
  */
 export const open = zQuery({
-  args:    { orglabel: userlabel.nullable().optional(), hunt_label: label },
+  args:    { orglabel: heldUserlabel.nullable().optional(), hunt_label: label },
   handler: async (ctx, { orglabel, hunt_label }): Promise<HuntOpeningT> => {
     const hunt = orglabel === null || orglabel === undefined ? await huntForLabel(ctx.db, hunt_label) : await huntInOrg(ctx.db, orglabel, hunt_label)
     if (! hunt) { return { why: 'noSuchHunt', hunt: null } }
@@ -77,9 +77,10 @@ export const whole = zHuntQuery({
  * for their own review, anyone on it. What it writes, it writes only to that hunt.
  *
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`) when the action cannot be
- *   carried out (`notIdentified` for an actor who has asserted no userlabel, `notPermitted` for an
- *   affirm that is not so or an action its ident may not take, `quizLocked` for a change to a
- *   locked quiz, `ownHunting` for a change to one's own place on the hunt), or `{ ZodError }` when
+ *   carried out (`notIdentified` for an actor without a userlabel, `notPermitted` for an affirm
+ *   that is not so or an action its user may not take, `quizLocked` for a change to a locked
+ *   quiz, `ownHuntship` for a change to one's own place on the hunt, a `sealed…` refusal for what
+ *   an anonymous user may not do), or `{ ZodError }` when
  *   an argument is not valid; nothing is written.
  */
 export const perform = zHuntMutation({
@@ -100,9 +101,9 @@ export const perform = zHuntMutation({
  *
  * @returns The hunt made or changed.
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`: `notSignedIn` for a request
- *   with no session, `notIdentified` for a session that has asserted no userlabel, `notPermitted`
- *   for a hunt its ident may not change), or `{ ZodError }` for an argument that is not valid;
- *   nothing is written.
+ *   with no session, `notIdentified` for a user holding no userlabel, `sealedHunts` for an
+ *   anonymous user's hunt beyond its sandbox, `notPermitted` for a hunt its user may not change),
+ *   or `{ ZodError }` for an argument that is not valid; nothing is written.
  */
 export const performOuter = zMutation({
   args:    { action: ActionValidators.outerHuntAction },

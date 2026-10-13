@@ -58,6 +58,6 @@ describe('counting', () => {
 describe('plainReads', () => {
   it('is the reads as plain values, the tables in code-unit order', () => {
     expect(plainReads({ docs: 2, ranges: 1, tables: new Set(['widgeteds']) })).to.deep.eq({ docs: 2, ranges: 1, tables: ['widgeteds'] })
-    expect(plainReads({ docs: 0, ranges: 2, tables: new Set(['widgeteds', 'huntings']) }).tables).to.deep.eq(['huntings', 'widgeteds'])
+    expect(plainReads({ docs: 0, ranges: 2, tables: new Set(['widgeteds', 'huntships']) }).tables).to.deep.eq(['huntships', 'widgeteds'])
   })
 })

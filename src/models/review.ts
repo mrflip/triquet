@@ -17,13 +17,13 @@ export const ReviewValidators = Validator(({ obj, oneof, noteish, stamps, zid })
       .describe('The hunt the quiz belongs to, which says who besides the reviewer may read the review once shared.'),
     quiz_id:  zid('quizzes')
       .describe('The quiz being reviewed.'),
-    ident_id: zid('idents')
+    user_id:  zid('users')
       .describe('Who is reviewing it.'),
     overall:  overall.default(''),
     phase:    phase.default('empty'),
     ...stamps,
   })
-    .describe('One ident\'s review of one quiz. Hidden from the smiths until shared: it is live once shared, not a snapshot.')
+    .describe('One user\'s review of one quiz. Hidden from the smiths until shared: it is live once shared, not a snapshot.')
 
   return { phase, overall, row }
 })
@@ -31,7 +31,7 @@ export const ReviewValidators = Validator(({ obj, oneof, noteish, stamps, zid })
 export type ReviewRowT = Z.output<typeof ReviewValidators.row>
 
 /** What a policy reads of a review: its hunt, its writer and its phase */
-export type ReviewPolicyT = Pick<ReviewRowT, 'hunt_id' | 'ident_id' | 'phase'>
+export type ReviewPolicyT = Pick<ReviewRowT, 'hunt_id' | 'user_id' | 'phase'>
 
 /**
  * The reviews of `reviews` that are shared: what the smiths' panel shows. (Whether a review
@@ -47,11 +47,11 @@ export function sharedReviewsOf<RT extends { phase: ReviewPhase }>(reviews: read
   return reviews.filter((review) => review.phase === 'shared')
 }
 
-/** One ident's review of one quiz, and what a policy reads of it */
+/** One user's review of one quiz, and what a policy reads of it */
 export class Review implements ReviewRowT {
   declare hunt_id:  ReviewRowT['hunt_id']
   declare quiz_id:  ReviewRowT['quiz_id']
-  declare ident_id: ReviewRowT['ident_id']
+  declare user_id:  ReviewRowT['user_id']
   declare overall:  ReviewRowT['overall']
   declare phase:    ReviewPhase
   declare created_at: number
@@ -78,33 +78,32 @@ export class Review implements ReviewRowT {
   /**
    * Whether the claimed actor wrote `review` and is on its hunt now. In order:
    *
-   * * Nobody who has asserted no userlabel wrote it
+   * * Nobody without a userlabel wrote it
    * * Nobody else's review is theirs
    * * Claims on another hunt say nothing of this one
    * * The writer, while a member of its hunt
    *
    * @example Review.isActiveOwner(review, { ...actor, hunt_id: review.hunt_id, standing: 'reviewer' })  // => true, for actor's own
    */
-  static isActiveOwner(review: Pick<ReviewRowT, 'hunt_id' | 'ident_id'>, claims: Actor.HuntClaimsT): boolean {
+  static isActiveOwner(review: Pick<ReviewRowT, 'hunt_id' | 'user_id'>, claims: Actor.HuntClaimsT): boolean {
     /* eslint-disable unicorn/prefer-combined-guards -- one guard per rule, each beside its rule, as notes/policy_approve.md asks */
-    if (Actor.isAnonymous(claims))           { return false } // Nobody who has asserted no userlabel wrote it
-    if (review.ident_id !== claims.ident_id) { return false } // Nobody else's review is theirs
-    if (review.hunt_id !== claims.hunt_id)   { return false } // Claims on another hunt say nothing of this one
+    if (Actor.isUnlabelled(claims))        { return false } // Nobody without a userlabel wrote it
+    if (review.user_id !== claims.user_id) { return false } // Nobody else's review is theirs
+    if (review.hunt_id !== claims.hunt_id) { return false } // Claims on another hunt say nothing of this one
     /* eslint-enable unicorn/prefer-combined-guards */
-    return Actor.isMember(claims)                              // The writer, while a member of its hunt
+    return Actor.isMember(claims)                            // The writer, while a member of its hunt
   }
 
   /**
-   * The review of `reviews` that `actor` wrote; null when they wrote none, or have asserted no
-   * userlabel.
+   * The review of `reviews` that `actor` wrote; null when they wrote none, or have no userlabel.
    *
    * @param reviews - Reviews of one quiz.
    * @param actor - Who is asking.
    *
    * @example Review.ownOf(reviews, actor)  // => actor's review of the quiz, or null
    */
-  static ownOf<RT extends Pick<ReviewRowT, 'ident_id'>>(reviews: readonly RT[], actor: Actor.ActorT): RT | null {
-    if (Actor.isAnonymous(actor)) { return null }
-    return reviews.find((review) => review.ident_id === actor.ident_id) ?? null
+  static ownOf<RT extends Pick<ReviewRowT, 'user_id'>>(reviews: readonly RT[], actor: Actor.ActorT): RT | null {
+    if (Actor.isUnlabelled(actor)) { return null }
+    return reviews.find((review) => review.user_id === actor.user_id) ?? null
   }
 }

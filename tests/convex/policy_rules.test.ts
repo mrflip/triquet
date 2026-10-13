@@ -1,6 +1,7 @@
 import _ from 'es-toolkit/compat'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
+import { authTables } from '@convex-dev/auth/server'
 import type { MutationCtx } from '../../convex/_generated/server'
 import { libraryWriter, ReadingRules, scopedReader, scopedWriter, WritingRules, type ScopeClaimsT } from '../../convex/policy_rules'
 import { reviewsOf } from '../../convex/reading'
@@ -8,12 +9,12 @@ import * as Actor from '../../src/lib/actor'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { Widgeting } from '../../src/models/widgeting'
-import { huntHolding, openTester, seedHunt, type Identified, type Seeded, type Tester } from '../support/convex'
+import { huntHolding, openTester, seedHunt, type Labelled, type Seeded, type Tester } from '../support/convex'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
 
 /** The tables a hunt owns, each row of which carries the hunt it belongs to */
-const HuntOwnedTablenames = ['realms', 'quizzes', 'questions', 'widgetings', 'columns', 'widgeteds', 'quiz_widgeteds', 'huntings', 'reviews', 'reviewings'] as const
+const HuntOwnedTablenames = ['realms', 'quizzes', 'questions', 'widgetings', 'columns', 'widgeteds', 'quiz_widgeteds', 'huntships', 'reviews', 'reviewings'] as const
 type HuntOwnedTablename = typeof HuntOwnedTablenames[number]
 
 /** One row of each table a hunt owns, and the hunt's own, by table */
@@ -43,7 +44,7 @@ async function stocked(tt: Tester, label: string, smith: string): Promise<{ seed
       columns:    present(await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).first())._id,
       widgeteds:  widgeted_id,
       quiz_widgeteds: quiz_widgeted_id,
-      huntings:   present(await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', hunt_id)).first())._id,
+      huntships:  present(await ctx.db.query('huntships').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', hunt_id)).first())._id,
       reviews:    review._id,
       reviewings: present(await ctx.db.query('reviewings').withIndex('by_review_id_and_question_id', (cvx) => cvx.eq('review_id', review._id)).first())._id,
     }
@@ -52,7 +53,7 @@ async function stocked(tt: Tester, label: string, smith: string): Promise<{ seed
 }
 
 /** The claims of `by` on the hunt `hunt_id`, as `affirmForHunt` would hand them on */
-function claimsOf(by: Identified, hunt_id: Id<'hunts'>, standing: ScopeClaimsT['standing']): ScopeClaimsT {
+function claimsOf(by: Labelled, hunt_id: Id<'hunts'>, standing: ScopeClaimsT['standing']): ScopeClaimsT {
   return { ...by.actor, hunt_id, standing }
 }
 
@@ -113,28 +114,20 @@ describe("a database scoped to one hunt", () => {
     })
   }
 
-  it("reaches no ident's identings, and none of Convex Auth's tables", async () => {
-    const { tt, claims } = await twoHunts()
+  it("reaches no user, whose row holds its email, no ghosting, and none of Convex Auth's own tables", async () => {
+    const { tt, theirs, claims } = await twoHunts()
+    const bob_id = theirs.seeded.smith.user_id
     const seen = await tt.run(async (ctx) => {
-      const [identing, session] = await Promise.all([ctx.db.query('identings').first(), ctx.db.query('authSessions').first()])
-      const db = scopedReader(ctx.db, claims)
+      const ghosting_id = await ctx.db.insert('ghostings', { userlabel: 'gone_ghost', user_id: bob_id, into_user_id: bob_id, account_id: present(await ctx.db.query('authAccounts').first())._id })
+      const session = present(await ctx.db.query('authSessions').first())
+      const db = scopedWriter(ctx.db, claims)
       return [
-        await db.get('identings', present(identing)._id), await db.query('identings').take(10),
-        await db.get('authSessions', present(session)._id), await db.query('users').take(10),
+        await db.get('users', bob_id), await db.query('users').take(10), await outcomeOf(db.patch('users', bob_id, { title: 'Bobby' })),
+        await db.get('ghostings', ghosting_id), await db.query('ghostings').take(10),
+        await db.get('authSessions', session._id), await db.query('authAccounts').take(10),
       ]
     })
-    expect(seen).to.deep.eq([null, [], null, []])
-  })
-
-  it("sees every ident, as the persona it is, and writes none", async () => {
-    const { tt, theirs, claims } = await twoHunts()
-    const bob_id = theirs.seeded.smith.ident_id
-    const outcomes = await tt.run(async (ctx) => {
-      const db = scopedWriter(ctx.db, claims)
-      const bob = await db.get('idents', bob_id)
-      return [bob?.label, await outcomeOf(db.patch('idents', bob_id, { title: 'Bobby' }))]
-    })
-    expect(outcomes).to.deep.eq(['bob_smiths', 'write access not allowed'])
+    expect(seen).to.deep.eq([null, [], 'no read access or doc does not exist', null, [], null, []])
   })
 
   it("shows the library to anyone on the hunt, and changes it for nobody, a smith included: the library's own mutation does", async () => {
@@ -268,6 +261,6 @@ describe("the rules", () => {
     expect(Object.keys(ReadingRules)).to.deep.eq(Object.keys(WritingRules))
     const differing = Object.keys(WritingRules).filter((tablename) => ReadingRules[tablename as keyof typeof ReadingRules] !== WritingRules[tablename as keyof typeof WritingRules])
     expect(differing).to.deep.eq(['reviews'])
-    expect(Object.keys(WritingRules)).to.not.include.members(['identings', 'users', 'authSessions'])
+    expect(Object.keys(WritingRules)).to.not.include.members(['users', 'ghostings', ...Object.keys(authTables)])
   })
 })

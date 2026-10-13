@@ -10,7 +10,7 @@ import type { ShallowHuntT } from '../lib/rows'
 import * as Wheel from '../lib/wheel'
 import type { WheelT } from '../models/category'
 import { useCategories } from '../state/use-categories'
-import { useIdent } from '../state/use-ident'
+import { useMe } from '../state/use-me'
 import { useShowHunt } from '../state/shown'
 import { CategoryWheel } from './CategoryWheel'
 import { NoSuchHunt } from './HuntRoute'
@@ -38,21 +38,21 @@ export type CategoriesRouteProps = {
  */
 export function CategoriesRoute({ org, huntLabel }: Readonly<CategoriesRouteProps>) {
   const router = useRouter()
-  const { ident, actor, loaded } = useIdent()
+  const { user, actor, loaded } = useMe()
   const { finding, hunt, smiths, unsaved, arrange } = useCategories(org, huntLabel)
   useShowHunt(hunt)
   useCanonical(org === null ? null : Routes.categoriesPath({ org, hunt: huntLabel }), hunt && Routes.categoriesPath({ org: hunt.org, hunt: hunt.label }))
 
   useEffect(() => {
-    if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
-  }, [loaded, ident, router])
+    if (loaded && ! user) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
+  }, [loaded, user, router])
 
   useEffect(() => {
     document.title = hunt ? `Categories of ${hunt.title} — Triquet` : 'Triquet'
   }, [hunt])
 
-  if (! loaded || ! ident || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
-  if (finding === 'refused') { return <NotOnHunt playtestPath={null} ident={ident} claims={null} smiths={smiths} /> }
+  if (! loaded || ! user || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
+  if (finding === 'refused') { return <NotOnHunt playtestPath={null} user={user} sealed={Actor.isSealed(actor)} claims={null} smiths={smiths} /> }
   if (! hunt) { return <NoSuchHunt org={org} huntLabel={huntLabel} /> }
   const arranging = Approve.mayOffer('arrange_categories', Actor.claimsOn(actor, hunt._id, hunt))
   return <CategoriesScreen hunt={hunt} onArrange={arranging ? arrange : null} unsaved={unsaved} />

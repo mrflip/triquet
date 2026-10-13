@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import * as Actor from '../lib/actor'
 import * as Routes from '../lib/routes'
-import { Hunting } from '../models/hunting'
+import { Huntship } from '../models/huntship'
 import { useHunt } from '../state/use-hunt'
-import { useIdent } from '../state/use-ident'
+import { useMe } from '../state/use-me'
 import { useShowHunt, useShowQuiz } from '../state/shown'
 import { NotOnHunt } from './NotOnHunt'
 import { OpeningNotice } from './SyncNotices'
@@ -27,9 +28,9 @@ export type QuizRouteProps = {
  * What an address naming a quiz shows: the quiz, opened in its `mode`.
  *
  * A visitor who has not said who they are is sent to say so, and brought back here. An address
- * naming the quiz alone moves to the mode the visitor's role works in (`Hunting.modeFor`): a
+ * naming the quiz alone moves to the mode the visitor's role works in (`Huntship.modeFor`): a
  * smith's `!edit`, a reviewer's `!playtest` (`notes/decisions/urls.md`, rule 4). A visitor not on
- * the hunt, or one asking for a mode the policies would not let them use (`Hunting.mayOpen`: a
+ * the hunt, or one asking for a mode the policies would not let them use (`Huntship.mayOpen`: a
  * reviewer asking to work on it), is told which smiths to ask and what for, with the address left
  * as it is: the server shows them nothing more. An address naming no quiz says so, once the
  * server has had its say.
@@ -40,15 +41,15 @@ export type QuizRouteProps = {
  */
 export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
   const router = useRouter()
-  const { ident, loaded } = useIdent()
+  const { user, actor, loaded } = useMe()
   const { finding, hunt, realm, quiz, library, claims, smiths, reviews, dispatch, carryOut, movedTo, saveNotice } = useHunt(org, labels)
   useShowHunt(hunt)
   // Held still while the quiz is edited, so the header is told again only when what it shows changes.
   const quizzes = realm?.quizzes ?? null
   const realmLabel = realm?.label ?? null
-  const opensIn = hunt && (mode ?? Hunting.modeFor(hunt.role))
+  const opensIn = hunt && (mode ?? Huntship.modeFor(hunt.role))
   // A visitor refused the mode is shown no quiz, and the switcher would only lead to more refusals.
-  const mayOpen = claims !== null && opensIn !== null && Hunting.mayOpen(claims, opensIn)
+  const mayOpen = claims !== null && opensIn !== null && Huntship.mayOpen(claims, opensIn)
   const { _id: quiz_id = null, label: quizLabel = null, title: quizTitle = null, locked = false } = quiz ?? {}
   useShowQuiz(useMemo(() => {
     if (! mayOpen || quizzes === null || realmLabel === null || quiz_id === null || quizLabel === null || quizTitle === null) { return null }
@@ -56,24 +57,24 @@ export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
   }, [mayOpen, quizzes, realmLabel, opensIn, quiz_id, quizLabel, quizTitle, locked]))
 
   useEffect(() => {
-    if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
-  }, [loaded, ident, router])
+    if (loaded && ! user) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
+  }, [loaded, user, router])
 
   // The quiz's labels as they stand, once the hunt has arrived to say its org.
   const now = hunt && { org: hunt.org, hunt: hunt.label, realm: realm?.label ?? labels.realm, quiz: movedTo ?? labels.quiz }
   useCanonical(org === null ? null : Routes.quizPath({ org, ...labels }, mode ?? undefined), now && opensIn && Routes.quizPath(now, opensIn))
 
-  if (! loaded || ! ident) { return <OpeningNotice notice={saveNotice} /> }
+  if (! loaded || ! user) { return <OpeningNotice notice={saveNotice} /> }
   // Said as soon as the hunt arrives, without waiting on a quiz this visitor will not be shown.
-  if (finding === 'refused' || (claims !== null && mode !== null && ! Hunting.mayOpen(claims, mode))) {
-    return <NotOnHunt playtestPath={now && Routes.quizPath(now, 'playtest')} ident={ident} claims={claims} smiths={smiths} />
+  if (finding === 'refused' || (claims !== null && mode !== null && ! Huntship.mayOpen(claims, mode))) {
+    return <NotOnHunt playtestPath={now && Routes.quizPath(now, 'playtest')} editPath={now && Routes.quizPath(now, 'edit')} user={user} sealed={Actor.isSealed(actor)} claims={claims} smiths={smiths} />
   }
   if (finding === 'waiting') { return <OpeningNotice notice={saveNotice} /> }
   if (! hunt || ! realm || ! quiz || ! claims) { return <QuizNotFound org={org} labels={labels} hunt={hunt} /> }
   // On its way to the mode the visitor's role works in, or from an old address to the quiz's own.
   if (mode === null || org === null) { return <OpeningNotice notice={saveNotice} /> }
   if (mode === 'playtest') {
-    return <ReviewScreen quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} />
+    return <ReviewScreen quiz={quiz} user={user} reviews={reviews} dispatch={dispatch} />
   }
   return <Workbench hunt={hunt} realm={realm} quiz={quiz} library={library} claims={claims} reviews={reviews} dispatch={dispatch} carryOut={carryOut} saveNotice={saveNotice} />
 }

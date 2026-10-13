@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntingFor, huntsCountedInOrg, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
-  usageOf, wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
+  censusOf, cellRowsOf, googleAccountOf, huntForLabel, huntInOrg, huntshipFor, huntsCountedInOrg, huntRowsOf, ghostingFor, holderOfUserlabel, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, nameChoiceFor, ownUserOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
+  usageOf, userForUserlabel, wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import type { CellRows } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -15,7 +14,7 @@ import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
 import { counting, plainReads } from '../support/counting'
 import { present } from '../support/present'
-import { huntHolding, identified, openTester, putOn, signedIn, type Tester } from '../support/convex'
+import { anonymousSession, anonymousUser, googleUser, huntHolding, openTester, putOn, type Tester } from '../support/convex'
 import { seedHuntRows, seedQuizRows } from '../support/seed'
 
 /** A fresh deployment holding `hunt`, and its first quiz's id */
@@ -396,60 +395,164 @@ describe("usageOf", () => {
   })
 })
 
-describe("identFor", () => {
-  it("is the ident a session asserted last, and null for one that never has", async () => {
+describe("userForUserlabel", () => {
+  it("is the user holding a userlabel, and null for one nobody holds", async () => {
     const tt = openTester()
-    const flip = await identified(tt, 'flip_kromer')
-    await flip.as.mutation(api.idents.perform, { action: { kind: 'assume_ident', label: 'quiet_otter', title: '' } })
-    const { user_id } = await signedIn(tt)
-    const found = await tt.run(async (ctx) => [await identFor(ctx.db, flip.user_id), await identFor(ctx.db, user_id)])
-    expect(found.map((ident) => ident?.label ?? null)).to.deep.eq(['quiet_otter', null])
+    const flip = await googleUser(tt, 'flip_kromer')
+    await anonymousSession(tt)
+    const found = await tt.run(async (ctx) => [await userForUserlabel(ctx.db, 'flip_kromer'), await userForUserlabel(ctx.db, 'quiet_otter')])
+    expect(found.map((user) => user?._id ?? null)).to.deep.eq([flip.user_id, null])
+  })
+})
+
+/** Mark `gone` merged into `into`, by the Google account `account_id`, as a merge leaves it */
+async function merge(tt: Tester, gone: Id<'users'>, into: Id<'users'>, account_id: Id<'authAccounts'>): Promise<void> {
+  await tt.run(async (ctx) => { await ctx.db.patch('users', gone, { merged: { into_user_id: into, account_id } }) })
+}
+
+describe("nameChoiceFor", () => {
+  it("is the user merged into this one still holding its userlabel, the first by userlabel, and null once none does", async () => {
+    const tt = openTester()
+    const alice = await googleUser(tt, 'alice_google')
+    const account = present(await tt.run(async (ctx) => await googleAccountOf(ctx.db, alice.user_id)))
+    const [first, second, unlabelled] = [await anonymousUser(tt, 'anon_first'), await anonymousUser(tt, 'anon_second'), await anonymousSession(tt)]
+    const choiceNow = async () => {
+      const choice = await tt.run(async (ctx) => await nameChoiceFor(ctx.db, alice.user_id))
+      return choice?.userlabel ?? null
+    }
+    expect(await choiceNow()).to.be.null
+    await merge(tt, unlabelled.user_id, alice.user_id, account._id)
+    expect(await choiceNow()).to.be.null
+    await merge(tt, first.user_id, alice.user_id, account._id)
+    await merge(tt, second.user_id, alice.user_id, account._id)
+    expect(await choiceNow()).to.eq('anon_first')
+    await tt.run(async (ctx) => { await ctx.db.patch('users', first.user_id, { userlabel: undefined }) })
+    expect(await choiceNow()).to.eq('anon_second')
+    await tt.run(async (ctx) => { await ctx.db.patch('users', second.user_id, { userlabel: undefined }) })
+    expect(await choiceNow()).to.be.null
   })
 
-  it("is null for a session whose newest identing names an ident it no longer holds", async () => {
+  it("is null for a user nothing was merged into, whatever was merged into another", async () => {
     const tt = openTester()
-    const [flip, bob] = [await identified(tt, 'flip_kromer'), await identified(tt, 'bob_smiths')]
-    await tt.run(async (ctx) => {
-      await ctx.db.patch('idents', flip.ident_id, { user_id: bob.user_id })
-      await ctx.db.patch('idents', bob.ident_id, { user_id: null })
+    const [alice, bob] = [await googleUser(tt, 'alice_google'), await googleUser(tt, 'bob_google')]
+    const account = present(await tt.run(async (ctx) => await googleAccountOf(ctx.db, alice.user_id)))
+    const anon = await anonymousUser(tt, 'anon_first')
+    await merge(tt, anon.user_id, alice.user_id, account._id)
+    expect(await tt.run(async (ctx) => await nameChoiceFor(ctx.db, bob.user_id))).to.be.null
+  })
+})
+
+describe("ownUserOf", () => {
+  it("is what a user is told of itself: its email, for one signed in with Google, and its name choice, pending a merge", async () => {
+    const tt = openTester()
+    const alice = await googleUser(tt, 'alice_google')
+    const account = present(await tt.run(async (ctx) => await googleAccountOf(ctx.db, alice.user_id)))
+    const anon = await anonymousUser(tt, 'anon_first')
+    await merge(tt, anon.user_id, alice.user_id, account._id)
+    expect(await tt.run(async (ctx) => await ownUserOf(ctx.db, alice.user_id))).to.deep.eq({
+      google: true, email: 'alice_google@example.com', suggested: null, nameChoice: { merged: { userlabel: 'anon_first', title: 'Anon First' }, own: { userlabel: 'alice_google', title: 'Alice Google' } },
     })
-    const found = await tt.run(async (ctx) => [await identFor(ctx.db, flip.user_id), await identFor(ctx.db, bob.user_id)])
-    expect(found).to.deep.eq([null, null])
+    // The user merged away is anonymous, and is told nothing of the user it merged into
+    expect(await tt.run(async (ctx) => await ownUserOf(ctx.db, anon.user_id))).to.deep.eq({ google: false, email: null, suggested: null, nameChoice: null })
+  })
+
+  it("is null for a user that is not there", async () => {
+    const tt = openTester()
+    const gone = await anonymousSession(tt)
+    await tt.run(async (ctx) => { await ctx.db.delete('users', gone.user_id) })
+    expect(await tt.run(async (ctx) => await ownUserOf(ctx.db, gone.user_id))).to.be.null
+  })
+})
+
+describe("googleAccountOf", () => {
+  it("is a Google user's Google account, and null for an anonymous user", async () => {
+    const tt = openTester()
+    const [alice, anon] = [await googleUser(tt, 'alice_google'), await anonymousUser(tt, 'anon_alice')]
+    const account = present(await tt.run(async (ctx) => await googleAccountOf(ctx.db, alice.user_id)))
+    expect([account.userId, account.provider, account.providerAccountId]).to.deep.eq([alice.user_id, 'google', 'google-sub-alice_google'])
+    expect(await tt.run(async (ctx) => await googleAccountOf(ctx.db, anon.user_id))).to.be.null
+  })
+})
+
+describe("holderOfUserlabel", () => {
+  it("says what holds a userlabel: a user, a ghosting, or a hunt's address; null when it is free", async () => {
+    const tt = openTester()
+    const flip = await googleUser(tt, 'flip_kromer')
+    await tt.run(async (ctx) => {
+      const account = present(await ctx.db.query('authAccounts').first())
+      await ctx.db.insert('ghostings', { userlabel: 'old_flip', user_id: flip.user_id, into_user_id: flip.user_id, account_id: account._id })
+      await ctx.db.insert('hunts', { label: 'spring_hunt', orglabel: 'pat_smiths', title: '', branch: 'main' })
+    })
+    const held = await tt.run(async (ctx) => await Promise.all(['flip_kromer', 'old_flip', 'pat_smiths', 'quiet_otter'].map(async (userlabel) => await holderOfUserlabel(ctx.db, userlabel))))
+    expect(held).to.deep.eq(['user', 'ghosting', 'address', null])
+  })
+
+  it("finds a ghosting by its userlabel, and nothing for one none holds", async () => {
+    const tt = openTester()
+    const flip = await googleUser(tt, 'flip_kromer')
+    await tt.run(async (ctx) => {
+      const account = present(await ctx.db.query('authAccounts').first())
+      await ctx.db.insert('ghostings', { userlabel: 'old_flip', user_id: flip.user_id, into_user_id: flip.user_id, account_id: account._id })
+    })
+    const found = await tt.run(async (ctx) => [await ghostingFor(ctx.db, 'old_flip'), await ghostingFor(ctx.db, 'flip_kromer')])
+    expect(found.map((ghosting) => ghosting?.userlabel ?? null)).to.deep.eq(['old_flip', null])
+  })
+})
+
+describe("censusOf: who a user is", () => {
+  it("tells of a user, by userlabel or by id, its face alone: userlabel, title, anonymous or not, and never its email", async () => {
+    const tt = openTester()
+    const [flip, anon] = [await googleUser(tt, 'flip_kromer'), await anonymousUser(tt, 'anon_otter')]
+    const faces = await tt.run(async (ctx) => {
+      const census = censusOf(ctx.db)
+      return [await census.userByLabel('flip_kromer'), await census.userById(anon.user_id), await census.userByLabel('nobody_here')]
+    })
+    expect(faces).to.deep.eq([
+      { _id: flip.user_id, userlabel: 'flip_kromer', title: 'Flip Kromer', anonymous: false },
+      { _id: anon.user_id, userlabel: 'anon_otter', title: 'Anon Otter', anonymous: true },
+      null,
+    ])
+  })
+
+  it("tells nothing of a user holding no userlabel", async () => {
+    const tt = openTester()
+    const session = await anonymousSession(tt)
+    expect(await tt.run(async (ctx) => await censusOf(ctx.db).userById(session.user_id))).to.be.null
   })
 })
 
 describe("reviewFor", () => {
-  it("finds the ident's review of a quiz, and nothing for an ident with none", async () => {
+  it("finds the user's review of a quiz, and nothing for a user with none", async () => {
     const { tt, hunt_id, quiz_id } = await holding(Hunt.blank())
-    const [alice, bob] = [await identified(tt, 'alice_reviews'), await identified(tt, 'bob_reviews')]
-    await tt.run(async (ctx) => { await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id: alice.ident_id, overall: 'Mine', phase: 'draft' }) })
-    const found = await tt.run(async (ctx) => [await reviewFor(ctx.db, quiz_id, alice.ident_id), await reviewFor(ctx.db, quiz_id, bob.ident_id)])
+    const [alice, bob] = [await googleUser(tt, 'alice_reviews'), await googleUser(tt, 'bob_reviews')]
+    await tt.run(async (ctx) => { await ctx.db.insert('reviews', { hunt_id, quiz_id, user_id: alice.user_id, overall: 'Mine', phase: 'draft' }) })
+    const found = await tt.run(async (ctx) => [await reviewFor(ctx.db, quiz_id, alice.user_id), await reviewFor(ctx.db, quiz_id, bob.user_id)])
     expect(found.map((review) => review?.overall ?? null)).to.deep.eq(['Mine', null])
   })
 
-  it("takes the earlier when two reviews answer to one ident", async () => {
+  it("takes the earlier when two reviews answer to one user", async () => {
     const { tt, hunt_id, quiz_id } = await holding(Hunt.blank())
-    const { ident_id } = await identified(tt, 'alice_reviews')
+    const { user_id } = await googleUser(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
-      await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: 'First', phase: 'empty' })
-      await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: 'Second', phase: 'empty' })
+      await ctx.db.insert('reviews', { hunt_id, quiz_id, user_id, overall: 'First', phase: 'empty' })
+      await ctx.db.insert('reviews', { hunt_id, quiz_id, user_id, overall: 'Second', phase: 'empty' })
     })
-    const found = await tt.run(async (ctx) => await reviewFor(ctx.db, quiz_id, ident_id))
+    const found = await tt.run(async (ctx) => await reviewFor(ctx.db, quiz_id, user_id))
     expect(found?.overall).to.eq('First')
   })
 })
 
 describe("membersOf", () => {
-  it("reads each member's label and title off their hunting, not their ident", async () => {
+  it("reads each member's userlabel and title off their huntship, not their user", async () => {
     const { tt, hunt_id } = await holding(Hunt.blank())
-    const alice = await identified(tt, 'alice_reviews')
-    await putOn(tt, hunt_id, alice.ident_id, 'reviewer')
+    const alice = await googleUser(tt, 'alice_reviews')
+    await putOn(tt, hunt_id, alice.user_id, 'reviewer')
     await tt.run(async (ctx) => {
-      const hunting = present(await huntingFor(ctx.db, hunt_id, alice.ident_id))
-      await ctx.db.patch('huntings', hunting._id, { ident_title: 'As The Hunting Holds It' })
+      const huntship = present(await huntshipFor(ctx.db, hunt_id, alice.user_id))
+      await ctx.db.patch('huntships', huntship._id, { usertitle: 'As The Huntship Holds It' })
     })
     const members = await tt.run(async (ctx) => await membersOf(ctx.db, hunt_id))
-    expect(members.map(({ label, title, role }) => [label, title, role])).to.deep.eq([['alice_reviews', 'As The Hunting Holds It', 'reviewer']])
+    expect(members.map(({ label, title, role }) => [label, title, role])).to.deep.eq([['alice_reviews', 'As The Huntship Holds It', 'reviewer']])
   })
 })
 

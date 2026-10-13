@@ -112,7 +112,7 @@ function repaired(cleaned: string, max: number): string {
 }
 
 export type IsReservedOpts = {
-  /** Whether the label is a hunt's or an ident's, kept from the top-level words too (`PA.ReservedToplevel`) */
+  /** Whether the label is a new hunt's or a userlabel being claimed, kept from the top-level words too (`PA.ReservedToplevel`) */
   toplevel?: boolean
   /** Words let through all the same, whatever the reserved lists say (`PA.isUnreserved`) */
   allowed?:  ReadonlySet<string>
@@ -120,15 +120,19 @@ export type IsReservedOpts = {
 
 /**
  * Whether `label` is a word no label may be (`PA.ReservedLabels`), or ends as a pointer to a row
- * does: what lets a field say why a label of the right shape is still refused.
+ * does: what lets a field say why a label of the right shape is still refused. With `toplevel`,
+ * the one answer to whether a userlabel, or a hunt's label, may be claimed for its word: the words
+ * a new one is kept from are the same for both, since a sandbox's hunt takes its userlabel. A
+ * label already held stands whatever this says (`CK.heldUserlabel`).
  *
  * @param label - A label, or anything typed for one.
- * @param opts - `toplevel` for a hunt's or an ident's label, kept from the top-level words as well; `allowed`, words let through.
+ * @param opts - `toplevel` for a new hunt's label or a userlabel being claimed, kept from the top-level words as well; `allowed`, words let through.
  * @returns True when the label validator would refuse it for its word rather than its shape.
  *
  * @example isReserved('position')                       // => true
  * @example isReserved('my_position')                    // => false
  * @example isReserved('pricing', { toplevel: true })    // => true
+ * @example isReserved('google_fan', { toplevel: true })  // => true
  * @example isReserved('min', { allowed: new Set(['min']) })  // => false
  */
 export function isReserved(label: string, opts: Readonly<IsReservedOpts> = {}): boolean {

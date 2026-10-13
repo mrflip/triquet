@@ -3,13 +3,13 @@
 import { useCallback } from 'react'
 import { InputBase } from '@mui/material'
 import { useDraft } from './use-draft'
-import type { IdentT } from '../models/ident'
+import type { UserT } from '../models/user'
 import { useRaiseAlarm } from '../state/alarms'
 import { useUserActions } from '../state/use-user-actions'
 
-export type IdentTitleProps = {
+export type UserTitleProps = {
   /** Who the visitor is */
-  ident:     IdentT
+  user:      UserT
   /** Told the title they leave the field holding, once it differs from what it was */
   onRetitle: (title: string) => void
 }
@@ -18,8 +18,8 @@ export type IdentTitleProps = {
  * What the visitor is called on screen, retitled in place: saved when it loses focus, and put
  * back as it was when left blank.
  */
-export function IdentTitle({ ident, onRetitle }: Readonly<IdentTitleProps>) {
-  const { draft, onChange, onBlur } = useDraft(ident.title, onRetitle, (typed) => typed.trim() || ident.title)
+export function UserTitle({ user, onRetitle }: Readonly<UserTitleProps>) {
+  const { draft, onChange, onBlur } = useDraft(user.title, onRetitle, (typed) => typed.trim() || user.title)
   return (
     <InputBase
       value={draft}
@@ -40,16 +40,16 @@ export function IdentTitle({ ident, onRetitle }: Readonly<IdentTitleProps>) {
 }
 
 /**
- * Retitling the visitor's ident, as `IdentTitle` wants it told: a retitle not kept raises an alarm.
+ * Retitling the visitor's user, as `UserTitle` wants it told: a retitle not kept raises an alarm.
  *
  * @returns What to tell the field.
  */
-export function useRetitleIdent(): (title: string) => void {
+export function useRetitleUser(): (title: string) => void {
   const { act } = useUserActions()
   const raise = useRaiseAlarm()
   return useCallback((title: string) => {
     const retitle = async () => {
-      const outcome = await act({ kind: 'retitle_ident', title })
+      const outcome = await act({ kind: 'retitle_user', title })
       if (! outcome.kept) { raise(outcome.alarm) }
     }
     void retitle()

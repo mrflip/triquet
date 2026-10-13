@@ -6,6 +6,10 @@ import { huntFrom, quizFrom, widgetingFrom, type CellRows, type HuntRows, type L
 import type { WidgetingTier } from '../src/models/widgeting'
 import type { HuntT } from '../src/models/hunt'
 import type { QuizT } from '../src/models/quiz'
+import * as Actor from '../src/lib/actor'
+import * as Labelmaker from '../src/lib/labelmaker'
+import * as SS from '../src/lib/strings'
+import { User, type NameChoiceT, type OwnUserT, type UserFaceT } from '../src/models/user'
 
 // Every read here goes through an index, and takes at most the cap `lib/vv/patterns.ts` sets for
 // that kind of child, which the writes refuse to pass: a read never silently drops a row. A
@@ -20,21 +24,98 @@ import type { QuizT } from '../src/models/quiz'
 /** What a query or a mutation reads through */
 export type Reader = QueryCtx['db']
 
-/**
- * The ident the session `user_id` asserted last, by its newest identing, while the session still
- * holds it; null when it has asserted none, or when that ident is no longer its own (held by
- * another session, or by none). No write of the app takes an ident from its holder, but an
- * identing alone never makes a session an ident it does not hold.
- */
-export async function identFor(db: Reader, user_id: Id<'users'>): Promise<Doc<'idents'> | null> {
-  const identing = await db.query('identings').withIndex('by_user_id', (cvx) => cvx.eq('user_id', user_id)).order('desc').first()
-  const ident = identing && await db.get('idents', identing.ident_id)
-  return ident?.user_id === user_id ? ident : null
+/** The user holding the userlabel `userlabel`: the earliest made, should two hold one; null when none does */
+export async function userForUserlabel(db: Reader, userlabel: string): Promise<Doc<'users'> | null> {
+  return await db.query('users').withIndex('by_userlabel', (cvx) => cvx.eq('userlabel', userlabel)).first()
 }
 
-/** The ident answering to `label`: the earliest made, should two have been made with one */
-export async function identForLabel(db: Reader, label: string): Promise<Doc<'idents'> | null> {
-  return await db.query('idents').withIndex('by_label', (cvx) => cvx.eq('label', label)).first()
+/** The ghosting holding the userlabel `userlabel`, retired by a merge; null when none does */
+export async function ghostingFor(db: Reader, userlabel: string): Promise<Doc<'ghostings'> | null> {
+  return await db.query('ghostings').withIndex('by_userlabel', (cvx) => cvx.eq('userlabel', userlabel)).first()
+}
+
+/**
+ * The name choice the user `user_id` has yet to make, if any: of the users merged into it
+ * (`users.merged`) that still hold their userlabel, the one whose userlabel comes first
+ * alphabetically (the index's order), and its userlabel the handle the merged browser went by. Until
+ * it is settled, the merged-away user keeps that userlabel, so nobody else takes it; settling it
+ * takes the userlabel from it, so the next pending choice, if any, comes up.
+ *
+ * @returns The merged-away user still holding its userlabel; null when no choice is pending.
+ *
+ * @example (await nameChoiceFor(db, user_id))?.userlabel  // => 'mrflip', the handle the merged browser went by
+ */
+export async function nameChoiceFor(db: Reader, user_id: Id<'users'>): Promise<Doc<'users'> | null> {
+  return await db.query('users').withIndex('by_merged_into', (cvx) => cvx.eq('merged.into_user_id', user_id).gt('userlabel', '')).first()
+}
+
+/**
+ * What the user `user_id` is told of itself and nobody else is (`OwnUserT`): whether it is signed
+ * in with Google, the email Google sent, the handle the front door offers it while it holds none
+ * (`suggestedFor`), and the name choice a merge left it (`nameChoiceFor`). Never read for anyone
+ * but the asking session's own user.
+ *
+ * @returns What it is told; null when there is no such user.
+ *
+ * @example (await ownUserOf(db, user_id))?.email  // => 'flip@example.com', for a user signed in with Google
+ */
+export async function ownUserOf(db: Reader, user_id: Id<'users'>): Promise<OwnUserT | null> {
+  const user = await db.get('users', user_id)
+  if (user === null) { return null }
+  const google = Actor.isSignedInWithGoogle(user)
+  const [suggested, merged] = await Promise.all([
+    google && user.userlabel === undefined ? suggestedFor(db, user) : null,
+    user.userlabel === undefined ? null : nameChoiceFor(db, user_id),
+  ])
+  return { google, email: google ? user.email ?? null : null, suggested, nameChoice: choiceBetween(merged, user) }
+}
+
+/**
+ * What the front door offers a user signed in with Google that holds no userlabel: its Google
+ * name as its title, shortened to what a title may be (`PA.Titleish`), and the first of
+ * `User.suggestionsFor` that is free (`holderOfUserlabel`: held by no user, retired by no
+ * ghosting, and no hunt's address), asked one after another, so the usual case reads three rows.
+ */
+async function suggestedFor(db: Reader, user: Pick<Doc<'users'>, 'name' | 'email'>): Promise<NonNullable<OwnUserT['suggested']>> {
+  const title = SS.shorten(user.name ?? '', PA.Titleish.max)
+  for (const userlabel of User.suggestionsFor(user)) {
+    if (await holderOfUserlabel(db, userlabel) === null) { return { userlabel, title } }
+  }
+  return { userlabel: null, title }
+}
+
+/** The name choice between the user merged away `merged` and `user`, as its owner is shown it; null when there is none */
+function choiceBetween(merged: Doc<'users'> | null, user: Doc<'users'>): NameChoiceT | null {
+  if (merged?.userlabel === undefined || user.userlabel === undefined) { return null }
+  return { merged: handleOf(merged.userlabel, merged.title), own: handleOf(user.userlabel, user.title) }
+}
+
+/** A handle as a name choice shows it: the userlabel, and the title, its userlabel titleized when it has none */
+function handleOf(userlabel: string, title: string | undefined): NameChoiceT['own'] {
+  return { userlabel, title: title ?? Labelmaker.titleize(userlabel) }
+}
+
+/** The Google account of the user `user_id`: a user has at most one, as nothing links a second; null for a user signed in with none */
+export async function googleAccountOf(db: Reader, user_id: Id<'users'>): Promise<Doc<'authAccounts'> | null> {
+  return await db.query('authAccounts').withIndex('userIdAndProvider', (cvx) => cvx.eq('userId', user_id).eq('provider', 'google')).first()
+}
+
+/**
+ * What holds the userlabel `userlabel`, if anything: a user; a ghosting, which keeps a userlabel
+ * a merge retired; or an address, a hunt carrying it as its `orglabel`. A userlabel is free only
+ * when nothing does: the last keeps a stranger from becoming `alice` and seeming to own the hunts
+ * addressed `~alice/…`. One parallel round of three reads.
+ *
+ * @returns What holds it first, in that order; null when it is free.
+ *
+ * @example await holderOfUserlabel(db, 'flip_kromer')  // => 'user', once someone has taken it
+ */
+export async function holderOfUserlabel(db: Reader, userlabel: string): Promise<'user' | 'ghosting' | 'address' | null> {
+  const [user, ghosting, hunts] = await Promise.all([userForUserlabel(db, userlabel), ghostingFor(db, userlabel), huntsCountedInOrg(db, userlabel)])
+  if (user)      { return 'user' }
+  if (ghosting)  { return 'ghosting' }
+  if (hunts > 0) { return 'address' }
+  return null
 }
 
 /**
@@ -73,25 +154,25 @@ export async function huntsOf(db: Reader): Promise<Doc<'hunts'>[]> {
   return await db.query('hunts').take(PA.HuntsInApp.max)
 }
 
-/** A hunt's huntings, in the order they were made */
-export async function huntingsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Doc<'huntings'>[]> {
-  return await db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', hunt_id)).take(PA.HuntingsPerHunt.max)
+/** A hunt's huntships, in the order they were made */
+export async function huntshipsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Doc<'huntships'>[]> {
+  return await db.query('huntships').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', hunt_id)).take(PA.HuntshipsPerHunt.max)
 }
 
-/** An ident's huntings, one per hunt it is on at most, which the app's cap on hunts bounds */
-export async function huntingsFor(db: Reader, ident_id: Id<'idents'>): Promise<Doc<'huntings'>[]> {
-  return await db.query('huntings').withIndex('by_ident_id_and_hunt_id', (cvx) => cvx.eq('ident_id', ident_id)).take(PA.HuntsInApp.max)
+/** A user's huntships, one per hunt it is on at most, which the app's cap on hunts bounds */
+export async function huntshipsFor(db: Reader, user_id: Id<'users'>): Promise<Doc<'huntships'>[]> {
+  return await db.query('huntships').withIndex('by_user_id_and_hunt_id', (cvx) => cvx.eq('user_id', user_id)).take(PA.HuntsInApp.max)
 }
 
-/** The hunting `ident_id` has on `hunt_id`, and so its role there; null when it is not on the hunt */
-export async function huntingFor(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<'idents'>): Promise<Doc<'huntings'> | null> {
-  return await db.query('huntings').withIndex('by_ident_id_and_hunt_id', (cvx) => cvx.eq('ident_id', ident_id).eq('hunt_id', hunt_id)).first()
+/** The huntship `user_id` has on `hunt_id`, and so its role there; null when it is not on the hunt */
+export async function huntshipFor(db: Reader, hunt_id: Id<'hunts'>, user_id: Id<'users'>): Promise<Doc<'huntships'> | null> {
+  return await db.query('huntships').withIndex('by_user_id_and_hunt_id', (cvx) => cvx.eq('user_id', user_id).eq('hunt_id', hunt_id)).first()
 }
 
-/** A hunt's huntings, in the order they were made, each with the label and title of its ident, as the hunting holds them */
+/** A hunt's huntships, in the order they were made, each with the userlabel and title of its user, as the huntship holds them */
 export async function membersOf(db: Reader, hunt_id: Id<'hunts'>): Promise<MemberT[]> {
-  const huntings = await huntingsOf(db, hunt_id)
-  return huntings.map(({ ident_id, ident_label, ident_title, role }) => ({ ident_id, label: ident_label, title: ident_title, role }))
+  const huntships = await huntshipsOf(db, hunt_id)
+  return huntships.map(({ user_id, userlabel, usertitle, role }) => ({ user_id, label: userlabel, title: usertitle, role }))
 }
 
 /** A hunt's realms in order, each with its quizzes' rows in the order they were made */
@@ -126,17 +207,22 @@ export async function isWorked(db: Reader, widget_label: string): Promise<boolea
 }
 
 /**
- * What a write must know of every hunt to keep the data whole, asked of a database that sees them
- * all: whose a hunt label is in an org, so no two hunts of one org answer to one; and whether any quiz of any hunt works
- * a widget, so none is left working a widget the library lost. It answers with an id or a yes,
- * never a row, so a function whose database sees one hunt, or only the library (`policy_rules.ts`),
- * can hold it.
+ * What a function about one hunt must know beyond it, asked of a database that sees everything:
+ * whose a hunt label is in an org, so no two hunts of one org answer to one; whether any quiz of
+ * any hunt works a widget, so none is left working a widget the library lost; and who a user is,
+ * by id or by userlabel, as anyone may be told (`UserFaceT`). It answers with an id, a yes, or a
+ * user's face, never a row, so a function whose database sees one hunt, or only the library
+ * (`policy_rules.ts`), can hold it, and no user's email ever reaches one.
  */
 export type CensusT = {
   /** The hunt of the org `orglabel` answering to `label`, should one: see `huntInOrg` */
   huntIdInOrg:    (orglabel: string, label: string) => Promise<Id<'hunts'> | null>
   /** Whether any widgeting works the widget labelled `widget_label`: see `isWorked` */
   isWorked:       (widget_label: string) => Promise<boolean>
+  /** The user holding the userlabel `userlabel`, as anyone may be told of it; null when none does */
+  userByLabel:    (userlabel: string) => Promise<UserFaceT | null>
+  /** The user `user_id`, as anyone may be told of it; null when it is gone, or holds no userlabel */
+  userById:       (user_id: Id<'users'>) => Promise<UserFaceT | null>
 }
 
 /**
@@ -151,6 +237,14 @@ export function censusOf(db: Reader): CensusT {
       return hunt?._id ?? null
     },
     isWorked:       async (widget_label) => await isWorked(db, widget_label),
+    userByLabel:    async (userlabel) => {
+      const user = await userForUserlabel(db, userlabel)
+      return user && User.faceOf(user)
+    },
+    userById:       async (user_id) => {
+      const user = await db.get('users', user_id)
+      return user && User.faceOf(user)
+    },
   }
 }
 
@@ -409,14 +503,14 @@ export async function wholeQuizOf(db: Reader, quiz: Doc<'quizzes'>): Promise<Qui
   return quizFrom(await quizRowsFor(db, quiz))
 }
 
-/** A quiz's reviews, oldest first: the order two reviews by one ident are settled by */
+/** A quiz's reviews, oldest first: the order two reviews by one user are settled by */
 export async function reviewsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<Doc<'reviews'>[]> {
   return await db.query('reviews').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id)).take(PA.ReviewsPerQuiz.max)
 }
 
-/** The review of `quiz_id` that `ident_id` has made, the earliest should two exist; null when none */
-export async function reviewFor(db: Reader, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>): Promise<Doc<'reviews'> | null> {
-  return await db.query('reviews').withIndex('by_quiz_id_and_ident_id', (cvx) => cvx.eq('quiz_id', quiz_id).eq('ident_id', ident_id)).first()
+/** The review of `quiz_id` that `user_id` has made, the earliest should two exist; null when none */
+export async function reviewFor(db: Reader, quiz_id: Id<'quizzes'>, user_id: Id<'users'>): Promise<Doc<'reviews'> | null> {
+  return await db.query('reviews').withIndex('by_quiz_id_and_user_id', (cvx) => cvx.eq('quiz_id', quiz_id).eq('user_id', user_id)).first()
 }
 
 /** A review's reviewings: at most one per question of its quiz, which the quiz's cap bounds */

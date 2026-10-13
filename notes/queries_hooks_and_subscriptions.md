@@ -25,7 +25,7 @@ it means.
   browser reads a field it was not sent as blank.
 * **screen hook** -- the one hook that owns a screen's watches and hands the rest of the screen
   what it needs as props: `useHunt` for a quiz's screen, `useHuntsList` for the hunts page,
-  `useIdent` for who the browser is. A screen hook may be built from smaller hooks (`useHunt`
+  `useMe` for who the browser is. A screen hook may be built from smaller hooks (`useHunt`
   uses `useQuiz`), but the components below it never watch anything themselves.
 
 ## The shape of the app
@@ -114,7 +114,7 @@ browser per change, both of which the phase 4 measurements report
 * A query function takes ids or labels, and refuses nothing a screen might reasonably ask: a
   watch that throws takes the page down with it (`useQuery` throws into React). Keep an
   argument a query function would refuse from reaching it (see `useHunt`'s `askable`).
-* A query function about a hunt also takes the browser's affirms (`useAffirms`: its ident, the
+* A query function about a hunt also takes the browser's affirms (`useAffirms`: its user, the
   hunt, its standing, and the quiz where there is one), built from facets the screen already
   holds, so no watch waits on another only to learn what to affirm. The server checks them
   (`convex/authorize.ts`), and a query answers a denial, stale affirms included, with its empty
@@ -123,7 +123,7 @@ browser per change, both of which the phase 4 measurements report
   with `zHuntQuery` (`convex/functions.ts`), which does both, and hands its handler a database
   that sees only the affirmed hunt; one that is not is named in `Unscoped` (`convex/authorize.ts`).
 * The screen hook also hands its screen the browser's **claims** on the hunt (`useHunt`'s
-  `claims`: the actor `idents.current` sends, the hunt, the standing, the quiz on screen's lock),
+  `claims`: the actor `users.current` sends, the hunt, the standing, the quiz on screen's lock),
   which the screen's views decide what to offer from (`Approve`), rather than from a role. They
   are worked out from what the screen already watches, and cost no watch of their own.
 * Every read in a query function goes through an index and is bounded by the caps in

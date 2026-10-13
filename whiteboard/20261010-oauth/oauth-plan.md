@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-11. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `/sprint oath YOLO`, "plan and execute the sprint described in
 whiteboard/20261010-oauth", which is `20261011-oauth_preplan.md` beside this file.
-**Status: planned; threads 1, 2 and 7 underway.** `oauth-progress.md`, beside this file, is newer
+**Status: done (2026-10-12). Every thread landed: #226-#235, one stack, plus #233 from the Coach's high review of thread 5. Closing full e2e 309/309. See `human/20261012-sprint_oauth_done.md`.** `oauth-progress.md`, beside this file, is newer
 than this plan wherever the two disagree.
 
 The earlier plan in this file (three threads, an app-made hand-off, 2026-10-10) is superseded and
@@ -77,8 +77,9 @@ and `.claude/agents/thread-worker.md`. What is particular to this sprint:
 
 The pre-plan merges production in two steps: first threads 1 and 2, then, after the clear,
 everything else at once. The spine lands threads in the order they finish, so **every PR
-beneath thread 3's in the stack** can go in the first step: 7 and 8 are safe there too (pages,
-and the reserved list for new labels only). Thread 3's PR and everything above it waits for the
+beneath thread 3's in the stack** can go in the first step, except thread 8: *Orchestrator
+(revised 2026-10-11):* its review found idents are not grandfathered, so thread 8 merges no
+earlier than the clear. See `oauth-progress.md`, *Merging, revised*. Thread 3's PR and everything above it waits for the
 clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
 
 ## Decisions taken in YOLO
@@ -100,6 +101,65 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
 5. **The name choice after a merge.** Thread 5 records a pending name choice, shaped for thread 6.
    Thread 6 builds the mutation that settles it (`relabelUser`, per the pre-plan's rename table)
    and writes the ghosting.
+6. **Thread 3 catches up before its review** (2026-10-11). Thread 8 landed beneath it while it
+   built, and the catch-up changes code (the user's and huntship's userlabels move to
+   `CK.heldUserlabel`) across about seven files. So the reviewer reads the branch after the
+   catch-up, not before.
+7. **Thread 3's `testing:vouchFor` stands, pending review.** It is e2e's stand-in for Google: an
+   internal mutation, refused unless `TRIQUET_CLEARABLE=yes`, that clears `isAnonymous`. It is no
+   provider and signs nobody in, so it is not the "fake Google" the ground rules forbid. But it is
+   a way past sealing on test backends, so its reviewer and thread 9 check its gate.
+
+8. **"Signed in with Google" is one predicate: the user is not anonymous** (`users.isAnonymous`
+   false; the actor's `anonymous`), as sealing already reads it (thread 3). Threads 4 and 5 run
+   side by side, and both need it: 4 for the admin flag and grants, 5 for admin counting at all.
+   Only thread 5's upgrade (a Google account joining) clears the flag in production; e2e's
+   `testing:vouchFor` clears it only where `TRIQUET_CLEARABLE=yes`. Thread 5 owns the predicate's
+   home (beside `Actor.ofUser`); thread 4 reads the user's flag directly if 5 has not landed, and
+   switches to the predicate at catch-up.
+
+9. **Thread 5's login-CSRF finding is fixed in thread 5, not held** (2026-10-11). Its review
+   found that the patch lets a sign-in started in one browser upgrade or merge the starting
+   user when it is finished in another (the victim's), because Convex Auth decides at the
+   callback, before the `?code=` exchange that ties the flow to the starting browser. The worker
+   is directed to keep the Coach's behaviour (upgrade, switch, merge) but decide upgrade and merge
+   only once the finishing browser has proven it is the starting one: at the exchange (a wider
+   patch) or by a claim afterwards. If neither can be made secure without a large rewrite, it
+   reports `blocked`. *Why not pause:* it is code that reaches production only through the
+   Coach's merge and the Coach's keys. Dropping upgrade and merge would reverse the Coach's
+   decision, and the app's own one-time hand-off would reverse the Coach's choice of the patch.
+   **Production's Google keys wait until this is reviewed.**
+
+10. **The high review's finding on thread 5 is fixed in its own PR** (2026-10-12). The redirect
+    rule checked only a path's first segment, so a crafted link could land on a 404 that never
+    spends the code. A `thread-worker` in the review's worktree fixes it, and falls back to `/`
+    on a refused `redirectTo`. It also makes the unfinished-sign-in notice compare the session
+    id, not the refreshed JWT (the Coach's "no confusing state"). A second reviewer reads its
+    commits; then it lands as its own PR, stacked on #232.
+
+## The Coach's guidance during the sprint
+
+* **2026-10-11: thread 5's verifier: option 1.** Hand the starting session on only from a recently
+  made verifier, and delete a verifier wherever its code dies (`human/20261011-sprint_oauth_paused.md`).
+  The Coach's conditions: "Make sure it can't succeed leaving the person without their old anon
+  record. Or leaving a confusing oauth state." *Orchestrator:* so a refused exchange leaves the
+  browser on its old anonymous session, with nothing half-linked, and a plain notice; the client's
+  behaviour on a failed exchange is checked first. Also a `callbacks.redirect` limited to synced
+  pages (closing the guess window). No sweep (no crons); noted in TODO. The result goes to the
+  Coach before it lands.
+* **2026-10-11: thread 5 approved to land,** and the notice wording ("Google sign-in didn't
+  finish" / "You're still `<handle>`, as before. Try again.") approved as it stands.
+* **2026-10-12: "please run a code reviewer on high as its own pr".** *Orchestrator's reading:*
+  review all of thread 5 (#232) at `high`, with its fixes landing as a PR of their own, stacked
+  on #232. Thread 6 runs beside it.
+
+* **2026-10-11: an anonymous (sealed) user may not delete a hunt.** "No new hunt, no delete hunt
+  for anonymous seems easier to reason about." `deleteHunt` takes a hunt holding up to one quiz
+  with it, so an anonymous user could delete its sandbox's work and then make a fresh one.
+  Thread 3 adds the refusal before it lands, or folds it in after. `new_hunt` stays as it is: a
+  sealed user makes only its sandbox, at most one. *Orchestrator's reading:* "no new hunt" means
+  no hunt beyond the sandbox. Making the sandbox automatically when a handle is taken would be the
+  other reading, and is not being built.
 
 ## The threads
 
@@ -404,7 +464,8 @@ clear. Thread 2 always lands beneath thread 3, since 3 depends on it.
 * **Touches:**
   - the gate (`UserlabelGate`, after thread 3) and the user menu from thread 1;
   - a dialog for the name choice;
-  - the settling mutation, `relabelUser` (*Decisions taken in YOLO*, 5), and its ghosting write;
+  - the settling mutation, which calls thread 4's `relabelUser` (*Orchestrator:* ~~`relabelUser`~~
+    was pulled forward by thread 4) and adds the ghosting write and the name choice;
   - the sealing notices in `src/lib/notices.ts`;
   - Google's "G" asset under `public/`;
   - e2e up to the redirect, and convex-test for the settling mutation.

@@ -125,10 +125,25 @@ export function convexRun(fn: string, args?: Record<string, unknown>, opts: { cw
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- the pnpm this checkout already runs
   const ran = spawnSync('pnpm', argv, { cwd: opts.cwd, env: { ...process.env, ...opts.env }, encoding: 'utf8', stdio: ['ignore', 'pipe', opts.quiet ? 'pipe' : 'inherit'] })
   if (ran.status !== 0) {
-    const said = opts.quiet ? (ran.stderr || '').trim().split('\n', 3).slice(0, 2).join(' ') : 'see above'
+    const said = opts.quiet ? failureIn(ran.stderr || '') : 'see above'
     throw new Error(`convex run ${fn} failed (exit ${String(ran.status)}): ${said}`)
   }
   return ran.stdout.trim() === '' ? null : JSON.parse(ran.stdout)
+}
+
+/**
+ * What a failed `convex run` said, on one line, from its stderr: its first line, and the line
+ * naming what the function threw (`Uncaught …`), whose words a refusal meant for the person
+ * running it are in, when there is one; its first two lines otherwise.
+ *
+ * @example failureIn('✖ Failed to run function "adopt:plan":\nConvexError: [Request ID: 4b30] Server Error\nUncaught ConvexError: No user has the email pat@example.com.\n    at userFound (../convex/adopt.ts:111:13)')
+ *   // => '✖ Failed to run function "adopt:plan": Uncaught ConvexError: No user has the email pat@example.com.'
+ * @example failureIn('✖ Could not reach the deployment\nIs it running?\nTried three times')  // => '✖ Could not reach the deployment Is it running?'
+ */
+export function failureIn(stderr: string): string {
+  const lines = stderr.trim().split('\n')
+  const thrown = lines.slice(1).find((line) => line.startsWith('Uncaught '))
+  return (thrown ? [lines[0], thrown] : lines.slice(0, 2)).join(' ')
 }
 
 /** What a run of the backfills came to */

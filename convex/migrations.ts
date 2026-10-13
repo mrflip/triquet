@@ -59,7 +59,6 @@ function stampBackfill(table: StampedTablename) {
 }
 
 // One per stamped table, each as `stampBackfill` says.
-export const backfillIdentStamps     = stampBackfill('idents')
 export const backfillHuntStamps      = stampBackfill('hunts')
 export const backfillRealmStamps     = stampBackfill('realms')
 export const backfillWidgetStamps    = stampBackfill('widgets')
@@ -70,7 +69,6 @@ export const backfillQuestionStamps  = stampBackfill('questions')
 export const backfillWidgetedStamps  = stampBackfill('widgeteds')
 export const backfillReviewStamps    = stampBackfill('reviews')
 export const backfillReviewingStamps = stampBackfill('reviewings')
-export const backfillHuntingStamps   = stampBackfill('huntings')
 
 // The `bagshape` chain (the columnwise sprint's thread 10): every stored text that reads the bag,
 // rewritten in the words the bag has since it took the export's shape (`question`, `questions`,
@@ -187,7 +185,6 @@ export const backfillBagshapeWidgeteds = migrations.define({
  * It is never empty: `runAll`, a runner of the series, refuses to run none.
  */
 export const Backfills: readonly MigrationFunctionReference[] = [
-  internal.migrations.backfillIdentStamps,
   internal.migrations.backfillHuntStamps,
   internal.migrations.backfillRealmStamps,
   internal.migrations.backfillWidgetStamps,
@@ -198,7 +195,6 @@ export const Backfills: readonly MigrationFunctionReference[] = [
   internal.migrations.backfillWidgetedStamps,
   internal.migrations.backfillReviewStamps,
   internal.migrations.backfillReviewingStamps,
-  internal.migrations.backfillHuntingStamps,
   internal.migrations.backfillBagshapeWidgets,
   internal.migrations.backfillBagshapeWidgetings,
   internal.migrations.backfillBagshapeColumns,

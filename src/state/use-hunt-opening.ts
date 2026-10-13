@@ -4,7 +4,7 @@ import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { smithsOf, type HuntOpeningT, type ShallowHuntT, type SmithT } from '../lib/rows'
 import { ValidatorKit } from '../lib/validator'
-import type { HuntRole } from '../models/hunting'
+import type { HuntRole } from '../models/huntship'
 import { useSession } from './use-session'
 
 /**
@@ -18,7 +18,7 @@ export type HuntOpeningHandle = {
   finding: HuntFinding
   /** The hunt, with its quizzes, wheel and members; null until it is found */
   hunt:    ShallowHuntT | null
-  /** What this browser's ident does on the hunt; null when it is not on it, or the hunt has not arrived */
+  /** What this browser's user does on the hunt; null when it is not on it, or the hunt has not arrived */
   role:    HuntRole | null
   /** Who could put this visitor on the hunt; empty until the hunt has arrived */
   smiths:  readonly SmithT[]

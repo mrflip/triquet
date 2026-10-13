@@ -3,7 +3,7 @@
 import NextLink from './NextLink'
 import { Button, Link, Stack } from '@mui/material'
 import * as Routes from '../lib/routes'
-import { Hunting } from '../models/hunting'
+import { Huntship } from '../models/huntship'
 import { useHuntRepos } from '../state/use-hunt-repos'
 import { useHuntsList } from '../state/use-hunts-list'
 import { AppNotices, noSuchHuntNotice } from '../lib/notices'
@@ -27,7 +27,7 @@ type QuizRow = ShallowHuntT['realms'][number]['quizzes'][number]
 /** Where `quiz` of `hunt` lives, opened in the mode the visitor's role works in */
 function addressOf(hunt: ShallowHuntT, quiz: QuizRow): string {
   const realm = hunt.realms.find((each) => each.quizzes.includes(quiz)) ?? hunt.realms[0]
-  return Routes.quizPath({ org: hunt.org, hunt: hunt.label, realm: realm?.label ?? '', quiz: quiz.label }, Hunting.modeFor(hunt.role))
+  return Routes.quizPath({ org: hunt.org, hunt: hunt.label, realm: realm?.label ?? '', quiz: quiz.label }, Huntship.modeFor(hunt.role))
 }
 
 /**

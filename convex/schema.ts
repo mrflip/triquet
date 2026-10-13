@@ -5,9 +5,8 @@ import { zodOutputToConvex, zodOutputToConvexFields } from 'convex-helpers/serve
 import { authTables } from '@convex-dev/auth/server'
 import { ColumnValidators } from '../src/models/column'
 import { HuntValidators } from '../src/models/hunt'
-import { HuntingValidators } from '../src/models/hunting'
-import { IdentValidators } from '../src/models/ident'
-import { IdentingValidators } from '../src/models/identing'
+import { GhostingValidators } from '../src/models/ghosting'
+import { HuntshipValidators } from '../src/models/huntship'
 import { QuestionValidators } from '../src/models/question'
 import { QuizValidators } from '../src/models/quiz'
 import { RealmValidators } from '../src/models/realm'
@@ -15,6 +14,7 @@ import { ReviewValidators } from '../src/models/review'
 import { ReviewingValidators } from '../src/models/reviewing'
 import { SchemaStepValidators } from '../src/models/schema-step'
 import { SignalValidators } from '../src/models/signal'
+import { UserValidators } from '../src/models/user'
 import { WidgetValidators } from '../src/models/widget'
 import { WidgetedValidators, type JsonT } from '../src/models/widgeted'
 import { WidgetingValidators } from '../src/models/widgeting'
@@ -31,11 +31,14 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // A row's stamps (`created_at`, `updated_at`) are optional for good, in the row validators too:
 // the trigger writes them once a row has landed (`stamping.ts`), so a row goes in without them.
 //
-// The tables of Convex Auth (`users`, `authSessions`, `authAccounts` and the rest) are its own,
-// spread in as it ships them and written only by it: no row validator of ours derives them.
+// Convex Auth's own tables (`authSessions`, `authAccounts` and the rest) are spread in as it ships
+// them, and written only by it. Its `users` is ours: a custom `createOrUpdateUser` writes it
+// (`auth.ts`), so it is derived from our row validator, which keeps Convex Auth's fields beside
+// our own, and keeps its indexes (`email`, `phone`) by their names, which Convex Auth queries by.
 
-const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
-const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
+const authOwnTables      = _.omit(authTables, ['users'])
+const userFields        = zodOutputToConvexFields(UserValidators.row.shape)
+const ghostingFields    = zodOutputToConvexFields(GhostingValidators.row.shape)
 const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
 const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
@@ -58,7 +61,7 @@ const columnFields      = zodOutputToConvexFields(ColumnValidators.row.shape)
 const questionFields    = zodOutputToConvexFields(QuestionValidators.row.shape)
 const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
 const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
-const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)
+const huntshipFields    = zodOutputToConvexFields(HuntshipValidators.row.shape)
 const signalFields      = zodOutputToConvexFields(SignalValidators.row.shape)
 const schemaStepFields  = zodOutputToConvexFields(SchemaStepValidators.row.shape)
 
@@ -70,11 +73,11 @@ const schemaStepFields  = zodOutputToConvexFields(SchemaStepValidators.row.shape
  * read by its id.
  */
 export default defineSchema({
-  ...authTables,
-  /** A persona in the app, named by a label a person types to become it, held by the session that claimed it */
-  idents:      defineTable(identFields).index('by_label', ['label']),
-  /** One time a session asserted a userlabel: its newest is the ident it is now */
-  identings:   defineTable(identingFields).index('by_user_id', ['user_id']),
+  ...authOwnTables,
+  /** What a session is signed in as: the persona in the app, holding its userlabel, found by it, or by Convex Auth by its email or phone; one merged away is found by the user it merged into, while it still holds its userlabel */
+  users:       defineTable(userFields).index('email', ['email']).index('phone', ['phone']).index('by_userlabel', ['userlabel']).index('by_merged_into', ['merged.into_user_id', 'userlabel']),
+  /** A userlabel retired by a merge, held reserved until released: appended, never edited */
+  ghostings:   defineTable(ghostingFields).index('by_userlabel', ['userlabel']),
   /** A hunt: the unit of address and of membership, found by its label within its org (or, from an old address, by its label alone). Its realms hold its quizzes. */
   hunts:       defineTable(huntFields).index('by_label', ['label']).index('by_orglabel_and_label', ['orglabel', 'label']),
   /** A division of a hunt, holding quizzes, kept in the order its hunt lists them */
@@ -93,12 +96,12 @@ export default defineSchema({
   widgeteds:   defineTable(widgetedFields).index('by_question_id_and_widgeting_id', ['question_id', 'widgeting_id']).index('by_widgeting_id', ['widgeting_id']),
   /** What one widgeting run once for the whole quiz came to, for a formulary that stores: an entry's one row, upserted */
   quiz_widgeteds: defineTable(quizWidgetedFields).index('by_quiz_id_and_widgeting_id', ['quiz_id', 'widgeting_id']).index('by_widgeting_id', ['widgeting_id']),
-  /** One ident's review of one quiz. Hidden from the smiths until shared. */
-  reviews:     defineTable(reviewFields).index('by_quiz_id', ['quiz_id']).index('by_quiz_id_and_ident_id', ['quiz_id', 'ident_id']),
+  /** One user's review of one quiz. Hidden from the smiths until shared. */
+  reviews:     defineTable(reviewFields).index('by_quiz_id', ['quiz_id']).index('by_quiz_id_and_user_id', ['quiz_id', 'user_id']),
   /** One review's verdict on one question, made the first time the reviewer writes to it */
   reviewings:  defineTable(reviewingFields).index('by_review_id_and_question_id', ['review_id', 'question_id']).index('by_question_id', ['question_id']),
-  /** One ident's place on one hunt, with a role: at most one per hunt and ident */
-  huntings:    defineTable(huntingFields).index('by_hunt_id', ['hunt_id']).index('by_ident_id_and_hunt_id', ['ident_id', 'hunt_id']),
+  /** One user's place on one hunt, with a role: at most one per hunt and user */
+  huntships:   defineTable(huntshipFields).index('by_hunt_id', ['hunt_id']).index('by_user_id_and_hunt_id', ['user_id', 'hunt_id']),
   /** One quiz's change signal: when its files last changed, written by the database's trigger alone (`signalling.ts`), read by its smiths' browsers to know which quiz to fetch again */
   signals:     defineTable(signalFields).index('by_hunt_id', ['hunt_id']).index('by_quiz_id', ['quiz_id']),
   /** The migrations table: one schema step this backend has taken, recorded by whatever pushed it (`src/models/schema-step.ts`, `deploying.ts`) */

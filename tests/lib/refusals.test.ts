@@ -76,7 +76,7 @@ describe('refusingInvalid', () => {
 
 describe('refuse, with a sentence of its own', () => {
   it('carries the sentence given in place of the refusal\'s own', () => {
-    expect(dataOf(thrownBy(() => refuse('identUnknown', 'No ident is labelled "bob_reviews".')))).to.deep.eq({ failurekind: 'identUnknown', message: 'No ident is labelled "bob_reviews".' })
+    expect(dataOf(thrownBy(() => refuse('userUnknown', 'Nobody goes by the handle "bob_reviews".')))).to.deep.eq({ failurekind: 'userUnknown', message: 'Nobody goes by the handle "bob_reviews".' })
   })
 })
 

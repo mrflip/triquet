@@ -25,7 +25,7 @@
  * A local measurement wants the agents' production build, not a dev server: `pnpm build:agent`,
  * then `pnpm start:agent` (3004, the agents' backend).
  *
- * Every run writes to the database it is pointed at: two `measure_*` idents and a hunt of about
+ * Every run writes to the database it is pointed at: two `measure_*` users and a hunt of about
  * thirty questions, which the app has no way to delete. Hence `--remote`, required for any host
  * but this machine's.
  *
@@ -356,9 +356,9 @@ async function settle(ms: number): Promise<void> {
 }
 
 /** Say who this browser is at the front door, and wait to be sent on to the hunts */
-async function assumeIdent(page: Page, baseUrl: string, label: string): Promise<void> {
+async function assumeUserlabel(page: Page, baseUrl: string, label: string): Promise<void> {
   await page.goto(`${baseUrl}/`)
-  await page.getByLabel('Ident label').fill(label)
+  await page.getByLabel('Handle').fill(label)
   await page.getByRole('button', { name: 'Continue' }).click()
   await page.waitForURL(/\/my\/hunts$/, { timeout: 30_000 })
 }
@@ -377,7 +377,7 @@ async function openBrowser(browser: Browser): Promise<[BrowserContext, Page]> {
  */
 async function setUp(stage: Stage, sampleText: string, largest: SampleQuiz, stamp: string): Promise<string> {
   const { author, watcher, baseUrl } = stage
-  await assumeIdent(author, baseUrl, `measure_author_${stamp}`)
+  await assumeUserlabel(author, baseUrl, `measure_author_${stamp}`)
   await author.getByRole('button', { name: '+ New hunt' }).click()
   await author.waitForURL(/\/h\/[a-z0-9_]+\/home\/[a-z0-9_]+\?act=smith$/, { timeout: 30_000 })
   await author.getByRole('table').waitFor()
@@ -395,7 +395,7 @@ async function setUp(stage: Stage, sampleText: string, largest: SampleQuiz, stam
   await settle(2 * SettleMs)
 
   const quizUrl = author.url()
-  await assumeIdent(watcher, baseUrl, `measure_watcher_${stamp}`)
+  await assumeUserlabel(watcher, baseUrl, `measure_watcher_${stamp}`)
   await watcher.goto(quizUrl)
   await watcher.getByRole('table').waitFor()
   await settle(2 * SettleMs)
@@ -588,7 +588,7 @@ async function main(argv: readonly string[]): Promise<void> {
   const rounds = Number(opts.rounds)
   if (! Number.isSafeInteger(rounds) || rounds < 1) { throw new Error(`--rounds must be a whole number of at least 1\n${Usage}`) }
   if (! ['localhost', '127.0.0.1'].includes(target.hostname) && ! opts.remote) {
-    throw new Error(`${target.host} is not this machine, and a run leaves a hunt and two idents there that the app cannot delete. Say --remote to go ahead.`)
+    throw new Error(`${target.host} is not this machine, and a run leaves a hunt and two users there that the app cannot delete. Say --remote to go ahead.`)
   }
   if (! fs.existsSync(opts.sample)) { throw new Error(`No sample at ${opts.sample}; name one with --sample.\n${Usage}`) }
 

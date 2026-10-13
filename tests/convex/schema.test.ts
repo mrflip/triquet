@@ -8,9 +8,9 @@ import { StampedTables } from '../../convex/stamping'
 import { CategoryLabelVals } from '../../src/models/category'
 import { ColumnValidators } from '../../src/models/column'
 import { HuntValidators } from '../../src/models/hunt'
-import { HuntingValidators } from '../../src/models/hunting'
-import { IdentValidators } from '../../src/models/ident'
-import { IdentingValidators } from '../../src/models/identing'
+import { HuntshipValidators } from '../../src/models/huntship'
+import { UserValidators } from '../../src/models/user'
+import { GhostingValidators } from '../../src/models/ghosting'
 import { QuestionValidators } from '../../src/models/question'
 import { QuizValidators } from '../../src/models/quiz'
 import { RealmValidators } from '../../src/models/realm'
@@ -27,10 +27,16 @@ import { openTester, type Tester } from '../support/convex'
 // the two together: the same fields (kind by kind, for a table that is a union), bar those
 // retiring, every one required but those absentable for good, being backfilled or retired, and a
 // row the validator makes is one the table takes, while a row with a field of the wrong type is
-// refused. Convex Auth's tables are its own, derived from no row validator of ours, and left to it.
+// refused. Convex Auth's own tables are its own, derived from no row validator of ours, and left to
+// it; its `users` is ours, derived from `UserValidators.row`.
 
-/** Our tables: every one but Convex Auth's */
-type TableNames = Exclude<AllTableNames, keyof typeof authTables>
+/** Our tables: every one but Convex Auth's own, `users` among them */
+type TableNames = Exclude<AllTableNames, keyof typeof authTables> | 'users'
+
+/** Whether `tablename` is one of ours: not one of Convex Auth's own */
+function isOurs(tablename: string): boolean {
+  return tablename === 'users' || ! Object.hasOwn(authTables, tablename)
+}
 
 /** A row validator: one shape, or a union of shapes told apart by a field */
 type RowValidator = Z.ZodObject | Z.ZodDiscriminatedUnion<Z.ZodObject[]>
@@ -39,9 +45,9 @@ type RowValidator = Z.ZodObject | Z.ZodDiscriminatedUnion<Z.ZodObject[]>
 const RowValidators: Record<TableNames, RowValidator> = {
   columns:     ColumnValidators.row,
   hunts:       HuntValidators.row,
-  huntings:    HuntingValidators.row,
-  idents:      IdentValidators.row,
-  identings:   IdentingValidators.row,
+  ghostings:   GhostingValidators.row,
+  huntships:   HuntshipValidators.row,
+  users:       UserValidators.row,
   questions:   QuestionValidators.row,
   quizzes:     QuizValidators.row,
   realms:      RealmValidators.row,
@@ -64,7 +70,8 @@ const Stamps = ['created_at', 'updated_at']
  * follows the default one, and a column nobody has aligned centers Q# and lets every other cell
  * set itself, one with no formula shows what it picks as it is (identity), one with no template
  * draws the value as it is, one with no readout draws as the cells choose, and one never
- * collapsed is not; and every stamped row's stamps, a row the trigger has
+ * collapsed is not; a user is anonymous, unlabelled, no admin and without each field Convex Auth
+ * keeps until something gives it one; and every stamped row's stamps, a row the trigger has
  * not seen reading as made and last edited when the database made it (`Stamps.of`)
  */
 const Absentable: Partial<Record<TableNames, string[]>> = {
@@ -72,6 +79,7 @@ const Absentable: Partial<Record<TableNames, string[]>> = {
   hunts:   ['wheel', ...Stamps],
   quizzes: ['recap_template', ...Stamps],
   columns: ['align', 'formula', 'template', 'readout', 'collapsed', ...Stamps],
+  users:   ['name', 'image', 'email', 'emailVerificationTime', 'phone', 'phoneVerificationTime', 'isAnonymous', 'userlabel', 'title', 'admin', 'merged', 'provisional', ...Stamps],
 }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
@@ -114,21 +122,21 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const quiz_id = await insert('quizzes', quiz)
     const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', recap: 'Leon was the pseudonym.' })
     const question_id = await insert('questions', question)
-    const user_id = await ctx.db.insert('users', { isAnonymous: true })
-    const ident = IdentValidators.row({ label: 'flip_kromer', title: 'Flip', user_id })
-    const ident_id = await insert('idents', ident)
-    const review = ReviewValidators.row({ hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
+    const user = UserValidators.row({ isAnonymous: false, email: 'flip@example.com', emailVerificationTime: 1_759_700_000_000, name: 'Flip K', userlabel: 'flip_kromer', title: 'Flip', admin: true })
+    const user_id = await insert('users', user)
+    const account_id = await ctx.db.insert('authAccounts', { userId: user_id, provider: 'google', providerAccountId: 'google-sub-flip' })
+    const review = ReviewValidators.row({ hunt_id, quiz_id, user_id, overall: '', phase: 'empty' })
     const review_id = await insert('reviews', review)
     const widgeting = WidgetingValidators.row({ hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: '', params: { strictness: { level: 3, words: ['but', 'not'] } }, tier: 'question', position: 0 })
     const widgeting_id = await insert('widgetings', widgeting)
     return {
       hunts:       hunt,
-      huntings:    HuntingValidators.row({ hunt_id, ident_id, ident_label: ident.label, ident_title: ident.title, role: 'reviewer' }),
+      huntships:   HuntshipValidators.row({ hunt_id, user_id, userlabel: 'flip_kromer', usertitle: 'Flip', role: 'reviewer' }),
       realms:      realm,
       quizzes:     quiz,
       questions:   question,
-      idents:      ident,
-      identings:   IdentingValidators.row({ user_id, ident_id }),
+      users:       user,
+      ghostings:   GhostingValidators.row({ userlabel: 'old_flip', user_id, into_user_id: user_id, account_id }),
       widgets:     WidgetValidators.row({
         scope: 'pub', label: 'dumdum', title: 'Dumdum', description: '', formulary: 'aibot', formula: 'Answer this: {{clueing}}', input_formula: "{ 'clueing': question.clueing }",
         config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 }, position: 0,
@@ -137,7 +145,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
       columns:     ColumnValidators.row({ hunt_id, quiz_id, label: 'clueing', title: 'Clueing', source: 'clueing', width_px: 200, position: 0 }),
       reviews:     review,
       reviewings:  ReviewingValidators.row({
-        hunt_id, quiz_id, ident_id, review_id, question_id, get_rate: 40, guesses: 'Hamlet?', comments: 'Fair.', minutes: 2.5, keep_it: true, needs_fact_check: false, elimination_candidate: false, peeked: true,
+        hunt_id, quiz_id, user_id, review_id, question_id, get_rate: 40, guesses: 'Hamlet?', comments: 'Fair.', minutes: 2.5, keep_it: true, needs_fact_check: false, elimination_candidate: false, peeked: true,
       }),
       widgeteds:   WidgetedValidators.row({
         hunt_id, quiz_id, question_id, widgeting_id, status: 'ok', value: { guess: 'Hamlet', explanation: 'A prince.' }, message: null,
@@ -156,9 +164,9 @@ async function samplesIn(tt: Tester): Promise<Samples> {
 const WrongTyped: Record<TableNames, Record<string, unknown>> = {
   columns:     { width_px: '200px' },
   hunts:       { wheel: ['knitting'] },
-  huntings:    { role: 'owner' },
-  idents:      { label: null },
-  identings:   { user_id: 12 },
+  huntships:   { role: 'owner' },
+  users:       { userlabel: 12 },
+  ghostings:   { into_user_id: 12 },
   questions:   { position: 'first' },
   quizzes:     { locked: 'yes' },
   realms:      { hunt_id: 'nowhere' },
@@ -174,7 +182,7 @@ const WrongTyped: Record<TableNames, Record<string, unknown>> = {
 
 describe("every table and its row validator", () => {
   it("cover the same tables", () => {
-    const ours = Object.keys(schema.tables).filter((tablename) => ! Object.hasOwn(authTables, tablename))
+    const ours = Object.keys(schema.tables).filter((tablename) => isOurs(tablename))
     expect(ours.toSorted(alphabetically)).to.deep.eq(Object.keys(RowValidators).toSorted(alphabetically))
   })
 
@@ -205,7 +213,7 @@ describe("every table and its row validator", () => {
         const tt = openTester()
         const samples = await samplesIn(tt)
         const wrong = { ...samples[tablename], ...WrongTyped[tablename] }
-        await expect(tt.run(async (ctx) => { await ctx.db.insert(tablename, wrong as never) })).rejects.toThrow(/Validator error|failed to validate|does not match/i)
+        await expect(tt.run(async (ctx) => { await ctx.db.insert(tablename, wrong) })).rejects.toThrow(/Validator error|failed to validate|does not match/i)
       })
     })
   }
@@ -248,4 +256,17 @@ describe("every table and its row validator", () => {
       expect(() => RowValidators[tablename].parse(held)).to.throw(Z.ZodError)
     })
   }
+})
+
+/** A table's indexes, each as `name:field,field`, in a stable order to compare: read off the definition, which types them as its own */
+function indexesOf(table: unknown): string[] {
+  const { indexes } = table as { indexes: { indexDescriptor: string, fields: string[] }[] }
+  return indexes.map(({ indexDescriptor, fields }) => [indexDescriptor, fields.join(',')].join(':')).toSorted(alphabetically)
+}
+
+describe("the users table", () => {
+  it("keeps Convex Auth's indexes, email and phone, by the names it queries them by, beside ours", () => {
+    expect(indexesOf(schema.tables.users)).to.include.members(indexesOf(authTables.users))
+    expect(indexesOf(schema.tables.users)).to.include('by_userlabel:userlabel')
+  })
 })

@@ -30,7 +30,7 @@ export type InQuizT = InHuntT & { realm: string, quiz: string }
  * * `categories`, `members`: the hunt's wheel of categories, and who is on it.
  * * `quiz`: one quiz, whole.
  * * `questions`: one quiz's questions alone, to paste across quizzes.
- * * `review`: one reviewer's review of one quiz, by their ident label.
+ * * `review`: one reviewer's review of one quiz, by their userlabel.
  * * `widget`: one widget of the library, in its scope (`pub`).
  */
 export type AddressT =
@@ -261,8 +261,8 @@ function quizResourceFrom(inQuiz: InQuizT, keypath: readonly string[]): AddressT
 }
 
 /**
- * The org an address's first segment names: the ident label after its `~`; null when it names
- * none, as a label too short or too long to be an ident's does not.
+ * The org an address's first segment names: the userlabel after its `~`; null when it names
+ * none, as a label too short or too long to be a userlabel does not.
  *
  * @example orgFrom('~pat_smith')  // => 'pat_smith'
  * @example orgFrom('pat_smith')  // => null
@@ -272,7 +272,7 @@ function quizResourceFrom(inQuiz: InQuizT, keypath: readonly string[]): AddressT
 export function orgFrom(raw: string | null | undefined): string | null {
   if (! raw?.startsWith('~')) { return null }
   const org = raw.slice(1)
-  return isIdentlabel(org) ? org : null
+  return isHeldUserlabel(org) ? org : null
 }
 
 /**
@@ -294,7 +294,11 @@ function isLabel(str: string): boolean {
   return CK.label.safeParse(str).success
 }
 
-/** Whether `str` is an ident's label, as an org is, by the server's own check: a label, of an ident's length, and no reserved word */
-function isIdentlabel(str: string): boolean {
-  return CK.userlabel.safeParse(str).success
+/**
+ * Whether `str` is a userlabel as an org holds one, by the server's own check: a label, of a
+ * userlabel's length, and none of the words every label is kept from. A top-level word is an org's
+ * all the same, kept since the org was named (`CK.heldUserlabel`).
+ */
+function isHeldUserlabel(str: string): boolean {
+  return CK.heldUserlabel.safeParse(str).success
 }

@@ -151,10 +151,10 @@ against the real git and jq. `es-toolkit`'s `merge` does the same inside the app
 |---|---|---|---|
 | Hunt | `hunts` | `hunt.tqh.json`: `{ label, title, branch, created_at, updated_at }` at the root | `hunt.tqh.tsv` (one row) |
 | Categories | `hunts.wheel` | `categories.tqc.json`: `{ categories: { <label>: { position } } }`, every category, `position: null` for one in the pool | `categories.tqc.tsv` (a row per category) |
-| Members | `huntings` | `members.tqm.json`: `{ members: { <ident_label>: { title, role } } }` | `members.tqm.tsv` (a row per member) |
+| Members | `huntships` | `members.tqm.json`: `{ members: { <userlabel>: { title, role } } }` | `members.tqm.tsv` (a row per member) |
 | Quiz | `quizzes`, `questions` + `widgeteds`, `widgetings`, `columns` | `quizzes/<realm>/<quiz>.tqq.json`: `{ quizzes: { <realm>: { <quiz>: { title, smiths_note, q1_preamble, locked, last_sortkey, created_at, updated_at, questions, widgetings, columns } } } }`; each collection keyed by label with `position`, chains by label, every question (the archived too) with its `viz` and stamps, and every widgeting's `{ status, value }` beside its fields | `<quiz>.tqq.tsv` (one row, questions left out) |
 | Questions, alone | the same questions, **but the archived** | `quizzes/<realm>/<quiz>/questions.qq.json`: `{ questions: { … } }`, rooted at the quiz, **not merged**, each `position` among those it holds | `questions.qq.tsv` (a row per question) |
-| Review | `reviews` + `reviewings`, **shared only** | `quizzes/<realm>/<quiz>/reviews/<ident_label>.tqr.json`: `…<quiz>: { reviews: { <ident_label>: { overall, created_at, updated_at, verdicts: { <question label>: { …, created_at, updated_at } } } } }` | `<ident_label>.tqr.tsv` (a row per question) |
+| Review | `reviews` + `reviewings`, **shared only** | `quizzes/<realm>/<quiz>/reviews/<userlabel>.tqr.json`: `…<quiz>: { reviews: { <userlabel>: { overall, created_at, updated_at, verdicts: { <question label>: { …, created_at, updated_at } } } } }` | `<userlabel>.tqr.tsv` (a row per question) |
 | Widget worked | `widgets` (the library's) | `<scope>/widgets/<label>.tqw.json` (`pub/widgets/dumdum.tqw.json`, at the path of its address, `/pub/widgets/dumdum`): `{ <scope>: { widgets: { <label>: { position, … } } } }`, as `Widget.exported` gives it, `position` its place in the library | `<label>.tqw.tsv` (one row, its `config` one cell of JSON) |
 
 A `README.md` at the root (`Huntfiles.Readme`) says what the repository is, what each file
@@ -174,7 +174,7 @@ every hunt and never changes with one: written once, when the repository is made
 * **Realms**: every hunt holds only `home`, so a realm's own title and position are not written.
   A realm written later wants a kind of its own (`realms.<realm>`), since `quizzes.<realm>` holds
   quizzes by label.
-* **Idents, identings, users, sessions**: these say who is asking, not what a hunt holds.
+* **Users, accounts, sessions, ghostings**: these say who is asking, not what a hunt holds.
   Members carries what the hunt needs of them.
 * **The library apart from what the hunt works**: it belongs to no hunt.
 

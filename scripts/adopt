@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Gives one user a userlabel (though a hunt's address holds it), the admin flag, and a role on one
+# hunt or every hunt: what only the command line may give. A dry run that says what it would
+# change, unless --deployment names the deployment reached (scripts/janitor.ts). Running it again
+# changes nothing more. See scripts/adopt.ts, and notes/deploy.md, *Adopting a user*.
+#
+#   ./scripts/doppledo prd_janitor scripts/adopt --email <the Coach's> --userlabel mrflip --admin --smith-all
+#
+# Usage: scripts/adopt (--email <address> | --holding <userlabel> | --id <user id>)
+#          [--userlabel <userlabel>] [--title <title>] [--admin | --no-admin]
+#          [--smith <~org/hunt>]... [--reviewer <~org/hunt>]... [--smith-all] [--reviewer-all]
+#          [--deployment <name>]
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec node_modules/.bin/tsx scripts/adopt.ts "$@"

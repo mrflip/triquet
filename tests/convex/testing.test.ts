@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { internal } from '../../convex/_generated/api'
+import { api, internal } from '../../convex/_generated/api'
 import { Hunt } from '../../src/models/hunt'
 import * as PA from '../../src/lib/vv/patterns'
 import { EstimatesColumnWidthPx, NewColumnWidthPx } from '../../src/lib/widgeting-edit'
 import { AddedColumnWidthPx } from '../../src/models/layout'
-import { identified, openTester, seedHunt, type Tester } from '../support/convex'
+import { anonymousUser, googleUser, openTester, seedHunt, type Tester } from '../support/convex'
 import { present } from '../support/present'
 
 /** How many rows each table holds that has any */
 async function countsIn(tt: Tester): Promise<Record<string, number>> {
   return await tt.run(async (ctx) => {
-    const tablenames = ['hunts', 'realms', 'quizzes', 'questions', 'widgets', 'widgetings', 'widgeteds', 'columns', 'idents', 'huntings', 'signals'] as const
+    const tablenames = ['hunts', 'realms', 'quizzes', 'questions', 'widgets', 'widgetings', 'widgeteds', 'columns', 'users', 'huntships', 'signals'] as const
     const counts = await Promise.all(tablenames.map(async (tablename) => {
       const rows = await ctx.db.query(tablename).collect()
       return [tablename, rows.length] as const
@@ -56,12 +56,12 @@ describe("testing.clearAll", () => {
   it("deletes a batch of rows a run, leaving the rest for the next, and says none once empty", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
-    const labels = Array.from({ length: 501 }, (_unused, idx) => `ident_${String(idx)}`)
+    const labels = Array.from({ length: 501 }, (_unused, idx) => `user_${String(idx)}`)
     await tt.run(async (ctx) => {
-      for (const label of labels) { await ctx.db.insert('idents', { label, title: 'Someone', user_id: null }) }
+      for (const label of labels) { await ctx.db.insert('users', { userlabel: label, title: 'Someone' }) }
     })
     expect(await tt.mutation(internal.testing.clearAll, {})).to.eq(500)
-    expect(await countsIn(tt)).to.deep.eq({ idents: 1 })
+    expect(await countsIn(tt)).to.deep.eq({ users: 1 })
     expect(await tt.mutation(internal.testing.clearAll, {})).to.eq(1)
     expect(await tt.mutation(internal.testing.clearAll, {})).to.eq(0)
   })
@@ -78,7 +78,7 @@ async function madeOf(tt: Tester, address: string) {
   const { org, hunt } = huntLabelsOf(address)
   return await tt.run(async (ctx) => {
     const row = present(await ctx.db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', org).eq('label', hunt)).first())
-    const huntings = await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', row._id)).collect()
+    const huntships = await ctx.db.query('huntships').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', row._id)).collect()
     const quiz = present(await ctx.db.query('quizzes').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', row._id)).first())
     const widgetings = await ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz._id)).collect()
     const columns = await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz._id)).collect()
@@ -86,7 +86,7 @@ async function madeOf(tt: Tester, address: string) {
       org:        row.orglabel,
       hunt:       row.label,
       quiz:       quiz.label,
-      smiths:     huntings.filter((hunting) => hunting.role === 'smith').map((hunting) => hunting.ident_label),
+      smiths:     huntships.filter((huntship) => huntship.role === 'smith').map((huntship) => huntship.userlabel),
       widgetings: widgetings.map((widgeting) => [widgeting.label, widgeting.widget_label]),
       columns:    columns.map((column) => [column.label, column.title, column.source, column.width_px]),
     }
@@ -98,11 +98,11 @@ describe("testing.makeHunt", () => {
     vi.unstubAllEnvs()
   })
 
-  it("makes a hunt of the ident's org with the ident its smith, and hands back where its quiz is worked on", async () => {
+  it("makes a hunt of the user's org with the user its smith, and hands back where its quiz is worked on", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
-    await identified(tt, 'tester_maker')
-    const address = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })
+    await googleUser(tt, 'tester_maker')
+    const address = await tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_maker' })
     expect(address).to.match(/^\/~tester_maker\/([a-z0-9_]+)\/quizzes\/home\/\1\/!edit$/)
     const made = await madeOf(tt, address)
     expect([made.org, made.smiths, made.quiz]).to.deep.eq(['tester_maker', ['tester_maker'], made.hunt])
@@ -110,28 +110,39 @@ describe("testing.makeHunt", () => {
     expect(made.columns.map(([label]) => label)).to.deep.eq(['title', 'qnum', 'clueing', 'full_answer', 'notes'])
   })
 
-  it("makes each hunt for one ident a hunt of its own", async () => {
+  it("makes each hunt for one user a hunt of its own, anonymous or not: past sealing, as an admin's command", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
-    await identified(tt, 'tester_maker')
-    const first = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })
-    const second = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })
+    await anonymousUser(tt, 'tester_anon')
+    const first = await tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_anon' })
+    const second = await tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_anon' })
+    expect(second).not.to.eq(first)
+    const made = await madeOf(tt, second)
+    expect(made.smiths).to.deep.eq(['tester_anon'])
+  })
+
+  it("makes each hunt for one user a hunt of its own", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    await googleUser(tt, 'tester_maker')
+    const first = await tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_maker' })
+    const second = await tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_maker' })
     expect(second).not.to.eq(first)
     const made = await madeOf(tt, second)
     expect(made.smiths).to.deep.eq(['tester_maker'])
   })
 
-  it("makes a hunt for an ident whose org holds as many as one userlabel may make", async () => {
+  it("makes a hunt for a user whose org holds as many as one userlabel may make", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
-    await identified(tt, 'tester_maker')
+    await googleUser(tt, 'tester_maker')
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.HuntsPerOrg.max }, (_unused, idx) => `hunt_${String(idx)}`)
       for (const label of labels) {
         await ctx.db.insert('hunts', { label, orglabel: 'tester_maker', title: '', branch: 'main' })
       }
     })
-    const made = await madeOf(tt, await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' }))
+    const made = await madeOf(tt, await tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_maker' }))
     expect(made.smiths).to.deep.eq(['tester_maker'])
   })
 
@@ -139,8 +150,8 @@ describe("testing.makeHunt", () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
     await tt.mutation(internal.seeding.seedWidgets, {})
-    await identified(tt, 'tester_maker')
-    const address = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker', widgetings: ['dumdum', 'clueing_full', 'category_data', 'dumdum'], columns: ['hint', 'butnot'] })
+    await googleUser(tt, 'tester_maker')
+    const address = await tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_maker', widgetings: ['dumdum', 'clueing_full', 'category_data', 'dumdum'], columns: ['hint', 'butnot'] })
     const made = await madeOf(tt, address)
     expect(made.widgetings).to.deep.eq([['dumdum', 'dumdum'], ['clueing_full', 'clueing_full'], ['category_data', 'category_data'], ['dumdum_2', 'dumdum']])
     expect(made.columns.slice(5)).to.deep.eq([
@@ -153,28 +164,28 @@ describe("testing.makeHunt", () => {
     ])
   })
 
-  it("refuses an ident no session holds, writing nothing", async () => {
+  it("refuses a userlabel no user holds, writing nothing", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
-    await expect(tt.mutation(internal.testing.makeHunt, { ident: 'tester_nobody' })).rejects.toThrow(/No session holds the ident tester_nobody/)
+    await expect(tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_nobody' })).rejects.toThrow(/No user holds the userlabel tester_nobody/)
     expect(await countsIn(tt)).to.deep.eq({})
   })
 
   it("refuses a widget the library lacks, writing nothing", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
-    await identified(tt, 'tester_maker')
+    await googleUser(tt, 'tester_maker')
     const before = await countsIn(tt)
-    await expect(tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker', widgetings: ['no_such_widget'] })).rejects.toThrow(/no widget no_such_widget/)
+    await expect(tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_maker', widgetings: ['no_such_widget'] })).rejects.toThrow(/no widget no_such_widget/)
     expect(await countsIn(tt)).to.deep.eq(before)
   })
 
   it("refuses a deployment that may not be made into, writing nothing", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', '')
     const tt = openTester()
-    await identified(tt, 'tester_maker')
+    await googleUser(tt, 'tester_maker')
     const before = await countsIn(tt)
-    await expect(tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
+    await expect(tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_maker' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
     expect(await countsIn(tt)).to.deep.eq(before)
   })
 })
@@ -184,16 +195,16 @@ async function membersOf(tt: Tester, address: string): Promise<[string, string][
   const { org, hunt } = huntLabelsOf(address)
   return await tt.run(async (ctx) => {
     const row = present(await ctx.db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', org).eq('label', hunt)).first())
-    const huntings = await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', row._id)).collect()
-    return huntings.map((hunting): [string, string] => [hunting.ident_label, hunting.role])
+    const huntships = await ctx.db.query('huntships').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', row._id)).collect()
+    return huntships.map((huntship): [string, string] => [huntship.userlabel, huntship.role])
   })
 }
 
-/** A hunt `tester_maker` made, and `tester_friend`, who has chosen their label and is on no hunt */
+/** A hunt `tester_maker` made, and `tester_friend`, signed in with Google, holding their userlabel, and on no hunt */
 async function huntAndFriend(tt: Tester): Promise<string> {
-  await identified(tt, 'tester_maker')
-  await identified(tt, 'tester_friend')
-  return await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })
+  await googleUser(tt, 'tester_maker')
+  await googleUser(tt, 'tester_friend')
+  return await tt.mutation(internal.testing.makeHunt, { userlabel: 'tester_maker' })
 }
 
 describe("testing.putOnHunt", () => {
@@ -201,29 +212,39 @@ describe("testing.putOnHunt", () => {
     vi.unstubAllEnvs()
   })
 
-  it("puts an ident on a hunt of an org with the role given, beside its smith", async () => {
+  it("puts a user on a hunt of an org with the role given, beside its smith", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
     const address = await huntAndFriend(tt)
-    await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), ident: 'tester_friend', role: 'reviewer' })
+    await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), userlabel: 'tester_friend', role: 'reviewer' })
     expect(await membersOf(tt, address)).to.deep.eq([['tester_maker', 'smith'], ['tester_friend', 'reviewer']])
   })
 
-  it("changes the role of an ident already on the hunt, never putting them on twice", async () => {
+  it("changes the role of a user already on the hunt, never putting them on twice", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
     const address = await huntAndFriend(tt)
-    await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), ident: 'tester_friend', role: 'reviewer' })
-    await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), ident: 'tester_friend', role: 'smith' })
+    await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), userlabel: 'tester_friend', role: 'reviewer' })
+    await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), userlabel: 'tester_friend', role: 'smith' })
     expect(await membersOf(tt, address)).to.deep.eq([['tester_maker', 'smith'], ['tester_friend', 'smith']])
   })
 
-  it("refuses an ident nobody has chosen, writing nothing", async () => {
+  it("refuses an anonymous user, sealed in its sandbox, writing nothing", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const address = await huntAndFriend(tt)
+    await anonymousUser(tt, 'tester_anon')
+    const before = await countsIn(tt)
+    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), userlabel: 'tester_anon', role: 'reviewer' })).rejects.toThrow(/signed in with Google/)
+    expect(await countsIn(tt)).to.deep.eq(before)
+  })
+
+  it("refuses a userlabel nobody has chosen, writing nothing", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
     const address = await huntAndFriend(tt)
     const before = await countsIn(tt)
-    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), ident: 'tester_nobody', role: 'smith' })).rejects.toThrow(/tester_nobody/)
+    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), userlabel: 'tester_nobody', role: 'smith' })).rejects.toThrow(/tester_nobody/)
     expect(await countsIn(tt)).to.deep.eq(before)
   })
 
@@ -232,7 +253,7 @@ describe("testing.putOnHunt", () => {
     const tt = openTester()
     const address = await huntAndFriend(tt)
     const before = await countsIn(tt)
-    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), org: 'tester_friend', ident: 'tester_friend', role: 'smith' })).rejects.toThrow(/~tester_friend has no hunt/)
+    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), org: 'tester_friend', userlabel: 'tester_friend', role: 'smith' })).rejects.toThrow(/~tester_friend has no hunt/)
     expect(await countsIn(tt)).to.deep.eq(before)
   })
 
@@ -242,7 +263,83 @@ describe("testing.putOnHunt", () => {
     const address = await huntAndFriend(tt)
     vi.stubEnv('TRIQUET_CLEARABLE', '')
     const before = await countsIn(tt)
-    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), ident: 'tester_friend', role: 'smith' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
+    await expect(tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), userlabel: 'tester_friend', role: 'smith' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
     expect(await countsIn(tt)).to.deep.eq(before)
+  })
+})
+
+describe("testing.vouchFor", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("makes an anonymous user no longer anonymous, as signing in with Google would, so it may be put on a hunt", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'tester_anon')
+    const address = await huntAndFriend(tt)
+    await tt.mutation(internal.testing.vouchFor, { userlabel: 'tester_anon' })
+    const user = present(await tt.run(async (ctx) => await ctx.db.get('users', anon.user_id)))
+    await tt.mutation(internal.testing.putOnHunt, { ...huntLabelsOf(address), userlabel: 'tester_anon', role: 'reviewer' })
+    const members = await membersOf(tt, address)
+    expect([user.isAnonymous, members.at(-1)]).to.deep.eq([false, ['tester_anon', 'reviewer']])
+  })
+
+  it("gives the user the email asked for, as Google would have sent it, for its owner to be shown", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'tester_anon')
+    await tt.mutation(internal.testing.vouchFor, { userlabel: 'tester_anon', email: 'tester@example.com' })
+    expect(await anon.as.query(api.users.own, {})).to.deep.eq({ google: true, email: 'tester@example.com', suggested: null, nameChoice: null })
+  })
+
+  it("signs nobody in, and touches no account", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    await anonymousUser(tt, 'tester_anon')
+    const before = await tt.run(async (ctx) => [await ctx.db.query('authAccounts').collect(), await ctx.db.query('authSessions').collect()])
+    await tt.mutation(internal.testing.vouchFor, { userlabel: 'tester_anon' })
+    expect(await tt.run(async (ctx) => [await ctx.db.query('authAccounts').collect(), await ctx.db.query('authSessions').collect()])).to.deep.eq(before)
+  })
+
+  it("refuses a userlabel no user holds, and a deployment that may not be made into, writing nothing", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'tester_anon')
+    await expect(tt.mutation(internal.testing.vouchFor, { userlabel: 'tester_nobody' })).rejects.toThrow(/No user holds the userlabel tester_nobody/)
+    vi.stubEnv('TRIQUET_CLEARABLE', '')
+    await expect(tt.mutation(internal.testing.vouchFor, { userlabel: 'tester_anon' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
+    const user = await tt.run(async (ctx) => await ctx.db.get('users', anon.user_id))
+    expect(user?.isAnonymous).to.be.true
+  })
+})
+
+describe("testing.mergeInto", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("marks one user merged into another, which then has a name choice between the two handles, signing nobody in", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const [anon, alice] = [await anonymousUser(tt, 'tester_anon'), await googleUser(tt, 'tester_alice')]
+    const before = await tt.run(async (ctx) => await ctx.db.query('authSessions').collect())
+    await tt.mutation(internal.testing.mergeInto, { userlabel: 'tester_anon', into: 'tester_alice' })
+    const gone = present(await tt.run(async (ctx) => await ctx.db.get('users', anon.user_id)))
+    expect(gone.merged?.into_user_id).to.eq(alice.user_id)
+    expect(await alice.as.query(api.users.own, {})).to.deep.include({ nameChoice: { merged: { userlabel: 'tester_anon', title: 'Tester Anon' }, own: { userlabel: 'tester_alice', title: 'Tester Alice' } } })
+    expect(await tt.run(async (ctx) => await ctx.db.query('authSessions').collect())).to.deep.eq(before)
+  })
+
+  it("refuses a userlabel no user holds, and a deployment that may not be made into, writing nothing", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    const anon = await anonymousUser(tt, 'tester_anon')
+    await googleUser(tt, 'tester_alice')
+    await expect(tt.mutation(internal.testing.mergeInto, { userlabel: 'tester_anon', into: 'tester_nobody' })).rejects.toThrow(/No user holds the userlabel tester_nobody/)
+    vi.stubEnv('TRIQUET_CLEARABLE', '')
+    await expect(tt.mutation(internal.testing.mergeInto, { userlabel: 'tester_anon', into: 'tester_alice' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
+    const gone = await tt.run(async (ctx) => await ctx.db.get('users', anon.user_id))
+    expect(gone?.merged).to.be.undefined
   })
 })

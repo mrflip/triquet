@@ -10,7 +10,7 @@ import type { Tester } from './convex'
 // together, so a test of a write can end by checking it left nothing dangling. Each check is
 // named, and a new one is a new entry in `SoundnessChecks`.
 
-/** The tables a test reads back whole: ours, and Convex Auth's `users`, which ours point at */
+/** The tables a test reads back whole: ours, `users` among them, and none of Convex Auth's own */
 export type HeldTablename = Exclude<TableNames, keyof typeof authTables> | 'users'
 
 /** Every row of every table a test reads back, by table */
@@ -19,22 +19,23 @@ export type Held = { [TN in HeldTablename]: Doc<TN>[] }
 /** One named thing a sound deployment holds to, and every place `held` breaks it, each in a line */
 export type SoundnessCheck = { title: string, faultsOf: (held: Held) => string[] }
 
-/** Our tables, and `users` */
+/** Our tables, `users` among them */
 const HeldTablenames = [
   ...Object.keys(schema.tables).filter((tablename) => ! Object.hasOwn(authTables, tablename)),
   'users',
 ] as HeldTablename[]
 
-/** The table each id field of a row points into, by the field's name */
-const TableForIdField: Record<string, HeldTablename> = {
+/** The table each id field of a row points into, by the field's name; null for one of Convex Auth's own, which no test reads back */
+const TableForIdField: Record<string, HeldTablename | null> = {
   hunt_id:      'hunts',
-  ident_id:     'idents',
   question_id:  'questions',
   quiz_id:      'quizzes',
   realm_id:     'realms',
   review_id:    'reviews',
   user_id:      'users',
+  into_user_id: 'users',
   widgeting_id: 'widgetings',
+  account_id:   null,
 }
 
 /** Every key of `keys` an earlier one already had */
@@ -57,9 +58,9 @@ function danglingIds(held: Held): string[] {
   const idsIn = new Map(HeldTablenames.map((tablename) => [tablename, new Set<string>(held[tablename].map((row) => row._id))]))
   const fieldFaults = HeldTablenames.filter((tablename) => tablename !== 'users').flatMap((tablename) => (
     (held[tablename] as Record<string, unknown>[]).flatMap((row) => Object.entries(row).flatMap(([fieldname, val]) => {
-      // A null id points nowhere on purpose: an ident nobody has claimed.
       if (typeof val !== 'string' || fieldname === '_id' || ! fieldname.endsWith('_id')) { return [] }
       const target = TableForIdField[fieldname]
+      if (target === null) { return [] }
       if (! target) { return [`${tablename}.${fieldname}: no table is known for this field`] }
       return idsIn.get(target)?.has(val) ? [] : [`${tablename}.${fieldname} ${val} names no row of ${target}`]
     }))
@@ -119,6 +120,15 @@ function sharedLabels(held: Held): string[] {
   ]
 }
 
+/** Every userlabel held once: by one user, or retired into one ghosting, and never by both (`holderOfUserlabel` reads them as one) */
+function sharedUserlabels(held: Held): string[] {
+  const userlabels = [
+    ...held.users.flatMap((user) => (user.userlabel === undefined ? [] : [user.userlabel])),
+    ...held.ghostings.map((ghosting) => ghosting.userlabel),
+  ]
+  return repeatsIn(userlabels).map((userlabel) => `${userlabel} is held twice`)
+}
+
 /**
  * One field a row holds a copy of (`notes/convex.md`, *Denormalized fields*): the table and field,
  * the field of the row naming the parent it is copied from (`via`), and the parent's table and the
@@ -142,9 +152,9 @@ export const Copies: readonly Copy[] = [
   { tablename: 'reviews',    fieldname: 'hunt_id',     via: 'quiz_id',      parent: 'quizzes',    from: 'hunt_id' },
   { tablename: 'reviewings', fieldname: 'hunt_id',     via: 'review_id',    parent: 'reviews',    from: 'hunt_id' },
   { tablename: 'reviewings', fieldname: 'quiz_id',     via: 'review_id',    parent: 'reviews',    from: 'quiz_id' },
-  { tablename: 'reviewings', fieldname: 'ident_id',    via: 'review_id',    parent: 'reviews',    from: 'ident_id' },
-  { tablename: 'huntings',   fieldname: 'ident_label', via: 'ident_id',     parent: 'idents',     from: 'label' },
-  { tablename: 'huntings',   fieldname: 'ident_title', via: 'ident_id',     parent: 'idents',     from: 'title' },
+  { tablename: 'reviewings', fieldname: 'user_id',     via: 'review_id',    parent: 'reviews',    from: 'user_id' },
+  { tablename: 'huntships',  fieldname: 'userlabel',   via: 'user_id',      parent: 'users',      from: 'userlabel' },
+  { tablename: 'huntships',  fieldname: 'usertitle',   via: 'user_id',      parent: 'users',      from: 'title' },
   { tablename: 'widgeteds',  fieldname: 'quiz_id',     via: 'widgeting_id', parent: 'widgetings', from: 'quiz_id' },
   { tablename: 'quiz_widgeteds', fieldname: 'quiz_id', via: 'widgeting_id', parent: 'widgetings', from: 'quiz_id' },
   { tablename: 'reviewings', fieldname: 'quiz_id',     via: 'question_id',  parent: 'questions',  from: 'quiz_id' },
@@ -172,6 +182,7 @@ export const SoundnessChecks: SoundnessCheck[] = [
   { title: 'every chain names a sibling',                         faultsOf: danglingChains },
   { title: "every column's source names something showable",      faultsOf: unshowableSources },
   { title: 'no two hunts, nor two quizzes of a realm, share a label', faultsOf: sharedLabels },
+  { title: 'no two users, nor a user and a ghosting, hold one userlabel', faultsOf: sharedUserlabels },
   ...Copies.map((copy) => ({ title: `${copy.tablename}.${copy.fieldname} is its ${copy.via}'s ${copy.from}`, faultsOf: staleCopies(copy) })),
 ]
 

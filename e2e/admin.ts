@@ -1,7 +1,9 @@
 /**
  * The spec process's own line to the suite's Convex backend, as its admin: how the way in makes a
- * hunt without walking the hunts list (`testing:makeHunt`), and how a spec puts a second visitor on
- * it without walking the Members panel (`putOnHunt`).
+ * hunt without walking the hunts list (`testing:makeHunt`), how a spec puts a second visitor on
+ * it without walking the Members panel (`putOnHunt`), and how a visitor is vouched for as no longer
+ * anonymous, or left a name choice by a merge, since nothing automated signs in to Google
+ * (`vouchFor`, `mergeInto`).
  *
  * The admin key is the one `scripts/convex_backend` wrote beside the role's data when it started
  * the backend (`data/convex-<role>/cli.env`), which `scripts/convex_dev` and `scripts/convex_reset`
@@ -15,7 +17,7 @@ import path from 'node:path'
 import { parseEnv } from 'node:util'
 import * as Z from 'zod'
 import type * as Routes from '../src/lib/routes'
-import type { HuntRole } from '../src/models/hunting'
+import type { HuntRole } from '../src/models/huntship'
 import * as Environment from './environment'
 
 /** Where the suite's backend answers, and the key that makes a call an admin's */
@@ -39,7 +41,7 @@ const Held: { admin: AdminT | null } = { admin: null }
  * @returns What it returned.
  * @throws When the backend is not the suite's own, answers with anything but a reply, or the function throws; with what it said.
  *
- * @example await runAsAdmin('testing:makeHunt', { ident: 'tester_0123abcd' })  // => '/~tester_0123abcd/quiet_otter/quizzes/home/quiet_otter/!edit', say
+ * @example await runAsAdmin('testing:makeHunt', { userlabel: 'tester_0123abcd' })  // => '/~tester_0123abcd/quiet_otter/quizzes/home/quiet_otter/!edit', say
  */
 export async function runAsAdmin(fnpath: string, args: Record<string, unknown>): Promise<unknown> {
   const { url, key } = adminOf()
@@ -56,19 +58,52 @@ export async function runAsAdmin(fnpath: string, args: Record<string, unknown>):
 }
 
 /**
- * Put the ident labelled `label` on `hunt` as `role`, as a smith would from the Members panel, but
- * through the backend (`testing:putOnHunt`): for a spec whose second visitor is not what it is
- * about. The panel's own way stays with the specs about the panel (`addMember` in support).
+ * Put the user holding the userlabel `label` on `hunt` as `role`, as a smith would from the Members
+ * panel, but through the backend (`testing:putOnHunt`): for a spec whose second visitor is not
+ * what it is about. The panel's own way stays with the specs about the panel (`addMember` in
+ * support). An anonymous user is refused, as the panel refuses one: vouch for it first
+ * (`vouchFor`), as the fixture's own sessions are.
  *
  * @param hunt - The hunt, by its org and label: `huntOf(page)` for the one a page has open.
- * @param label - The ident to put on it, which must have been chosen at the front door.
+ * @param label - The userlabel of the user to put on it, chosen at the front door.
  * @param role - What they are to do on it.
- * @throws When the hunt or the ident is not there; with what the backend said.
+ * @throws When the hunt or the user is not there, or the user is anonymous; with what the backend said.
  *
  * @example await putOnHunt(huntOf(page), friendLabel, 'reviewer')
  */
 export async function putOnHunt(hunt: Routes.HuntLabels, label: string, role: HuntRole): Promise<void> {
-  await runAsAdmin('testing:putOnHunt', { org: hunt.org, hunt: hunt.hunt, ident: label, role })
+  await runAsAdmin('testing:putOnHunt', { org: hunt.org, hunt: hunt.hunt, userlabel: label, role })
+}
+
+/**
+ * Vouch for the user holding the userlabel `label` as no longer anonymous, as signing in with
+ * Google would leave it (`testing:vouchFor`): nothing automated signs in to Google, and a user
+ * still anonymous is sealed in its sandbox (no other hunt, no reviews). Signs nobody in.
+ *
+ * @param label - The userlabel of the user, chosen at the front door.
+ * @param email - The email it is to hold, as Google would have sent it, for a spec of what its owner is shown.
+ * @throws When no user holds it; with what the backend said.
+ *
+ * @example await vouchFor(await assumeUserlabel(stranger))
+ * @example await vouchFor(label, `${label}@example.com`)
+ */
+export async function vouchFor(label: string, email?: string): Promise<void> {
+  await runAsAdmin('testing:vouchFor', { userlabel: label, ...(email !== undefined && { email }) })
+}
+
+/**
+ * Leave the user holding the userlabel `into` a name choice, as a Google sign-in's merge would
+ * (`testing:mergeInto`): the user holding `label` is marked merged into it. Nothing automated
+ * signs in to Google, so nothing else can. Signs nobody in.
+ *
+ * @param label - The userlabel of the user merged away: the handle the merged browser went by.
+ * @param into - The userlabel of the user it merged into.
+ * @throws When no user holds either; with what the backend said.
+ *
+ * @example await mergeInto(await assumeUserlabel(stranger), label)
+ */
+export async function mergeInto(label: string, into: string): Promise<void> {
+  await runAsAdmin('testing:mergeInto', { userlabel: label, into })
 }
 
 /** `body` read as JSON; null when it is not */

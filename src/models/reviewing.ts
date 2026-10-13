@@ -27,7 +27,7 @@ export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish
       .describe('The hunt of the review it is part of, copied from the review when the reviewing is made.'),
     quiz_id:               zid('quizzes')
       .describe('The quiz of the review it is part of, copied from the review when the reviewing is made.'),
-    ident_id:              zid('idents')
+    user_id:               zid('users')
       .describe('Who wrote the review it is part of, copied from the review when the reviewing is made.'),
     review_id:             zid('reviews')
       .describe('The review this verdict is part of.'),
@@ -67,7 +67,7 @@ export type ReviewingRowT  = Z.output<typeof ReviewingValidators.row>
 export type ReviewingPatch = Z.output<typeof ReviewingValidators.reviewingPatch>
 
 /** What a reviewing copies from its review: the review's row id, hunt, quiz and writer */
-export type ReviewOfReviewingT = { _id: ReviewingDNA['review_id'] } & Pick<ReviewingDNA, 'hunt_id' | 'quiz_id' | 'ident_id'>
+export type ReviewOfReviewingT = { _id: ReviewingDNA['review_id'] } & Pick<ReviewingDNA, 'hunt_id' | 'quiz_id' | 'user_id'>
 
 /** The flags a reviewer may raise on a question, each with the face it shows as, the word beside it, and what it means */
 export const ReviewingFlags = [
@@ -88,7 +88,7 @@ export type PickFlag = keyof typeof PickFlags
 export class Reviewing implements ReviewingRowT {
   declare hunt_id:               ReviewingRowT['hunt_id']
   declare quiz_id:               ReviewingRowT['quiz_id']
-  declare ident_id:              ReviewingRowT['ident_id']
+  declare user_id:               ReviewingRowT['user_id']
   declare review_id:             ReviewingRowT['review_id']
   declare question_id:           ReviewingRowT['question_id']
   declare get_rate:              number | null
@@ -113,8 +113,8 @@ export class Reviewing implements ReviewingRowT {
    * @example Reviewing.blank(review, question._id).get_rate  // => null
    */
   static blank(review: ReviewOfReviewingT, question_id: ReviewingDNA['question_id']): ReviewingRowT {
-    const { _id: review_id, hunt_id, quiz_id, ident_id } = review
-    return ReviewingValidators.row({ hunt_id, quiz_id, ident_id, review_id, question_id })
+    const { _id: review_id, hunt_id, quiz_id, user_id } = review
+    return ReviewingValidators.row({ hunt_id, quiz_id, user_id, review_id, question_id })
   }
 
   /**

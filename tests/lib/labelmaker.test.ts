@@ -101,7 +101,7 @@ describe('isReserved', () => {
     expect(Labelmaker.isReserved('pricing', { toplevel: true })).to.be.true
   })
 
-  it("keeps a hunt's or an ident's label from the top-level words only when asked", () => {
+  it("keeps a hunt's label or a userlabel from the top-level words only when asked", () => {
     expect(Labelmaker.isReserved('pricing')).to.be.false
     expect(Labelmaker.isReserved('security', { toplevel: true })).to.be.true
     expect(Labelmaker.isReserved('position', { toplevel: true })).to.be.true
@@ -113,8 +113,20 @@ describe('isReserved', () => {
     expect(Labelmaker.isReserved('min', { allowed: new Set() })).to.be.true
   })
 
-  it("keeps a top-level word from a hunt's or an ident's label though the allowlist names it", () => {
+  it("keeps a top-level word from a hunt's label or a userlabel though the allowlist names it", () => {
     expect(Labelmaker.isReserved('pricing', { toplevel: true, allowed: new Set(['pricing']) })).to.be.true
+  })
+
+  it("reads the doc block's example of a userlabel kept by a prefix", () => {
+    expect(Labelmaker.isReserved('google_fan', { toplevel: true })).to.be.true
+  })
+
+  it("answers for a userlabel exactly as claiming one checks it: a userlabel-shaped word is reserved just when the claim refuses it", () => {
+    const words = ['flip_kromer', 'google_fan', 'handles', 'support_me', 'sandbox', 'members', 'constructor', 'quiz_ids', 'pricing', 'insecure', ...PA.ReservedToplevel]
+    const shaped = words.filter((word) => PA.Userlabel.re.test(word) && word.length >= PA.Userlabel.min && word.length <= PA.Userlabel.max)
+    const disagreeing = shaped.filter((word) => Labelmaker.isReserved(word, { toplevel: true }) === ValidatorKit.userlabel.safeParse(word).success)
+    expect(shaped.length).to.be.above(10)
+    expect(disagreeing).to.deep.eq([])
   })
 })
 

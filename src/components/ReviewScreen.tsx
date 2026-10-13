@@ -14,7 +14,7 @@ import { ScreenMain } from './ScreenMain'
 import { AppNotices } from '../lib/notices'
 import * as Rank from '../lib/rank'
 import { reviewBy, type ReviewedT } from '../lib/rows'
-import type { IdentT } from '../models/ident'
+import type { UserT } from '../models/user'
 import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import * as PA from '../lib/vv/patterns'
@@ -24,8 +24,8 @@ import styles from './workbench.module.css'
 
 export type ReviewScreenProps = {
   quiz:       QuizT
-  ident:      IdentT
-  /** The reviews of this quiz this ident may read: its own, and the others' shared ones once its own is shared */
+  user:      UserT
+  /** The reviews of this quiz this user may read: its own, and the others' shared ones once its own is shared */
   reviews:    readonly ReviewedT[]
   dispatch:   (action: HuntActionDNA) => void
 }
@@ -36,25 +36,25 @@ export type ReviewScreenProps = {
  * lock; then an overall note, and a button to share it all with the smiths. Once theirs is shared, what the other reviewers have shared
  * appears below it; until then, a line says so.
  *
- * A review of this quiz for this ident is opened the moment this screen is, so a reviewer who
+ * A review of this quiz for this user is opened the moment this screen is, so a reviewer who
  * never writes anything still has a row waiting once they type into the overall note.
  *
  * Each question is what a reviewer is sent of it (`Question.sentTo`), the answer included: the
  * lock (`AnswerLock`) is a spoiler shield, not a security boundary.
  */
-export function ReviewScreen({ quiz, ident, reviews, dispatch }: Readonly<ReviewScreenProps>) {
+export function ReviewScreen({ quiz, user, reviews, dispatch }: Readonly<ReviewScreenProps>) {
   useEffect(() => {
     dispatch({ kind: 'open_review', quiz_id: quiz._id })
-  }, [dispatch, quiz._id, ident._id])
+  }, [dispatch, quiz._id, user._id])
 
-  const own = reviewBy(reviews, ident._id)
+  const own = reviewBy(reviews, user._id)
   const questions = useMemo(() => Rank.inRankOrder(Question.unarchived(quiz.questions)), [quiz.questions])
   const reviewingFor = useMemo(() => new Map((own?.reviewings ?? []).map((reviewing) => [reviewing.question_id as string, reviewing])), [own])
   const { draft, onChange, onBlur } = useDraft(own?.overall ?? '', (overall) => {
     dispatch({ kind: 'set_overall', quiz_id: quiz._id, overall })
   })
   const phase = own?.phase ?? 'empty'
-  const others = useMemo(() => reviews.filter((review) => review.ident_id !== ident._id), [reviews, ident._id])
+  const others = useMemo(() => reviews.filter((review) => review.user_id !== user._id), [reviews, user._id])
 
   return (
     <ScreenMain className={styles.page}>

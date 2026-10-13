@@ -8,7 +8,7 @@ import { Quiz } from '../../src/models/quiz'
 import { Widgeting } from '../../src/models/widgeting'
 import { counting, plainReads } from '../support/counting'
 import { present } from '../support/present'
-import { affirmsOf, huntHolding, identified, openTester, putOn, seedHunt } from '../support/convex'
+import { affirmsOf, huntHolding, googleUser, openTester, putOn, seedHunt } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
 
 /** The widgetings of the quiz `holding` writes: two that store (one asked, one never), and one worked out on render */
@@ -45,10 +45,10 @@ async function holding() {
     ]) { await ctx.db.insert('widgeteds', { hunt_id, quiz_id: quiz._id, question_id: first, widgeting_id, result_meta: {}, ...recorded }) }
     return { question_id: first, dumdum_id: widgeting_id, place: { hunt_id, realm_id: realm.realm._id, quiz_id: quiz._id } }
   })
-  const alice = await identified(tt, 'alice_reviews')
-  await putOn(tt, hunt_id, alice.ident_id, 'reviewer')
-  const sam = await identified(tt, 'sam_smiths')
-  await putOn(tt, hunt_id, sam.ident_id, 'smith')
+  const alice = await googleUser(tt, 'alice_reviews')
+  await putOn(tt, hunt_id, alice.user_id, 'reviewer')
+  const sam = await googleUser(tt, 'sam_smiths')
+  await putOn(tt, hunt_id, sam.user_id, 'smith')
   const { hunt: affirms } = await affirmsOf(tt, alice, place)
   const { hunt: smiths } = await affirmsOf(tt, sam, place)
   return { tt, question_id, dumdum_id, place, alice, affirms, sam, smiths }
@@ -84,7 +84,7 @@ describe("questions.open", () => {
       await storedFor(db, question_id)                              // ...for a smith
       return plainReads(counted)
     })
-    expect(reads.tables).to.deep.eq(['huntings', 'questions', 'widgeteds'])
+    expect(reads.tables).to.deep.eq(['huntships', 'questions', 'widgeteds'])
     expect(reads).to.deep.include({ docs: 4, ranges: 4 })   // before: 7 and 6, the quiz's three widgetings among them
     await tt.run(async (ctx) => { await ctx.db.patch('widgetings', dumdum_id, { label: 'hasty_guess' }) })
     expect(await smithsRead(holds)).to.deep.eq(before)
@@ -135,16 +135,16 @@ describe("questions.open", () => {
 
   it("reads null, as for one not there, for someone not on its hunt", async () => {
     const { tt, question_id, place, affirms } = await holding()
-    const stranger = await identified(tt, 'carol_strays')
+    const stranger = await googleUser(tt, 'carol_strays')
     const { hunt: strangers } = await affirmsOf(tt, stranger, place)
     expect(strangers.standing).to.eq('stranger')
     expect(await stranger.as.query(api.questions.open, { question_id, affirms: strangers })).to.be.null
     expect(await tt.query(api.questions.open, { question_id, affirms })).to.be.null
   })
 
-  it("reads null for affirms that are not so: a standing not held, another's ident, or a hunt the question is not of", async () => {
+  it("reads null for affirms that are not so: a standing not held, another's user, or a hunt the question is not of", async () => {
     const { tt, question_id, alice, affirms } = await holding()
-    const stranger = await identified(tt, 'carol_strays')
+    const stranger = await googleUser(tt, 'carol_strays')
     const other = await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'alice_reviews' })
     const { hunt: elsewhere } = await affirmsOf(tt, alice, other.open)
     expect(elsewhere.standing).to.eq('smith')

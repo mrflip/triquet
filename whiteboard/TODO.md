@@ -7,6 +7,23 @@
   chooses? (I'm not sure, discuss)
 
 
+## Soon
+
+* **Review every test file against `notes/testing.md`, `STYLE.md` and the other guidance, and
+  repair** what strays: above all the `"` every test title takes, which many files (the OAuth
+  sprint's new tests among them) wrote with `'`. `@stylistic/quotes` is off in
+  `eslint.config.mjs`, so nothing catches it; a rule for test titles would settle it for good.
+
+## Not yet
+
+* **A sealed user whose userlabel is reserved at top level after it took it can never make its
+  sandbox.** `new_hunt.label` is held to `HuntValidators.newLabel` (the full reserved list), while
+  a held userlabel is only `CK.heldUserlabel`, so *+ New hunt* alarms on every click for such a
+  user and no other label is allowed it (`mayMakeHunt`). It arises only when a word is reserved
+  after a claim, which the OAuth sprint's clear makes moot for now. The fix, when wanted: take the
+  sandbox's label as `heldUserlabel` when it equals the maker's own userlabel, in the action's
+  validator or in `newHunt`. From the stack review, 2026-10-12.
+
 ## Known Bugs
 
 * **The production deploy of #163 did not start its backfills.** `scripts/convex-migrations.ts
@@ -434,10 +451,13 @@ headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (abo
   needs no `eval`. An `img-src` rule could also answer O9. (Coach, 2026-10-08.)
 * **O1, the ask route answers any POST** on the server's Anthropic key (Opus tier, `max_tokens` as
   asked): no session, no rate limit. *Coach, 2026-10-08:* once there is OAuth, asking becomes
-  bring-your-own-key.
-* **O3, unheld legacy idents.** An ident nobody holds goes to the first session asserting it
-  (`claimFor`), and `hunts.open` tells anyone a hunt's smiths' usernames. Close out unheld idents;
-  name smiths only to a session with a username.
+  bring-your-own-key. *The oauth sprint's thread 9 (2026-10-12):* Google sign-in exists now, and
+  the route is as open as it was.
+* ~~**O3, unheld legacy idents.**~~ *Struck by the oauth sprint's thread 3 (2026-10-11):* idents are
+  gone, and with them the ident nobody held (`claimFor`); a userlabel is now a user's, set once,
+  and free only while nothing holds it (`holderOfUserlabel`). Its other half stands: `hunts.open`
+  tells anyone a hunt's smiths' handles and titles, with no session needed. Weighed by thread 9
+  (`oauth_security`): see *From oauth sprint, thread 9*, below.
 * **O9, info.** An image may be any `https` address, the viewer's own network included.
 
 ## From perf_improvements sprint, thread 1: spine_test_split
@@ -463,3 +483,61 @@ headers, O7, and images from formula and bot columns. O5 and O8 are wontfix (abo
   `prd_janitor` command on thread 2's guard (find a user by userlabel or Google email, as thread
   4's does; delete its user, accounts, sessions and huntships; leave hunts others are on) would
   make the promise a procedure. The in-app way is *Not in this sprint* (the pre-plan).
+
+## From oauth sprint, thread 5: google_signin
+
+* **No sweep of dead sign-ins.** A Google sign-in abandoned at Google leaves its `authVerifiers` row,
+  and one refused at the exchange may leave a `provisional` user holding its account (no session,
+  no handle; the account's next finished sign-in folds it away or keeps it). Both are harmless (a
+  verifier past `SIGN_IN_START_MAX_AGE_MS` hands on nothing), but they accumulate. A scheduled
+  sweep (Convex crons) of verifiers past the bound, and of provisional users with no session older
+  than a day, was left out: no crons in the oauth sprint (the Coach, 2026-10-11).
+
+## From oauth sprint, thread 6: google_ui
+
+* **Signing out can leave an anonymous user nobody holds.** `useSignOut` awaits Convex Auth's
+  `signOut()`, then `location.assign('/')`. Clearing the token makes `useSession` start
+  `signIn('anonymous')` on the page about to be replaced; if the page leaves first, the server
+  keeps a handle-less anonymous user and its session: at most one row per sign-out, like a
+  crawler's visit. Holding the sign-in off with a "leaving" flag meets page-hold's beforeunload
+  prompt (a cancelled leave would strand the page signed out), so it waits on a decision; a sweep
+  of handle-less anonymous users with no live session would also cover it (thread 5's sweep).
+* **Signing out while a write is in flight.** The token is cleared before the page leaves, so a
+  write not yet sent would go without auth (and be refused). Page-hold's prompt appears, but the
+  sign-out question says nothing of pending work. Asking page-hold first, or saying so in the
+  question, would close it.
+
+## From oauth sprint, thread 9: oauth_security
+
+The sprint's security review: `whiteboard/20261010-oauth/oauth-security-review.md` has each
+finding's evidence and the recommendation; `notes/security.md` (2026-10-12, thread 9) briefs them.
+Fixed in the thread: the front door's `?then=` open redirect. Left, each a Coach's call:
+
+* **Smiths listed to strangers, enumerably.** `hunts:open` hands any caller, with no session, the
+  smiths' handles and titles of a hunt it is not on; the old address (`/h/<label>`) finds a hunt by
+  label across every org, and labels come from ~430k adjective_animal pairs. A Google user's title
+  starts as their Google name. Options: list smiths only to a caller holding a handle, and only for
+  an address naming the org; or show strangers handles without titles. The privacy policy changes
+  with either.
+* **Sign a verifier once.** Patch Convex Auth's `verifierSignature` to refuse a verifier signed
+  before (its own browser signed it on the way to Google; our callback clears the signature, so it
+  needs a mark of its own), so a verifier id leaked (local storage, a log) cannot be finished by
+  someone else within its 15 minutes. A fifth part to the patch.
+* **`adopt --email`**: show the user's Google name and when it was made in the dry run (or adopt by
+  id after confirming it), since the email is Google's claim with `email_verified` dropped.
+* **Fail closed on `isAnonymous`**: "signed in with Google" as `isAnonymous === false`, and sealed
+  otherwise, so a row missing the field is sealed rather than trusted. Every writer sets it today;
+  three convex-tests insert users without it.
+* **`adopt` and sandboxes**: skip anonymous users' sandboxes in `--smith-all` and refuse
+  `--smith ~anon/anon`; refuse relabelling an anonymous user that holds a sandbox; ghost (or at
+  least report) the userlabel a relabel leaves behind.
+* **`sealedJoin` tells a smith a handle is anonymous**: say so in the privacy policy, or word the
+  refusal so it does not.
+* **Sign out on a shared browser** leaves the hunt histories (IndexedDB) behind: say so in the
+  sign-out question, or offer to clear them.
+* **Code review leftovers, not security**: `holderOfUserlabel` reads up to `HuntsPerOrg.max` hunts
+  to test for one (`.first()` would do); `auth:offered` is a `zQuery`, so it reads the session and
+  user it never uses and reruns when the user changes; `retitleUser` repeats `rewriteUserlabel`'s
+  copy loop, and `adopt`'s `relabelFor` its stale-copy filter; `UserlabelGate` names a variable
+  `name`; the patch deletes a code's verifier in two places (`userOAuth.js`,
+  `verifyCodeAndSignIn.js`).

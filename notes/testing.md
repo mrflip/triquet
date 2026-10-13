@@ -28,9 +28,13 @@ Two runners, and the assertion style follows the runner:
 
 `/vitest` (under `.claude/skills/`) is a reference for the runner, loaded only when named: fake
 timers, `test.extend` fixtures, snapshots, concurrency. A reference that shows `toBe`/`toEqual`
-(the Vitest docs do) is an API reference, not a style guide. This file wins. Style rules from `STYLE.md` apply in test files too --
-semicolonless, braced blocks, no single-letter names, and `"` around an `it` or `describe`
-title, which so often holds an apostrophe (STYLE.md, *Strings*).
+(the Vitest docs do) is an API reference, not a style guide. This file wins. Style rules from `STYLE.md` apply in test files too:
+semicolonless, braced blocks, no single-letter names, the quote conventions.
+
+**Every `it`, `describe` and `test` title takes `"`**, not `'`, whether or not it holds an apostrophe
+(STYLE.md, *Strings*): so often one does, and a file whose titles switch quotes by content reads
+worse than one that never does. The repo is not yet uniform (`whiteboard/TODO.md`, *Soon*); write
+new titles this way, and requote the titles of a file you are already in.
 
 Put all test files in `/tests`, with a path and name that exactly parallels the source: `src/foo/bar.ts` -> `tests/foo/bar.test.ts` (and similarly for all standard React/Next conventions). Test and build artifacts should never pollute the source tree.
 Put fixtures in `/fixtures` under a mostly-similar convention: if a fixture file exists in the main to serve `bar.ts`: `src/foo/bar-examples.json` or `src/foo/bar/demo_photo.png`, etc. If it serves most things in `src/foo`, use `/fixtures/foo/whatever.blah` (never `/fixtures/foo-...` for a directory). This particular rule will be more loosely followed than most, as various other concerns will drive their location.
@@ -99,8 +103,9 @@ In particular, address:
 Everything under `convex/` is tested in `tests/convex/`, path for path, under `convex-test` in
 Vitest's `convex` project (the edge runtime). The helpers are `tests/support/convex.ts`, each with
 its doc block: `openTester()` for a fresh, empty deployment, `seedHunt` for a hunt with a smith on
-it and the ways to act on it and read it back, and the sessions a test calls as (`identified`,
-`signedIn`, the bare `tt`). What the doc blocks do not say:
+it and the ways to act on it and read it back, and the sessions a test calls as, each named for
+the kind of user it is signed in as (`googleUser`, `anonymousUser`, `anonymousSession`, the bare
+`tt`). What the doc blocks do not say:
 
 * Reach past the functions with `tt.run(async (ctx) => ...)`, which must hand back a Convex value
   (no `Map`).
@@ -115,8 +120,11 @@ it and the ways to act on it and read it back, and the sessions a test calls as 
   integrity is a new entry there.
 
 The browser's hooks (`src/state/use-*.ts`) are not unit tested: what they add to the functions is
-React's and Convex's client's, and the e2e suite drives them. Anything pure inside one (`placeIn`
-in `use-hunt`) is exported and tested on its own.
+React's and Convex's client's, and the e2e suite drives them. The exceptions are the hooks that
+meet Convex Auth's provider when a browser comes back from Google (`use-session.dom.test.tsx` and
+`use-google-sign-in.dom.test.tsx`, below), which no e2e test can reach, since nothing automated
+signs in to Google. Anything pure inside one (`placeIn` in `use-hunt`) is exported and tested on its
+own.
 
 A view is unit tested only for what it chooses to say: a notice in place of the page, a dash in
 place of a zero. Such a test is a `tests/**/*.test.tsx`, and reads the view through `renderedText`
@@ -130,7 +138,11 @@ Vitest's `dom` project, under happy-dom, and renders a screen with `react-dom/cl
 their identity until the test changes them, as the client's do). It counts renders by spying on a
 function each render calls once (`QuizRoute.dom.test.tsx` counts the Workbench by its offers and a
 row by its grip), and asserts the counts: the guard on a memo. It is not for asserting what a
-view looks like or does.
+view looks like or does. The same project holds two other tests, each rendering Convex Auth's real
+provider over a stand-in client: `tests/state/use-session.dom.test.tsx`, to prove that a browser
+back from Google with `?code=` in its address is never signed in anonymously while the code is
+exchanged; and `tests/state/use-google-sign-in.dom.test.tsx`, to prove that a tab back from a
+sign-in that did not finish says so, and one that did says nothing.
 
 ## Validation Boundaries
 

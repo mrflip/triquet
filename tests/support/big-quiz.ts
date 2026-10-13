@@ -7,6 +7,7 @@ import { Quiz, type QuizT } from '../../src/models/quiz'
 import type { IshItemT } from '../../src/models/ish'
 import type { StoredWidgetedT, WidgetedHistoryT, JsonT } from '../../src/models/widgeted'
 import { classicLayout } from './layouts'
+import { userActor } from './actors'
 
 /*
  * A quiz the size of a real one, for measuring what the screen costs: forty questions in the
@@ -76,7 +77,7 @@ export function bigHuntFor(quiz: QuizT): { hunt: ShallowHuntT, realm: ShallowRea
 
 /** A smith's claims on the hunt `bigHuntFor` makes, with `quiz` on screen */
 export function smithClaimsOn(hunt: ShallowHuntT, quiz: QuizT): Actor.QuizClaimsT {
-  const smith = Actor.asIdent('users_smith' as Id<'users'>, { _id: 'idents_smith' as Id<'idents'>, label: 'seed_smith' }, true)
+  const smith = userActor('users_smith' as Id<'users'>, 'seed_smith', { admin: true })
   return { ...Actor.claimsOn(smith, hunt._id, { role: 'smith' }), quiz: { locked: quiz.locked } }
 }
 

@@ -100,7 +100,7 @@ function HeldWidgetEditor({ hunt, library, quiz, widget, widgeting = null, dispa
   )
 }
 
-/** The usage line as the editor says it: counting, the counts, or nothing for an ident that may not count them */
+/** The usage line as the editor says it: counting, the counts, or nothing for a user who may not count them */
 function usageSaid(usage: ReturnType<typeof useWidgetUsage>): string {
   if (usage === undefined) { return 'Counting the widgetings that work it…' }
   return usage === null ? '' : usageLine(usage)

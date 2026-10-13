@@ -11,11 +11,13 @@ import { HomeRealmLabel, Realm, RealmValidators, type RealmT } from './realm'
 /** The branch every hunt starts on, and so the git branch its history begins on */
 export const DefaultBranch = 'main'
 
-export const HuntValidators = Validator(({ obj, arr, label, toplabel, userlabel, titleish, stamps, treeid }) => {
-  const huntLabel = toplabel
-    .describe('What the hunt is called in an address, within its org. Minted when the hunt is made, and unique within its org: two hunts of one org minted with one label resolve to the earlier.')
-  const orglabel = userlabel
-    .describe('The org the hunt is addressed under (`/~<org>/<hunt>`), which namespaces its label: the ident label of whoever made it, copied when it was made. Never changes: not when its maker is retitled, leaves the hunt, or changes role.')
+export const HuntValidators = Validator(({ obj, arr, label, toplabel, heldUserlabel, titleish, stamps, treeid }) => {
+  const huntLabel = label
+    .describe('What the hunt is called in an address, within its org. Minted when the hunt is made, and unique within its org: two hunts of one org minted with one label resolve to the earlier. Held to `newLabel` when given, and only to a label\'s shape and words after: a word kept for the app\'s own pages since leaves the hunt at its address.')
+  const newLabel = toplabel
+    .describe('A label a hunt is given, made or relabelled: a hunt label, and none of the words kept for the app\'s own pages and people (`PA.ReservedToplevel`).')
+  const orglabel = heldUserlabel
+    .describe('The org the hunt is addressed under (`/~<org>/<hunt>`), which namespaces its label: the userlabel of whoever made it, copied when it was made. Never changes: not when its maker is retitled, leaves the hunt, or changes role, nor when a word it is is kept for the app\'s own use later.')
   const title = titleish
     .describe('What the hunt is called on screen; a blank one displays as its label titleized.')
   const branch = label
@@ -45,7 +47,7 @@ export const HuntValidators = Validator(({ obj, arr, label, toplabel, userlabel,
   })
     .describe('One hunt as the database holds it: its realms are rows of their own.')
 
-  return { hunt, row, branch, orglabel }
+  return { hunt, row, branch, orglabel, label: huntLabel, newLabel }
 })
 
 export type HuntDNA = Z.input<typeof HuntValidators.hunt>
@@ -116,6 +118,18 @@ export class Hunt implements HuntT {
   /** Every quiz of `hunt`, realm by realm */
   static quizzesOf(hunt: Pick<HuntT, 'realms'>): QuizT[] {
     return hunt.realms.flatMap((realm) => realm.quizzes)
+  }
+
+  /**
+   * Whether `hunt` is a sandbox: labelled with its own org, `~label/label`, as the one hunt an
+   * anonymous user may make is (`Approve.mayMakeHunt`). Its address stays a sandbox's when a merge
+   * hands it to a user signed in with Google, whose userlabel may be another.
+   *
+   * @example Hunt.isSandbox({ label: 'flip_kromer', orglabel: 'flip_kromer' })  // => true
+   * @example Hunt.isSandbox({ label: 'quiet_otter', orglabel: 'flip_kromer' })  // => false
+   */
+  static isSandbox(hunt: { label: string, orglabel: string }): boolean {
+    return hunt.label === hunt.orglabel
   }
 }
 

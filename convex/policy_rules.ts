@@ -16,12 +16,13 @@ import type { ClaimsOf } from './authorize'
 // One rule per table, each a non-async function of the claims and a row that reads nothing:
 // whether the row may be seen, changed or deleted (`modify`), and inserted. A row the rules hide
 // reads as absent (`get` answers null, a query passes over it); a write to one throws, as the bug
-// it is. A table with no rule is not reachable at all: an ident's identings, and Convex Auth's
-// tables. A patch or replace is judged by the row as it stands, not as it would become: the copies
+// it is. A table with no rule is not reachable at all: `users`, whose rows hold an email; the
+// ghostings; and Convex Auth's own tables. Who a user is, a function asks of the census, which
+// answers with what anyone may be told of them (`UserFaceT`). A patch or replace is judged by the row as it stands, not as it would become: the copies
 // a row carries of its hunt never change (`notes/convex.md`, *Denormalized fields*).
 //
-// Two facts a write must know span every hunt, and so are not asked through this database: whose
-// a hunt label is, and whether a widget is worked anywhere (`CensusT` in `reading.ts`).
+// What a function must know beyond its hunt is not asked through this database: whose a hunt
+// label is, whether a widget is worked anywhere, and who a user is (`CensusT` in `reading.ts`).
 //
 // The library belongs to no hunt, and a hunt's function never writes it. Its own mutation
 // (`widgets.perform`, built by `zLibraryMutation`) holds a database held to `LibraryRules`: the
@@ -55,11 +56,6 @@ function never(): boolean {
   return false
 }
 
-/** Every row of this table */
-function always(): boolean {
-  return true
-}
-
 /**
  * Whether the claims may write a review or a reviewing of their hunt. In order:
  *
@@ -67,10 +63,10 @@ function always(): boolean {
  * * One's own
  * * A smith's, who deletes the others' with the question, quiz or hunt they are part of
  */
-function mayWriteReviewRow(claims: ScopeClaimsT, row: { hunt_id?: Id<'hunts'>, ident_id?: Id<'idents'> }): boolean {
-  if (! isOfHunt(claims, row))          { return false } // Nothing of another hunt
-  if (row.ident_id === claims.ident_id) { return true }  // One's own
-  return Actor.isSmith(claims)                           // A smith's, who deletes the others' with the question, quiz or hunt they are part of
+function mayWriteReviewRow(claims: ScopeClaimsT, row: { hunt_id?: Id<'hunts'>, user_id?: Id<'users'> }): boolean {
+  if (! isOfHunt(claims, row))        { return false } // Nothing of another hunt
+  if (row.user_id === claims.user_id) { return true }  // One's own
+  return Actor.isSmith(claims)                         // A smith's, who deletes the others' with the question, quiz or hunt they are part of
 }
 
 /**
@@ -106,8 +102,8 @@ const HuntOwned = { read: isOfHunt, modify: isOfHunt, insert: isOfHunt } as cons
  * * `reviews`, `reviewings` -- seen across the hunt; written by their writer, or deleted by a smith.
  * * `widgets` -- the library every hunt shares: seen by anyone with a userlabel, never written.
  *   Changing it is an admin's act, on a mutation of its own (`LibraryRules`).
- * * `idents` -- a public persona, its label and title shown to whoever shares a hunt with it, and
- *   named by a smith adding a member: seen, never written (retitling is the ident's own).
+ * * `users` -- not reachable: a user's row holds its email. Who a user is, by id or userlabel, is
+ *   the census's to say, as anyone may be told of them (`CensusT`).
  * * `signals` -- each quiz's change signal, of the hunt it carries: seen, never written here. The
  *   database's trigger alone writes it (`signalling.ts`), beneath this database.
  */
@@ -120,11 +116,10 @@ export const WritingRules = {
   columns:    HuntOwned,
   widgeteds:  HuntOwned,
   quiz_widgeteds: HuntOwned,
-  huntings:   HuntOwned,
+  huntships:  HuntOwned,
   reviews:    { read: isOfHunt, modify: mayWriteReviewRow, insert: mayWriteReviewRow },
   reviewings: { read: isOfHunt, modify: mayWriteReviewRow, insert: mayWriteReviewRow },
   widgets:    { read: mayReadLibrary, modify: never, insert: never },
-  idents:     { read: always, modify: never, insert: never },
   signals:    { read: isOfHunt, modify: never, insert: never },
 } as const satisfies TableRulesT
 

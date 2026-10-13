@@ -16,7 +16,7 @@ import styles from '../workbench.module.css'
 export type ReviewsPanelProps = {
   /** The open quiz's questions, which a review's verdicts are about */
   questions: readonly QuestionT[]
-  /** The reviews of the open quiz this browser's ident may read: its own, and the shared ones; only the shared ones are shown */
+  /** The reviews of the open quiz this browser's user may read: its own, and the shared ones; only the shared ones are shown */
   reviews:   readonly ReviewedT[]
   /** The panel's heading; `Reviews` unless given */
   title?:    string

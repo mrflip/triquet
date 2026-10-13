@@ -24,11 +24,95 @@ security expert who knows what questions to ask.
   to recheck's verdict (`lib/redos.ts`) where a mutation writes it, and refused unless recheck calls
   it `safe` within 200 ms; past that it is trusted and never checked again, nor timeboxed as it
   runs. Its source is at most 200 characters, its flags `i`, `m`, `s` and `u` only.
-* `Actor.isAdmin` is an equality check on the userlabel, against the deployment's `TRIQUET_ADMINS`
-  (production: `mrflip`), made on the server as it builds the actor and carried to the browser;
-  `*` makes every userlabel an admin, which `scripts/convex_dev` sets on every local backend.
-* The first user to claim a userlabel becomes that user: an ident nobody holds goes to the first
-  session to assert it (`claimFor`, `convex/writing/user_actions.ts`).
+* 2026-10-11 (oauth sprint, thread 3): `Actor.isAdmin` reads the user's own `admin` flag, set only
+  from the command line (thread 4), once, as the server builds the actor (`Actor.ofUser`), and is
+  carried to the browser. No variable lists admins; `TRIQUET_EVERYONE_ADMIN=yes` makes every user
+  an admin, anonymous ones included, and `scripts/convex_dev` sets it on every local backend
+  (production never has it, and a `TRIQUET_ADMINS` left set there is read by nothing). Since
+  thread 5, the flag counts only for a user signed in with Google (below).
+* 2026-10-11 (oauth sprint, thread 4): `adopt:perform` (`convex/adopt.ts`), an internal mutation
+  run by `scripts/adopt` under `prd_janitor` behind the janitor's guard, sets a user's `admin` flag,
+  gives it a userlabel that only a hunt's `orglabel` holds (past the rule that keeps an address's
+  userlabel unclaimable; never one another user or a ghosting holds), and puts it on any hunt or
+  every hunt as smith or reviewer, past that hunt's smiths (`grantHuntship`). It finds the user by
+  id, userlabel, or the `email` on its row (refused unless exactly one user has it), and refuses
+  the flag and any grant to an anonymous user. The deploy key is what vouches for it; it has no
+  environment check. The guard checks the deployment once; each `convex run` after picks it again
+  from the environment (thread 2's note).
+* 2026-10-11 (oauth sprint, thread 3): the first user to take a free userlabel holds it for good
+  (`assumeUserlabel`, `convex/writing/user_actions.ts`), with no password: a session is what holds
+  its user. A userlabel is free only while no user, no ghosting, and no hunt's `orglabel` holds it,
+  so nobody takes the handle a hunt's address carries (`holderOfUserlabel`).
+* 2026-10-11 (oauth sprint, thread 3): an anonymous user is sealed by policy (`Actor.isSealed`):
+  one hunt, its sandbox (`~label/label`), which it may neither relabel (`mayRelabelHunt`) nor
+  delete (`mayDeleteHunt`, the Coach's word); never put on another hunt (`mayJoinHunt`, asked by the
+  write once it has found the user by userlabel, so the refusal tells a smith that handle is
+  anonymous); never adding anyone to its own; never reviewing. Sealing reads Convex Auth's
+  `isAnonymous` on the user row, which only our `createOrUpdateUser` writes (and thread 5's Google
+  sign-in clears). `smithOfSandbox` is the one write past sealing, for a user signed in with Google.
+* 2026-10-11 (oauth sprint, thread 3): no hunt's scoped database reaches `users` (a row holds its
+  email), `ghostings`, or Convex Auth's own tables; a function learns of another user only its face
+  (`UserFaceT`: userlabel, title, anonymous or not) through the census, and `users.current` hands
+  a session its own user without its email.
+* 2026-10-12 (oauth sprint, thread 6): **an email is told only to its owner.** `users.own` is the
+  one function that returns one: it reads the session's own user, by the id the session gives,
+  never by an argument, and is listed in `Unscoped` with why. The census, `users.current` and every
+  hunt's function still hand on only a face. The browser shows it in the header's user menu
+  alone (`UserMenu`), from what `ShowUser` hands the header; nothing logs it. Its tests:
+  `authorize.test.ts` (another session, and none, are told nothing).
+* 2026-10-12 (oauth sprint, thread 6): **a name choice is settled only by the user merged into**
+  (`settle_name_choice`): the write finds the merged-away user by the handle the action names and
+  refuses (`nameChoiceGone`) unless its `merged.into_user_id` is the acting user, and unless the
+  handle to keep is one of the two. The handle not kept goes into a ghosting, so nobody else takes
+  it; no hunt's address changes. *Sign out* is Convex Auth's own `signOut` (the session deleted on
+  the server and forgotten in the browser), then a whole new page at the front door.
+* 2026-10-12 (oauth sprint, thread 6): two more stand-ins for e2e, refused as `vouchFor` is on any
+  deployment without `TRIQUET_CLEARABLE=yes`: `vouchFor` may give the vouched user an email (as
+  Google would have sent it, for the user menu's spec), and `testing:mergeInto` marks one user
+  merged into another (the mark alone: no sandbox handed on, no session ended), so e2e can reach
+  the name choice. Neither is a provider, and neither signs anyone in.
+* 2026-10-12 (oauth sprint, thread 9, the sprint's review; whole review in
+  `whiteboard/20261010-oauth/oauth-security-review.md`). Left open, each for a Coach:
+  - `hunts:open` names a hunt's smiths (handle and title) to any caller not on it, with no session
+    needed, and from an old address (`/h/<label>`, `orglabel` null) finds a hunt by its label
+    across every org. Hunt labels are drawn from about 430,000 adjective_animal pairs, so a
+    script can list the smiths of every hunt; a title signed in with Google starts as the Google
+    name (the front door offers it). The privacy policy says smiths are shown to whoever opens an
+    address.
+  - Convex Auth's sign-in route (`/api/auth/signin/google?code=<verifier id>`) signs any verifier
+    still there, as often as asked, so within its 15 minutes (`SIGN_IN_START_MAX_AGE_MS`) a leaked
+    verifier id still upgrades or merges the starting browser's anonymous user into the leaker's
+    Google account; once the starting browser's own visit has signed it, nothing needs it signed
+    again.
+  - `adopt:perform` finds a user by the `email` on its row, which a Google sign-in copies from
+    Google's profile without `email_verified` (dropped by Auth.js's Google profile and by
+    `UserValidators.googleProfile`); the dry run names the user by id and handle alone.
+  - "Signed in with Google" is `isAnonymous !== true` (`User.isAnonymous`, `Actor.isSignedInWithGoogle`):
+    a user row without the field counts as signed in with Google, unsealed and able to be an admin.
+    Every writer of `users` sets it today.
+  - `adopt --smith-all` (and `--smith ~anon/anon`) puts a user on anonymous users' sandboxes past
+    sealing; `adopt` relabelling an anonymous user that holds a sandbox lets it make a second
+    (`mayMakeHunt` reads only label == userlabel); a userlabel `adopt` relabels a user away from is
+    left free, with no ghosting.
+  - A smith adding a handle learns from the refusal (`sealedJoin`) that its user is anonymous; the
+    privacy policy does not say so.
+  - *Sign out* leaves the hunt histories (the in-browser git mirrors) in the browser's storage for
+    whoever uses it next; the question before it does not say so.
+  - `/api/ask` still answers any POST on the server's Anthropic key (TODO, O1), now that the sign-in
+    the Coach meant to hang bring-your-own-key on exists.
+* 2026-10-12 (oauth sprint, thread 9): the front door sends a visitor who holds a handle on to
+  its `?then=` (`Routes.thenFrom`), which is read as the browser reads an address (`onSite`, shared
+  with `isSyncedPath`): the browser drops tabs and newlines first, so `/<tab>/elsewhere.example`,
+  which a test of its first characters passed, is another site and refused. Read so, dot segments
+  resolve too: `/.//elsewhere.example` reads as the path `//elsewhere.example`, which names another
+  site when written out again, so a path that reads as `//…` is refused (the review of thread 9).
+  An address no browser could read (`/<tab>/[`, a host that is no host) is refused rather than
+  thrown on, so the front door renders and `returnUrlFor` falls back to `/`.
+* 2026-10-11 (oauth sprint, thread 3): `testing:vouchFor`, an internal mutation refused on any
+  deployment without `TRIQUET_CLEARABLE=yes`, marks a user no longer anonymous, standing in for a
+  Google sign-in so e2e can test what sealing keeps from anonymous users. It is no provider and
+  signs nobody in; production never has the flag. `ValidatorKit.zid` takes convex-test's own ids
+  of Convex Auth's tables (`<20 digits>authAccounts`), which a deployment never mints.
 * 2026-10-08: field, recap and prompt templates are LiquidJS (`lib/liquidry.ts`): a field or
   recap template is written by any smith of a quiz and run in every smith's browser; a prompt is
   written by an admin and rendered in the browser of whoever asks. LiquidJS calls a function it finds as an own property of what it reads;
@@ -77,13 +161,124 @@ security expert who knows what questions to ask.
   site (`*OAuthstate`, `*OAuthpkce`, `*OAuthnonce`, `*RedirectTo`, fifteen minutes each); and that
   nothing goes to a bot unasked. Code that changes any of these
   changes the policy, and its date, in the same PR.
+* 2026-10-11 (oauth sprint, thread 8): the reserved list keeps a new hunt label or userlabel from
+  passing for the app, its pages, its roles, Google or the bot (`PA.ReservedToplevelGroups`, and
+  the prefixes `google`, `triquet`, `admin`, `support`, `official`, `verif`, `secur`, `login`,
+  `help`). It is matched exactly against labels, which hold only lowercase ASCII letters, digits
+  and underscores, so near spellings (`go0gle`, `triquett`) pass. It governs only a label being
+  made or claimed: a hunt row's label and org are held to their shape and the words every label is
+  kept from (`CK.heldUserlabel`), so a hunt or org named before a word was kept keeps it, and
+  `scripts/check_reserved` names them.
 * 2026-10-11 (oauth sprint, thread 2): `clear_people:clearBatch` (`convex/clear_people.ts`), an
   internal mutation, deletes every row of Convex Auth's tables (`users`, `authAccounts`,
   `authSessions`, `authRefreshTokens`, `authVerifiers`, `authVerificationCodes`,
   `authRateLimits`) and of `idents`, `identings`, `huntings`, `reviews` and `reviewings`, with no
   argument and no environment check: the one place our code writes Convex Auth's tables. It is
-  run on production once, by a Coach, through `scripts/clear_people` under `prd_janitor`; the
-  `converge` thread deletes it. The script's guard (`scripts/janitor.ts`, kept for later janitor
+  run on production once, by a Coach, through `scripts/clear_people` under `prd_janitor`. The
+  `converge` thread (thread 3) deleted the mutation and its script with the tables they emptied,
+  and only a Google merge's deletion of the merged-away user's sessions writes Convex Auth's own
+  tables now (thread 5, below). The script's guard (`scripts/janitor.ts`, kept for later janitor
   commands) acts only when `--deployment` names the deployment the CLI's environment reaches, by
   the address that deployment reports for itself (its `cloudUrl`, read by `convex function-spec`
   with the same admin key, not the address the CLI connected to); a dry run is the default.
+* 2026-10-11 (oauth sprint, thread 5, after its review): **login CSRF through the starting
+  session, and where the decision is made.** Convex Auth's sign-in route
+  (`/api/auth/signin/google?code=<verifier id>`) signs whatever verifier it is handed, from any
+  browser, and a verifier never expires; Google's callback then finds that verifier by the signature
+  in the finishing browser's cookies. So the browser that finishes at Google is not proven to be
+  the one that started: a browser can start a sign-in and send its link to someone, whose own
+  Google account then completes it. Upstream's PR #306, which we carry, hands the starting session
+  to `createOrUpdateUser` at that callback; deciding there would let the link's maker have the
+  clicker's Google account upgrade its anonymous user (a takeover: it would then be signed in with
+  Google as them) or be merged into from it. **Decision:** our patch hands the starting session on
+  only at the code's exchange, where the browser presents the verifier it kept in its own storage
+  together with the code Google redirected it to, which only the starting browser can both hold.
+  At the callback our code links the account to its own user, or to a new **provisional** user, and
+  reads nothing of the starting browser's; at the exchange it upgrades, merges or switches
+  (`userForGoogle`, `accountUserAtCallback`, `userAtExchange`). A code presented with the wrong
+  verifier is spent, so once the clicker's browser has presented it, a code leaked from its address
+  bar, history or a server log cannot then be used with the link's verifier. Shape chosen over a
+  claim after the exchange (proof of the old session carried across the redirect): smaller, atomic
+  (no moment signed in as the wrong user, no claim left unmade), and it uses the proof Convex Auth
+  already has. Left: the code is 8 digits and lives 2 minutes, and guesses at it are not throttled,
+  so the link's maker, holding the verifier, can guess at it (or use it, if it leaks) until the
+  clicker's browser presents it. The link's maker chooses where that browser lands (the sign-in
+  route's `redirectTo`), and a page outside `(synced)` (`/privacy`, `/terms`, `/about`) runs no
+  Convex client and never presents it: closed since by the redirect rule (the next entry), so the
+  clicker's browser presents it, and spends it, as it lands. A provisional user whose exchange never came stays, holding its account,
+  until that account signs in again; `adopt` refuses one. The patch's exact lines:
+  `notes/stack.md`, *Authentication*. The callback is Google's redirect to the deployment, carrying
+  no token; the PR's browser-chosen `scope` is not carried.
+* 2026-10-11 (oauth sprint, thread 5, the Coach's word after its second review): **a verifier is
+  bounded, and a refused exchange changes nothing.** A verifier is a bearer credential for the
+  session that started it: whoever learns its id (a history, local storage, a log) could finish a
+  sign-in of their own with it, and the sign-in route re-signs any verifier still there. So:
+  - the exchange hands the starting session on only from a verifier made within
+    `SIGN_IN_START_MAX_AGE_MS` (15 minutes) and still there, and otherwise refuses the exchange
+    whole;
+  - a verifier is deleted wherever its code dies: at the exchange, finished or refused; when its
+    code is presented with the wrong verifier, or has expired; when a later callback for the same
+    account replaces its code. Verifiers of sign-ins never finished at Google stay, unbounded in
+    number but useless past the bound (no sweep: `whiteboard/TODO.md`);
+  - Convex Auth's `redirect` callback (`returnUrlFor`, `convex/auth.ts`) sends a browser back only
+    to a relative path of a page that opens the database (`Routes.isSyncedPath`), never another
+    site or a page without Convex Auth's provider, so the code is exchanged, and spent, the moment
+    the clicker's browser lands: the guess window at the 8-digit code closes then, not at its 2
+    minutes. Anywhere else asked for is never followed: the browser goes to the front door (`/`,
+    itself a synced page) instead, which spends the code just the same, where a refusal would have
+    stranded it on an error from the deployment after Google's consent (thread 5r). *Corrected after the Coach's `high` review (thread 5r):* the rule first read only a
+    path's first segment, so a crafted path beneath a synced page that reaches none (`/h/x/y`,
+    `/~any/hunt/nothing`) passed, landed on a page not found (which mounts no provider), and left
+    the code in the address its whole 2 minutes. It now matches each page's whole path: an org's
+    address as `Addresses.locationFrom` reads it, for exactly the kinds its pages show (a mode for
+    a quiz alone), as those pages read their own, and written exactly as `Addresses.urlOf` writes it
+    (the reader unescapes `quizze%73` to `quizzes`, which the router does not, so it is not found:
+    the second review of thread 5r); every other synced page shape for shape, each
+    label slot a label; no trailing slash. `tests/lib/routes.test.ts` walks `src/app/(synced)/`
+    and fails if a page is refused or a folder holding none is allowed. Chosen over a root
+    `not-found.tsx` that mounts the provider: that would open the database, and sign a new
+    anonymous user in, on every mistyped or scanned address;
+  - a refused or failed exchange leaves the browser exactly as it was: no row of its user changes
+    (tested for stale, wrong-verifier and expired codes, upgrade and merge alike), and the patched
+    client keeps the session it had stored rather than signing out (the DOM test,
+    `use-session.dom.test.tsx`). The tab then says the sign-in did not finish
+    (`useGoogleSignInOutcome`): it compares the session it left as, its id noted in its own
+    session storage (the session half of the token's subject, read with `jose`'s `decodeJwt`
+    without checking the signature; never the token), with the session of the token it came back
+    on, and clears any verifier Convex Auth left in local storage. *Changed after the Coach's
+    `high` review (thread 5r):* it first compared a SHA-256 of the whole token, which the Convex
+    client refreshes as a page loads, so the notice showed only when the page's user query
+    answered before the refresh; an expired token would have hidden it. A session's id grants
+    nothing: it is in the token already, and a token is what the deployment checks. A provisional user a refused sign-in
+    leaves has no session, and the account's next finished sign-in folds it away or keeps it.
+* 2026-10-11 (oauth sprint, thread 5): a Google sign-in's user is decided, at the code's exchange,
+  by whose the account is and whose the starting browser was (`userForGoogle`,
+  `convex/writing/user_actions.ts`), never by email: Convex Auth's default linking by verified email is off with our
+  `createOrUpdateUser`, and two Google accounts sharing an email are two users. A new account from
+  an anonymous browser joins that user and clears its `isAnonymous` (unsealing it); from a Google
+  user's browser, or none, it makes a new user. A known account switches the browser to its user;
+  from an anonymous browser holding a handle it **merges**: the Google user is made smith of the
+  anonymous user's sandbox past sealing (`smithOfSandbox`), the anonymous user is taken off it,
+  marked `merged` (never deleted), keeps its userlabel reserved until a name choice is settled, and
+  every one of its sessions and their refresh tokens is deleted by our code. A Google user is never
+  merged away. A Google user holding no handle takes the anonymous user's handle and title outright.
+  An upgrade deletes the provisional user the callback made, which nobody was ever signed in as.
+  The merged user's other unfinished sign-ins' verifiers stay (no index finds them by session).
+* 2026-10-11 (oauth sprint, thread 5): an admin must be signed in with Google
+  (`Actor.isSignedInWithGoogle`: the user is not anonymous): `Actor.ofUser` counts an anonymous
+  user's `admin` flag for nothing. Not by email, because a Google account's email can change and a
+  Workspace address can pass to someone else (Google says to identify an account by its `sub`);
+  the flag sits on the user, bound to the Google account's `sub` through its account row, and is
+  set only with the deploy key. `TRIQUET_EVERYONE_ADMIN` still makes everyone an admin on a local
+  backend.
+* 2026-10-11 (oauth sprint, thread 5): what we keep from Google is held to the privacy policy:
+  Google is asked for `openid email profile` (`GoogleScope`, `convex/auth.ts`, and an e2e test of
+  the redirect); the user row keeps only the email, name and picture (`UserValidators.googleProfile`
+  drops anything else before a write), refreshed at every sign-in; the account row keeps Google's
+  `sub` as `providerAccountId`; Convex Auth stores no Google token. The only cookies are Convex
+  Auth's OAuth ones on the deployment's site (the e2e test checks their names). No query returns
+  the email yet. Google is offered only on a deployment holding `AUTH_GOOGLE_ID` and
+  `AUTH_GOOGLE_SECRET`; `scripts/convex_dev` hands a local backend the dev client's through a
+  file only its user can read, never a command line; convex-test uses placeholder keys and drives
+  Convex Auth's own `store` past the part only Google does, which no deployment can be made to do
+  without a deploy key.

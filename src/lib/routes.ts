@@ -11,6 +11,7 @@
  * still open, and move to their present form once the hunt they name says its org.
  */
 import * as Addresses from './addresses'
+import * as CK from './vv/checks/strings'
 
 /** How a resource is opened: `edit` (a smith works on it) or `playtest` (it is reviewed) */
 export type Mode = Addresses.Mode
@@ -34,11 +35,6 @@ export function rootPath(then?: string): string {
   return then === undefined ? '/' : `/?${new URLSearchParams([['then', then]]).toString()}`
 }
 
-/** The login screen, kept open for a visitor who has said who they are to become someone else */
-export function switchIdentPath(): string {
-  return '/?switch'
-}
-
 /** The hunts the visitor is on, whosever they are */
 export function huntsPath(): string {
   return '/my/hunts'
@@ -57,6 +53,101 @@ export function privacyPath(): string {
 /** The terms Triquet is offered on */
 export function termsPath(): string {
   return '/terms'
+}
+
+/** Stands in a page's shape (`SyncedShapes`) for any one label in that place */
+const AnyLabel = Symbol('any label')
+
+/**
+ * The app's own pages that open the database (`src/app/(synced)/`), but the front door and an
+ * org's: each the segments of its path, a word for itself and `AnyLabel` for a hunt's, realm's or
+ * quiz's label, as an old address names them. Exactly these: a path one segment short or long of
+ * one is no page, and is not found.
+ */
+const SyncedShapes: readonly (readonly (string | typeof AnyLabel)[])[] = [
+  ['my', 'hunts'],
+  ['stats'],
+  ['h', AnyLabel],                        // an old address of a hunt
+  ['h', AnyLabel, AnyLabel, AnyLabel],    // of a quiz
+  ['c', AnyLabel, 'categories'],          // of a hunt's categories
+]
+
+/** What an org's address (`/~<org>/…`) names that a page shows (`src/app/(synced)/[org]/`): each page reads its address with `Addresses.locationFrom`, and finds any other kind not found */
+const OrgPageKinds: ReadonlySet<Addresses.AddressKind> = new Set(['org', 'hunt', 'quizzes', 'categories', 'quiz'])
+
+/** Which of those a page shows in a mode, from a last `!edit` or `!playtest`: a quiz alone */
+const ModedKinds: ReadonlySet<Addresses.AddressKind> = new Set(['quiz'])
+
+/**
+ * Whether `path` names a page of this app that opens the database (`src/app/(synced)/`), and so
+ * spends a sign-in's code the moment a browser is sent back to it: the front door; an org's
+ * address (`/~…`, written as the app writes it, nothing escaped) naming what one of its pages shows, read by `Addresses.locationFrom` as those pages read
+ * it; or one of the app's other synced pages, shape for shape. A path that reaches no page
+ * (`/h/quiet_otter/home`, `/~pat_smith/quiet_otter/nothing`) is not, since a page not found opens
+ * no database; nor is a page that never opens one (`/privacy`), an address of another site, one
+ * beginning `//` or ending `/`, or anything not a path.
+ *
+ * @param path - Where a sign-in is to come back to.
+ *
+ * @example isSyncedPath('/~pat_smith/quiet_otter?x=1')  // => true
+ * @example isSyncedPath('/')                            // => true
+ * @example isSyncedPath('/h/quiet_otter')               // => true
+ * @example isSyncedPath('/h/quiet_otter/home')          // => false
+ * @example isSyncedPath('/privacy')                     // => false
+ * @example isSyncedPath('https://example.com/my/hunts') // => false
+ * @example isSyncedPath('//example.com/my/hunts')       // => false
+ */
+export function isSyncedPath(path: string): boolean {
+  const url = onSite(path)
+  if (url === null) { return false }
+  const { pathname } = url
+  if (pathname === '/') { return true }
+  if (pathname.endsWith('/')) { return false }
+  const segs = pathname.slice(1).split('/')
+  return segs[0]?.startsWith('~') ? isOrgPage(pathname) : SyncedShapes.some((shape) => fitsShape(segs, shape))
+}
+
+/**
+ * Whether an org's address names what one of its pages shows, in a mode only where that page takes
+ * one, written as the app writes it (`Addresses.urlOf`): the router matches a page's own words
+ * (`quizzes`, `categories`) unescaped, so `quizze%73`, which the reader would take for them, is
+ * not found.
+ */
+function isOrgPage(pathname: string): boolean {
+  const location = Addresses.locationFrom(pathname)
+  if (location === null || location.raw) { return false }
+  const { address, mode } = location
+  return OrgPageKinds.has(address.kind) && (mode === null || ModedKinds.has(address.kind)) && Addresses.urlOf(address, mode ?? undefined) === pathname
+}
+
+/** Whether a path's segments are a page's shape: as many, each the word the shape names, or a label where it takes any */
+function fitsShape(segs: readonly string[], shape: readonly (string | typeof AnyLabel)[]): boolean {
+  return segs.length === shape.length && shape.every((want, idx) => (want === AnyLabel ? CK.label.safeParse(segs[idx]).success : want === segs[idx]))
+}
+
+/** An origin no path of ours could name, to read a path against */
+const PathBase = 'https://app.invalid'
+
+/**
+ * `raw` read as a browser would read it, when it is a path on this site: it begins with one `/`,
+ * holds no backslash (which a browser reads as a slash), and, read against an origin of our own,
+ * stays on it, its path as read beginning with one `/` too. A browser drops tabs and newlines from
+ * an address before it reads it, so `/<tab>/elsewhere.example` is `//elsewhere.example`, another
+ * site: reading it as the browser will, rather than by its first characters, is what refuses it.
+ * And it resolves dot segments, so `/.//elsewhere.example` reads as the path
+ * `//elsewhere.example`, which, written out again, names another site. Null for anything else,
+ * an address no browser could read among it (`/<tab>/[`, a host that is no host): what `thenFrom`
+ * and `isSyncedPath` both read a path by.
+ */
+function onSite(raw: string): URL | null {
+  if (! raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) { return null }
+  let url: URL
+  try {
+    url = new URL(raw, PathBase)
+  } catch {
+    return null
+  }
+  return url.origin === PathBase && ! url.pathname.startsWith('//') ? url : null
 }
 
 /**
@@ -97,7 +188,7 @@ export function categoriesPath(labels: HuntLabels): string {
 
 /**
  * Where a quiz lives, opened in `mode`. Without one it names the quiz alone, which opens in the
- * mode the visitor's role works in (`Hunting.modeFor`).
+ * mode the visitor's role works in (`Huntship.modeFor`).
  *
  * @example quizPath({ org: 'pat_smith', hunt: 'quiet_otter', realm: 'home', quiz: 'loud_heron' }, 'edit')  // => '/~pat_smith/quiet_otter/quizzes/home/loud_heron/!edit'
  */
@@ -138,13 +229,16 @@ export function movedPath(path: string, from: { search: string, hash: string }):
 /**
  * Where to send the visitor once they have said who they are: `then`, when it is a path on this
  * site, and nowhere otherwise. A link that could send a visitor off-site after logging in is a
- * trap, so anything with a scheme or a host is refused.
+ * trap, so anything with a scheme or a host is refused, judged as the browser will read it
+ * (`onSite`): `/<tab>/elsewhere.example` is another site once the browser drops the tab. The path
+ * is answered as read, so what is followed is what was judged.
  *
  * @example thenFrom('/~pat_smith/quiet_otter/quizzes/home/loud_heron/!playtest')  // => '/~pat_smith/quiet_otter/quizzes/home/loud_heron/!playtest'
  * @example thenFrom('https://elsewhere.example/')  // => null
  * @example thenFrom('//elsewhere.example/')  // => null
+ * @example thenFrom('/\t/elsewhere.example/')  // => null
  */
 export function thenFrom(raw: string | null): string | null {
-  if (raw === null || ! raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) { return null }
-  return raw
+  const url = raw === null ? null : onSite(raw)
+  return url && `${url.pathname}${url.search}${url.hash}`
 }

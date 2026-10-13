@@ -229,7 +229,7 @@ describe("showPerformed", () => {
   it("never throws, so a change it cannot show still goes", () => {
     vi.spyOn(console, 'error').mockReturnValue(undefined)
     const store = { getAllQueries: () => { throw new Error('the store broke') } } as unknown as OptimisticLocalStore
-    const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith', quiz_id: 'quiz', realm_id: 'realm' } as const
+    const affirms = { user_id: 'user', hunt_id: 'hunt', standing: 'smith', quiz_id: 'quiz', realm_id: 'realm' } as const
     expect(() => { showPerformed(store, { affirms, action: { kind: 'sort_questions', sortkey: 'chain_order', descending: false, question_ids: [] } }) }).not.to.throw()
   })
 })

@@ -35,7 +35,7 @@ const tooNarrow = (theme: Theme) => theme.breakpoints.down('md')
  * about a quiz, its realm's label, which goes to the hunt's quizzes, and the quiz's title, which
  * opens the switcher. The crumbs stop at the deepest the page has. On the right, on the quiz's
  * own screen, making another quiz and locking this one; and, at the far right, the user menu: who
- * you are, your hunts, being someone else, and About.
+ * you are, your hunts, About, and signing in with Google or out.
  *
  * As the bar narrows, the crumbs are cut short before the buttons are.
  */

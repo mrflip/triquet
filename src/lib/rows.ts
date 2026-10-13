@@ -8,7 +8,7 @@ import type * as Actor from './actor'
 import * as Wheel from './wheel'
 import type { WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
-import type { HuntRole } from '../models/hunting'
+import type { HuntRole } from '../models/huntship'
 import { DefaultViz, Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { ColumnT } from '../models/column'
@@ -151,15 +151,15 @@ export type HuntListingT = {
   realms: readonly ShallowRealmT[]
 }
 
-/** A hunt as its hunts list shows one ident: its listing, and the ident's role on it */
+/** A hunt as its hunts list shows one user: its listing, and the user's role on it */
 export type ListedHuntT = HuntListingT & { role: HuntRole }
 
-/** One ident on a hunt, as the members panel shows it: who, and in what role */
+/** One user on a hunt, as the members panel shows it: who, by their userlabel and title as their huntship copies them, and in what role */
 export type MemberT = {
-  ident_id: Id<'idents'>
-  label:    string
-  title:    string
-  role:     HuntRole
+  user_id: Id<'users'>
+  label:   string
+  title:   string
+  role:    HuntRole
 }
 
 /** A smith of a hunt, as someone not on it is told who to ask */
@@ -186,11 +186,11 @@ export type HuntOpeningT =
   | { why: 'notOnHunt',  hunt: null, smiths: readonly SmithT[] }
 
 /**
- * A review, with the label and title of the ident who wrote it (null for an ident no longer
+ * A review, with the userlabel and title of the user who wrote it (null for a user no longer
  * there), and its verdict on each question the reviewer has written to.
  */
 export type ReviewedT = Doc<'reviews'> & {
-  reviewer:   Pick<Doc<'idents'>, 'label' | 'title'> | null
+  reviewer:   { label: string, title: string } | null
   reviewings: Doc<'reviewings'>[]
 }
 
@@ -538,13 +538,13 @@ export function huntFrom(rows: HuntRows, quizFor: ReadonlyMap<string, QuizT>): H
 }
 
 /**
- * The review of a quiz that `ident_id` wrote, out of the quiz's reviews oldest first: the earliest,
+ * The review of a quiz that `user_id` wrote, out of the quiz's reviews oldest first: the earliest,
  * should there be two.
  *
- * @returns The review, or null when that ident has written none.
+ * @returns The review, or null when that user has written none.
  *
- * @example reviewBy(reviews, ident._id)?.phase  // => 'draft'
+ * @example reviewBy(reviews, user._id)?.phase  // => 'draft'
  */
-export function reviewBy<RT extends Pick<Doc<'reviews'>, 'ident_id'>>(reviews: readonly RT[], ident_id: string): RT | null {
-  return reviews.find((review) => review.ident_id === ident_id) ?? null
+export function reviewBy<RT extends Pick<Doc<'reviews'>, 'user_id'>>(reviews: readonly RT[], user_id: string): RT | null {
+  return reviews.find((review) => review.user_id === user_id) ?? null
 }

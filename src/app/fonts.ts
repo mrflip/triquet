@@ -34,5 +34,16 @@ export const jetbrainsMono = localFont({
   display:  'swap',
 })
 
-/** The three font variables, ready for the html element's class list */
-export const FontVariables = [zillaSlab.variable, workSans.variable, jetbrainsMono.variable].join(' ')
+/**
+ * Google's sign-in button: Roboto Medium, as Google's branding guidelines ask of it, and nothing
+ * else. Not preloaded, so a page without the button never fetches it.
+ */
+export const robotoMedium = localFont({
+  src:      [{ path: '../../node_modules/@fontsource/roboto/files/roboto-latin-500-normal.woff2', weight: '500', style: 'normal' }],
+  variable: '--font-google-button',
+  display:  'swap',
+  preload:  false,
+})
+
+/** The font variables, ready for the html element's class list */
+export const FontVariables = [zillaSlab.variable, workSans.variable, jetbrainsMono.variable, robotoMedium.variable].join(' ')
