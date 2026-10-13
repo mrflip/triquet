@@ -5,7 +5,15 @@
 * on a failed bot call, include the input and the error in the logs and in the popup error sigil
 * making a new entry is hard. Does each need to be a widget, or can there be a single widget for entry and the widgeting
   chooses? (I'm not sure, discuss)
+* Auto-create the sandbox / first quiz
+* rename “triquet.vercel.app” to “triquet.me” everywhere
+* Review microcontent for consistency and style (eg title caps consistency)
+* remove heldUserlabel. It skips the top-level reserved words, so a handle claimed before a word was reserved stays valid.
+* Set up oauth2-mock-server
+* Make a list of all possible states for a user: is/isn't signed in with google, has/hasn't a username, was/wasn't standalone, ...
 
+## Viz fixes
+* smith screen:
 
 ## Soon
 
