@@ -1,0 +1,59 @@
+# Sprint `auth_todos`: progress
+
+**Status: thread 1 landed (#247); thread 2 landing; thread 3 landing (2026-10-13).**
+
+The running handoff, newer than `auth_todos-plan.md` wherever the two disagree. Each thread writes
+its own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
+
+| # | Thread | Status | Branch | PR |
+|---|--------|--------|--------|----|
+| 1 | `domain`: the domain is triquet.me | landed #247 | `20261013-domain` | [#247](https://github.com/mrflip/triquet/pull/247) |
+| 2 | `one_userlabel`: no held userlabel | landing | `20261013-one_userlabel` | |
+| 3 | `mock_google`: a mock Google; signup, signin, verify tested through | landing | `20261013-mock_google` | |
+| 4 | `short_userlabel`: a userlabel may be four letters | pending | | |
+| 5 | `auto_sandbox`: the sandbox and its first quiz, made for you | pending | | |
+| 6 | `microcontent`: the microcontent, consistent | pending | | |
+
+Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only).
+
+## What the threads have taught
+
+*Orchestrator:*
+
+* **Production's address is written once**, in `notes/deploy.md` beside `SITE_URL`; no code
+  derives it (no `metadataBase`, canonical link or sitemap), so no constant was added (thread 1).
+* **The new domain needs the Coach outside the repo**: Vercel's domain and a 308 from the old
+  name; Convex production's `SITE_URL`; Google's consent-screen links and authorized domain (the
+  redirect URI, on `<prod>.convex.site`, does not change). `thread-1-domain.md`, *For the Coach*.
+
+* **One userlabel check, `CK.userlabel`**, top-level words and all, for every row and argument
+  that held `heldUserlabel` (thread 2, in review). `User.relabelled` is folded into
+  `User.labelled`; `Addresses.isHeldUserlabel` is `isUserlabel`. A userlabel now always passes
+  `HuntValidators.newLabel`, so **thread 5's sandbox needs no check of its own**.
+* **`scripts/check_reserved` is the guard before the reserved list grows** (thread 2): it now
+  reads every held userlabel (users, ghostings) and every hunt's org and label from a deployment
+  (`check_reserved:held`) and judges them against the *checkout's* list, so it is run before the
+  list deploys. Hunts whose own label becomes reserved are harmless (checked only when made).
+* **For thread 4**: the userlabel's length is stated only in `PA.Userlabel` now; six survives in
+  `PA.Userlabel.msg`, `tests/models/user.test.ts` ("shorter than six", `'flips'`) and
+  `tests/lib/vv/checks/strings.test.ts` (`'fivee'`).
+* **Google signs in for real in e2e, CI included** (thread 3, in review): `oauth2-mock-server`
+  as `scripts/mock-google.ts`, on a fourth port per role in `scripts/lanes.ts`, started by
+  `scripts/convex_dev` beside every e2e backend with placeholder keys. `convex/auth.ts` honours
+  `TRIQUET_MOCK_GOOGLE_ISSUER` only where `TRIQUET_CLEARABLE=yes`, and only for an `http`
+  loopback (`mockGoogleIssuerOf`; `notes/security.md`). No Google test skips any more.
+* **For thread 5**: where a new user lands is one helper, `landedAfterSignUp(page, label, then?)`
+  in `e2e/support.ts`; `assumeUserlabel` and `signUpWithGoogle(page, { account, label, from })`
+  both end in it. A spec drives the stand-in with `answerGoogleAs(page, freshGoogleAccount({...}))`
+  or `'refused'` (`e2e/google.ts`). A deep-link sign-up spec (landing back on a hunt) already
+  exists: the case thread 5 keeps.
+* **For thread 6**: the user menu closes itself if opened just after a return from Google
+  (`ShowUser` hands the header `null` while `useMe` reloads). Thread 3's spec waits it out
+  (`userMenuSaying`); thread 6 takes it if it is cheap, else TODO.
+* `testing:mergeInto` is gone (the merge is real now); `vouchFor` stays for kept sessions.
+
+## Reviews of landed threads
+
+* **Thread 1, #247.** *Review: none* (no code in the diff). e2e skipped, reason in the PR. Minor
+  left: the finished oauth sprint's `google-oauth-keys.md` still shows the old consent-screen
+  values; left as a record.
