@@ -66,7 +66,8 @@ effort, and a shallow clone may list no commits.
   authorization is code in `convex/authorize.ts` and ships with the functions. Sessions are
   Convex Auth's (`convex/auth.ts`), and every deployment needs three environment variables of its
   own for them, set on the deployment (the Convex dashboard, or `npx convex env set`), never in
-  Doppler's app configs: `JWT_PRIVATE_KEY` and `JWKS`, a key pair minted for that deployment alone
+  the Doppler configs that sync to Vercel (`prd`, `stg`), since the web app Vercel builds never
+  reads them: `JWT_PRIVATE_KEY` and `JWKS`, a key pair minted for that deployment alone
   (`scripts/convex_auth_keys` shows how), and `SITE_URL`, the web app's address. Without them no
   browser can sign in, and so none can take a userlabel. Preview deployments take theirs from
   the project's default environment variables for previews. No variable names the admins, who may
@@ -81,11 +82,12 @@ effort, and a shallow clone may list no commits.
   true`); `false` or unset, they stay an admin's, and any other value is refused.
 * **Google sign-in** is offered only on a deployment holding both of Google's keys,
   `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` (`googleKeyed`, `convex/auth.ts`); everywhere else the
-  browser sees only the anonymous way in. Like the session keys they live on the deployment, never
-  in Doppler's app configs. **Production's** are a web client of a Google Cloud project of its own,
-  made by *path A* in `whiteboard/20261010-oauth/google-oauth-keys.md` (published, unbranded; the
-  consent screen names `<prod>.convex.site`), whose one redirect URI is production's HTTP-actions
-  address plus `/api/auth/callback/google`; a Coach sets them with `npx convex env set` under
+  browser sees only the anonymous way in. Like the session keys, a cloud deployment's live on the
+  deployment, never in the Doppler configs that sync to Vercel; the dev client's live in the dev
+  configs, for local backends (below). **Production's** are a web client of a Google Cloud project
+  of its own, made by *path A* in `whiteboard/20261010-oauth/google-oauth-keys.md` (published,
+  unbranded; the consent screen names `<prod>.convex.site`), whose one redirect URI is
+  production's HTTP-actions address plus `/api/auth/callback/google`; a Coach sets them with `npx convex env set` under
   `prd_janitor`, or in the dashboard, and keeps the secret out of chat and files. A deployment
   picks them up without a redeploy (a local backend served the Google routes at once, 2026-10-11).
   **A local backend** takes them from the Doppler config `scripts/convex_dev` runs under (all three
