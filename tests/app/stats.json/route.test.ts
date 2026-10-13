@@ -19,6 +19,12 @@ describe("GET /stats.json", () => {
   })
 
   it("leaves out what only a browser could say", async () => {
-    expect(Object.keys(await GET().json() as object)).to.have.members(['build', 'next'])
+    expect(Object.keys(await GET().json() as object)).to.have.members(['build', 'next', 'env'])
+  })
+
+  it("lists the environment it was built in, each value masked unless ENV_VAR_VIZ shows it", async () => {
+    const { env } = await GET().json() as { env: Record<string, string | null> }
+    expect(env).to.have.property('PATH', null)
+    expect(Object.keys(env)).to.have.members(Object.keys(process.env).filter((envvar) => process.env[envvar] !== undefined))
   })
 })

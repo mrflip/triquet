@@ -3,8 +3,10 @@
 import type { ReactNode } from 'react'
 import { version as reactVersion } from 'react'
 import { version as convexVersion } from 'convex'
-import { Box, Chip, Link, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
+import { Accordion, AccordionDetails, AccordionSummary, Box, Chip, Link, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { BuildStampT } from '../lib/build-stamp'
+import type { EnvVizT } from '../lib/env-viz'
 import type { BackfillStatusT } from '../lib/rows'
 import * as StatsReport from '../lib/stats-report'
 import * as UU from '../lib/useful'
@@ -18,22 +20,25 @@ type StatsProps = {
   /** What the build said of itself as it was built */
   stamp:        BuildStampT
   next_version: string
+  /** The environment it was built in, already masked (`EnvViz.visualize`) */
+  env:          EnvVizT
 }
 
 /** How many lines the JSON box shows */
 const BoxRows = 12
 
 /**
- * Which build this is, the pull request it came from, what this browser runs, and how far the
- * deployment's backfills have run; all of it again as JSON, to copy from beside the heading or
- * from the box at the foot. The build's part alone is served at `/stats.json`.
+ * Which build this is, the pull request it came from, what this browser runs, how far the
+ * deployment's backfills have run, and the environment it was built in; all of it again as JSON,
+ * to copy from beside the heading or from the box at the foot. Each part folds away under its
+ * heading, and the environment starts folded. The build's part alone is served at `/stats.json`.
  */
-export function Stats({ stamp, next_version }: Readonly<StatsProps>) {
+export function Stats({ stamp, next_version, env }: Readonly<StatsProps>) {
   const { backfills, connected, connections } = useStats()
   const { pull, links } = stamp
   const told = pull ? pull.body : (stamp.message ?? '')
   const report = StatsReport.pageReport(
-    StatsReport.buildReport(stamp, next_version),
+    StatsReport.buildReport(stamp, next_version, env),
     { react: reactVersion, convex: convexVersion, backend: convexUrl() ?? null, connected, connections },
     backfills,
   )
@@ -103,6 +108,10 @@ export function Stats({ stamp, next_version }: Readonly<StatsProps>) {
         <Backfills backfills={backfills} />
       </Section>
 
+      <Section title="Build environment" folded>
+        <Facts rows={Object.entries(env).map(([envvar, shown]) => [envvar, shown === null ? null : <code>{shown}</code>] as const)} unknown={<Typography component="span" variant="inherit" color="text.secondary" sx={{ fontStyle: 'italic' }}>not shown</Typography>} ariaLabel="Build environment" />
+      </Section>
+
       <Section title="As JSON">
         <ReadonlyBox label="Stats as JSON" text={reportText} rows={BoxRows} dense resizable />
       </Section>
@@ -110,25 +119,36 @@ export function Stats({ stamp, next_version }: Readonly<StatsProps>) {
   )
 }
 
-/** One part of the page, under its heading */
-function Section({ title, children }: Readonly<{ title: string, children: ReactNode }>) {
+/** One part of the page, under a heading that folds it away; open to begin with, unless `folded` */
+function Section({ title, folded = false, children }: Readonly<{ title: string, folded?: boolean, children: ReactNode }>) {
   return (
-    <Box component="section" sx={{ mt: 4 }}>
-      <Typography variant="h5" component="h2" sx={{ mb: 1 }}>{title}</Typography>
-      {children}
-    </Box>
+    <Accordion component="section" defaultExpanded={! folded} disableGutters variant="outlined" slotProps={{ heading: { component: 'h2' } }} sx={{ mt: 2 }}>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Typography variant="h5" component="span">{title}</Typography>
+      </AccordionSummary>
+      <AccordionDetails>
+        {children}
+      </AccordionDetails>
+    </Accordion>
   )
 }
 
-/** Facts as a two-column table, one to a row; one nobody could tell reads as a dash */
-function Facts({ rows }: Readonly<{ rows: readonly (readonly [string, ReactNode])[] }>) {
+type FactsProps = {
+  rows:       readonly (readonly [string, ReactNode])[]
+  /** What a fact nobody could tell (null) reads as; a dash, unless said */
+  unknown?:   ReactNode
+  ariaLabel?: string
+}
+
+/** Facts as a two-column table, one to a row */
+function Facts({ rows, unknown = '—', ariaLabel }: Readonly<FactsProps>) {
   return (
-    <Table size="small">
+    <Table size="small" aria-label={ariaLabel}>
       <TableBody>
         {rows.map(([label, fact]) => (
           <TableRow key={label}>
             <TableCell component="th" scope="row" sx={{ width: '12em', fontWeight: 'bold', verticalAlign: 'top' }}>{label}</TableCell>
-            <TableCell sx={{ overflowWrap: 'anywhere' }}>{fact ?? '—'}</TableCell>
+            <TableCell sx={{ overflowWrap: 'anywhere' }}>{fact ?? unknown}</TableCell>
           </TableRow>
         ))}
       </TableBody>
