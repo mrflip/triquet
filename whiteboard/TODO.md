@@ -542,9 +542,15 @@ Fixed in the thread: the front door's `?then=` open redirect. Left, each a Coach
   refusal so it does not.
 * **Sign out on a shared browser** leaves the hunt histories (IndexedDB) behind: say so in the
   sign-out question, or offer to clear them.
-* **Code review leftovers, not security**: `holderOfUserlabel` reads up to `HuntsPerOrg.max` hunts
-  to test for one (`.first()` would do); `auth:offered` is a `zQuery`, so it reads the session and
-  user it never uses and reruns when the user changes; `retitleUser` repeats `rewriteUserlabel`'s
-  copy loop, and `adopt`'s `relabelFor` its stale-copy filter; `UserlabelGate` names a variable
-  `name`; the patch deletes a code's verifier in two places (`userOAuth.js`,
-  `verifyCodeAndSignIn.js`).
+* **Code review leftovers, not security**:
+  - ~~`holderOfUserlabel` reads up to `HuntsPerOrg.max` hunts to test for one~~. *Struck by the
+    oauth sprint's thread 11 (2026-10-13):* it reads one (`anyHuntInOrg`, `.first()`), as does
+    `adopt`'s `leftBehind`.
+  - ~~`retitleUser` repeats `rewriteUserlabel`'s copy loop, and `adopt`'s `relabelFor` its
+    stale-copy filter~~. *Struck by thread 11:* one loop (`recopyOntoHuntships`) and one rule
+    (`Huntship.isStale`). Thread 10's reviewer's find came with it: `adopt` gives no anonymous user
+    a userlabel a hunt's address holds.
+  - `auth:offered` is a `zQuery`, so it reads the session and user it never uses and reruns when
+    the user changes.
+  - `UserlabelGate` names a variable `name`.
+  - The patch deletes a code's verifier in two places (`userOAuth.js`, `verifyCodeAndSignIn.js`).

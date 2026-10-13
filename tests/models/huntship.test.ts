@@ -51,6 +51,21 @@ describe('Huntship.holdsAtLeast', () => {
   }
 })
 
+describe('Huntship.isStale', () => {
+  const Copy = { userlabel: 'flip', usertitle: 'Flip' }
+  const StaleCases: [{ userlabel: string, title: string }, boolean, string][] = [
+    [{ userlabel: 'flip',   title: 'Flip K.' }, true,  'a copy whose title the user no longer holds'],
+    [{ userlabel: 'mrflip', title: 'Flip' },    true,  'a copy whose userlabel the user no longer holds'],
+    [{ userlabel: 'mrflip', title: 'Mrflip' },  true,  'a copy holding neither'],
+    [{ userlabel: 'flip',   title: 'Flip' },    false, 'a copy holding both as the user does'],
+  ]
+  for (const [user, expected, describes] of StaleCases) {
+    it(`${expected ? 'finds stale' : 'keeps'} ${describes}`, () => {
+      expect(Huntship.isStale(Copy, user)).to.eq(expected)
+    })
+  }
+})
+
 describe('Huntship.mayOpen', () => {
   const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
   const hunt_id = 'k17ah9c4r1hm0z5y1ad0bbn7wn7fn9x1' as Id<'hunts'>

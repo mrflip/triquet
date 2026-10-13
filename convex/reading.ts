@@ -111,10 +111,10 @@ export async function googleAccountOf(db: Reader, user_id: Id<'users'>): Promise
  * @example await holderOfUserlabel(db, 'flip_kromer')  // => 'user', once someone has taken it
  */
 export async function holderOfUserlabel(db: Reader, userlabel: string): Promise<'user' | 'ghosting' | 'address' | null> {
-  const [user, ghosting, hunts] = await Promise.all([userForUserlabel(db, userlabel), ghostingFor(db, userlabel), huntsCountedInOrg(db, userlabel)])
-  if (user)      { return 'user' }
-  if (ghosting)  { return 'ghosting' }
-  if (hunts > 0) { return 'address' }
+  const [user, ghosting, hunt] = await Promise.all([userForUserlabel(db, userlabel), ghostingFor(db, userlabel), anyHuntInOrg(db, userlabel)])
+  if (user)     { return 'user' }
+  if (ghosting) { return 'ghosting' }
+  if (hunt)     { return 'address' }
   return null
 }
 
@@ -136,6 +136,16 @@ export async function huntForLabel(db: Reader, label: string): Promise<Doc<'hunt
  */
 export async function huntInOrg(db: Reader, orglabel: string, label: string): Promise<Doc<'hunts'> | null> {
   return await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', orglabel).eq('label', label)).first()
+}
+
+/**
+ * A hunt of the org `orglabel`, whichever its index finds first: one row read, to ask whether any
+ * hunt carries `orglabel` as its address (`holderOfUserlabel`); null when none does.
+ *
+ * @example (await anyHuntInOrg(db, 'pat_smith'))?.orglabel  // => 'pat_smith', while pat_smith holds a hunt
+ */
+export async function anyHuntInOrg(db: Reader, orglabel: string): Promise<Doc<'hunts'> | null> {
+  return await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', orglabel)).first()
 }
 
 /**

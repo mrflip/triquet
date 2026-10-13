@@ -7,7 +7,7 @@ import { Hunt } from '../src/models/hunt'
 import { Huntship, type HuntRole } from '../src/models/huntship'
 import { User } from '../src/models/user'
 import { zInternalMutation, zInternalQuery } from './functions'
-import { holderOfUserlabel, huntInOrg, huntsCountedInOrg, huntsOf, huntshipFor, huntshipsFor, userForUserlabel, type Reader } from './reading'
+import { anyHuntInOrg, holderOfUserlabel, huntInOrg, huntsOf, huntshipFor, huntshipsFor, userForUserlabel, type Reader } from './reading'
 import { grantHuntship } from './writing/huntship_actions'
 import { relabelUser } from './writing/user_actions'
 import type { Writer } from './writing/quiz_writing'
@@ -20,7 +20,8 @@ import type { Writer } from './writing/quiz_writing'
 // `perform` does it, and running it again changes nothing more. A refusal is a `ConvexError` whose
 // data is its reason, in words for the person at the command line, which `convex run` shows them.
 // It keeps to sealing where sealing has no actor to ask: it puts nobody on an anonymous user's
-// sandbox, and relabels no anonymous user holding one.
+// sandbox, relabels no anonymous user holding one, and gives no anonymous user a userlabel a hunt's
+// address holds.
 
 /** How many users an email that more than one holds is answered with, for the Coach to choose among */
 const EmailHoldersShown = 9
@@ -50,7 +51,7 @@ type PlanT = {
  * email is Google's claim, kept without Google's word that it was verified.
  *
  * @returns The user as it stands, what `perform` would change, how much of what was asked it holds already, and how many anonymous users' sandboxes a grant on every hunt passes over.
- * @throws When the user is not found (or an email names more than one), it is provisional (a Google sign-in not yet finished), the userlabel is held by another user or a ghosting, an anonymous user holding a sandbox is relabelled, an anonymous user is to be an admin or put on a hunt, a user with no userlabel is put on one, or a hunt named is not there or is an anonymous user's sandbox.
+ * @throws When the user is not found (or an email names more than one), it is provisional (a Google sign-in not yet finished), the userlabel is held by another user or a ghosting (or, for an anonymous user, a hunt's address), an anonymous user holding a sandbox is relabelled, an anonymous user is to be an admin or put on a hunt, a user with no userlabel is put on one, or a hunt named is not there or is an anonymous user's sandbox.
  *
  * @example npx convex run adopt:plan '{"find": {"email": "pat@example.com"}, "userlabel": "mrflip", "admin": true, "grants": [{"role": "smith", "hunts": "every"}]}'
  *   // => { user: { user_id, userlabel: null, title: null, anonymous: false, admin: false, name: 'Pat Smith', created_at: 1760300000000 }, changes: [{ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null }, { kind: 'admin', to: true }, { kind: 'huntship', org: 'mrflip', hunt: 'quiet_otter', role: 'smith', from: null }], kept: 0, skipped: 0 }
@@ -131,8 +132,10 @@ async function userFound(db: Reader, find: AdoptionT['find']): Promise<Doc<'user
 
 /**
  * The userlabel and title `user` is to take, if either changes. A userlabel only a hunt's address
- * holds is given all the same: the command line is trusted. One another user or a ghosting holds
- * is refused.
+ * holds is given all the same to a user signed in with Google: the command line is trusted. One
+ * another user or a ghosting holds is refused; so is one a hunt's address holds, for an anonymous
+ * user, which would seem to own hunts it is not on (`~label/label` among them, so its sandbox's
+ * address is taken), and could be put on none of them.
  */
 async function relabelFor(db: Reader, user: Doc<'users'>, request: AdoptionT): Promise<PlanT['relabel']> {
   if (request.userlabel === undefined && request.title === undefined) { return null }
@@ -144,10 +147,12 @@ async function relabelFor(db: Reader, user: Doc<'users'>, request: AdoptionT): P
     const holder = await holderOfUserlabel(db, userlabel)
     if (holder === 'user')     { throw new ConvexError(`Another user holds the userlabel ${userlabel}.`) }
     if (holder === 'ghosting') { throw new ConvexError(`The userlabel ${userlabel} is retired by a merge (a ghosting holds it).`) }
+    if (holder === 'address' && User.isAnonymous(user)) {
+      throw new ConvexError(`The user ${userline(user)} is anonymous, and hunts are addressed ~${userlabel}/…: only a user signed in with Google is given a userlabel a hunt's address holds. Have its owner sign in with Google first.`)
+    }
   }
   const huntships = await huntshipsFor(db, user._id)
-  const stale = huntships.filter((huntship) => huntship.userlabel !== userlabel || huntship.usertitle !== title)
-  return { userlabel, title, huntships: stale.length }
+  return { userlabel, title, huntships: huntships.filter((huntship) => Huntship.isStale(huntship, { userlabel, title })).length }
 }
 
 /**
@@ -163,7 +168,7 @@ async function leftBehind(db: Reader, user: Doc<'users'>, relabel: PlanT['relabe
   if (User.isAnonymous(user) && await huntInOrg(db, held, held)) {
     throw new ConvexError(`The user ${userline(user)} is anonymous and holds its sandbox, ~${held}/${held}: relabelled, it could make a second. Have its owner sign in with Google first.`)
   }
-  return await huntsCountedInOrg(db, held) > 0 ? 'address' : 'free'
+  return await anyHuntInOrg(db, held) ? 'address' : 'free'
 }
 
 /**

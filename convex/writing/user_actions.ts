@@ -2,6 +2,7 @@ import type { Doc, Id } from '../_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
 import { refuse } from '../../src/lib/refusals'
 import { GhostingValidators } from '../../src/models/ghosting'
+import { Huntship } from '../../src/models/huntship'
 import { User, UserValidators, type SignInDNA, type SignInT } from '../../src/models/user'
 import type { UserActionT } from '../../src/models/actions'
 import { googleAccountOf, holderOfUserlabel, huntInOrg, huntshipFor, huntshipsFor, userForUserlabel } from '../reading'
@@ -51,11 +52,8 @@ export async function assumeUserlabel(db: Writer, user_id: Id<'users'>, actor: A
 export async function retitleUser(db: Writer, actor: Actor.ActorT, title: string): Promise<Id<'users'>> {
   if (Actor.isUnlabelled(actor)) { refuse('notIdentified') }
   const filled = User.titleFor(actor.userlabel, title)
-  const huntships = await huntshipsFor(db, actor.user_id)
   if (filled !== actor.usertitle) { await db.patch('users', actor.user_id, { title: filled }) }
-  for (const huntship of huntships) {
-    if (huntship.usertitle !== filled) { await db.patch('huntships', huntship._id, { usertitle: filled }) }
-  }
+  await recopyOntoHuntships(db, actor.user_id, { userlabel: actor.userlabel, title: filled })
   return actor.user_id
 }
 
@@ -89,9 +87,21 @@ export async function relabelUser(db: Writer, user_id: Id<'users'>, userlabel: s
  * @returns How many of its huntships' copies were rewritten.
  */
 async function rewriteUserlabel(db: Writer, user_id: Id<'users'>, labelled: { userlabel: string, title: string }): Promise<number> {
-  const huntships = await huntshipsFor(db, user_id)
   await db.patch('users', user_id, labelled)
-  const stale = huntships.filter((huntship) => huntship.userlabel !== labelled.userlabel || huntship.usertitle !== labelled.title)
+  return await recopyOntoHuntships(db, user_id, labelled)
+}
+
+/**
+ * Rewrite the copy of the user `user_id` each of its huntships holds (`notes/convex.md`,
+ * *Denormalized fields*) to `labelled`, its userlabel and title as they now stand, where it is
+ * stale (`Huntship.isStale`): what a relabel and a retitle share. A huntship already holding them
+ * is left unwritten.
+ *
+ * @returns How many huntships' copies were rewritten.
+ */
+async function recopyOntoHuntships(db: Writer, user_id: Id<'users'>, labelled: { userlabel: string, title: string }): Promise<number> {
+  const huntships = await huntshipsFor(db, user_id)
+  const stale = huntships.filter((huntship) => Huntship.isStale(huntship, labelled))
   for (const huntship of stale) {
     await db.patch('huntships', huntship._id, { userlabel: labelled.userlabel, usertitle: labelled.title })
   }

@@ -302,6 +302,21 @@ describe('adopt:perform, the userlabel', () => {
     expect(userlabel).to.eq('mrflip')
   })
 
+  it("refuses an anonymous user a userlabel a hunt's address holds, an old hunt's or a sandbox's left behind; nothing is written", async () => {
+    const { tt, quiet_otter } = await clearedProduction()
+    await tt.run(async (ctx) => {
+      await ctx.db.insert('hunts', { label: 'gone_alice', orglabel: 'gone_alice', title: '', branch: 'main' })
+    })
+    const { user_id } = await anonymousSession(tt)
+    const ante = await heldIn(tt)
+    for (const userlabel of ['mrflip', 'gone_alice']) {
+      await expect(planned(tt, { find: { user_id }, userlabel })).rejects.toThrow(new RegExp(`is anonymous, and hunts are addressed ~${userlabel}/…: only a user signed in with Google`))
+      await expect(adopted(tt, { find: { user_id }, userlabel })).rejects.toThrow(/is anonymous, and hunts are addressed/)
+    }
+    expect(await heldIn(tt)).to.deep.eq(ante)
+    expect(await membersIn(tt, quiet_otter)).to.deep.eq([])
+  })
+
   it('refuses a title for a user holding no userlabel, given none', async () => {
     const tt = openTester()
     const coach = await googleUnlabelled(tt)
