@@ -6,6 +6,10 @@ files, 6405 tests). No e2e yet: the thread touches `convex/`, `src/models/` and 
 patch, so the landing's `--touched` reaches the whole suite. Pushed once to lane 1's `agent`
 backend: it took the functions and the patched bundle, and `convex/_generated/` did not change.
 
+**Review: clean** (medium, no fixes). Its one minor finding, that no test drove `retitleUser` over
+a huntship whose userlabel copy had drifted (the repair declared below), is closed by a test in
+`tests/convex/users.test.ts`. Proved with a full `pnpm e2e`: the sprint's closing run.
+
 * **Built** (each struck from `whiteboard/TODO.md`, *From oauth sprint, thread 9*, in its commit):
   - **One row to test for an address.** `anyHuntInOrg(db, orglabel)` in `convex/reading.ts`
     (`.first()` on `by_orglabel_and_label`). `holderOfUserlabel` asks it in place of
