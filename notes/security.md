@@ -15,9 +15,16 @@ security expert who knows what questions to ask.
   split from a user's face (`UserFaceT`) to anyone on a hunt with them.
 * 2026-10-13: `/stats` and `/stats.json`, which anyone may read, list the name of every variable in
   the environment the app was built in. A value is shown in full, or its ends with the rest
-  starred out (`snip`, which also gives its length), only where `ENV_VAR_VIZ` (`src/lib/env-viz.ts`)
-  lists the variable as `show` or `snip`; every other one reads as not shown. The masking happens at
-  build time, in the server component and the route handler, before anything reaches the client's props.
+  starred out (`snip`: its letters, digits and underscores only, and its length up to eighteen),
+  only where `ENV_VAR_VIZ` (`src/lib/env-viz.ts`) lists the variable as `show` or `snip`; every
+  other one reads as not shown, and one not listed at all as not shown, no def. That a value is
+  null, undefined or blank is shown whatever the listing says. The masking happens at build time,
+  in the server component and the route handler, before anything reaches the client's props.
+  Every variable of a production build on Vercel is listed (`fixtures/vercel-build-env.txt`, and a
+  test holds it so), most of them `show`: Vercel's own switches, sizes and paths, and the commit,
+  project name and URLs. Its ids (org, project, artifacts owner, hive, image), its internal
+  endpoints and npm proxy, its tokens, keys, salt and encrypted env, Datadog's tags, the Next
+  adapter's config and the observability client configs are masked; the org and project ids are snipped.
 * 2026-10-12: a deployment that sets `EXPOSE_INTERNAL_STATS_TO_ALL=true` answers `stats:backfills` to
   anyone, with or without a session: the name, state and row count of every backfill it defines or
   has run, which says roughly how many rows it holds, of every hunt. `false` or unset, it is an admin's
