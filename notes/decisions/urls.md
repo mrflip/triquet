@@ -44,7 +44,7 @@ Future, with room left in the model for each:
 /~{org}/{hunt}/categories/{category}               one category
 ```
 
-Example: `/~pat_smith/spring_hunt@go_live/quizzes/home/legends/!playtest` (note: includes future proposals; an org is an ident's label, 6 to 24 characters)
+Example: `/~pat_smith/spring_hunt@go_live/quizzes/home/legends/!playtest` (note: includes future proposals; an org is a userlabel, 4 to 24 characters)
 
 | Part                  | In the example | Meaning                                          |
 | --------------------- | -------------- | ------------------------------------------------ |

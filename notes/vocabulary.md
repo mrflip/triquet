@@ -176,7 +176,7 @@ can tell.
   to ..." (`sealedHunts`, `sealedMembers`, `sealedJoin`, `sealedReview`). Never the actor's
   `unlabelled` kind, which is a user holding no userlabel yet, anonymous or not (*actor*).
 * **userlabel** -- a user's label, what a person types to become it (`PA.Userlabel`,
-  `ValidatorKit.userlabel`): 6 to 24 characters of the label alphabet, unique across the app, its
+  `ValidatorKit.userlabel`): 4 to 24 characters of the label alphabet, unique across the app, its
   own word as `orglabel` is, and chosen once (`userlabelSet`). It is **free** only while no user
   holds it, no ghosting holds it, and no hunt carries it as its `orglabel` (`holderOfUserlabel`);
   only the command line gives out one that only an address holds (`scripts/adopt`). Never "username", a

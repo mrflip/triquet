@@ -78,6 +78,13 @@ describe("the sealing refusals", () => {
   })
 })
 
+describe("the unfinished-handle notices", () => {
+  it("say the fewest characters a handle holds, as the userlabel's pattern does", () => {
+    const said = 'A handle is at least 4 characters long, ending in a letter or number.'
+    expect([AppNotices.userlabelUnfinished, AppNotices.memberLabelUnfinished]).to.deep.eq([said, said])
+  })
+})
+
 describe("keepHandleNotice", () => {
   it("offers what a verified account brings, under the handle it keeps", () => {
     expect(keepHandleNotice('mrflip')).to.eq('Verify your account to share puzzles and edit them anywhere as mrflip.')

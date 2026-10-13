@@ -176,8 +176,8 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    * @param profile - What Google sent: the name and email, either of which may be missing.
    * @returns The userlabels, best first; empty when neither makes one.
    *
-   * @example User.suggestionsFor({ name: 'Flip Kromer', email: 'flip@example.com' }).slice(0, 3)  // => ['flip_kromer', 'flip_kromer_2', 'flip_kromer_3']
-   * @example User.suggestionsFor({ email: 'flip@example.com' }).slice(0, 2)                        // => ['flip_2', 'flip_3']
+   * @example User.suggestionsFor({ name: 'Flip Kromer', email: 'flip@example.com' }).slice(0, 3)  // => ['flip_kromer', 'flip', 'flip_kromer_2']
+   * @example User.suggestionsFor({ email: 'jo@example.com' }).slice(0, 2)                          // => ['jo_2', 'jo_3']
    * @example User.suggestionsFor({})                                                               // => []
    */
   static suggestionsFor(profile: { name?: string, email?: string }): string[] {
@@ -200,7 +200,7 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    *
    * @example User.flawIn('flip_kromer')  // => null
    * @example User.flawIn('Flip Kromer')  // => 'shape'
-   * @example User.flawIn('flip')         // => 'unfinished'
+   * @example User.flawIn('flo')          // => 'unfinished'
    * @example User.flawIn('support')      // => 'reserved'
    */
   static flawIn(label: string): LabelFlawT | null {
@@ -219,8 +219,8 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    * @param left - Whether the field has been left (where the label follows another field, either of them has).
    * @returns The flaw to say, or null.
    *
-   * @example User.flawToSay('flip', false)  // => null
-   * @example User.flawToSay('flip', true)   // => 'unfinished'
+   * @example User.flawToSay('flo', false)   // => null
+   * @example User.flawToSay('flo', true)    // => 'unfinished'
    * @example User.flawToSay('Flip', false)  // => 'shape'
    */
   static flawToSay(label: string, left: boolean): LabelFlawT | null {

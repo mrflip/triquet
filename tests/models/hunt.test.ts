@@ -5,6 +5,7 @@ import { Hunt, HuntValidators } from '../../src/models/hunt'
 import { defaultLayout } from '../../src/models/layout'
 import { Quiz, type QuizDNA } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
+import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
 
 /** A hunt of one realm, `home`, holding `quizzes` */
@@ -130,6 +131,12 @@ describe('HuntValidators.row', () => {
 describe('HuntValidators.newLabel', () => {
   it("takes a label a hunt may be given", () => {
     expect(HuntValidators.newLabel('quiet_otter')).to.eq('quiet_otter')
+  })
+
+  it("takes a userlabel of the fewest characters and of the most, as a sandbox is labelled with its own", () => {
+    const shortest = 'x'.repeat(PA.Userlabel.min)
+    const longest  = 'x'.repeat(PA.Userlabel.max)
+    expect([HuntValidators.newLabel(shortest), HuntValidators.newLabel(longest)]).to.deep.eq([shortest, longest])
   })
 
   it("refuses a word kept for the app's own pages and people, which only a label already held may be", () => {

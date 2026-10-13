@@ -124,7 +124,7 @@ describe('users.perform: assume_userlabel', () => {
   it("refuses a userlabel too short to be one, and a word kept for the app's own use, writing nothing", async () => {
     const tt = openTester()
     const session = await anonymousSession(tt)
-    await expect(assume(session, 'flip', 'Flip')).rejects.toThrow(/should have «6» or more/)
+    await expect(assume(session, 'flo', 'Flo')).rejects.toThrow(/should have «4» or more/)
     await expect(assume(session, 'support', 'Help')).rejects.toThrow()
     expect(await fieldOf(tt, session.user_id, 'userlabel')).to.be.undefined
   })
@@ -356,6 +356,6 @@ describe('users.holder', () => {
   })
 
   it('refuses what is not a userlabel, which the front door never asks of', async () => {
-    await expect(holderOf(openTester(), 'flip')).rejects.toThrow(/should have «6» or more/)
+    await expect(holderOf(openTester(), 'flo')).rejects.toThrow(/should have «4» or more/)
   })
 })
