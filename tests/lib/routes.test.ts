@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as Routes from '../../src/lib/routes'
@@ -57,9 +57,40 @@ describe('Routes.huntsPath', () => {
   })
 })
 
+describe("Routes.profilePath", () => {
+  it("is /my/profile", () => {
+    expect(Routes.profilePath()).to.eq('/my/profile')
+  })
+})
+
+describe("Routes.signInPath", () => {
+  it("is /signin with nowhere to go next", () => {
+    expect(Routes.signInPath()).to.eq('/signin')
+  })
+
+  it("carries where to go next, encoded", () => {
+    expect(Routes.signInPath('/my/hunts')).to.eq('/signin?then=%2Fmy%2Fhunts')
+  })
+})
+
 describe('Routes.aboutPath', () => {
   it('is /about', () => {
     expect(Routes.aboutPath()).to.eq('/about')
+  })
+})
+
+describe('Routes.helpPath', () => {
+  it('is /help', () => {
+    expect(Routes.helpPath()).to.eq('/help')
+  })
+
+  it('goes straight to a section, by its anchor', () => {
+    expect(Routes.helpPath('account-benefits')).to.eq('/help#account-benefits')
+  })
+
+  it('names only a section the help page holds', () => {
+    const help = readFileSync(path.join(import.meta.dirname, '..', '..', 'src', 'content', 'help.mdx'), 'utf8')
+    expect(help).to.include('<section id="account-benefits">')
   })
 })
 
@@ -181,6 +212,9 @@ describe("Routes.isSyncedPath", () => {
     ["/~pat_smith/quiet_otter/quizzes/home/loud_heron/!edit",       true,  'a quiz, opened in a mode'],
     ["/~pat_smith/quiet_otter/quizzes/home/loud_heron#q3",          true,  'a quiz, with a fragment'],
     ["/my/hunts",                                                   true,  'the hunts'],
+    ["/my/profile",                                                 true,  'the profile'],
+    ["/signin",                                                     true,  'verifying an account'],
+    ["/signin?then=%2Fmy%2Fhunts",                                  true,  'verifying an account, sending on'],
     ["/stats",                                                      true,  'the stats'],
     ["/h/quiet_otter",                                              true,  'an old hunt address'],
     ["/h/quiet_otter/home/loud_heron?act=smith",                    true,  'an old quiz address'],
@@ -210,6 +244,7 @@ describe("Routes.isSyncedPath", () => {
     ["/pub/widgets/dumdum",                                         false, 'a widget, which no page shows'],
     // pages that never open the database, and what is no page of ours:
     ["/privacy",                                                    false, 'the privacy policy, which opens no database'],
+    ["/help",                                                       false, 'the help page, which opens no database'],
     ["/about",                                                      false, 'About'],
     ["/api/ask",                                                    false, 'a route handler'],
     ["/favicon.ico",                                                false, 'a file'],
@@ -233,7 +268,7 @@ describe("Routes.isSyncedPath", () => {
   it("is true for every page under src/app/(synced)/, and false for every folder there that holds none", () => {
     const folders = foldersBeneath(path.join(app, '(synced)'))
     expect(folders.filter(({ where, page }) => Routes.isSyncedPath(where) !== page)).to.deep.eq([])
-    expect(folders.filter(({ page }) => page)).to.have.lengthOf(12)
+    expect(folders.filter(({ page }) => page)).to.have.lengthOf(14)
   })
 
   it("is false for every page outside src/app/(synced)/", () => {

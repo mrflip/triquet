@@ -1,5 +1,6 @@
 import { test as base, expect, type Browser, type BrowserContext, type BrowserContextOptions, type Locator, type Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
+import { AppNotices } from '../src/lib/notices'
 import type * as Routes from '../src/lib/routes'
 import { namesFor, type QuestionField, type QuestionView } from '../src/models/column'
 import * as Z from 'zod'
@@ -505,7 +506,7 @@ export function freshWidgetLabel(stem: string): string {
 export async function assumeUserlabel(page: Page, label = freshUserlabel()): Promise<string> {
   await page.goto('/')
   await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
-  await page.getByRole('button', { name: `Log in as ${label}` }).click()
+  await page.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
   await expect(page).toHaveURL(/\/my\/hunts$/)
   return label
 }

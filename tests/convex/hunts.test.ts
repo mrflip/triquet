@@ -2193,12 +2193,12 @@ describe('hunts.performOuter: new_hunt, by an anonymous user', () => {
     await expectSound(tt)
   })
 
-  it('refuses any other hunt, saying signing in with Google makes more, and writes nothing', async () => {
+  it('refuses any other hunt, saying a verified account makes more, and writes nothing', async () => {
     const tt = openTester()
     const anon = await anonymousUser(tt, 'anon_alice')
     const err = await refusalOf(makeHunt(tt, 'loud_heron', anon))
     expect(noticeOf(err)).to.eq(RefusalNotices.sealedHunts)
-    expect(noticeOf(err)).to.match(/^Sign in with Google/)
+    expect(noticeOf(err)).to.match(/^Verify your account/)
     expect([await allOf(tt, 'hunts'), await allOf(tt, 'huntships')]).to.deep.eq([[], []])
   })
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  RefusalNotices, botUnavailableNotice, googleGateNotice, googleSignInUnfinishedNotice, keepHandleNotice, nameChoiceQuestion, userUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, sealedNotOnHuntNotice,
-  signedInAsNotice, signOutQuestion, widgetingShownNotice,
+  AppNotices, RefusalNotices, botUnavailableNotice, googleGateNotice, googleSignInUnfinishedNotice, keepHandleNotice, nameChoiceQuestion, userUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, sealedNotOnHuntNotice,
+  signedInAsNotice, widgetingShownNotice,
 } from '../../src/lib/notices'
 
 describe('botUnavailableNotice', () => {
@@ -60,8 +60,8 @@ describe("notOnHuntNotice", () => {
 describe("sealedNotOnHuntNotice", () => {
   const Flip = { label: 'flip_kromer', title: 'Flip' }
 
-  it("says to sign in with Google first, then whom to contact and the handle to give them, and why the order", () => {
-    expect(sealedNotOnHuntNotice([Flip], 'ada_lovelace')).to.eq('You are not yet a member of this hunt. Sign in with Google first, then contact its smith, Flip (flip_kromer), and give them your handle, “ada_lovelace”: a handle is put on a hunt only once it is signed in. This page opens for you as soon as they add you.')
+  it("says to verify the account first, then whom to contact and the handle to give them, and why the order", () => {
+    expect(sealedNotOnHuntNotice([Flip], 'ada_lovelace')).to.eq('You are not yet a member of this hunt. Verify your account first, then contact its smith, Flip (flip_kromer), and give them your handle, “ada_lovelace”: only a verified account can be put on a hunt. This page opens for you as soon as they add you.')
   })
 
   it("names the smiths as the notice for anyone else does", () => {
@@ -70,27 +70,27 @@ describe("sealedNotOnHuntNotice", () => {
 })
 
 describe("the sealing refusals", () => {
-  it("point to signing in with Google, which is here now, and say nothing is coming", () => {
+  it("open by asking a standalone account to verify its account, which a view links there, or speak of a verified one; and name no provider, and say nothing is coming", () => {
     const sealed = Object.entries(RefusalNotices).filter(([kind]) => kind.startsWith('sealed')).map(([, notice]) => notice)
     expect(sealed).to.have.lengthOf(6)
-    expect(sealed.filter((notice) => /coming/i.test(notice))).to.deep.eq([])
-    expect(sealed.filter((notice) => ! notice.includes('signed in with Google') && ! notice.includes('Sign in with Google'))).to.deep.eq([])
+    expect(sealed.filter((notice) => /coming|google/i.test(notice))).to.deep.eq([])
+    expect(sealed.filter((notice) => ! notice.startsWith(AppNotices.verifyAccount) && ! notice.includes('verified'))).to.deep.eq([])
   })
 })
 
 describe("keepHandleNotice", () => {
-  it("offers keeping the handle on every device", () => {
-    expect(keepHandleNotice('mrflip')).to.eq('Sign in with Google to keep mrflip on every device.')
+  it("offers what a verified account brings, under the handle it keeps", () => {
+    expect(keepHandleNotice('mrflip')).to.eq('Verify your account to share puzzles and edit them anywhere as mrflip.')
   })
 })
 
 describe("googleGateNotice", () => {
-  it("says whom Google signed the visitor in as, and what the name and handle are for", () => {
-    expect(googleGateNotice('flip@example.com')).to.match(/^Signed in with Google as flip@example\.com\. Your name is what others see, /)
+  it("says whom Google signed the visitor in as", () => {
+    expect(googleGateNotice('flip@example.com')).to.eq('You have signed in with Google as “flip@example.com”.')
   })
 
   it("says only that Google signed them in, where Google sent no email", () => {
-    expect(googleGateNotice(null)).to.match(/^Signed in with Google\. Your name/)
+    expect(googleGateNotice(null)).to.eq('You have signed in with Google.')
   })
 })
 
@@ -98,13 +98,6 @@ describe("signedInAsNotice", () => {
   it("names the email Google sent, or none", () => {
     expect(signedInAsNotice('flip@example.com')).to.eq('Signed in with Google as flip@example.com')
     expect(signedInAsNotice(null)).to.eq('Signed in with Google')
-  })
-})
-
-describe("signOutQuestion", () => {
-  it("warns that the browser goes back to having no handle, and how to be the user again", () => {
-    expect(signOutQuestion('mrflip')).to.eq('Sign out? This browser goes back to having no handle. To be mrflip here again, sign in with Google.')
-    expect(signOutQuestion(null)).to.eq('Sign out? This browser goes back to having no handle.')
   })
 })
 

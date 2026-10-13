@@ -5,7 +5,8 @@
  * addressed as `Addresses` names it (`notes/decisions/urls.md`): the path names a resource by
  * label, in its org and hunt, and a last `!mode` segment how it is opened, so a link one person
  * pastes to another opens the same screen for whoever opens it. The app's own pages (the front
- * door, the hunts, About, Privacy and Terms) sit at the root beside the orgs.
+ * door, signing in, the hunts and the profile, About, Privacy and Terms) sit at the root beside
+ * the orgs.
  *
  * Addresses from before (`/h/<hunt>/<realm>/<quiz>?act=smith`, `/h/<hunt>`, `/c/<hunt>/categories`)
  * still open, and move to their present form once the hunt they name says its org.
@@ -40,10 +41,40 @@ export function huntsPath(): string {
   return '/my/hunts'
 }
 
+/** Who the visitor is: for now the same page as their hunts (`huntsPath`), linked to as their profile */
+export function profilePath(): string {
+  return '/my/profile'
+}
+
+/**
+ * Verifying an account: offered to a standalone account, beside what that account cannot do,
+ * and sending the visitor on to `then` once they have.
+ *
+ * @example signInPath()             // => '/signin'
+ * @example signInPath('/my/hunts')  // => '/signin?then=%2Fmy%2Fhunts'
+ */
+export function signInPath(then?: string): string {
+  return then === undefined ? '/signin' : `/signin?${new URLSearchParams([['then', then]]).toString()}`
+}
+
 /** What Triquet is, with its brand assets to download */
 export function aboutPath(): string {
   return '/about'
 }
+
+/**
+ * How Triquet is used, a section by its anchor: the whole page, or `account-benefits`, what a verified
+ * account has that a standalone one does not.
+ *
+ * @example helpPath()                    // => '/help'
+ * @example helpPath('account-benefits')  // => '/help#account-benefits'
+ */
+export function helpPath(section?: HelpSectionT): string {
+  return section === undefined ? '/help' : `/help#${section}`
+}
+
+/** The help page's sections a link may go straight to, by their anchors */
+export type HelpSectionT = 'account-benefits'
 
 /** What Triquet keeps about the people who use it, who sees it, and how to have it deleted */
 export function privacyPath(): string {
@@ -66,6 +97,8 @@ const AnyLabel = Symbol('any label')
  */
 const SyncedShapes: readonly (readonly (string | typeof AnyLabel)[])[] = [
   ['my', 'hunts'],
+  ['my', 'profile'],
+  ['signin'],
   ['stats'],
   ['h', AnyLabel],                        // an old address of a hunt
   ['h', AnyLabel, AnyLabel, AnyLabel],    // of a quiz

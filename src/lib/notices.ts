@@ -25,7 +25,9 @@ export const AppNotices = {
   userlabelShape:       'A handle is lowercase letters, numbers and single underscores, starting with a letter.',
   userlabelUnfinished:  'A handle is at least 6 characters long, ending in a letter or number.',
   userlabelReserved:    'That handle is kept for the app\'s own use. Add to it, as my_name or name_2.',
-  userlabelGateTitle:       'Enter your name and handle to join',
+  userlabelGateTitle:   'Sign in or sign up',
+  googleGateTitle:      'Add your name',
+  nameAndHandleAbout:   'Your name is what others see. Your handle is used in web links.',
   untitledQuiz:         'Untitled quiz',
   smithsNoteBlank:      'The theme, the meta, what is left to do…',
   recapHeadBlank:       'First, a huge thank you to the playtesters: {{quiz.playtesters}}…',
@@ -58,14 +60,25 @@ export const AppNotices = {
   noArchivedQuestions:  'No questions are archived.',
   importSentToLocked:   'This quiz is locked, so the paste sent here from another quiz was not read. Unlock it and paste again.',
   libraryReadOnly:      'Only an admin of this deployment can change the library, so here it is only to copy out.',
-  orSignInWithGoogle:   'Or sign in with Google, and take your handle to every device.',
+  ifExistingAccount:    'if you have an existing account',
+  signUp:               'Sign up',
+  saveName:             'Continue',
+  heldByVerifiedAccount:    'Account exists: click "Sign in with Google" if that\'s you.',
+  heldOtherwise:        'That handle is taken. Choose a different one.',
+  standaloneTitle:      'Standalone account',
+  standaloneHave:       'Standalone accounts have',
+  standaloneLimits:     'some limitations',
+  verifyAccount:        'Verify your account',
+  verifyAccountBrings:  'Verify your account to share puzzles and edit them anywhere.',
+  profile:              'Profile',
+  signOutQuestion:      'Sign out?',
   nameChoiceTitle:      'Keep which handle?',
   nameChoiceAbout:      "The handle you don't keep is retired: nobody else can take it. Every hunt keeps its address either way.",
   nameChoiceLater:      'Decide later',
   signOut:              'Sign out',
   staySignedIn:         'Stay signed in',
-  reviewingSealedTitle: 'Reviewing comes with Google',
-  reviewingSealed:      'This hunt is yours to work on, but reviewing a quiz, your own included, comes with signing in with Google.',
+  reviewingSealedTitle: 'Reviewing comes with a verified account',
+  reviewingSealed:      'This hunt is yours to work on. Verify your account to review its quizzes, your own included.',
 } as const
 
 /** Why the server refused a change, or a request, in the author's language: one per `failurekind` */
@@ -113,12 +126,12 @@ export const RefusalNotices = {
   huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,
   orgFull:          `One handle may make at most ${String(PA.HuntsPerOrg.max)} hunts.`,
   huntshipsFull:    `A hunt holds at most ${String(PA.HuntshipsPerHunt.max)} members.`,
-  sealedHunts:      'Sign in with Google to make more hunts than the one named for your handle.',
-  sealedRelabel:    'Sign in with Google to relabel your hunt: its label is your handle until then.',
-  sealedDelete:     'Sign in with Google to delete your hunt.',
-  sealedMembers:    'Sign in with Google to bring others onto your hunt.',
-  sealedJoin:       "That handle isn't signed in with Google, so it can't be put on a hunt until it is.",
-  sealedReview:     'Sign in with Google to review quizzes, your own included.',
+  sealedHunts:      `${AppNotices.verifyAccount} to make more hunts than the one named for your handle.`,
+  sealedRelabel:    `${AppNotices.verifyAccount} to unlock multiple hunts, collaboration, and viewing on multiple devices.`,
+  sealedDelete:     `${AppNotices.verifyAccount} to delete your hunt.`,
+  sealedMembers:    `${AppNotices.verifyAccount} to bring others onto your hunt.`,
+  sealedJoin:       "That handle is a standalone account, so it can't be put on a hunt until it is verified.",
+  sealedReview:     `${AppNotices.verifyAccount} to review quizzes, your own included.`,
   nameChoiceGone:   'That choice of handle has already been made — reload the page to see the handle you have.',
   botsOff:          'Asking Claude is switched off on this server for now — everything else still works.',
 } as const
@@ -158,24 +171,25 @@ export function googleSignInUnfinishedNotice(userlabel: string | null): string {
 }
 
 /**
- * What an anonymous user is offered beside the Google sign-in button: its handle, kept on every
- * device.
+ * What a standalone account is offered beside the button that verifies it: what a verified account
+ * brings, under the handle it keeps.
  *
- * @example keepHandleNotice('mrflip')  // => 'Sign in with Google to keep mrflip on every device.'
+ * @example keepHandleNotice('mrflip')  // => 'Verify your account to share puzzles and edit them anywhere as mrflip.'
  */
 export function keepHandleNotice(userlabel: string): string {
-  return `Sign in with Google to keep ${userlabel} on every device.`
+  return `${AppNotices.verifyAccount} to share puzzles and edit them anywhere as ${userlabel}.`
 }
 
 /**
- * What the front door says above the name and handle of a user signed in with Google that holds no
- * handle yet, by the email Google sent, when it sent one.
+ * What the front door says first to a user signed in with Google that holds no handle yet: whom
+ * Google signed them in as, by the email Google sent, when it sent one. What the name and the
+ * handle are for follows it (`AppNotices.nameAndHandleAbout`).
  *
- * @example googleGateNotice('flip@example.com')  // => 'Signed in with Google as flip@example.com. Your name is what others see, …'
+ * @example googleGateNotice('flip@example.com')  // => 'You have signed in with Google as “flip@example.com”.'
+ * @example googleGateNotice(null)                // => 'You have signed in with Google.'
  */
 export function googleGateNotice(email: string | null): string {
-  const signedIn = email === null ? 'Signed in with Google.' : `Signed in with Google as ${email}.`
-  return `${signedIn} Your name is what others see, and you can change it later. Your handle is how others add you to a hunt: if nobody goes by it yet, it becomes yours for good. Here is one made from your Google name; change it if you like.`
+  return email === null ? 'You have signed in with Google.' : `You have signed in with Google as “${email}”.`
 }
 
 /**
@@ -186,18 +200,6 @@ export function googleGateNotice(email: string | null): string {
  */
 export function signedInAsNotice(email: string | null): string {
   return email === null ? 'Signed in with Google' : `Signed in with Google as ${email}`
-}
-
-/**
- * What signing out asks first: the browser goes back to having no handle, and how to be the user
- * again.
- *
- * @example signOutQuestion('mrflip')  // => 'Sign out? This browser goes back to having no handle. To be mrflip here again, sign in with Google.'
- * @example signOutQuestion(null)      // => 'Sign out? This browser goes back to having no handle.'
- */
-export function signOutQuestion(userlabel: string | null): string {
-  const again = userlabel === null ? '' : ` To be ${userlabel} here again, sign in with Google.`
-  return `Sign out? This browser goes back to having no handle.${again}`
 }
 
 /**
@@ -278,17 +280,17 @@ export function notOnHuntNotice(smiths: readonly SmithT[], label: string): strin
 }
 
 /**
- * What an anonymous visitor not on a hunt is told when an address takes them into it: to sign in
- * with Google first, since a smith can put a handle on a hunt only once it is signed in (`sealedJoin`),
+ * What a standalone account not on a hunt is told when an address takes it there: to verify its
+ * account first, since a smith can put a handle on a hunt only once it is verified (`sealedJoin`),
  * and then whom to ask.
  *
  * @param smiths - The hunt's smiths.
  * @param label - Their userlabel, which a smith would add.
  *
- * @example sealedNotOnHuntNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are not yet a member of this hunt. Sign in with Google first, then contact its smith, Flip (flip_kromer), …'
+ * @example sealedNotOnHuntNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are not yet a member of this hunt. Verify your account first, then contact its smith, Flip (flip_kromer), …'
  */
 export function sealedNotOnHuntNotice(smiths: readonly SmithT[], label: string): string {
-  return `You are not yet a member of this hunt. Sign in with Google first, then contact ${smithsWhom(smiths)}, and give them your handle, “${label}”: a handle is put on a hunt only once it is signed in. This page opens for you as soon as they add you.`
+  return `You are not yet a member of this hunt. ${AppNotices.verifyAccount} first, then contact ${smithsWhom(smiths)}, and give them your handle, “${label}”: only a verified account can be put on a hunt. This page opens for you as soon as they add you.`
 }
 
 /** The smiths to contact, as a sentence names them after "contact": its smith, one of its smiths, or a smith of this hunt when none are known */

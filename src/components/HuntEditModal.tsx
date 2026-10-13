@@ -11,6 +11,7 @@ import { HuntValidators } from '../models/hunt'
 import { useOuterHuntActions } from '../state/use-outer-hunt-actions'
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { GoogleSignInOffer } from './GoogleSignIn'
+import { SealedNotice } from './StandaloneAccount'
 import styles from './workbench.module.css'
 
 export type HuntEditModalProps = {
@@ -93,7 +94,7 @@ export function HuntEditModal({ hunt, relabelable, onClose }: Readonly<HuntEditM
             )
             : (
               <Stack spacing={1}>
-                <p className={styles.microcopy}>{RefusalNotices.sealedRelabel}</p>
+                <SealedNotice notice={RefusalNotices.sealedRelabel} />
                 <GoogleSignInOffer />
               </Stack>
             )}

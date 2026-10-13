@@ -5,7 +5,7 @@ import { expect, headLinks, openUserMenu, test } from './support'
 test.use({ startAt: null })
 
 test.describe('the header', () => {
-  test('carries the logo home, and the way to About in its user menu', { tag: '@smoke' }, async ({ page }) => {
+  test("carries the logo home, and a user menu that knows no one yet, offering the profile", { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/about')
     const banner = page.getByRole('banner')
     await banner.getByRole('link', { name: 'Triquet' }).click()
@@ -13,8 +13,9 @@ test.describe('the header', () => {
     // Nobody has said who they are yet: the menu has no name to show.
     const menu = await openUserMenu(page)
     await expect(menu.getByRole('textbox', { name: 'Your name' })).toHaveCount(0)
-    await menu.getByRole('menuitem', { name: 'About' }).click()
-    await expect(page).toHaveTitle('About — Triquet')
+    await expect(menu.getByRole('menuitem', { name: AppNotices.profile })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'Your hunts' })).toHaveCount(0)
+    await expect(menu.getByRole('menuitem', { name: 'About' })).toHaveCount(0)
   })
 
   test('shows the light lockup in a light scheme', async ({ page }) => {

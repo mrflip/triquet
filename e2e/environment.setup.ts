@@ -1,4 +1,5 @@
 import { expect, test as setup } from '@playwright/test'
+import { AppNotices } from '../src/lib/notices'
 import * as UU from '../src/lib/useful'
 import * as Environment from './environment'
 import { freshUserlabel } from './support'
@@ -31,7 +32,7 @@ setup('opens the app, so no spec pays for compiling its pages', async ({ page })
   await page.goto('/')
   const label = freshUserlabel()
   await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
-  await page.getByRole('button', { name: `Log in as ${label}` }).click()
+  await page.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
   await expect(page.getByRole('button', { name: '+ New hunt' })).toBeVisible({ timeout: 120_000 })
   await page.getByRole('button', { name: '+ New hunt' }).click()
   await expect(page.getByRole('table', { name: 'Questions' })).toBeVisible({ timeout: 150_000 })
