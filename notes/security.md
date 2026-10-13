@@ -103,7 +103,9 @@ security expert who knows what questions to ask.
     many; one named by address is refused; an anonymous user holding its sandbox is not
     relabelled. Still so, by thread 4's decision: a userlabel `adopt` relabels a user away from is
     left free, with no ghosting; the outcome now says so (or that a hunt's address still holds
-    it).
+    it). *Thread 11 (2026-10-13):* nor does `adopt` give an anonymous user a userlabel only a hunt's
+    address holds (`~X/X` among them), as the front door already refuses it; no harm was found in
+    it (nothing is granted by an org's label), but it would seem to own those hunts.
   - A smith adding a handle learns from the refusal (`sealedJoin`) that its user is anonymous; the
     privacy policy does not say so.
   - *Sign out* leaves the hunt histories (the in-browser git mirrors) in the browser's storage for

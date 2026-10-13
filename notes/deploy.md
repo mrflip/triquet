@@ -310,7 +310,9 @@ and a place on a hunt without its smiths adding them. `scripts/adopt` gives them
   keeps to that: `--smith-all` and `--reviewer-all` pass over such sandboxes (and say how many),
   and `--smith` or `--reviewer` naming one is refused. A sandbox merged into a user signed in with
   Google, or whose user signed in with Google, is a hunt like any other. An anonymous user holding
-  its sandbox is not relabelled (relabelled, it could make a second), though it may be retitled.
+  its sandbox is not relabelled (relabelled, it could make a second), though it may be retitled;
+  nor is any anonymous user given a userlabel a hunt's address holds (it would seem to own hunts it
+  cannot be put on).
 * **The userlabel it leaves.** Relabelling a user that held one retires nothing (an adoption is no
   merge): the old userlabel is left free for anyone to claim, unless a hunt's address still holds
   it. The outcome says which.
