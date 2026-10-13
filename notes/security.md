@@ -7,6 +7,11 @@ security expert who knows what questions to ask.
 
 ## Of Interest
 
+* 2026-10-13: `/stats` and `/stats.json`, which anyone may read, list the name of every variable in
+  the environment the app was built in. A value is shown in full, or its ends with the rest
+  starred out (`snip`, which also gives its length), only where `ENV_VAR_VIZ` (`src/lib/env-viz.ts`)
+  lists the variable as `show` or `snip`; every other one reads as not shown. The masking happens at
+  build time, in the server component and the route handler, before anything reaches the client's props.
 * 2026-10-12: a deployment that sets `EXPOSE_INTERNAL_STATS_TO_ALL=true` answers `stats:backfills` to
   anyone, with or without a session: the name, state and row count of every backfill it defines or
   has run, which says roughly how many rows it holds, of every hunt. `false` or unset, it is an admin's

@@ -78,3 +78,23 @@ test('serves the build\'s part of it at /stats.json', async ({ page }) => {
   expect(body.next).toBe(nextVersion)
   expect(body.build.sha).toMatch(/^[0-9a-f]{40}$/)
 })
+
+test('folds each part away under its heading, and shows the build\'s environment folded, its values masked but for those it may show', async ({ page }) => {
+  await page.goto('/stats')
+  const thisBuild = page.getByRole('button', { name: 'This build' })
+  await expect(thisBuild).toHaveAttribute('aria-expanded', 'true')
+  await expect(factOf(page, 'Built')).toBeVisible()
+  await thisBuild.click()
+  await expect(thisBuild).toHaveAttribute('aria-expanded', 'false')
+  await expect(factOf(page, 'Built')).toBeHidden()
+
+  const environment = page.getByRole('table', { name: 'Build environment' })
+  const opener = page.getByRole('button', { name: 'Build environment' })
+  await expect(opener).toHaveAttribute('aria-expanded', 'false')
+  await expect(environment).toBeHidden()
+  await opener.click()
+  await expect(environment).toBeVisible()
+  // The suite's build is made under NEXT_DIST_DIR, which the page may show, and HOME, which it may not.
+  await expect(factOf(page, 'NEXT_DIST_DIR')).toHaveText(/^\.next-e2e/)
+  await expect(factOf(page, 'HOME')).toHaveText('not shown')
+})

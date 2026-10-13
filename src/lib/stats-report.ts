@@ -1,4 +1,5 @@
 import type { BuildStampT } from './build-stamp'
+import type { EnvVizT } from './env-viz'
 import type { BackfillStatusT } from './rows'
 
 /** What `/stats.json` says, and the top of what the stats page copies: the build, from the build */
@@ -6,6 +7,8 @@ export type BuildReportT = {
   build: BuildStampT
   /** The version of Next the build ran on */
   next:  string
+  /** The environment it was built in, each value as much as may be seen of it (`EnvViz.visualize`) */
+  env:   EnvVizT
 }
 
 /** What the stats page copies: the build's report, then what only a browser can say */
@@ -28,11 +31,12 @@ export type PageReportT = BuildReportT & {
  *
  * @param stamp - The build's stamp (`BuildStamp.gather`).
  * @param next_version - The version of Next the build ran on.
+ * @param env - The environment it was built in, masked (`EnvViz.visualize`).
  *
- * @example buildReport(stamp, '16.0.1')  // => { build: stamp, next: '16.0.1' }
+ * @example buildReport(stamp, '16.0.1', { TRIQUET_ENV: 'dev', HOME: null })  // => { build: stamp, next: '16.0.1', env: { TRIQUET_ENV: 'dev', HOME: null } }
  */
-export function buildReport(stamp: BuildStampT, next_version: string): BuildReportT {
-  return { build: stamp, next: next_version }
+export function buildReport(stamp: BuildStampT, next_version: string, env: EnvVizT): BuildReportT {
+  return { build: stamp, next: next_version, env }
 }
 
 /**
@@ -43,8 +47,8 @@ export function buildReport(stamp: BuildStampT, next_version: string): BuildRepo
  * @param browser - What this browser runs and where it is connected.
  * @param backfills - The backfills; undefined while the deployment has not answered, null where it will not tell this browser.
  *
- * @example pageReport(buildReport(stamp, '16.0.1'), { react: '19.2.0', convex: '1.28.0', backend: null, connected: true, connections: 1 }, undefined)
- *   // => { build: stamp, next: '16.0.1', browser: { react: '19.2.0', … }, backfills: null }
+ * @example pageReport(buildReport(stamp, '16.0.1', env), { react: '19.2.0', convex: '1.28.0', backend: null, connected: true, connections: 1 }, undefined)
+ *   // => { build: stamp, next: '16.0.1', env, browser: { react: '19.2.0', … }, backfills: null }
  */
 export function pageReport(build: BuildReportT, browser: PageReportT['browser'], backfills: readonly BackfillStatusT[] | null | undefined): PageReportT {
   return { ...build, browser, backfills: backfills ?? null }
