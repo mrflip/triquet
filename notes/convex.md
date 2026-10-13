@@ -116,7 +116,9 @@ No function takes an argument saying who is asking: the builders in `convex/func
 (`zQuery`, `zMutation`) build it once per request (`askerOf`: the session, if Convex Auth still
 holds it, and its user's row) and hand it to every handler as `ctx.actor` (`Actor.ofUser` in
 `src/lib/actor.ts`: unlabelled, or the user with its userlabel, title, admin flag and whether it is
-anonymous) and `ctx.user_id` (the session's user, null with no session). The admin flag is read
+anonymous) and `ctx.user_id` (the session's user, null with no session). A public query that
+answers of the deployment alone, the same for every caller (`auth.offered`), is built with
+`zPlainQuery` instead: it reads no session and no user, so signing in or out reruns nothing. The admin flag is read
 there and nowhere else, and counts only for a user signed in with Google
 (`Actor.isSignedInWithGoogle`, the one predicate for it: the user is not anonymous). A builder layered over these calls `askerOf` rather than reading identity a
 second way. Tests call as a session, each helper named for the kind of user it makes:

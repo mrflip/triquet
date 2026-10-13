@@ -168,7 +168,9 @@ can tell.
   visit. A session says nothing of who someone is; its user's userlabel does.
 * **anonymous** -- a user signed in with no proof, by Convex Auth's Anonymous provider
   (`isAnonymous`, `User.isAnonymous`, the actor's `anonymous`), as every browser is at first; on
-  screen, *anonymous*, beside *signed in with Google*. An anonymous user is **sealed** in its
+  screen, *anonymous*, beside *signed in with Google*. Read to fail closed: only `isAnonymous:
+  false`, which a Google sign-in writes, is signed in with Google, and a row without the field is
+  anonymous. An anonymous user is **sealed** in its
   sandbox (`Actor.isSealed`): it may take a userlabel and make its one sandbox, and may not be put
   on any other hunt, bring anyone onto its own, or review. Each refusal says "Sign in with Google
   to ..." (`sealedHunts`, `sealedMembers`, `sealedJoin`, `sealedReview`). Never the actor's

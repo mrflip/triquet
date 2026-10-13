@@ -3,7 +3,7 @@ import { Anonymous } from '@convex-dev/auth/providers/Anonymous'
 import { convexAuth } from '@convex-dev/auth/server'
 import * as Routes from '../src/lib/routes'
 import { env } from './_generated/server'
-import { zQuery } from './functions'
+import { zPlainQuery } from './functions'
 import { triggers } from './triggers'
 import { userForSignIn } from './writing/user_actions'
 
@@ -87,11 +87,12 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 /**
  * Which ways of signing in this deployment offers beyond the anonymous one every browser starts
  * with: Google, where it has Google's keys (`googleKeyed`). What the browser's *Sign in with
- * Google* button reads before it shows itself.
+ * Google* button reads before it shows itself. Of the deployment alone, so it asks nobody who is
+ * asking (`zPlainQuery`): signing in or out reruns nothing here.
  *
  * @returns `{ google }`: whether Google sign-in is offered.
  */
-export const offered = zQuery({
+export const offered = zPlainQuery({
   args:    {},
   handler: (): { google: boolean } => ({ google: googleKeyed() }),
 })

@@ -34,7 +34,8 @@ security expert who knows what questions to ask.
   run by `scripts/adopt` under `prd_janitor` behind the janitor's guard, sets a user's `admin` flag,
   gives it a userlabel that only a hunt's `orglabel` holds (past the rule that keeps an address's
   userlabel unclaimable; never one another user or a ghosting holds), and puts it on any hunt or
-  every hunt as smith or reviewer, past that hunt's smiths (`grantHuntship`). It finds the user by
+  every hunt as smith or reviewer, past that hunt's smiths (`grantHuntship`), but never on an
+  anonymous user's sandbox (thread 10). It finds the user by
   id, userlabel, or the `email` on its row (refused unless exactly one user has it), and refuses
   the flag and any grant to an anonymous user. The deploy key is what vouches for it; it has no
   environment check. The guard checks the deployment once; each `convex run` after picks it again
@@ -86,14 +87,25 @@ security expert who knows what questions to ask.
     again.
   - `adopt:perform` finds a user by the `email` on its row, which a Google sign-in copies from
     Google's profile without `email_verified` (dropped by Auth.js's Google profile and by
-    `UserValidators.googleProfile`); the dry run names the user by id and handle alone.
-  - "Signed in with Google" is `isAnonymous !== true` (`User.isAnonymous`, `Actor.isSignedInWithGoogle`):
-    a user row without the field counts as signed in with Google, unsealed and able to be an admin.
-    Every writer of `users` sets it today.
-  - `adopt --smith-all` (and `--smith ~anon/anon`) puts a user on anonymous users' sandboxes past
-    sealing; `adopt` relabelling an anonymous user that holds a sandbox lets it make a second
-    (`mayMakeHunt` reads only label == userlabel); a userlabel `adopt` relabels a user away from is
-    left free, with no ghosting.
+    `UserValidators.googleProfile`). *Thread 10 (2026-10-13):* the dry run now names the user it
+    found by the name Google sent and when its row was made, beside its id and handle, for the
+    Coach to recognize before acting; nothing new is stored, and `email_verified` is still not
+    kept.
+  - ~~"Signed in with Google" is `isAnonymous !== true`~~. *Done (thread 10, 2026-10-13):* it is
+    `isAnonymous === false` (`User.isAnonymous`, `Actor.isSignedInWithGoogle`, the actor's
+    `anonymous`), so a user row without the field is sealed, and its `admin` counts for nothing.
+    The code's exchange reads the same predicate: a browser's user without the field is upgraded
+    or merged as an anonymous one is.
+  - ~~`adopt --smith-all` (and `--smith ~anon/anon`) puts a user on anonymous users' sandboxes past
+    sealing; `adopt` relabelling an anonymous user that holds a sandbox lets it make a second~~.
+    *Done (thread 10, 2026-10-13):* a grant on every hunt passes over an anonymous user's sandbox
+    (a hunt `~label/label` whose userlabel an anonymous user holds and which it is on), saying how
+    many; one named by address is refused; an anonymous user holding its sandbox is not
+    relabelled. Still so, by thread 4's decision: a userlabel `adopt` relabels a user away from is
+    left free, with no ghosting; the outcome now says so (or that a hunt's address still holds
+    it). *Thread 11 (2026-10-13):* nor does `adopt` give an anonymous user a userlabel only a hunt's
+    address holds (`~X/X` among them), as the front door already refuses it; no harm was found in
+    it (nothing is granted by an org's label), but it would seem to own those hunts.
   - A smith adding a handle learns from the refusal (`sealedJoin`) that its user is anonymous; the
     privacy policy does not say so.
   - *Sign out* leaves the hunt histories (the in-browser git mirrors) in the browser's storage for

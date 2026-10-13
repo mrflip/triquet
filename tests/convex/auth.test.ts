@@ -78,6 +78,13 @@ describe('auth.offered', () => {
     expect(await tt.query(api.auth.offered, {})).to.deep.eq({ google: false })
     vi.stubEnv('AUTH_GOOGLE_ID', 'test-google-client-id')
   })
+
+  it('answers every caller alike: no session, an anonymous one, or one signed in with Google', async () => {
+    const tt = openTester()
+    const [anon, flip] = [await anonymousSession(tt), await googleUser(tt, 'flip_kromer')]
+    const answers = [await tt.query(api.auth.offered, {}), await anon.as.query(api.auth.offered, {}), await flip.as.query(api.auth.offered, {})]
+    expect(answers).to.deep.eq([{ google: true }, { google: true }, { google: true }])
+  })
 })
 
 describe('the providers, on a deployment without Google', () => {

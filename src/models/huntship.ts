@@ -81,6 +81,18 @@ export class Huntship implements HuntshipRowT {
   }
 
   /**
+   * Whether `huntship`'s copy of its user (`notes/convex.md`, *Denormalized fields*) is stale: its
+   * userlabel or title is not the one `user` is to hold. What a relabel or a retitle rewrites, and
+   * what a plan of one counts.
+   *
+   * @example Huntship.isStale({ userlabel: 'flip', usertitle: 'Flip' }, { userlabel: 'flip', title: 'Flip K.' })  // => true
+   * @example Huntship.isStale({ userlabel: 'flip', usertitle: 'Flip' }, { userlabel: 'flip', title: 'Flip' })     // => false
+   */
+  static isStale(huntship: Pick<HuntshipRowT, 'userlabel' | 'usertitle'>, user: { userlabel: string, title: string }): boolean {
+    return huntship.userlabel !== user.userlabel || huntship.usertitle !== user.title
+  }
+
+  /**
    * Whether the holder of `claims` may be shown a quiz of their hunt opened in `mode`: whether the
    * server would let them take the one action that mode always offers (`ModeKinds`). A smith may
    * be shown either; a reviewer only the playtest; nobody else either.

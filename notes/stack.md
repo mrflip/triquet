@@ -260,6 +260,7 @@ Settled; reach for these before writing the equivalent.
        with the wrong verifier is spent with its verifier, so a code leaked from the browser Google
        sent it to cannot be used by the verifier's holder; an expired code's verifier is deleted;
        and a code replaced at a later callback for the same account takes its verifier with it.
+       One function deletes a dying code's verifier in all three: `deleteVerifierOf`, exported for `userOAuth.js`.
     4. **A refused or failed exchange keeps the browser's session** (`dist/react/client.js`):
        upstream clears the stored tokens when the exchange answers no tokens, signing the browser
        out (our `useSession` would then sign it in afresh as a new anonymous user, stranding the old

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, googleAccountOf, huntForLabel, huntInOrg, huntshipFor, huntsCountedInOrg, huntRowsOf, ghostingFor, holderOfUserlabel, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, nameChoiceFor, ownUserOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
+  anyHuntInOrg, censusOf, cellRowsOf, googleAccountOf, huntForLabel, huntInOrg, huntshipFor, huntsCountedInOrg, huntRowsOf, ghostingFor, holderOfUserlabel, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, nameChoiceFor, ownUserOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, storedFor, storedOf,
   usageOf, userForUserlabel, wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import type { CellRows } from '../../src/lib/rows'
@@ -98,6 +98,22 @@ describe("huntsCountedInOrg", () => {
       }
     })
     expect(await tt.run(async (ctx) => await huntsCountedInOrg(ctx.db, 'pat_smith'))).to.eq(PA.HuntsPerOrg.max)
+  })
+})
+
+describe("anyHuntInOrg", () => {
+  it("finds a hunt of the org, and none for an org holding none, whatever another org holds", async () => {
+    const { tt, hunt_id } = await holding(Hunt.blank('quiet_otter'), openTester(), 'pat_smith')
+    await holding(Hunt.blank('loud_heron'), tt, 'lee_jones')
+    const found = await tt.run(async (ctx) => [await anyHuntInOrg(ctx.db, 'pat_smith'), await anyHuntInOrg(ctx.db, 'nobody_yet')])
+    expect(found.map((hunt) => hunt?._id ?? null)).to.deep.eq([hunt_id, null])
+  })
+
+  it("finds one of an org holding several", async () => {
+    const { tt } = await holding(Hunt.blank('quiet_otter'), openTester(), 'pat_smith')
+    await holding(Hunt.blank('loud_heron'), tt, 'pat_smith')
+    const found = await tt.run(async (ctx) => await anyHuntInOrg(ctx.db, 'pat_smith'))
+    expect(found?.orglabel).to.eq('pat_smith')
   })
 })
 

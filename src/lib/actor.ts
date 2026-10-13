@@ -34,13 +34,16 @@ export const unlabelled: UnlabelledActorT = Object.freeze({ kind: 'unlabelled' }
 export type DeploymentT = { everyoneAdmin: boolean }
 
 /**
- * Whether `user` is signed in with Google: not anonymous. The one predicate for it, which sealing
- * (`isSealed`, through the actor's `anonymous`), the admin flag (`ofUser`) and the command line's
- * grants all ask. A Google sign-in is the only write that makes an anonymous user no longer so
- * (`userForSignIn`); a test backend's `testing:vouchFor` stands in for it.
+ * Whether `user` is signed in with Google: not anonymous (`User.isAnonymous`), which is to say its
+ * row's `isAnonymous` is `false`. The one predicate for it, which sealing (`isSealed`, through the
+ * actor's `anonymous`), the admin flag (`ofUser`) and the command line's grants all ask. It fails
+ * closed: a row without the field is sealed, and its `admin` counts for nothing. A Google sign-in
+ * is the only write that makes an anonymous user no longer so (`userForSignIn`); a test backend's
+ * `testing:vouchFor` stands in for it.
  *
  * @example Actor.isSignedInWithGoogle({ isAnonymous: false })  // => true
  * @example Actor.isSignedInWithGoogle({ isAnonymous: true })   // => false
+ * @example Actor.isSignedInWithGoogle({})                      // => false
  */
 export function isSignedInWithGoogle(user: Pick<UserRowT, 'isAnonymous'>): boolean {
   return ! User.isAnonymous(user)
@@ -71,7 +74,7 @@ export function ofUser(user_id: Id<'users'>, user: Pick<UserRowT, 'userlabel' | 
     userlabel,
     usertitle: User.titleOf({ ...user, userlabel }),
     admin:     (user.admin === true && isSignedInWithGoogle(user)) || deployment.everyoneAdmin,
-    anonymous: user.isAnonymous === true,
+    anonymous: User.isAnonymous(user),
   }
 }
 

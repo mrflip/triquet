@@ -43,10 +43,10 @@ export function UserlabelGate() {
   const { user, loaded } = useMe()
   const own = useShown().user?.own ?? null
   const { act, busy, notice } = useUserActions()
-  // The name as typed, or null while it is the one Google sent, if any: what a user signed in with Google is offered
-  const [nameDraft, setNameDraft] = useState<string | null>(null)
-  // The userlabel as typed into its own field, or null while it follows the name. Emptied, it is ''
-  // until the name changes or the field is left: following again, but blank while being cleared.
+  // The title as typed into "Your name", or null while it is the one Google sent, if any: what a user signed in with Google is offered
+  const [titleDraft, setTitleDraft] = useState<string | null>(null)
+  // The userlabel as typed into its own field, or null while it follows the title. Emptied, it is ''
+  // until the title changes or the field is left: following again, but blank while being cleared.
   const [labelDraft, setLabelDraft] = useState<string | null>(null)
   // Whether either field has been left once: a userlabel too short is said only after, as it may still be being typed.
   const [left, setLeft] = useState(false)
@@ -64,8 +64,8 @@ export function UserlabelGate() {
   }
 
   const offered = own?.suggested ?? null
-  const name = nameDraft ?? offered?.title ?? ''
-  const followed = nameDraft === null && offered?.userlabel ? offered.userlabel : User.labelFor(name)
+  const title = titleDraft ?? offered?.title ?? ''
+  const followed = titleDraft === null && offered?.userlabel ? offered.userlabel : User.labelFor(title)
   const label = labelDraft === null || labelDraft === '' ? followed : labelDraft
   const flaw = User.flawIn(label)
   const said = User.flawToSay(label, left)
@@ -73,7 +73,7 @@ export function UserlabelGate() {
   const onSubmit = async () => {
     if (flaw !== null) { return }
     // Once the user holds it, it arrives by sync, and the effect above sends them on.
-    await act({ kind: 'assume_userlabel', userlabel: label, title: name })
+    await act({ kind: 'assume_userlabel', userlabel: label, title })
   }
 
   return (
@@ -85,10 +85,10 @@ export function UserlabelGate() {
         >
           <Stack direction={{ xs: 'column', sm: 'row' }} useFlexGap spacing={1.5}>
             <TextField
-              size="small" label="Your name" value={name} autoFocus sx={{ flex: 1 }}
+              size="small" label="Your name" value={title} autoFocus sx={{ flex: 1 }}
               helperText=" "
               slotProps={{ htmlInput: { maxLength: PA.Titleish.max } }}
-              onChange={(event) => { setNameDraft(event.target.value); if (labelDraft === '') { setLabelDraft(null) } }}
+              onChange={(event) => { setTitleDraft(event.target.value); if (labelDraft === '') { setLabelDraft(null) } }}
               onBlur={() => { setLeft(true) }}
             />
             <TextField

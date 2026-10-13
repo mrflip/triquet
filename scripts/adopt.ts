@@ -12,6 +12,7 @@
  */
 import { parseArgs } from 'node:util'
 import * as Addresses from '../src/lib/addresses'
+import * as Stamps from '../src/lib/stamps'
 import { AdoptionValidators, type AdoptChangeT, type AdoptedT, type AdoptionDNA } from '../src/models/adoption'
 import { HuntRoleTitles, type HuntRole } from '../src/models/huntship'
 import { convexRun } from './convex-migrations.ts'
@@ -106,30 +107,36 @@ function parsedFlags(rest: readonly string[]) {
 }
 
 /**
- * The user an adoption found, as a line for a person: its id, userlabel and title, and how it
- * stood.
+ * The user an adoption found, as a line for a person: its id, userlabel and title, how it stood,
+ * and, so the person knows it for theirs before it acts, the name Google sent and when its row was
+ * made.
  *
- * @example userLine({ user_id, userlabel: 'flippy_kromer', title: 'Flip', anonymous: false, admin: false })  // => 'The user <id>: @flippy_kromer (Flip), signed in with Google, not an admin.'
- * @example userLine({ user_id, userlabel: null, title: null, anonymous: true, admin: false })                 // => 'The user <id>: no userlabel, anonymous, not an admin.'
+ * @example userLine({ user_id, userlabel: 'flippy_kromer', title: 'Flip', anonymous: false, admin: false, name: 'Flip Kromer', created_at: 1791813787000 })
+ *   // => 'The user <id>: @flippy_kromer (Flip), signed in with Google as "Flip Kromer", not an admin; made 2026-10-12T14:03:07.000Z.'
+ * @example userLine({ user_id, userlabel: null, title: null, anonymous: true, admin: false, name: null, created_at: 1791813787000 })
+ *   // => 'The user <id>: no userlabel, anonymous, not an admin; made 2026-10-12T14:03:07.000Z.'
  */
 export function userLine(user: AdoptedT['user']): string {
   const held = user.userlabel === null ? 'no userlabel' : `@${user.userlabel} (${user.title ?? user.userlabel})`
-  return `The user ${user.user_id}: ${held}, ${user.anonymous ? 'anonymous' : 'signed in with Google'}, ${user.admin ? 'an admin' : 'not an admin'}.`
+  const named = user.name === null ? 'with no name sent' : `as "${user.name}"`
+  const how = user.anonymous ? 'anonymous' : `signed in with Google ${named}`
+  return `The user ${user.user_id}: ${held}, ${how}, ${user.admin ? 'an admin' : 'not an admin'}; made ${String(Stamps.isoOf(user.created_at))}.`
 }
 
 /**
  * One change an adoption made, or would make, as a line for a person.
  *
- * @example changeLine({ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0 })                // => '  userlabel mrflip, titled "Mrflip" (it held none)'
- * @example changeLine({ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flip', huntships: 2 })       // => '  userlabel mrflip, titled "Flip" (it held flippy_kromer), and the copies on its 2 huntships'
- * @example changeLine({ kind: 'admin', to: true })                                                                    // => '  an admin'
- * @example changeLine({ kind: 'huntship', org: 'pat_smith', hunt: 'quiet_otter', role: 'smith', from: 'reviewer' })  // => '  Smith of ~pat_smith/quiet_otter (a Reviewer there until now)'
+ * @example changeLine({ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null })                // => '  userlabel mrflip, titled "Mrflip" (it held none)'
+ * @example changeLine({ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flip', huntships: 2, leaves: 'free' })     // => '  userlabel mrflip, titled "Flip" (it held flippy_kromer), and the copies on its 2 huntships; flippy_kromer is left free for anyone to claim'
+ * @example changeLine({ kind: 'userlabel', from: 'flippy_kromer', to: 'mrflip', title: 'Flip', huntships: 2, leaves: 'address' })  // => '  userlabel mrflip, titled "Flip" (it held flippy_kromer), and the copies on its 2 huntships; flippy_kromer stays held by its hunts' address, ~flippy_kromer/…, so only this command gives it out'
+ * @example changeLine({ kind: 'admin', to: true })                                                                                  // => '  an admin'
+ * @example changeLine({ kind: 'huntship', org: 'pat_smith', hunt: 'quiet_otter', role: 'smith', from: 'reviewer' })                // => '  Smith of ~pat_smith/quiet_otter (a Reviewer there until now)'
  */
 export function changeLine(change: AdoptChangeT): string {
   switch (change.kind) {
   case 'userlabel': {
     const copies = change.huntships === 0 ? '' : `, and the copies on its ${String(change.huntships)} huntships`
-    return `  userlabel ${change.to}, titled "${change.title}" (it held ${change.from ?? 'none'})${copies}`
+    return `  userlabel ${change.to}, titled "${change.title}" (it held ${change.from ?? 'none'})${copies}${leftLine(change)}`
   }
   case 'admin':     { return change.to ? '  an admin' : '  no longer an admin' }
   case 'huntship':  {
@@ -139,17 +146,31 @@ export function changeLine(change: AdoptChangeT): string {
   }
 }
 
+/** What becomes of the userlabel a relabel leaves, as the end of its line: nothing, when it moves none */
+function leftLine({ from, leaves }: Extract<AdoptChangeT, { kind: 'userlabel' }>): string {
+  if (from === null || leaves === null) { return '' }
+  return leaves === 'free' ? `; ${from} is left free for anyone to claim` : `; ${from} stays held by its hunts' address, ~${from}/…, so only this command gives it out`
+}
+
+/** How many anonymous users' sandboxes a grant on every hunt passed over, as a line for a person */
+function skippedLine(skipped: number): string {
+  if (skipped === 1) { return "Passed over 1 anonymous user's sandbox, which sealing keeps its own." }
+  return `Passed over ${String(skipped)} anonymous users' sandboxes, which sealing keeps their own.`
+}
+
 /**
- * What an adoption came to, as lines for a person: the user, each change, and how much it held
- * already.
+ * What an adoption came to, as lines for a person: the user, each change, how much it held
+ * already, and the anonymous users' sandboxes a grant on every hunt passed over.
  *
  * @param outcome - What `adopt:plan` or `adopt:perform` answered.
  * @param acting - Whether the changes were made, or only would be.
  */
 export function outcomeLines(outcome: AdoptedT, acting: boolean): string[] {
   const kept = outcome.kept === 0 ? [] : [`Held already: ${String(outcome.kept)} of what was asked.`]
-  if (outcome.changes.length === 0) { return [userLine(outcome.user), 'Nothing to change.', ...kept] }
-  return [userLine(outcome.user), acting ? 'Changed it to:' : 'Would change it to:', ...outcome.changes.map((change) => changeLine(change)), ...kept]
+  const skipped = outcome.skipped === 0 ? [] : [skippedLine(outcome.skipped)]
+  const after = [...kept, ...skipped]
+  if (outcome.changes.length === 0) { return [userLine(outcome.user), 'Nothing to change.', ...after] }
+  return [userLine(outcome.user), acting ? 'Changed it to:' : 'Would change it to:', ...outcome.changes.map((change) => changeLine(change)), ...after]
 }
 
 /**

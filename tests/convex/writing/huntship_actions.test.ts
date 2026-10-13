@@ -104,12 +104,19 @@ describe('hunts.perform: add_huntship', () => {
     expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith']])
   })
 
+  it('refuses a user whose row says nothing of anonymity, as sealed: it fails closed', async () => {
+    const seeded = await smithed()
+    await seeded.tt.run(async (ctx) => { await ctx.db.insert('users', { userlabel: 'unsaid_bob', title: 'Bob' }) })
+    await expectRefusal(seeded.asAlice({ kind: 'add_huntship', userlabel: 'unsaid_bob', role: 'reviewer' }), 'sealedJoin')
+    expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith']])
+  })
+
   it('refuses a member more than a hunt may hold', async () => {
     const seeded = await smithed()
     await seeded.tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.HuntshipsPerHunt.max - 1 }, (_unused, idx) => `member_${String(idx)}`)
       for (const label of labels) {
-        const user_id = await ctx.db.insert('users', { userlabel: label, title: 'Member' })
+        const user_id = await ctx.db.insert('users', { isAnonymous: false, userlabel: label, title: 'Member' })
         await ctx.db.insert('huntships', { hunt_id: seeded.open.hunt_id, user_id, userlabel: label, usertitle: 'Member', role: 'reviewer' })
       }
     })
