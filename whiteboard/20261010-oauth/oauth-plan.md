@@ -639,6 +639,11 @@ leftovers, not security*):
 * **Touches** `convex/reading.ts`, `convex/auth.ts`, `convex/writing/`, `convex/adopt.ts`,
   `src/components/` (`UserlabelGate`), `patches/@convex-dev__auth@0.0.96.patch`.
 * **Depends on:** 10 (both edit `adopt`).
+* *Orchestrator, after thread 10's review:* thread 10's reviewer found `relabelFor` can give an
+  anonymous user a handle held only by a hunt's address, though `~X/X` already exists (no harm
+  found: nothing is granted by org label). Weigh it while `relabelFor` is open; refuse it if that is
+  cheap, else note it in TODO. Thread 10's `leftBehind` uses `huntsCountedInOrg` as widely as
+  `holderOfUserlabel` does: one `.first()` reader could serve both.
 
 ## For the Coach
 
