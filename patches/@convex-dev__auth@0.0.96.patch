@@ -32,10 +32,18 @@ index 818636ce0729004ac3c61e45b491f8b53695046a..fd77be91c4818b7515a7c5f8395ac93a
              })();
          }
 diff --git a/dist/server/implementation/mutations/userOAuth.js b/dist/server/implementation/mutations/userOAuth.js
-index 7b3ded410b085966b9fe1048e35194ff6cc369ec..fac91d8c1f58cc087381417bca04ba71a7939e3a 100644
+index 7b3ded410b085966b9fe1048e35194ff6cc369ec..e93edcf69772d98931978a6932e9245209e51211 100644
 --- a/dist/server/implementation/mutations/userOAuth.js
 +++ b/dist/server/implementation/mutations/userOAuth.js
-@@ -26,15 +26,24 @@ export async function userOAuthImpl(ctx, args, getProviderOrThrow, config) {
+@@ -1,6 +1,7 @@
+ import { v } from "convex/values";
+ import { upsertUserAndAccount } from "../users.js";
+ import { generateRandomString, logWithLevel, maybeRedact, sha256, } from "../utils.js";
++import { deleteVerifierOf } from "./verifyCodeAndSignIn.js"; // Patched
+ const OAUTH_SIGN_IN_EXPIRATION_MS = 1000 * 60 * 2; // 2 minutes
+ export const userOAuthArgs = v.object({
+     provider: v.string(),
+@@ -26,15 +27,20 @@ export async function userOAuthImpl(ctx, args, getProviderOrThrow, config) {
      if (verifier === null) {
          throw new Error("Invalid state");
      }
@@ -54,19 +62,15 @@ index 7b3ded410b085966b9fe1048e35194ff6cc369ec..fac91d8c1f58cc087381417bca04ba71
      if (existingVerificationCode !== null) {
          await ctx.db.delete(existingVerificationCode._id);
 +        // Patched: the replaced code's verifier dies with it, unless it is this sign-in's own.
-+        const replacedId = existingVerificationCode.verifier === undefined || existingVerificationCode.verifier === verifier._id ? null : ctx.db.normalizeId("authVerifiers", existingVerificationCode.verifier);
-+        const replaced = replacedId === null ? null : await ctx.db.get(replacedId);
-+        if (replaced !== null) {
-+            await ctx.db.delete(replaced._id);
-+        }
++        await deleteVerifierOf(ctx, existingVerificationCode, verifier._id);
      }
      await ctx.db.insert("authVerificationCodes", {
          code: await sha256(code),
 diff --git a/dist/server/implementation/mutations/verifyCodeAndSignIn.js b/dist/server/implementation/mutations/verifyCodeAndSignIn.js
-index 7fe5cfa07ec47b11b4c8b8d95ee77282e09d72da..8ece6da7dd7345cba2872c8aadc264d57e43f965 100644
+index 7fe5cfa07ec47b11b4c8b8d95ee77282e09d72da..28a33fe7249836b96b944d700c4f69e1b2c1f386 100644
 --- a/dist/server/implementation/mutations/verifyCodeAndSignIn.js
 +++ b/dist/server/implementation/mutations/verifyCodeAndSignIn.js
-@@ -4,6 +4,25 @@ import * as Provider from "../provider.js";
+@@ -4,6 +4,28 @@ import * as Provider from "../provider.js";
  import { createNewAndDeleteExistingSession, getAuthSessionId, maybeGenerateTokensForSession, } from "../sessions.js";
  import { LOG_LEVELS, logWithLevel, sha256 } from "../utils.js";
  import { upsertUserAndAccount } from "../users.js";
@@ -78,8 +82,11 @@ index 7fe5cfa07ec47b11b4c8b8d95ee77282e09d72da..8ece6da7dd7345cba2872c8aadc264d5
 + * and short enough that a verifier read later from a history or a log is spent.
 + */
 +export const SIGN_IN_START_MAX_AGE_MS = 15 * 60 * 1000;
-+/** Patched: delete the verifier an OAuth code was made for, if it is still there, as the code dies */
-+async function deleteVerifierOf(ctx, verificationCode, keep) {
++/**
++ * Patched: delete the verifier an OAuth code was made for, if it is still there, as the code dies;
++ * but not `keep`, the verifier of a sign-in replacing the code (`userOAuth.js`), still under way.
++ */
++export async function deleteVerifierOf(ctx, verificationCode, keep) {
 +    if (verificationCode.verifier === undefined || verificationCode.verifier === keep) {
 +        return;
 +    }
@@ -92,7 +99,7 @@ index 7fe5cfa07ec47b11b4c8b8d95ee77282e09d72da..8ece6da7dd7345cba2872c8aadc264d5
  export const verifyCodeAndSignInArgs = v.object({
      params: v.any(),
      provider: v.optional(v.string()),
-@@ -77,12 +96,18 @@ methodProviderId, getProviderOrThrow, allowExtraProviders, config, sessionId) {
+@@ -77,12 +99,18 @@ methodProviderId, getProviderOrThrow, allowExtraProviders, config, sessionId) {
          // Expected: e.g. a magic link opened in a different browser than it was requested
          // from. Normal sign-in failure.
          logWithLevel(LOG_LEVELS.INFO, "Invalid verifier");
@@ -111,7 +118,7 @@ index 7fe5cfa07ec47b11b4c8b8d95ee77282e09d72da..8ece6da7dd7345cba2872c8aadc264d5
          return null;
      }
      const { accountId, emailVerified, phoneVerified } = verificationCode;
-@@ -123,7 +148,24 @@ methodProviderId, getProviderOrThrow, allowExtraProviders, config, sessionId) {
+@@ -123,7 +151,24 @@ methodProviderId, getProviderOrThrow, allowExtraProviders, config, sessionId) {
      // Every check passed, so consume the code.
      await ctx.db.delete(verificationCode._id);
      let userId = account.userId;

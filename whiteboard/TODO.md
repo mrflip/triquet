@@ -555,4 +555,7 @@ Fixed in the thread: the front door's `?then=` open redirect. Left, each a Coach
     nobody who is asking (`convex/functions.ts`; `notes/convex.md`, *Who is asking*).
   - ~~`UserlabelGate` names a variable `name`~~. *Struck by thread 11:* it is `title`, the
     user's title as typed into "Your name" (`titleDraft` beside it).
-  - The patch deletes a code's verifier in two places (`userOAuth.js`, `verifyCodeAndSignIn.js`).
+  - ~~The patch deletes a code's verifier in two places (`userOAuth.js`,
+    `verifyCodeAndSignIn.js`)~~. *Struck by thread 11:* `verifyCodeAndSignIn.js` exports its
+    `deleteVerifierOf`, and `userOAuth.js` calls it, keeping its own sign-in's verifier as before.
+    No change in behaviour.
