@@ -18,7 +18,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
 | 9 | `oauth_security`: a strong review | landed #235 | `20261012-oauth_security` | [#235](https://github.com/mrflip/triquet/pull/235) |
 | 10 | `seal_hardening`: fail closed on `isAnonymous`; `adopt` and sandboxes | landed #242 | `20261013-seal_hardening` | [#242](https://github.com/mrflip/triquet/pull/242) |
-| 11 | `oauth_tidy`: the code review's leftovers | underway | `20261013-oauth_tidy` | |
+| 11 | `oauth_tidy`: the code review's leftovers | landing | `20261013-oauth_tidy` | |
 
 Full e2e runs at landing: threads 3 and 5, and every fourth landing (thread 8 carries the fourth). So far every landing's `--touched` ran the whole suite: 7 (299/299), 2 (293/293), 1 (299/299), no flakes.
 
@@ -84,6 +84,7 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   no userlabel asserted), and thread 3 should give them different words.
 
 * **Thread 10, `seal_hardening`.** *Review: clean* (medium, no fixes). Confirmed F5's flip reaches `userAtExchange` safely (it only weighs the finishing browser's own user; every user-creating write sets `isAnonymous`), one predicate everywhere, and no hole in `isSealedSandbox`. Left, minor: a sandbox whose anonymous user an `adopt` run relabelled away *before* this thread would not count as sealed (moot unless such a run happened); `relabelFor` can give an anonymous user a handle held only by a hunt's address (no harm found; thread 11 may weigh it).
+* **Thread 11, `oauth_tidy`.** *Review: clean* (medium, no fixes). The patch's shared `deleteVerifierOf` behaves as both copies did, and applies cleanly (hash matches the lockfile); `zPlainQuery` is one line on convex-helpers' builder, no earlier public wrapper existed; both declared changes (`relabelFor` refusing an anonymous user any address-held userlabel; a retitle repairing a drifted userlabel copy) hold. Left, minor: no test of the retitle repair. *Orchestrator:* asked the worker to add it before proving; the landing's proof is the full suite, as the sprint's closing run.
 
 ## What the threads have taught
 
