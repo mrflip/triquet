@@ -1,9 +1,9 @@
 /**
  * The spec process's own line to the suite's Convex backend, as its admin: how the way in makes a
  * hunt without walking the hunts list (`testing:makeHunt`), how a spec puts a second visitor on
- * it without walking the Members panel (`putOnHunt`), and how a visitor is vouched for as no longer
- * anonymous, or left a name choice by a merge, since nothing automated signs in to Google
- * (`vouchFor`, `mergeInto`).
+ * it without walking the Members panel (`putOnHunt`), how a visitor is vouched for as no longer
+ * anonymous without a round trip to the stand-in for Google (`vouchFor`), and how a spec that did
+ * sign in with Google reads what the user kept (`keptOf`).
  *
  * The admin key is the one `scripts/convex_backend` wrote beside the role's data when it started
  * the backend (`data/convex-<role>/cli.env`), which `scripts/convex_dev` and `scripts/convex_reset`
@@ -77,33 +77,44 @@ export async function putOnHunt(hunt: Routes.HuntLabels, label: string, role: Hu
 
 /**
  * Vouch for the user holding the userlabel `label` as no longer anonymous, as signing in with
- * Google would leave it (`testing:vouchFor`): nothing automated signs in to Google, and a user
- * still anonymous is sealed in its sandbox (no other hunt, no reviews). Signs nobody in.
+ * Google would leave it (`testing:vouchFor`), without the round trip: a user still anonymous is
+ * sealed in its sandbox (no other hunt, no reviews). For a spec whose way in is not what it is
+ * about; one about signing in signs in (`google.ts`). Signs nobody in.
  *
  * @param label - The userlabel of the user, chosen at the front door.
- * @param email - The email it is to hold, as Google would have sent it, for a spec of what its owner is shown.
  * @throws When no user holds it; with what the backend said.
  *
  * @example await vouchFor(await assumeUserlabel(stranger))
- * @example await vouchFor(label, `${label}@example.com`)
  */
-export async function vouchFor(label: string, email?: string): Promise<void> {
-  await runAsAdmin('testing:vouchFor', { userlabel: label, ...(email !== undefined && { email }) })
+export async function vouchFor(label: string): Promise<void> {
+  await runAsAdmin('testing:vouchFor', { userlabel: label })
 }
 
+/** What a user keeps of its sign-ins (`testing:keptOf`): whether it is anonymous, and what of Google's it holds, each null where it holds none */
+export const Kept = Z.object({
+  anonymous:         Z.boolean(),
+  email:             Z.string().nullable(),
+  email_verified_at: Z.number().nullable(),
+  name:              Z.string().nullable(),
+  locale:            Z.string().nullable(),
+  hosted_domain:     Z.string().nullable(),
+})
+
+export type KeptT = Z.infer<typeof Kept>
+
 /**
- * Leave the user holding the userlabel `into` a name choice, as a Google sign-in's merge would
- * (`testing:mergeInto`): the user holding `label` is marked merged into it. Nothing automated
- * signs in to Google, so nothing else can. Signs nobody in.
+ * What the user holding the userlabel `label` keeps of its sign-ins (`testing:keptOf`): for a spec
+ * that signed it in with the stand-in for Google, to hold what was kept to what the account sent.
+ * Nothing of it is on any screen but the email, and that only to its owner.
  *
- * @param label - The userlabel of the user merged away: the handle the merged browser went by.
- * @param into - The userlabel of the user it merged into.
- * @throws When no user holds either; with what the backend said.
+ * @throws When no user holds it.
  *
- * @example await mergeInto(await assumeUserlabel(stranger), label)
+ * @example expect(await keptOf(label)).toMatchObject({ anonymous: false, email: account.email })
  */
-export async function mergeInto(label: string, into: string): Promise<void> {
-  await runAsAdmin('testing:mergeInto', { userlabel: label, into })
+export async function keptOf(label: string): Promise<KeptT> {
+  const kept = Kept.nullable().parse(await runAsAdmin('testing:keptOf', { userlabel: label }))
+  if (kept === null) { throw new Error(`No user holds the userlabel ${label}`) }
+  return kept
 }
 
 /** `body` read as JSON; null when it is not */

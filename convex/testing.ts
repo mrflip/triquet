@@ -12,7 +12,7 @@ import { AddedColumnWidthPx } from '../src/models/layout'
 import { HomeRealmLabel } from '../src/models/realm'
 import { HuntRoleVals } from '../src/models/huntship'
 import { User } from '../src/models/user'
-import { zInternalMutation } from './functions'
+import { zInternalMutation, zInternalQuery } from './functions'
 import { censusOf, huntInOrg, layoutOf, realmsOf, userForUserlabel, widgetForLabel, wholeQuizOf } from './reading'
 import { makeHuntFor } from './writing/hunt_actions'
 import { addHuntship } from './writing/huntship_actions'
@@ -172,61 +172,71 @@ export const putOnHunt = zInternalMutation({
 /**
  * Vouch for the user holding the userlabel `userlabel` as no longer anonymous: what signing in with
  * Google does to an anonymous user's browser (its account joins the user, which is then no longer
- * anonymous), stood in for, since nothing automated signs in to Google. The e2e suite's way to a
- * visitor that may do what sealing keeps from an anonymous user: be put on a hunt, bring others
- * onto one, review. Given an email, the user holds it as Google would have sent it, for a spec of
- * what its owner is shown (the user menu). It signs nobody in and proves nothing: it is no
- * provider, and touches no account. Refused on a deployment without `TRIQUET_CLEARABLE=yes`,
- * which production never has.
+ * anonymous), without the round trip. The e2e suite's quick way to a visitor that may do what
+ * sealing keeps from an anonymous user (be put on a hunt, bring others onto one, review), for a
+ * spec whose way in is not what it is about; a spec about signing in signs in with the stand-in
+ * for Google (`scripts/mock-google.ts`). It signs nobody in and proves nothing: it is no provider,
+ * and touches no account. Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which
+ * production never has.
  *
  * Internal, never public: for a holder of the deployment's admin key alone.
  *
  * @param userlabel - The userlabel of the user to vouch for, chosen at the front door.
- * @param email - The email it is to hold, as Google sends one; left as it was when absent.
  * @throws On a deployment that may not be made into, or a userlabel nobody holds; nothing is written.
  *
  * @example npx convex run testing:vouchFor '{"userlabel": "tester_4567cdef"}'
- * @example npx convex run testing:vouchFor '{"userlabel": "tester_4567cdef", "email": "tester@example.com"}'
  */
 export const vouchFor = zInternalMutation({
-  args:    { userlabel, email: zod.email().optional() },
+  args:    { userlabel },
   returns: zod.null(),
-  handler: async (ctx, { userlabel: vouchedlabel, email }) => {
+  handler: async (ctx, { userlabel: vouchedlabel }) => {
     if (env.TRIQUET_CLEARABLE !== 'yes') { throw new Error('This deployment is not one to vouch for users by hand: TRIQUET_CLEARABLE is not yes') }
     const user = await userForUserlabel(ctx.db, vouchedlabel)
     if (! user) { throw new Error(`No user holds the userlabel ${vouchedlabel}: say who you are at the front door first`) }
-    await ctx.db.patch('users', user._id, { isAnonymous: false, ...(email !== undefined && { email }) })
+    await ctx.db.patch('users', user._id, { isAnonymous: false })
     return null
   },
 })
 
 /**
- * Mark the user holding the userlabel `userlabel` merged into the user holding `into`, as a Google
- * sign-in's merge marks the anonymous user it merges away (`users.merged`), stood in for, since
- * nothing automated signs in to Google: the user `into` then has a name choice pending, between
- * the two handles. Only the mark is written (its account the first `into` has, of any provider):
- * no sandbox is handed on and no session ended, as a spec of the name choice needs nothing more.
- * It signs nobody in. Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which production
- * never has.
+ * What the user holding the userlabel `userlabel` keeps of its sign-ins, for an e2e spec that
+ * signed it in with the stand-in for Google (`scripts/mock-google.ts`) to check against what that
+ * account sent: whether it is still anonymous, and the email, when Google last said it is verified,
+ * the name, the locale and the Workspace domain, each null where the user holds none. Null for a
+ * userlabel no user holds. Refused on a deployment without `TRIQUET_CLEARABLE=yes`, which
+ * production never has.
  *
- * Internal, never public: for a holder of the deployment's admin key alone.
+ * Internal, never public: no query answers anyone but its owner with an email, and this one is for
+ * a holder of the deployment's admin key alone.
  *
- * @param userlabel - The userlabel of the user to mark merged away.
- * @param into - The userlabel of the user it merged into.
- * @throws On a deployment that may not be made into, or a userlabel nobody holds; nothing is written.
+ * @param userlabel - The userlabel of the user.
+ * @returns What it keeps, or null.
+ * @throws On a deployment that is not one to read users by hand.
  *
- * @example npx convex run testing:mergeInto '{"userlabel": "tester_4567cdef", "into": "tester_89abcdef"}'
+ * @example npx convex run testing:keptOf '{"userlabel": "tester_4567cdef"}'
+ *   // => { anonymous: false, email: 'mock_5f0c…@example.com', email_verified_at: 1760300000000, name: 'Mock 5f0c…', locale: null, hosted_domain: null }
  */
-export const mergeInto = zInternalMutation({
-  args:    { userlabel, into: userlabel },
-  returns: zod.null(),
-  handler: async (ctx, { userlabel: gonelabel, into: intolabel }) => {
-    if (env.TRIQUET_CLEARABLE !== 'yes') { throw new Error('This deployment is not one to merge users by hand: TRIQUET_CLEARABLE is not yes') }
-    const [gone, carrying] = await Promise.all([userForUserlabel(ctx.db, gonelabel), userForUserlabel(ctx.db, intolabel)])
-    if (! gone || ! carrying) { throw new Error(`No user holds the userlabel ${gone ? intolabel : gonelabel}: say who you are at the front door first`) }
-    const account = await ctx.db.query('authAccounts').withIndex('userIdAndProvider', (cvx) => cvx.eq('userId', carrying._id)).first()
-    if (! account) { throw new Error(`The user holding ${intolabel} has no account`) }
-    await ctx.db.patch('users', gone._id, User.mergedInto(carrying._id, account._id))
-    return null
+export const keptOf = zInternalQuery({
+  args:    { userlabel },
+  returns: zod.object({
+    anonymous:         zod.boolean(),
+    email:             zod.string().nullable(),
+    email_verified_at: zod.number().nullable(),
+    name:              zod.string().nullable(),
+    locale:            zod.string().nullable(),
+    hosted_domain:     zod.string().nullable(),
+  }).nullable(),
+  handler: async (ctx, { userlabel: keptlabel }) => {
+    if (env.TRIQUET_CLEARABLE !== 'yes') { throw new Error('This deployment is not one to read users by hand: TRIQUET_CLEARABLE is not yes') }
+    const user = await userForUserlabel(ctx.db, keptlabel)
+    if (! user) { return null }
+    return {
+      anonymous:         User.isAnonymous(user),
+      email:             user.email ?? null,
+      email_verified_at: user.emailVerificationTime ?? null,
+      name:              user.name ?? null,
+      locale:            user.locale ?? null,
+      hosted_domain:     user.hosted_domain ?? null,
+    }
   },
 })

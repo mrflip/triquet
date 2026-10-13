@@ -7,7 +7,6 @@
   chooses? (I'm not sure, discuss)
 * Auto-create the sandbox / first quiz
 * Review microcontent for consistency and style (eg title caps consistency)
-* Set up oauth2-mock-server
 * Make a list of all possible states for a user: is/isn't signed in with google, has/hasn't a username, was/wasn't standalone, ...
 
 ## Viz fixes
