@@ -17,7 +17,7 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
 | 9 | `oauth_security`: a strong review | landed #235 | `20261012-oauth_security` | [#235](https://github.com/mrflip/triquet/pull/235) |
-| 10 | `seal_hardening`: fail closed on `isAnonymous`; `adopt` and sandboxes | underway | | |
+| 10 | `seal_hardening`: fail closed on `isAnonymous`; `adopt` and sandboxes | landing | `20261013-seal_hardening` | |
 | 11 | `oauth_tidy`: the code review's leftovers | pending | | |
 
 Full e2e runs at landing: threads 3 and 5, and every fourth landing (thread 8 carries the fourth). So far every landing's `--touched` ran the whole suite: 7 (299/299), 2 (293/293), 1 (299/299), no flakes.
@@ -82,6 +82,8 @@ thread 2's clear. The first step is #226, #227 and #228 (threads 7, 2, 1): merge
   tests to `hunts.test.ts`; sealing goes in `mayMakeHunt` and `newHunt`; "anonymous" means two
   things today (Convex Auth's `isAnonymous`, no proof; and the actor's `{ kind: 'anonymous' }`,
   no userlabel asserted), and thread 3 should give them different words.
+
+* **Thread 10, `seal_hardening`.** *Review: clean* (medium, no fixes). Confirmed F5's flip reaches `userAtExchange` safely (it only weighs the finishing browser's own user; every user-creating write sets `isAnonymous`), one predicate everywhere, and no hole in `isSealedSandbox`. Left, minor: a sandbox whose anonymous user an `adopt` run relabelled away *before* this thread would not count as sealed (moot unless such a run happened); `relabelFor` can give an anonymous user a handle held only by a hunt's address (no harm found; thread 11 may weigh it).
 
 ## What the threads have taught
 
