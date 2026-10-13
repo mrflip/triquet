@@ -33,7 +33,7 @@ export type PageReportT = BuildReportT & {
  * @param next_version - The version of Next the build ran on.
  * @param env - The environment it was built in, masked (`EnvViz.visualize`).
  *
- * @example buildReport(stamp, '16.0.1', { TRIQUET_ENV: 'dev', HOME: null })  // => { build: stamp, next: '16.0.1', env: { TRIQUET_ENV: 'dev', HOME: null } }
+ * @example buildReport(stamp, '16.0.1', { TRIQUET_ENV: { seen: 'dev' }, HOME: { standin: 'not shown' } })  // => { build: stamp, next: '16.0.1', env: { TRIQUET_ENV: { seen: 'dev' }, HOME: { standin: 'not shown' } } }
  */
 export function buildReport(stamp: BuildStampT, next_version: string, env: EnvVizT): BuildReportT {
   return { build: stamp, next: next_version, env }

@@ -6,7 +6,7 @@ import { version as convexVersion } from 'convex'
 import { Accordion, AccordionDetails, AccordionSummary, Box, Chip, Link, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { BuildStampT } from '../lib/build-stamp'
-import type { EnvVizT } from '../lib/env-viz'
+import * as EnvViz from '../lib/env-viz'
 import type { BackfillStatusT } from '../lib/rows'
 import * as StatsReport from '../lib/stats-report'
 import * as UU from '../lib/useful'
@@ -21,7 +21,7 @@ type StatsProps = {
   stamp:        BuildStampT
   next_version: string
   /** The environment it was built in, already masked (`EnvViz.visualize`) */
-  env:          EnvVizT
+  env:          EnvViz.EnvVizT
 }
 
 /** How many lines the JSON box shows */
@@ -31,7 +31,8 @@ const BoxRows = 12
  * Which build this is, the pull request it came from, what this browser runs, how far the
  * deployment's backfills have run, and the environment it was built in; all of it again as JSON,
  * to copy from beside the heading or from the box at the foot. Each part folds away under its
- * heading, and the environment starts folded. The build's part alone is served at `/stats.json`.
+ * heading, and all start folded; the environment is in groups (`EnvViz.grouped`), each folded in
+ * turn but for `main`. The build's part alone is served at `/stats.json`.
  */
 export function Stats({ stamp, next_version, env }: Readonly<StatsProps>) {
   const { backfills, connected, connections } = useStats()
@@ -108,8 +109,12 @@ export function Stats({ stamp, next_version, env }: Readonly<StatsProps>) {
         <Backfills backfills={backfills} />
       </Section>
 
-      <Section title="Build environment" folded>
-        <Facts rows={Object.entries(env).map(([envvar, shown]) => [envvar, shown === null ? null : <code>{shown}</code>] as const)} unknown={<Typography component="span" variant="inherit" color="text.secondary" sx={{ fontStyle: 'italic' }}>not shown</Typography>} ariaLabel="Build environment" />
+      <Section title="Build environment">
+        {EnvViz.grouped(env).map(([grouplabel, group]) => (
+          <Section key={grouplabel} title={`${grouplabel} (${String(Object.keys(group).length)})`} open={grouplabel === 'main'} nested>
+            <Facts rows={Object.entries(group).map(([envvar, shown]) => [envvar, <Shown key={envvar} shown={shown} />] as const)} ariaLabel={`Build environment: ${grouplabel}`} />
+          </Section>
+        ))}
       </Section>
 
       <Section title="As JSON">
@@ -119,12 +124,21 @@ export function Stats({ stamp, next_version, env }: Readonly<StatsProps>) {
   )
 }
 
-/** One part of the page, under a heading that folds it away; open to begin with, unless `folded` */
-function Section({ title, folded = false, children }: Readonly<{ title: string, folded?: boolean, children: ReactNode }>) {
+type SectionProps = {
+  title:    string
+  /** Open to begin with; folded, unless said */
+  open?:    boolean
+  /** A part of a part: a smaller heading, a level down */
+  nested?:  boolean
+  children: ReactNode
+}
+
+/** One part of the page, under a heading that folds it away */
+function Section({ title, open = false, nested = false, children }: Readonly<SectionProps>) {
   return (
-    <Accordion component="section" defaultExpanded={! folded} disableGutters variant="outlined" slotProps={{ heading: { component: 'h2' } }} sx={{ mt: 2 }}>
+    <Accordion component="section" defaultExpanded={open} disableGutters variant="outlined" slotProps={{ heading: { component: nested ? 'h3' : 'h2' } }} sx={{ mt: nested ? 1 : 2 }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography variant="h5" component="span">{title}</Typography>
+        <Typography variant={nested ? 'h6' : 'h5'} component="span">{title}</Typography>
       </AccordionSummary>
       <AccordionDetails>
         {children}
@@ -135,25 +149,29 @@ function Section({ title, folded = false, children }: Readonly<{ title: string, 
 
 type FactsProps = {
   rows:       readonly (readonly [string, ReactNode])[]
-  /** What a fact nobody could tell (null) reads as; a dash, unless said */
-  unknown?:   ReactNode
   ariaLabel?: string
 }
 
-/** Facts as a two-column table, one to a row */
-function Facts({ rows, unknown = '—', ariaLabel }: Readonly<FactsProps>) {
+/** Facts as a two-column table, one to a row; a dash for one nobody could tell (null) */
+function Facts({ rows, ariaLabel }: Readonly<FactsProps>) {
   return (
     <Table size="small" aria-label={ariaLabel}>
       <TableBody>
         {rows.map(([label, fact]) => (
           <TableRow key={label}>
             <TableCell component="th" scope="row" sx={{ width: '12em', fontWeight: 'bold', verticalAlign: 'top' }}>{label}</TableCell>
-            <TableCell sx={{ overflowWrap: 'anywhere' }}>{fact ?? unknown}</TableCell>
+            <TableCell sx={{ overflowWrap: 'anywhere' }}>{fact ?? '—'}</TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
   )
+}
+
+/** What may be seen of a variable's value: the value, or what stands in for it, in parentheses and set apart as no value at all */
+function Shown({ shown }: Readonly<{ shown: EnvViz.EnvShownT }>) {
+  if ('seen' in shown) { return <code>{shown.seen}</code> }
+  return <Typography component="span" variant="inherit" color="text.secondary" sx={{ fontStyle: 'italic' }}>({shown.standin})</Typography>
 }
 
 /** `children`, linked to `href` when there is one */

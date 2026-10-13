@@ -14,6 +14,13 @@ const nextVersion = (require('next/package.json') as { version: string }).versio
 /** The version of React the browser runs: the app router's pages run the React Next bundles, not the one the package names */
 const reactVersion = (require('next/dist/compiled/react') as { version: string }).version
 
+/** Opens the part of the stats page headed `title`: every part starts folded */
+async function unfold(page: Page, title: string | RegExp): Promise<void> {
+  const opener = page.getByRole('button', { name: title, exact: typeof title === 'string' })
+  await opener.click()
+  await expect(opener).toHaveAttribute('aria-expanded', 'true')
+}
+
 /** What the stats page says of `label`: the cell beside the row header naming it */
 function factOf(page: Page, label: string): Locator {
   return page.getByRole('row').filter({ has: page.getByRole('rowheader', { name: label, exact: true }) }).getByRole('cell')
@@ -24,6 +31,7 @@ test('names the build and what the browser runs, says it is connected, and shows
   await page.goto('/stats')
   await expect(page).toHaveTitle('Stats — Triquet')
   await expect(page.getByRole('heading', { name: 'Stats', level: 1 })).toBeVisible()
+  for (const title of ['This build', 'This browser', 'Backfills']) { await unfold(page, title) }
 
   // The build's stamp: when it was built, of which commit, on which Node. Every run of the suite is of a git checkout.
   await expect(factOf(page, 'Built')).toHaveText(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d/)
@@ -46,6 +54,7 @@ test('names the build and what the browser runs, says it is connected, and shows
 
 test('tells a browser that has not said who it is nothing of the backfills', async ({ page }) => {
   await page.goto('/stats')
+  for (const title of ['This browser', 'Backfills']) { await unfold(page, title) }
   await expect(page.getByText('Only an admin sees these: choose a handle first.', { exact: true })).toBeVisible()
   await expect(page.getByRole('table', { name: 'Backfills' })).toHaveCount(0)
   // The rest of the page is anyone's.
@@ -55,7 +64,9 @@ test('tells a browser that has not said who it is nothing of the backfills', asy
 test('offers all of it as compact JSON in a box that can be dragged taller, and copies it from beside the heading too', async ({ page }) => {
   await assumeUserlabel(page)
   await page.goto('/stats')
+  await unfold(page, 'Backfills')
   await expect(page.getByRole('table', { name: 'Backfills' })).toBeVisible()
+  await unfold(page, 'As JSON')
   const box = page.getByRole('textbox', { name: 'Stats as JSON' })
   expect(await box.inputValue()).not.toContain('\n')
   const shown = JSON.parse(await box.inputValue()) as { build: { sha: string }, next: string, browser: { convex: string, connected: boolean }, backfills: unknown[] }
@@ -79,22 +90,27 @@ test('serves the build\'s part of it at /stats.json', async ({ page }) => {
   expect(body.build.sha).toMatch(/^[0-9a-f]{40}$/)
 })
 
-test('folds each part away under its heading, and shows the build\'s environment folded, its values masked but for those it may show', async ({ page }) => {
+test('starts with every part folded, and shows the build\'s environment in groups, its values masked but for those it may show', async ({ page }) => {
   await page.goto('/stats')
-  const thisBuild = page.getByRole('button', { name: 'This build' })
-  await expect(thisBuild).toHaveAttribute('aria-expanded', 'true')
-  await expect(factOf(page, 'Built')).toBeVisible()
-  await thisBuild.click()
-  await expect(thisBuild).toHaveAttribute('aria-expanded', 'false')
+  for (const title of ['This build', 'What it merged', 'This browser', 'Backfills', 'Build environment', 'As JSON']) {
+    await expect(page.getByRole('button', { name: title, exact: true })).toHaveAttribute('aria-expanded', 'false')
+  }
   await expect(factOf(page, 'Built')).toBeHidden()
+  await unfold(page, 'This build')
+  await expect(factOf(page, 'Built')).toBeVisible()
 
-  const environment = page.getByRole('table', { name: 'Build environment' })
-  const opener = page.getByRole('button', { name: 'Build environment' })
-  await expect(opener).toHaveAttribute('aria-expanded', 'false')
-  await expect(environment).toBeHidden()
-  await opener.click()
-  await expect(environment).toBeVisible()
-  // The suite's build is made under NEXT_DIST_DIR, which the page may show, and HOME, which it may not.
+  // Of the environment's groups, main alone starts open.
+  await unfold(page, 'Build environment')
+  await expect(page.getByRole('button', { name: /^main \(\d+\)$/ })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('button', { name: /^next \(\d+\)$/ })).toHaveAttribute('aria-expanded', 'false')
+  // A dev server's or a built one's, as the suite runs.
+  await expect(factOf(page, 'NODE_ENV')).toHaveText(/^(development|production)$/)
+  // The suite's build is made under NEXT_DIST_DIR, which the page may show, and with a stand-in key, which it snips.
+  await unfold(page, /^next \(\d+\)$/)
   await expect(factOf(page, 'NEXT_DIST_DIR')).toHaveText(/^\.next-e2e/)
-  await expect(factOf(page, 'HOME')).toHaveText('not shown')
+  await unfold(page, /^bots \(\d+\)$/)
+  await expect(factOf(page, 'ANTHROPIC_API_KEY')).toHaveText('sk**********lkey')
+  // Whatever else the machine sets that ENV_VAR_VIZ does not list is unknown, its value not shown.
+  await unfold(page, /^unknown \(\d+\)$/)
+  await expect(page.getByRole('table', { name: 'Build environment: unknown' }).getByText('(not shown, no def)').first()).toBeVisible()
 })

@@ -5,7 +5,7 @@ import * as StatsReport from '../../src/lib/stats-report'
 
 const Stamp = BuildStamp.gather({}, () => null, new Date('2026-10-06T12:00:00Z'), 'v24.1.0')
 
-const Env = { TRIQUET_ENV: 'dev', HOME: null }
+const Env = { TRIQUET_ENV: { seen: 'dev' }, HOME: { standin: 'not shown' as const } }
 
 const Browser = { react: '19.2.0', convex: '1.28.0', backend: 'http://127.0.0.1:3402', connected: true, connections: 2 }
 
