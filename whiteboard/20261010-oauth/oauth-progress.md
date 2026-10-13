@@ -1,6 +1,6 @@
 # Sprint `oauth`: progress
 
-**Status: follow-ups underway (2026-10-13). Threads 1-9 merged (#226-#235, #237); thread 10 underway, 11 pending.**
+**Status: follow-ups underway (2026-10-13). Threads 1-9 merged (#226-#235, #237); thread 10 landed #242; thread 11 underway.**
 
 The running handoff, newer than `oauth-plan.md` wherever the two disagree. Each thread writes its
 own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -17,8 +17,8 @@ own section to `thread-<N>-<label>.md` beside this file; the orchestrator curate
 | 7 | `google_pages`: homepage, privacy, terms, contact | landed #226 | `20261011-google_pages` | [#226](https://github.com/mrflip/triquet/pull/226) |
 | 8 | `reserved_words`: survey and augment the reserved list | landed #229 | `20261011-reserved_words` | [#229](https://github.com/mrflip/triquet/pull/229) |
 | 9 | `oauth_security`: a strong review | landed #235 | `20261012-oauth_security` | [#235](https://github.com/mrflip/triquet/pull/235) |
-| 10 | `seal_hardening`: fail closed on `isAnonymous`; `adopt` and sandboxes | landing | `20261013-seal_hardening` | |
-| 11 | `oauth_tidy`: the code review's leftovers | pending | | |
+| 10 | `seal_hardening`: fail closed on `isAnonymous`; `adopt` and sandboxes | landed #242 | `20261013-seal_hardening` | [#242](https://github.com/mrflip/triquet/pull/242) |
+| 11 | `oauth_tidy`: the code review's leftovers | underway | `20261013-oauth_tidy` | |
 
 Full e2e runs at landing: threads 3 and 5, and every fourth landing (thread 8 carries the fourth). So far every landing's `--touched` ran the whole suite: 7 (299/299), 2 (293/293), 1 (299/299), no flakes.
 
