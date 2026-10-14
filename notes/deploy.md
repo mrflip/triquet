@@ -68,7 +68,8 @@ effort, and a shallow clone may list no commits.
   own for them, set on the deployment (the Convex dashboard, or `npx convex env set`), never in
   the Doppler configs that sync to Vercel (`prd`, `stg`), since the web app Vercel builds never
   reads them: `JWT_PRIVATE_KEY` and `JWKS`, a key pair minted for that deployment alone
-  (`scripts/convex_auth_keys` shows how), and `SITE_URL`, the web app's address. Without them no
+  (`scripts/convex_auth_keys` shows how), and `SITE_URL`, the web app's address (production's,
+  `https://triquet.me`). Without them no
   browser can sign in, and so none can take a userlabel. Preview deployments take theirs from
   the project's default environment variables for previews. No variable names the admins, who may
   change the widget library: a user is one when its own `admin` flag says so, set only from the
