@@ -1,6 +1,6 @@
 # Sprint `auth_todos`: progress
 
-**Status: threads 1-4 landed (#247, #248, #250, #251); thread 5 underway; thread 7 landing; thread 6 waits on 5 (2026-10-13).**
+**Status: threads 1-4 and 7 landed (#247, #248, #250, #251, #252); thread 5 landing; thread 6 waits on 5 (2026-10-14).**
 
 The running handoff, newer than `auth_todos-plan.md` wherever the two disagree. Each thread writes
 its own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -11,11 +11,11 @@ its own section to `thread-<N>-<label>.md` beside this file; the orchestrator cu
 | 2 | `one_userlabel`: no held userlabel | landed #248 | `20261013-one_userlabel` | [#248](https://github.com/mrflip/triquet/pull/248) |
 | 3 | `mock_google`: a mock Google; signup, signin, verify tested through | landed #250 | `20261013-mock_google` | [#250](https://github.com/mrflip/triquet/pull/250) |
 | 4 | `short_userlabel`: a userlabel may be four letters | landed #251 | `20261013-short_userlabel` | [#251](https://github.com/mrflip/triquet/pull/251) |
-| 5 | `auto_sandbox`: the sandbox and its first quiz, made for you | underway | `20261013-auto_sandbox` | |
+| 5 | `auto_sandbox`: the sandbox and its first quiz, made for you | landing | `20261013-auto_sandbox` | |
 | 6 | `microcontent`: the microcontent, consistent | pending | | |
-| 7 | `more_reserved`: five more top-level reserved words | landing | `20261013-more_reserved` | |
+| 7 | `more_reserved`: five more top-level reserved words | landed #252 | `20261013-more_reserved` | [#252](https://github.com/mrflip/triquet/pull/252) |
 
-Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only); thread 2's `--touched` ran the whole suite, 319/319, no flakes; thread 3 ran the full suite, 325/325, no flakes (on the top before thread 2; `google-sign-in` and `routing` rerun after, 75/75). Thread 4, the fourth landing, carried a full run: 325/325, no flakes.
+Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only); thread 2's `--touched` ran the whole suite, 319/319, no flakes; thread 3 ran the full suite, 325/325, no flakes (on the top before thread 2; `google-sign-in` and `routing` rerun after, 75/75). Thread 4, the fourth landing, carried a full run: 325/325, no flakes. Thread 7's `--touched` ran the whole suite, 325/325, no flakes.
 
 *Orchestrator (2026-10-14):* the sprint stopped overnight when the account hit its weekly usage
 limit; threads 5 (building, three commits in) and 7 (landing, caught up) were resumed with their
@@ -62,6 +62,15 @@ context once it reset. Thread 4's failure notice came after it had landed; nothi
   a valid hunt label (tested), as thread 5 needs.
 * **A brand-new backend picks up the stand-in on its first run** (thread 3 checked from cold: 23/23),
   so `scripts/convex_dev`'s order of settings is fine as it stands.
+* **Taking a handle makes the sandbox** (thread 5, in review): `assumeUserlabel` calls
+  `makeSandboxFor` in the same mutation, for every user; the sandbox holds the blank quiz every
+  new hunt is made with (a realm must hold one, so the quiz cannot be dropped separately). Only a
+  sign-up lands at the sandbox (`Routes.signedUpPath`, `Routes.isCompelling`: compelling = an
+  `/~…` address or an old `/h/…`, `/c/…`); a returning sign-in goes where it went before.
+  **For thread 6**: the sandbox page is now every new user's first screen; its copy is worth a look.
+* **Open for the Coach (thread 5)**: every handle now makes a hunt, so `PA.HuntsInApp` (999)
+  caps sign-ups (`huntsFull`). The worker chose to refuse and recommends raising the cap before
+  production nears ~999 users.
 
 ## Reviews of landed threads
 
@@ -88,3 +97,7 @@ context once it reset. Thread 4's failure notice came after it had landed; nothi
   are reserved. Left for the Coach (in the PR): free short words that might deserve reserving
   (`bots`, `test`, `demo`, `sync`, `meta`), each needing `check_reserved` against production first.
   Thread 3's specs needed no change at the catch-up.
+* **Thread 7, #252.** *Review: clean.* The five words (`bots`, `test`, `demo`, `sync`, `meta`;
+  new groups `trials` and `craft`) reach every reader of the top-level list; nothing depends on
+  the group keys. The Coach waived `check_reserved` against production; the PR's open items say
+  how to run it anyway. Left for the Coach: `bot`, `tests`, `demos`, `metas` stay free.
