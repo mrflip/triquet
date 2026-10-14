@@ -68,7 +68,7 @@ test('a hunt goes only with its last quiz', async ({ page }) => {
   // Said behind the Hunt section's (i).
   await manageDialog(page).getByRole('button', { name: 'About the hunt' }).hover()
   await expect(page.getByRole('tooltip')).toContainText('To delete a hunt, please delete its quizzes.')
-  const zone = manageDialog(page).getByRole('region', { name: 'Danger Zone' })
+  const zone = manageDialog(page).getByRole('region', { name: 'Danger zone' })
   await expect(zone.getByRole('button')).toHaveText(['Delete this quiz and its hunt'])
   await closeManage(page)
 
@@ -79,7 +79,7 @@ test('a hunt goes only with its last quiz', async ({ page }) => {
 
 test('a dangerous act puts its button beside what it costs when the dialog has room, and below it when not', async ({ page }) => {
   await openManage(page)
-  const zone = manageDialog(page).getByRole('region', { name: 'Danger Zone' })
+  const zone = manageDialog(page).getByRole('region', { name: 'Danger zone' })
   const cost = zone.getByText('Delete this quiz and its hunt', { exact: true }).first()
   const button = zone.getByRole('button', { name: 'Delete this quiz and its hunt' })
   const buttonIsBeside = async () => {

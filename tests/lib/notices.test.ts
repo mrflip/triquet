@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  AppNotices, RefusalNotices, botUnavailableNotice, googleGateNotice, googleSignInUnfinishedNotice, keepHandleNotice, nameChoiceQuestion, userUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, sealedNotOnHuntNotice,
+  AppNotices, RefusalNotices, botUnavailableNotice, googleGateNotice, googleSignInUnfinishedNotice, keepHandleNotice, nameChoiceQuestion, userUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, quizzesAboutNotice, sealedNotOnHuntNotice,
   signedInAsNotice, widgetingShownNotice,
 } from '../../src/lib/notices'
 
@@ -29,6 +29,16 @@ describe('noSuchHuntNotice', () => {
 
   it("names the label alone for an old address, which names no org", () => {
     expect(noSuchHuntNotice(null, 'spring_hunt')).to.eq('There is no hunt labelled “spring_hunt”.')
+  })
+})
+
+describe("quizzesAboutNotice", () => {
+  it("says the visitor's role mid-sentence, in lower case", () => {
+    expect(quizzesAboutNotice('Smith')).to.eq('Every quiz this hunt holds. You are a smith on it: open a quiz to work on it as a smith, or to review it as a reviewer.')
+  })
+
+  it("says a reviewer is one", () => {
+    expect(quizzesAboutNotice('Reviewer')).to.match(/^Every quiz this hunt holds\. You are a reviewer on it: /)
   })
 })
 

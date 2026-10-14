@@ -59,7 +59,7 @@ export function ReviewScreen({ quiz, user, reviews, dispatch }: Readonly<ReviewS
   return (
     <ScreenMain className={styles.page}>
       <Box sx={{ maxWidth: { xs: 760, lg: 1440 }, mx: 'auto' }}>
-        <Typography variant="h4" component="h1" gutterBottom>{quiz.title || AppNotices.untitledQuiz} — PLAYTESTING</Typography>
+        <Typography variant="h4" component="h1" gutterBottom>{quiz.title || AppNotices.untitledQuiz} — playtesting</Typography>
         {quiz.smiths_note === '' ? null : <SmithsNoteReading key={quiz._id} note={quiz.smiths_note} />}
         <Stack spacing={2} sx={{ my: 3 }}>
           {questions.map((question) => (

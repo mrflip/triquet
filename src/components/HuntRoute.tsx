@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { Box, Link, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import * as Actor from '../lib/actor'
 import * as Approve from '../lib/approve'
-import { AppNotices, noSuchHuntNotice } from '../lib/notices'
+import { AppNotices, noSuchHuntNotice, quizzesAboutNotice } from '../lib/notices'
+import { HuntRoleTitles } from '../models/huntship'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT } from '../lib/rows'
-import { HuntRoleTitles } from '../models/huntship'
 import { useHuntOpening } from '../state/use-hunt-opening'
 import { useMe } from '../state/use-me'
 import { useShowHunt } from '../state/shown'
@@ -80,7 +80,7 @@ export function NoSuchHunt({ org, huntLabel }: Readonly<Pick<HuntRouteProps, 'or
 function QuizzesScreen({ hunt }: Readonly<{ hunt: ShallowHuntT }>) {
   return (
     <main className={styles.page}>
-      <Panel title={`Quizzes of ${hunt.title}`} about={`Every quiz this hunt holds. You are on it as ${HuntRoleTitles[hunt.role]}: open a quiz to work on it as a smith, or to review it as a reviewer.`}>
+      <Panel title={`Quizzes of ${hunt.title}`} about={quizzesAboutNotice(HuntRoleTitles[hunt.role])}>
         <QuizLinks hunt={hunt} />
         <Box sx={{ mt: 2 }}>
           <Link component={NextLink} href={Routes.huntPath({ org: hunt.org, hunt: hunt.label })}>The hunt&apos;s own page</Link>
@@ -95,7 +95,7 @@ function HuntScreen({ hunt, actor }: Readonly<{ hunt: ShallowHuntT, actor: Actor
   const rebranchable = Approve.mayOffer('rebranch_hunt', Actor.claimsOn(actor, hunt._id, hunt))
   return (
     <Stack component="main" className={styles.page} spacing={2.5} sx={{ maxWidth: 960 }}>
-      <Panel title="Quizzes" about={`Every quiz this hunt holds. You are on it as ${HuntRoleTitles[hunt.role]}: open a quiz to work on it as a smith, or to review it as a reviewer.`}>
+      <Panel title="Quizzes" about={quizzesAboutNotice(HuntRoleTitles[hunt.role])}>
         <QuizLinks hunt={hunt} />
       </Panel>
       <Panel title="Branch" about="The line of work every quiz of this hunt is on, and the git branch each browser keeps their history on.">

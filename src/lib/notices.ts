@@ -223,6 +223,18 @@ export function userUnknownNotice(label: string): string {
 }
 
 /**
+ * What a hunt's list of its quizzes says of itself: the visitor's role on it, said mid-sentence
+ * in lower case, and what each role opens a quiz to do.
+ *
+ * @param roleTitle - The visitor's role on the hunt, as a table names it (`HuntRoleTitles`).
+ *
+ * @example quizzesAboutNotice('Smith')  // => 'Every quiz this hunt holds. You are a smith on it: open a quiz to work on it as a smith, or to review it as a reviewer.'
+ */
+export function quizzesAboutNotice(roleTitle: string): string {
+  return `Every quiz this hunt holds. You are a ${roleTitle.toLowerCase()} on it: open a quiz to work on it as a smith, or to review it as a reviewer.`
+}
+
+/**
  * What an address says when no hunt answers to it: the org it named, and the hunt's label (an old
  * address names no org).
  *

@@ -288,7 +288,7 @@ export async function openManage(page: Page): Promise<void> {
  * open, typing `label` to confirm it.
  */
 export async function actDangerously(page: Page, actname: string, label: string): Promise<void> {
-  await manageDialog(page).getByRole('region', { name: 'Danger Zone' }).getByRole('button', { name: actname }).click()
+  await manageDialog(page).getByRole('region', { name: 'Danger zone' }).getByRole('button', { name: actname }).click()
   const confirming = page.getByRole('dialog', { name: `${actname}?` })
   await confirming.getByRole('textbox').fill(label)
   await confirming.getByRole('button', { name: actname }).click()
