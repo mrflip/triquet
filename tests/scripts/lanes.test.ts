@@ -32,13 +32,13 @@ const lanes = (cwd: string, ...args: string[]): string => (
 )
 
 const PortsCases: [Lanes.Role, number, Lanes.Ports, string][] = [
-  ['dev',         0, { web: 3000, backend: 3400, site: 3500 }, 'the Coach\'s, in the main checkout, as it has always been'],
-  ['agent',       0, { web: 3001, backend: 3401, site: 3501 }, 'the agents\' dev server, in the main checkout'],
-  ['e2e-built',   0, { web: 3005, backend: 3405, site: 3505 }, 'the optimized build\'s suite, in the main checkout'],
-  ['e2e-agent',   1, { web: 3013, backend: 3413, site: 3513 }, 'every port moves up by ten in lane 1'],
-  ['e2e',         9, { web: 3092, backend: 3492, site: 3592 }, 'the last lane stays below the next hundred'],
-  ['agent-built', 0, { web: 3004, backend: 3401, site: 3501 }, 'the agents\' built server talks to the agent backend'],
-  ['agent-built', 2, { web: 3024, backend: 3421, site: 3521 }, 'and to the agent backend of its own lane'],
+  ['dev',         0, { web: 3000, backend: 3400, site: 3500, issuer: 3600 }, 'the Coach\'s, in the main checkout, as it has always been'],
+  ['agent',       0, { web: 3001, backend: 3401, site: 3501, issuer: 3601 }, 'the agents\' dev server, in the main checkout'],
+  ['e2e-built',   0, { web: 3005, backend: 3405, site: 3505, issuer: 3605 }, 'the optimized build\'s suite, in the main checkout'],
+  ['e2e-agent',   1, { web: 3013, backend: 3413, site: 3513, issuer: 3613 }, 'every port moves up by ten in lane 1'],
+  ['e2e',         9, { web: 3092, backend: 3492, site: 3592, issuer: 3692 }, 'the last lane stays below the next hundred'],
+  ['agent-built', 0, { web: 3004, backend: 3401, site: 3501, issuer: 3601 }, 'the agents\' built server talks to the agent backend'],
+  ['agent-built', 2, { web: 3024, backend: 3421, site: 3521, issuer: 3621 }, 'and to the agent backend of its own lane'],
 ]
 
 describe('Lanes.portsOf', () => {
@@ -53,8 +53,8 @@ describe('Lanes.portsOf', () => {
     const ports: number[] = []
     for (let lane = 0; lane <= Lanes.MaxLane; lane++) {
       for (const role of roles) {
-        const { web, backend, site } = Lanes.portsOf(role, lane)
-        ports.push(web, backend, site)
+        const { web, backend, site, issuer } = Lanes.portsOf(role, lane)
+        ports.push(web, backend, site, issuer)
       }
     }
     expect(new Set(ports).size).to.eq(ports.length)
@@ -158,7 +158,7 @@ describe('node scripts/lanes.ts, in a repository with a worktree', () => {
   it('puts the main checkout in lane 0 and the worktree in lane 1', () => {
     expect(lanes(path.join(scratch, 'main'), 'lane')).to.eq('0')
     expect(lanes(path.join(scratch, 'side'), 'lane')).to.eq('1')
-    expect(lanes(path.join(scratch, 'side'), 'ports', 'agent')).to.eq('3011 3411 3511')
+    expect(lanes(path.join(scratch, 'side'), 'ports', 'agent')).to.eq('3011 3411 3511 3611')
   })
 
   it('frees the worktree\'s lane on release', () => {

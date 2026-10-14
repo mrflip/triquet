@@ -59,10 +59,10 @@ test.describe('the front door', () => {
     const name = page.getByRole('textbox', { name: 'Your name' })
     const box = page.getByRole('textbox', { name: 'Handle', exact: true })
     await expect(page.getByRole('button', { name: AppNotices.signUp, exact: true })).toBeDisabled()
-    await name.fill('Flip')
-    await expect(box).toHaveValue('flip')
+    await name.fill('Flo')
+    await expect(box).toHaveValue('flo')
     await expect(page.getByRole('button', { name: AppNotices.signUp, exact: true })).toBeDisabled()
-    // Not yet: the render that holds 'flip' has said nothing, while the name is still being typed.
+    // Not yet: the render that holds 'flo' has said nothing, while the name is still being typed.
     await expect(page.getByText(AppNotices.userlabelUnfinished)).toBeHidden()
     await name.blur()
     await expect(page.getByText(AppNotices.userlabelUnfinished)).toBeVisible()
@@ -710,7 +710,7 @@ test.describe('a link handed to a friend', () => {
     await box.fill('Flip Kromer')
     await expect(members.getByText(AppNotices.memberLabelShape)).toBeVisible()
     await expect(box).toHaveAttribute('aria-invalid', 'true')
-    await box.fill('flip')
+    await box.fill('flo')
     await expect(members.getByText(AppNotices.memberLabelUnfinished)).toBeHidden()
     await members.getByRole('button', { name: 'Add' }).click()
     await expect(members.getByText(AppNotices.memberLabelUnfinished)).toBeVisible()

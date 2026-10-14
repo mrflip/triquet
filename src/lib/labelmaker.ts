@@ -123,7 +123,8 @@ export type IsReservedOpts = {
  * does: what lets a field say why a label of the right shape is still refused. With `toplevel`,
  * the one answer to whether a userlabel, or a hunt's label, may be claimed for its word: the words
  * a new one is kept from are the same for both, since a sandbox's hunt takes its userlabel. A
- * label already held stands whatever this says (`CK.heldUserlabel`).
+ * userlabel already held is held to the same words (`CK.userlabel`); a hunt's label already held,
+ * to those every label is.
  *
  * @param label - A label, or anything typed for one.
  * @param opts - `toplevel` for a new hunt's label or a userlabel being claimed, kept from the top-level words as well; `allowed`, words let through.

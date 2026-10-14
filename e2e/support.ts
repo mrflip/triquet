@@ -444,13 +444,26 @@ const CollisionCode = 'OptimisticConcurrencyControlFailure'
 /**
  * Have the backend make a hunt for the user holding the userlabel `label`, laid out as `layout`
  * says, and open its quiz: the fixture's way in, for a page whose session is that user's.
+ */
+async function enterFreshHunt(page: Page, label: string, layout: LayoutT): Promise<void> {
+  await page.goto(await huntMadeFor(label, layout))
+  await expect(grid(page)).toBeVisible()
+}
+
+/**
+ * Have the backend make a hunt for the user holding the userlabel `label`, as its smith, laid out
+ * as `layout` says (`testing:makeHunt`), without walking the hunts list.
  *
  * Making a hunt reads every hunt (the app caps how many it holds), so two made at once collide,
  * and Convex gives up on one after retrying it a few times; with every worker making a hunt a
  * test, that happens. A write that collided wrote nothing, so it is tried again, for a while. Any
  * other refusal (a widget the library lacks, say) fails the test at once.
+ *
+ * @returns The address of the hunt's quiz, open to edit.
+ *
+ * @example await page.goto(await huntMadeFor(friendLabel))
  */
-async function enterFreshHunt(page: Page, label: string, layout: LayoutT): Promise<void> {
+export async function huntMadeFor(label: string, layout: LayoutT = {}): Promise<string> {
   const made: { address: string, refusal: Error | null } = { address: '', refusal: null }
   await expect(async () => {
     try {
@@ -464,8 +477,7 @@ async function enterFreshHunt(page: Page, label: string, layout: LayoutT): Promi
     }
   }, 'the backend should make a hunt').toPass({ intervals: [100, 250, 500, 1000], timeout: 10_000 })
   if (made.refusal !== null) { throw made.refusal }
-  await page.goto(made.address)
-  await expect(grid(page)).toBeVisible()
+  return made.address
 }
 
 /**
@@ -497,8 +509,8 @@ export function freshWidgetLabel(stem: string): string {
 }
 
 /**
- * Say who this browser is at the front door, and wait to be sent on to the hunts: its user, an
- * anonymous one, takes the userlabel `label`.
+ * Say who this browser is at the front door, and wait until it has landed where a new user lands
+ * (`landedAfterSignUp`): its user, an anonymous one, takes the userlabel `label`.
  *
  * @param label - The userlabel to take; a fresh one when omitted.
  * @returns The userlabel.
@@ -507,8 +519,29 @@ export async function assumeUserlabel(page: Page, label = freshUserlabel()): Pro
   await page.goto('/')
   await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
   await page.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
-  await expect(page).toHaveURL(/\/my\/hunts$/)
+  await landedAfterSignUp(page, label)
   return label
+}
+
+/**
+ * Wait until a visitor who has just taken the handle `label` at the front door, by signing up
+ * there (`assumeUserlabel`) or with Google (`signUpWithGoogle` in `google.ts`), has landed where a
+ * new user lands: the page a link sent them to the front door from (its `?then=`), when one did;
+ * otherwise their hunts, which name them. The one place a spec says where a sign-up lands.
+ *
+ * @param label - The handle taken.
+ * @param then - The path the front door was to send them on to, if a link sent them there.
+ *
+ * @example await landedAfterSignUp(page, label)
+ * @example await landedAfterSignUp(page, label, '/~pat_smith/quiet_otter')
+ */
+export async function landedAfterSignUp(page: Page, label: string, then?: string): Promise<void> {
+  if (then !== undefined) {
+    await expect(page).toHaveURL((url) => `${url.pathname}${url.search}` === then)
+    return
+  }
+  await expect(page).toHaveURL(/\/my\/hunts$/)
+  await expect(page.getByText(`(@${label})`)).toBeVisible()
 }
 
 /** Where a new hunt's quiz is worked on: under its maker's org, its hunt and quiz share a label, in the realm `home`; an anonymous maker's, its sandbox, labelled as its org is */

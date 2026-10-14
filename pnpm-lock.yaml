@@ -396,6 +396,9 @@ importers:
       happy-dom:
         specifier: ^20.14.5
         version: 20.14.5
+      oauth2-mock-server:
+        specifier: ^9.2.0
+        version: 9.2.0
       proper-lockfile:
         specifier: 4.1.2
         version: 4.1.2
@@ -2024,6 +2027,10 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
+  basic-auth@3.0.0:
+    resolution: {integrity: sha512-B63UKsSJ2atgiSuCJvzAjpfAdFY6mYT3C0vZFlLV/81Rw2/VCs6Tp29UzkpKETB3qA2cHwuU1LjBnhUQ0WkPKw==}
+    engines: {node: '>=22'}
+
   bind-event-listener@3.0.0:
     resolution: {integrity: sha512-PJvH288AWQhKs2v9zyfYdPzlPqf5bXbGMmhmUIY9x4dAUGIWgomO771oBQNwJnMQSnUIXhKu6sgzpBRXTlvb8Q==}
 
@@ -3461,6 +3468,11 @@ packages:
   node-releases@2.0.55:
     resolution: {integrity: sha512-mIrE/Cw9y+9Au6dS5vDKDhQza9YvG6w+ZrS6X+ZzA7yFW/soAeaups4Qzn1bL6g5FVy8WtP79+0j82oPIbqRjQ==}
     engines: {node: '>=18'}
+
+  oauth2-mock-server@9.2.0:
+    resolution: {integrity: sha512-LKxnpwOaqmiKIenr3Uweppy4vrsWt8fCA1il7VQEh0QJoCqb94nWBjjeUoMyHvMLnWoHKrx4T8EmTt0aBrE3TA==}
+    engines: {node: ^22.12 || ^24 || ^26}
+    hasBin: true
 
   oauth4webapi@3.8.8:
     resolution: {integrity: sha512-8N28E+a/oxfXWBgOMt+ZP/JUf/XR+IFbvkAEPP3gznXOMv9BpAAwiIj0TFNz3tGTPc0ZQ8zmWBNgN1nAys0gng==}
@@ -5720,6 +5732,8 @@ snapshots:
 
   baseline-browser-mapping@2.11.24: {}
 
+  basic-auth@3.0.0: {}
+
   bind-event-listener@3.0.0: {}
 
   brace-expansion@1.1.21:
@@ -7617,6 +7631,11 @@ snapshots:
       semver: 6.3.1
 
   node-releases@2.0.55: {}
+
+  oauth2-mock-server@9.2.0:
+    dependencies:
+      basic-auth: 3.0.0
+      jose: 6.2.12
 
   oauth4webapi@3.8.8: {}
 

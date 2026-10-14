@@ -117,6 +117,17 @@ describe('isReserved', () => {
     expect(Labelmaker.isReserved('pricing', { toplevel: true, allowed: new Set(['pricing']) })).to.be.true
   })
 
+  it("keeps the four- and five-letter words a short userlabel would pass for the app's own pages or voice as", () => {
+    const words = ['mail', 'auth', 'acct', 'help', 'info', 'team', 'blog', 'home', 'news', 'docs', 'about', 'admin', 'login', 'oauth', 'staff', 'abuse', 'hello', 'sales', 'anon', 'sudo']
+    expect(words.filter((word) => ! Labelmaker.isReserved(word, { toplevel: true }))).to.deep.eq([])
+  })
+
+  it("keeps bots, test, demo, sync and meta from a hunt's label or a userlabel, and from no other label", () => {
+    const words = ['bots', 'test', 'demo', 'sync', 'meta']
+    expect(words.filter((word) => ! Labelmaker.isReserved(word, { toplevel: true }))).to.deep.eq([])
+    expect(words.filter((word) => Labelmaker.isReserved(word))).to.deep.eq([])
+  })
+
   it("reads the doc block's example of a userlabel kept by a prefix", () => {
     expect(Labelmaker.isReserved('google_fan', { toplevel: true })).to.be.true
   })

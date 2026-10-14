@@ -124,7 +124,7 @@ describe('users.perform: assume_userlabel', () => {
   it("refuses a userlabel too short to be one, and a word kept for the app's own use, writing nothing", async () => {
     const tt = openTester()
     const session = await anonymousSession(tt)
-    await expect(assume(session, 'flip', 'Flip')).rejects.toThrow(/should have «6» or more/)
+    await expect(assume(session, 'flo', 'Flo')).rejects.toThrow(/should have «4» or more/)
     await expect(assume(session, 'support', 'Help')).rejects.toThrow()
     expect(await fieldOf(tt, session.user_id, 'userlabel')).to.be.undefined
   })
@@ -224,18 +224,19 @@ describe('users.perform: retitle_user', () => {
   })
 })
 
-describe('a user holding a userlabel the reserved list has kept since', () => {
-  it('stays writable: it retitles itself, and a smith puts it on a hunt by its userlabel', async () => {
+describe("a user holding a userlabel the reserved list has kept since", () => {
+  it("is put on no hunt by its userlabel, and makes none, as every userlabel is held to the whole list", async () => {
     const tt = openTester()
     const held = await googleUser(tt, 'kept_later')
     await tt.run(async (ctx) => {
       await ctx.db.patch('users', held.user_id, { userlabel: 'google_fan' })
     })
-    await retitle(held, 'Fan')
     const { act, open } = await seedHunt(tt, huntHolding([Quiz.blank()]))
-    await act({ kind: 'add_huntship', userlabel: 'google_fan', role: 'reviewer' })
+    await expect(act({ kind: 'add_huntship', userlabel: 'google_fan', role: 'reviewer' })).rejects.toThrow(PA.UnreservedToplevel.msg)
+    await expect(held.as.mutation(api.hunts.performOuter, { action: { kind: 'new_hunt', label: 'quiet_otter' } })).rejects.toThrow(PA.UnreservedToplevel.msg)
     const huntships = await tt.run(async (ctx) => await ctx.db.query('huntships').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', open.hunt_id)).collect())
-    expect([await fieldOf(tt, held.user_id, 'title'), huntships.map((row) => [row.userlabel, row.usertitle])]).to.deep.eq(['Fan', [['seed_smith', 'Seed Smith'], ['google_fan', 'Fan']]])
+    const hunts = await allOf(tt, 'hunts')
+    expect([huntships.map((row) => row.userlabel), hunts.length]).to.deep.eq([['seed_smith'], 1])
   })
 })
 
@@ -355,6 +356,6 @@ describe('users.holder', () => {
   })
 
   it('refuses what is not a userlabel, which the front door never asks of', async () => {
-    await expect(holderOf(openTester(), 'flip')).rejects.toThrow(/should have «6» or more/)
+    await expect(holderOf(openTester(), 'flo')).rejects.toThrow(/should have «4» or more/)
   })
 })

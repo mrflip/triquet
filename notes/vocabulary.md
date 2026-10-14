@@ -176,7 +176,7 @@ can tell.
   to ..." (`sealedHunts`, `sealedMembers`, `sealedJoin`, `sealedReview`). Never the actor's
   `unlabelled` kind, which is a user holding no userlabel yet, anonymous or not (*actor*).
 * **userlabel** -- a user's label, what a person types to become it (`PA.Userlabel`,
-  `ValidatorKit.userlabel`): 6 to 24 characters of the label alphabet, unique across the app, its
+  `ValidatorKit.userlabel`): 4 to 24 characters of the label alphabet, unique across the app, its
   own word as `orglabel` is, and chosen once (`userlabelSet`). It is **free** only while no user
   holds it, no ghosting holds it, and no hunt carries it as its `orglabel` (`holderOfUserlabel`);
   only the command line gives out one that only an address holds (`scripts/adopt`). Never "username", a
@@ -474,10 +474,12 @@ than one kind of player. Begun by the categories sprint, October 2026
   a hunt or a quiz replaces it, and a question's stays as minted. A few words no label may be, nor
   any ending in `_id`: the tool's fields and nouns, and words code, a spreadsheet or Windows reads
   specially (`PA.ReservedLabels`, by group and why). A new hunt's label and a userlabel being
-  claimed are also kept from the words for the app's own pages, people and roles, and from any
-  beginning `secur`, `login`, `triquet`, `help`, `admin`, `support`, `official`, `verif` or `google`
-  (`PA.ReservedToplevel` and its prefixes); one already held keeps its word when the list grows
-  (`CK.heldUserlabel`). `Labelmaker` is the facility for all of this, and `Labelmaker.isReserved`
+  claimed are also kept from the words for the app's own pages, people and roles, its trial runs
+  and showpieces (`test`, `demo`) and the craft's `meta`, and from any beginning `secur`, `login`,
+  `triquet`, `help`, `admin`, `support`, `official`, `verif` or `google` (`PA.ReservedToplevel`
+  and its prefixes). A hunt's label already held keeps its word when the
+  list grows; a userlabel is held to the whole list always (`CK.userlabel`), so the list grows only
+  once `scripts/check_reserved` names no holder. `Labelmaker` is the facility for all of this, and `Labelmaker.isReserved`
   the one answer to whether a word may be claimed. (Until October 2026 a row could also hold a `forced_label` overriding the minted
   one, "the effective label"; that pair is retired, and only an import of an older export still
   reads a `forced_label`.)

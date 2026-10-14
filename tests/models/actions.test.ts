@@ -182,7 +182,7 @@ describe('ActionValidators.userAction', () => {
   })
 
   it('refuses a userlabel too short to be one', () => {
-    expect(() => ActionValidators.userAction({ kind: 'assume_userlabel', userlabel: 'flip', title: '' })).to.throw(Z.ZodError)
+    expect(() => ActionValidators.userAction({ kind: 'assume_userlabel', userlabel: 'flo', title: '' })).to.throw(Z.ZodError)
   })
 
   it('refuses retitling a user to nothing', () => {
