@@ -212,7 +212,7 @@ export const ReservedToplevelGroups = {
     'staff', 'system', 'moderator', 'mod', 'everyone', 'anonymous',
     'guest', 'nobody', 'webmaster', 'postmaster', 'hostmaster', 'abuse', 'noreply', 'no_reply',
     'info', 'hello', 'sales', 'marketing', 'mailer_daemon', 'mailerdaemon', 'donotreply', 'do_not_reply',
-    'someone', 'anyone', 'unknown', 'deleted', 'claude', 'anthropic', 'gmail', 'bots',
+    'someone', 'anyone', 'unknown', 'deleted', 'claude', 'anthropic', 'gmail', 'bot', 'bots',
   ],
   /** What the screen calls a person's name and their way in: a handle so named would read as the screen's own word */
   identity: [
@@ -225,7 +225,7 @@ export const ReservedToplevelGroups = {
     'moderators', 'mods', 'superuser', 'sysadmin', 'sudo',
   ],
   /** What the app's own trial runs and showpieces are called: a hunt or handle so named would pass for the app's example, or for data its own checks made */
-  trials:  ['test', 'demo'],
+  trials:  ['test', 'tests', 'demo', 'demos'],
   /** The craft's own words, which the app may one day give a corner of its own (`/meta`): a hunt or handle so named would read as the screen's word for the thing, not someone's work */
   craft:   ['meta'],
 } as const

@@ -122,8 +122,8 @@ describe('isReserved', () => {
     expect(words.filter((word) => ! Labelmaker.isReserved(word, { toplevel: true }))).to.deep.eq([])
   })
 
-  it("keeps bots, test, demo, sync and meta from a hunt's label or a userlabel, and from no other label", () => {
-    const words = ['bots', 'test', 'demo', 'sync', 'meta']
+  it("keeps bot, bots, test, tests, demo, demos, sync and meta from a hunt's label or a userlabel, and from no other label", () => {
+    const words = ['bot', 'bots', 'test', 'tests', 'demo', 'demos', 'sync', 'meta']
     expect(words.filter((word) => ! Labelmaker.isReserved(word, { toplevel: true }))).to.deep.eq([])
     expect(words.filter((word) => Labelmaker.isReserved(word))).to.deep.eq([])
   })
