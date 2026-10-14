@@ -39,7 +39,7 @@ export const AppNotices = {
   othersReviewsBlurb:   "What the other reviewers have shared about this quiz. They can read yours while it's shared, too.",
   othersReviewsHidden:  "Share your review to see what the other reviewers have shared.",
   answerSeen:           'Seen before',
-  answerLocked:         '(...click to reveal answer...)',
+  answerLocked:         '(…click to reveal answer…)',
   copied:               'Copied',
   copyRefused:          'Selected — press Ctrl/Cmd+C',
   copyFailed:           "Couldn't reach the clipboard — nothing was copied.",
@@ -63,7 +63,7 @@ export const AppNotices = {
   ifExistingAccount:    'if you have an existing account',
   signUp:               'Sign up',
   saveName:             'Continue',
-  heldByVerifiedAccount:    'Account exists: click "Sign in with Google" if that\'s you.',
+  heldByVerifiedAccount:    "Account exists: click “Sign in with Google” if that's you.",
   heldOtherwise:        'That handle is taken. Choose a different one.',
   standaloneTitle:      'Standalone account',
   standaloneHave:       'Standalone accounts have',
@@ -216,10 +216,10 @@ export function nameChoiceQuestion(merged: string, own: string): string {
  * Why a smith could not add `label` to a hunt: nobody has chosen that handle yet. The refusal
  * `userUnknown` says it of the userlabel refused.
  *
- * @example userUnknownNotice('flip_kromer')  // => 'Nobody goes by the handle "flip_kromer". They need to visit the app and choose it first.'
+ * @example userUnknownNotice('flip_kromer')  // => 'Nobody goes by the handle “flip_kromer”. They need to visit the app and choose it first.'
  */
 export function userUnknownNotice(label: string): string {
-  return `Nobody goes by the handle "${label}". They need to visit the app and choose it first.`
+  return `Nobody goes by the handle “${label}”. They need to visit the app and choose it first.`
 }
 
 /**

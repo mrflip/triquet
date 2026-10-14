@@ -162,8 +162,8 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
               The widgets of the library this quiz puts to work, its widgetings, in the order they run:
               each one reads what those above it came to. Drag a handle to move one. One for
               <em> each question</em> runs for every question and a column shows it. One for the
-              <em> whole quiz</em> runs once -- an entry typed into the Quiz entries panel (the
-              playtesters, the winners), or a formula over the questions as those above it left them --
+              <em> whole quiz</em> runs once — an entry typed into the Quiz entries panel (the
+              playtesters, the winners), or a formula over the questions as those above it left them —
               and those below read it as <code>{'quiz.<label>'}</code>. Templates read them all. Each is
               put to work, and edited, in the <em>Widgets</em> panel below the grid, or beneath a column
               showing it.

@@ -44,7 +44,7 @@ describe("quizzesAboutNotice", () => {
 
 describe('userUnknownNotice', () => {
   it('names the handle nobody goes by, and says what they must do', () => {
-    expect(userUnknownNotice('flip_kromer')).to.eq('Nobody goes by the handle "flip_kromer". They need to visit the app and choose it first.')
+    expect(userUnknownNotice('flip_kromer')).to.eq('Nobody goes by the handle “flip_kromer”. They need to visit the app and choose it first.')
   })
 })
 
