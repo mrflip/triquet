@@ -4,7 +4,7 @@ import { UserValidators } from './user'
 
 export const GhostingValidators = Validator(({ obj, zid }) => {
   const row = obj({
-    userlabel:    UserValidators.heldUserlabel
+    userlabel:    UserValidators.userlabel
       .describe('The userlabel retired: held reserved, so no user may take it, until it is released.'),
     user_id:      zid('users')
       .describe("The user that held it: the user merged away (marked, never deleted), or, where its handle was the one kept, the user it merged into, whose own handle this was."),

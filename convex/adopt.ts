@@ -5,7 +5,7 @@ import * as Stamps from '../src/lib/stamps'
 import { AdoptionValidators, type AdoptChangeT, type AdoptedT, type AdoptionT } from '../src/models/adoption'
 import { Hunt } from '../src/models/hunt'
 import { Huntship, type HuntRole } from '../src/models/huntship'
-import { User } from '../src/models/user'
+import { User, UserValidators } from '../src/models/user'
 import { zInternalMutation, zInternalQuery } from './functions'
 import { anyHuntInOrg, holderOfUserlabel, huntInOrg, huntsOf, huntshipFor, huntshipsFor, userForUserlabel, type Reader } from './reading'
 import { grantHuntship } from './writing/huntship_actions'
@@ -51,7 +51,7 @@ type PlanT = {
  * theirs before anything is written: an email Google has not verified is only Google's claim.
  *
  * @returns The user as it stands, what `perform` would change, how much of what was asked it holds already, and how many anonymous users' sandboxes a grant on every hunt passes over.
- * @throws When the user is not found (or an email names more than one), it is provisional (a Google sign-in not yet finished), the userlabel is held by another user or a ghosting (or, for an anonymous user, a hunt's address), an anonymous user holding a sandbox is relabelled, an anonymous user is to be an admin or put on a hunt, a user with no userlabel is put on one, or a hunt named is not there or is an anonymous user's sandbox.
+ * @throws When the user is not found (or an email names more than one), it is provisional (a Google sign-in not yet finished), the userlabel is held by another user or a ghosting (or, for an anonymous user, a hunt's address), an anonymous user holding a sandbox is relabelled, a user is retitled alone or put on a hunt under a userlabel the reserved list keeps now, an anonymous user is to be an admin or put on a hunt, a user with no userlabel is put on one, or a hunt named is not there or is an anonymous user's sandbox.
  *
  * @example npx convex run adopt:plan '{"find": {"email": "pat@example.com"}, "userlabel": "mrflip", "admin": true, "grants": [{"role": "smith", "hunts": "every"}]}'
  *   // => { user: { user_id, userlabel: null, title: null, anonymous: false, admin: false, name: 'Pat Smith', created_at: 1760300000000, email_verified_at: 1760300000000 }, changes: [{ kind: 'userlabel', from: null, to: 'mrflip', title: 'Mrflip', huntships: 0, leaves: null }, { kind: 'admin', to: true }, { kind: 'huntship', org: 'mrflip', hunt: 'quiet_otter', role: 'smith', from: null }], kept: 0, skipped: 0 }
@@ -104,6 +104,9 @@ async function planFor(db: Reader, request: AdoptionT): Promise<PlanT> {
   }
   const admin = request.admin === undefined || request.admin === (user.admin === true) ? null : request.admin
   const grants = await grantsFor(db, user._id, request.grants)
+  if (userlabel !== undefined && grants.planned.length > 0 && ! UserValidators.userlabel.safeParse(userlabel).success) {
+    throw new ConvexError(`The user ${userline(user)} holds the userlabel ${userlabel}, which the reserved list keeps now: give it a new one (--userlabel) to put it on a hunt.`)
+  }
   const keptLabel = relabel === null && (request.userlabel !== undefined || request.title !== undefined) ? 1 : 0
   const keptAdmin = admin === null && request.admin !== undefined ? 1 : 0
   return { user, relabel, leaves, admin, grants: grants.planned, kept: keptLabel + keptAdmin + grants.kept, skipped: grants.skipped }
@@ -135,7 +138,9 @@ async function userFound(db: Reader, find: AdoptionT['find']): Promise<Doc<'user
  * holds is given all the same to a user signed in with Google: the command line is trusted. One
  * another user or a ghosting holds is refused; so is one a hunt's address holds, for an anonymous
  * user, which would seem to own hunts it is not on (`~label/label` among them, so its sandbox's
- * address is taken), and could be put on none of them.
+ * address is taken), and could be put on none of them. A user holding a word the reserved list
+ * has kept since is refused a retitle alone, which would write that word again: it takes a new
+ * userlabel with it.
  */
 async function relabelFor(db: Reader, user: Doc<'users'>, request: AdoptionT): Promise<PlanT['relabel']> {
   if (request.userlabel === undefined && request.title === undefined) { return null }
@@ -143,6 +148,9 @@ async function relabelFor(db: Reader, user: Doc<'users'>, request: AdoptionT): P
   if (userlabel === undefined) { throw new ConvexError(`The user ${userline(user)} holds no userlabel to title: give it one too.`) }
   const title = User.titleFor(userlabel, request.title ?? user.title ?? '')
   if (userlabel === user.userlabel && title === user.title) { return null }
+  if (! UserValidators.userlabel.safeParse(userlabel).success) {
+    throw new ConvexError(`The user ${userline(user)} holds the userlabel ${userlabel}, which the reserved list keeps now: give it a new one (--userlabel) with its title.`)
+  }
   if (userlabel !== user.userlabel) {
     const holder = await holderOfUserlabel(db, userlabel)
     if (holder === 'user')     { throw new ConvexError(`Another user holds the userlabel ${userlabel}.`) }

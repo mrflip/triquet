@@ -14,7 +14,7 @@ it without that, you are on the laptop and it binds you all the same. A cloud se
 pushes `convex/` to it and runs a command beside it; `scripts/convex_reset <role>` empties one.
 
 **Every checkout has a lane** (`pnpm lane`): 0 in the main checkout, on the ports the project
-has always used (agent 3001 and 3401, e2e-agent 3003 and 3403), and 1-9 in a worktree, claimed the
+has always used (agent 3001 and 3401, e2e-agent 3003 and 3403, and its stand-in for Google 3603), and 1-9 in a worktree, claimed the
 first time anything asks. Each role's ports move up ten per lane (`scripts/lanes.ts`), so the
 same commands in a worktree find that worktree's own servers and backends, and its data lives
 inside it. Never pass a port or a Convex URL by hand; never touch another lane's backend. In the

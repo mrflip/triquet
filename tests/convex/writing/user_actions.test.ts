@@ -4,6 +4,7 @@ import type { Doc, Id } from '../../../convex/_generated/dataModel'
 import { membersOf, nameChoiceFor } from '../../../convex/reading'
 import { triggers } from '../../../convex/triggers'
 import { relabelUser, userForSignIn } from '../../../convex/writing/user_actions'
+import * as PA from '../../../src/lib/vv/patterns'
 import { Hunt } from '../../../src/models/hunt'
 import type { SignInDNA } from '../../../src/models/user'
 import {
@@ -160,14 +161,15 @@ describe('relabelUser', () => {
     expect(await relabelled(tt, smith.user_id, 'flippy_kromer', 'Flippy Kromer')).to.eq(0)
   })
 
-  it('keeps the userlabel a user holds, though a word reserved since would refuse it, retitling it alone', async () => {
+  it("refuses a userlabel the user holds that a word reserved since refuses, writing nothing, and relabels it away", async () => {
     const tt = openTester()
     const { user_id } = await anonymousSession(tt)
     await tt.run(async (ctx) => { await ctx.db.patch('users', user_id, { userlabel: 'handles', title: 'Handles' }) })
-    expect(await relabelled(tt, user_id, 'handles', 'Handy')).to.eq(0)
+    await expect(relabelled(tt, user_id, 'handles', 'Handy')).rejects.toThrow(PA.UnreservedToplevel.msg)
     const user = present(await tt.run(async (ctx) => await ctx.db.get('users', user_id)))
-    expect([user.userlabel, user.title]).to.deep.eq(['handles', 'Handy'])
-    await expect(relabelled(tt, user_id, 'sessions', '')).rejects.toThrow()
+    expect([user.userlabel, user.title]).to.deep.eq(['handles', 'Handles'])
+    expect(await relabelled(tt, user_id, 'handy_one', 'Handy')).to.eq(0)
+    expect(await userlabelOf(tt, user_id)).to.eq('handy_one')
   })
 
   it('refuses a userlabel that is not one, or a reserved word, writing nothing', async () => {
@@ -586,13 +588,13 @@ describe('settleNameChoice, through users.perform', () => {
     await expectRefusal(other.as.mutation(api.users.perform, { action: { kind: 'assume_userlabel', userlabel: 'alice_google', title: '' } }), 'userlabelClaimed')
   })
 
-  it("keeps a merged browser's handle that a word reserved since would refuse to anyone claiming it now", async () => {
+  it("refuses to settle a choice of a merged browser's handle that a word reserved since refuses, writing nothing", async () => {
     const { tt, alice, account_id } = await choosing()
     // A handle claimed before `handles` was kept for the app's own use
     await tt.run(async (ctx) => { await ctx.db.insert('users', { isAnonymous: true, userlabel: 'handles', title: 'Handles', merged: { into_user_id: alice.user_id, account_id } }) })
-    await settle(alice, 'handles', 'handles')
-    expect(await userlabelOf(tt, alice.user_id)).to.eq('handles')
-    await expectSound(tt)
+    await expect(settle(alice, 'handles', 'handles')).rejects.toThrow(PA.UnreservedToplevel.msg)
+    await expect(settle(alice, 'handles', 'alice_google')).rejects.toThrow(PA.UnreservedToplevel.msg)
+    expect([await userlabelOf(tt, alice.user_id), await ghostingsIn(tt)]).to.deep.eq(['alice_google', []])
   })
 
   it('brings the next pending choice up once one is settled', async () => {

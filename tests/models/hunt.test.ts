@@ -100,8 +100,12 @@ describe('HuntValidators.row', () => {
     expect(() => HuntValidators.row({ ...Row, orglabel: 'constructor' })).to.throw(Z.ZodError)
   })
 
-  it("takes a label and an org kept for the app's own pages since they were made, so the hunt stays writable at its address", () => {
-    expect(HuntValidators.row({ ...Row, label: 'pricing', orglabel: 'google_fan' })).to.deep.eq({ ...Row, label: 'pricing', orglabel: 'google_fan' })
+  it("takes a label kept for the app's own pages since it was made, so the hunt stays writable at its address", () => {
+    expect(HuntValidators.row({ ...Row, label: 'pricing' })).to.deep.eq({ ...Row, label: 'pricing' })
+  })
+
+  it("refuses an org kept for the app's own pages, as every userlabel is held to the whole list", () => {
+    expect(() => HuntValidators.row({ ...Row, orglabel: 'google_fan' })).to.throw(Z.ZodError)
   })
 
   it("takes a branch kept for the app's own pages", () => {
