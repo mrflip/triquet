@@ -1,4 +1,5 @@
 import _ from 'es-toolkit/compat'
+import type * as Z from 'zod'
 import { defineSchema, defineTable } from 'convex/server'
 import { v as CVX, type VAny } from 'convex/values'
 import { zodOutputToConvex, zodOutputToConvexFields } from 'convex-helpers/server/zod4'
@@ -66,14 +67,13 @@ const signalFields      = zodOutputToConvexFields(SignalValidators.row.shape)
 const schemaStepFields  = zodOutputToConvexFields(SchemaStepValidators.row.shape)
 
 /**
- * The app's tables. Children are read through their parent's index, in their committed order
- * where they have one (`position`), else in the order they were made; Convex appends
- * `_creationTime` to every index, so the earliest of two rows sharing a label comes first. A
- * quiz's questions are the exception: the quiz holds their order (`row_ordering`), and each is
- * read by its id.
+ * Our tables, every one but Convex Auth's own: `users` among them. Children are read through their
+ * parent's index, in their committed order where they have one (`position`), else in the order they
+ * were made; Convex appends `_creationTime` to every index, so the earliest of two rows sharing a
+ * label comes first. A quiz's questions are the exception: the quiz holds their order
+ * (`row_ordering`), and each is read by its id.
  */
-export default defineSchema({
-  ...authOwnTables,
+const ourTables = {
   /** What a session is signed in as: the persona in the app, holding its userlabel, found by it, or by Convex Auth by its email or phone; one merged away is found by the user it merged into, while it still holds its userlabel */
   users:       defineTable(userFields).index('email', ['email']).index('phone', ['phone']).index('by_userlabel', ['userlabel']).index('by_merged_into', ['merged.into_user_id', 'userlabel']),
   /** A userlabel retired by a merge, held reserved until released: appended, never edited */
@@ -106,4 +106,37 @@ export default defineSchema({
   signals:     defineTable(signalFields).index('by_hunt_id', ['hunt_id']).index('by_quiz_id', ['quiz_id']),
   /** The migrations table: one schema step this backend has taken, recorded by whatever pushed it (`src/models/schema-step.ts`, `deploying.ts`) */
   schema_steps: defineTable(schemaStepFields).index('by_sha', ['sha']),
+}
+
+/** A row validator: one shape, or a union of shapes told apart by a field */
+export type RowValidator = Z.ZodObject | Z.ZodDiscriminatedUnion<Z.ZodObject[]>
+
+/**
+ * Each of our tables' row validator, by table: what every row written to it passes. A table added
+ * above without one here fails the typecheck. `scripts/check_reserved` judges the rows a deployment
+ * holds by these, and `tests/convex/schema.test.ts` holds each table's fields to its own.
+ */
+export const RowValidators = {
+  users:          UserValidators.row,
+  ghostings:      GhostingValidators.row,
+  hunts:          HuntValidators.row,
+  realms:         RealmValidators.row,
+  widgets:        WidgetValidators.row,
+  quizzes:        QuizValidators.row,
+  widgetings:     WidgetingValidators.row,
+  columns:        ColumnValidators.row,
+  questions:      QuestionValidators.row,
+  widgeteds:      WidgetedValidators.row,
+  quiz_widgeteds: WidgetedValidators.quizRow,
+  reviews:        ReviewValidators.row,
+  reviewings:     ReviewingValidators.row,
+  huntships:      HuntshipValidators.row,
+  signals:        SignalValidators.row,
+  schema_steps:   SchemaStepValidators.row,
+} as const satisfies Record<keyof typeof ourTables, RowValidator>
+
+/** The app's tables: Convex Auth's own as it ships them, and ours */
+export default defineSchema({
+  ...authOwnTables,
+  ...ourTables,
 })

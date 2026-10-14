@@ -21,7 +21,7 @@ export const HuntshipValidators = Validator(({ obj, oneof, stamps, zid }) => {
       .describe('The hunt.'),
     user_id:   zid('users')
       .describe('Who is on it.'),
-    userlabel: UserValidators.heldUserlabel
+    userlabel: UserValidators.userlabel
       .describe('The userlabel of who is on it, copied from the user when the huntship is made: a userlabel is set once.'),
     usertitle: UserValidators.title
       .describe('What who is on it is called, copied from the user: retitling a user rewrites it on every huntship the user has.'),

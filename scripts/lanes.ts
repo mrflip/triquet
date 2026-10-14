@@ -6,7 +6,7 @@
  * inside each checkout (`data/convex-<role>/`, `.next-*`).
  *
  *   node scripts/lanes.ts lane            this checkout's lane, claimed if it has none
- *   node scripts/lanes.ts ports <role>    the role's web, backend and HTTP-action ports, space-separated
+ *   node scripts/lanes.ts ports <role>    the role's web, backend, HTTP-action and mock Google ports, space-separated
  *   node scripts/lanes.ts env <role>      NAME=value lines for scripts/as_role: PORT, NEXT_PUBLIC_CONVEX_URL, CONVEX_ROLE, TRIQUET_LANE
  *   node scripts/lanes.ts release         this worktree's lane, freed
  *
@@ -21,8 +21,10 @@ export const MaxLane = 9
 
 /**
  * Each role's place within a lane: its web port is 3000 plus this, its Convex backend 3400 plus
- * this, and the backend's HTTP actions 3500 plus this, each moved up by ten per lane. `dev` is
- * the Coach's; `agent-built` is `pnpm start:agent`'s server, which talks to the agent backend.
+ * this, the backend's HTTP actions 3500 plus this, and the stand-in for Google that an e2e role's
+ * backend signs in with (`scripts/mock-google.ts`) 3600 plus this, each moved up by ten per lane.
+ * `dev` is the Coach's; `agent-built` is `pnpm start:agent`'s server, which talks to the agent
+ * backend.
  */
 export const RoleDigits = {
   "dev":         0,
@@ -38,11 +40,12 @@ export type Role = keyof typeof RoleDigits
 /** The roles whose servers talk to another role's backend rather than one of their own */
 const BackendRoleFor: Partial<Record<Role, Role>> = { "agent-built": 'agent' }
 
-/** A role's three ports in one lane */
+/** A role's four ports in one lane */
 export interface Ports {
   web:     number
   backend: number
   site:    number
+  issuer:  number
 }
 
 /** Whether `val` names a role */
@@ -55,16 +58,22 @@ export function isRole(val: string): val is Role {
  *
  * @param role - Whose ports.
  * @param lane - The checkout's lane, 0 to `MaxLane`.
- * @returns Its web server's port, and its Convex backend's and that backend's HTTP actions'.
+ * @returns Its web server's port, its Convex backend's and that backend's HTTP actions', and the
+ *   port of the stand-in for Google its backend would sign in with (only an e2e role's runs one).
  *
- * @example portsOf('agent', 0)        // => { web: 3001, backend: 3401, site: 3501 }
- * @example portsOf('e2e-agent', 1)    // => { web: 3013, backend: 3413, site: 3513 }
- * @example portsOf('agent-built', 2)  // => { web: 3024, backend: 3421, site: 3521 }
+ * @example portsOf('agent', 0)        // => { web: 3001, backend: 3401, site: 3501, issuer: 3601 }
+ * @example portsOf('e2e-agent', 1)    // => { web: 3013, backend: 3413, site: 3513, issuer: 3613 }
+ * @example portsOf('agent-built', 2)  // => { web: 3024, backend: 3421, site: 3521, issuer: 3621 }
  */
 export function portsOf(role: Role, lane: number): Ports {
   const offset = 10 * lane
   const backendDigit = RoleDigits[BackendRoleFor[role] ?? role]
-  return { web: 3000 + offset + RoleDigits[role], backend: 3400 + offset + backendDigit, site: 3500 + offset + backendDigit }
+  return {
+    web:     3000 + offset + RoleDigits[role],
+    backend: 3400 + offset + backendDigit,
+    site:    3500 + offset + backendDigit,
+    issuer:  3600 + offset + backendDigit,
+  }
 }
 
 /**
@@ -188,7 +197,7 @@ function main(args: readonly string[]): string {
   }
   case 'ports': {
     const ports = portsOf(roleArg(rolename), laneHere(process.env, cwd))
-    return [ports.web, ports.backend, ports.site].join(' ')
+    return [ports.web, ports.backend, ports.site, ports.issuer].join(' ')
   }
   case 'env': {
     const assignments = envFor(roleArg(rolename), laneHere(process.env, cwd))

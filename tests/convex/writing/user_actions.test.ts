@@ -4,6 +4,7 @@ import type { Doc, Id } from '../../../convex/_generated/dataModel'
 import { membersOf, nameChoiceFor } from '../../../convex/reading'
 import { triggers } from '../../../convex/triggers'
 import { relabelUser, userForSignIn } from '../../../convex/writing/user_actions'
+import * as PA from '../../../src/lib/vv/patterns'
 import { Hunt } from '../../../src/models/hunt'
 import type { SignInDNA } from '../../../src/models/user'
 import {
@@ -160,14 +161,15 @@ describe('relabelUser', () => {
     expect(await relabelled(tt, smith.user_id, 'flippy_kromer', 'Flippy Kromer')).to.eq(0)
   })
 
-  it('keeps the userlabel a user holds, though a word reserved since would refuse it, retitling it alone', async () => {
+  it("refuses a userlabel the user holds that a word reserved since refuses, writing nothing, and relabels it away", async () => {
     const tt = openTester()
     const { user_id } = await anonymousSession(tt)
     await tt.run(async (ctx) => { await ctx.db.patch('users', user_id, { userlabel: 'handles', title: 'Handles' }) })
-    expect(await relabelled(tt, user_id, 'handles', 'Handy')).to.eq(0)
+    await expect(relabelled(tt, user_id, 'handles', 'Handy')).rejects.toThrow(PA.UnreservedToplevel.msg)
     const user = present(await tt.run(async (ctx) => await ctx.db.get('users', user_id)))
-    expect([user.userlabel, user.title]).to.deep.eq(['handles', 'Handy'])
-    await expect(relabelled(tt, user_id, 'sessions', '')).rejects.toThrow()
+    expect([user.userlabel, user.title]).to.deep.eq(['handles', 'Handles'])
+    expect(await relabelled(tt, user_id, 'handy_one', 'Handy')).to.eq(0)
+    expect(await userlabelOf(tt, user_id)).to.eq('handy_one')
   })
 
   it('refuses a userlabel that is not one, or a reserved word, writing nothing', async () => {
@@ -271,6 +273,24 @@ describe('userForSignIn, with a known Google account', () => {
     expect(await signInWithGoogle(tt, anon, 'google-sub-alice_google')).to.eq(alice.user_id)
     expect(await userRow(tt, anon.user_id)).to.deep.eq(anonAnte)
     expect(await choiceOf(tt, alice.user_id)).to.be.null
+  })
+})
+
+describe("userForSignIn, merging users that each took their handle at the front door", () => {
+  it("carries both sandboxes on with the account's user: its own, made as it took its handle, and the anonymous browser's", async () => {
+    const tt = openTester()
+    const [anon, alice] = [await anonymousSession(tt), await anonymousSession(tt)]
+    await tt.run(async (ctx) => {
+      await ctx.db.patch('users', alice.user_id, { isAnonymous: false, email: 'alice@example.com' })
+      await ctx.db.insert('authAccounts', { userId: alice.user_id, provider: 'google', providerAccountId: 'google-sub-alice_google' })
+    })
+    for (const [by, userlabel] of [[anon, 'anon_alice'], [alice, 'alice_google']] as const) {
+      await by.as.mutation(api.users.perform, { action: { kind: 'assume_userlabel', userlabel, title: '' } })
+    }
+    expect(await signInWithGoogle(tt, anon, 'google-sub-alice_google')).to.eq(alice.user_id)
+    const listed = await alice.as.query(api.hunts.list, {})
+    expect(listed.map((hunt) => [hunt.org, hunt.label, hunt.role])).to.deep.eq([['anon_alice', 'anon_alice', 'smith'], ['alice_google', 'alice_google', 'smith']])
+    await expectSound(tt)
   })
 })
 
@@ -586,13 +606,13 @@ describe('settleNameChoice, through users.perform', () => {
     await expectRefusal(other.as.mutation(api.users.perform, { action: { kind: 'assume_userlabel', userlabel: 'alice_google', title: '' } }), 'userlabelClaimed')
   })
 
-  it("keeps a merged browser's handle that a word reserved since would refuse to anyone claiming it now", async () => {
+  it("refuses to settle a choice of a merged browser's handle that a word reserved since refuses, writing nothing", async () => {
     const { tt, alice, account_id } = await choosing()
     // A handle claimed before `handles` was kept for the app's own use
     await tt.run(async (ctx) => { await ctx.db.insert('users', { isAnonymous: true, userlabel: 'handles', title: 'Handles', merged: { into_user_id: alice.user_id, account_id } }) })
-    await settle(alice, 'handles', 'handles')
-    expect(await userlabelOf(tt, alice.user_id)).to.eq('handles')
-    await expectSound(tt)
+    await expect(settle(alice, 'handles', 'handles')).rejects.toThrow(PA.UnreservedToplevel.msg)
+    await expect(settle(alice, 'handles', 'alice_google')).rejects.toThrow(PA.UnreservedToplevel.msg)
+    expect([await userlabelOf(tt, alice.user_id), await ghostingsIn(tt)]).to.deep.eq(['alice_google', []])
   })
 
   it('brings the next pending choice up once one is settled', async () => {

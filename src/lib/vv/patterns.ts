@@ -70,7 +70,7 @@ export const Plain        = { re: /^[A-Za-z0-9 ]*$/, msg: 'should have only plai
 
 export const Label      = { re: /^[a-z](_?[a-z0-9])+$/, min: 2, max: 40, msg: 'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
 /** A userlabel -- a user's handle: label-shaped, and long enough to be a name someone chose rather than an initial */
-export const Userlabel  = { re: /^[a-z](_?[a-z0-9])+$/, min: 6, max: 24, msg: 'should be 6 to 24 plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
+export const Userlabel  = { re: /^[a-z](_?[a-z0-9])+$/, min: 4, max: 24, msg: 'should be 4 to 24 plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
 /** A userlabel as far as it has been typed: empty, or what typing on could still make a `Userlabel` -- every character one it keeps, with at most a trailing underscore or too few characters between it and done */
 export const Userbegun  = { re: /^(?:[a-z](?:_?[a-z0-9])*_?)?$/, max: Userlabel.max, msg: 'should be plain lowercase letters/_/numbers, with a letter first and no __ in a row' } as const satisfies Patternbag
 export const Dashlabel  = { re: /^[a-z][a-z0-9_-]*$/,   min: 1, max: 25, msg: 'should have only plain lowercase letters/_/-/numbers with a letter first' } as const satisfies Patternbag
@@ -115,6 +115,11 @@ const ModelNouns = [
  * or in a path, and so trouble that is cheap to refuse now and dear to unpick later: easier to
  * take a word off later than to add one. A word in two groups is harmless. What only one
  * namespace must avoid is that namespace's own list (`ReservedWidgetingLabels`).
+ *
+ * Every label a row holds is held to these whenever the row is written, so a word added here
+ * leaves every row already so labelled (a hunt, a quiz, a column, a question chained to it, a
+ * widgeting's param) refusing each write. So add one only once `scripts/check_reserved`, run
+ * against production from the branch growing the list, names no row.
  */
 export const ReservedLabelGroups = {
   /** What rows carry beside their label, to say what and where they are and when they were made */
@@ -188,16 +193,18 @@ export function isUnreserved(val: string, allowed?: ReadonlySet<string>): boolea
 /**
  * The words no new hunt may be labelled and no userlabel may be claimed as, beyond those no label
  * may be. A hunt's label and a userlabel are each global, the first word of an address or the name a person goes
- * by, so these are kept for the app's own pages and for whoever speaks for it. They govern a label
- * being made or claimed, and never one already held: a word added here leaves every hunt and org
- * already so labelled at its address (`CK.heldUserlabel`), which `scripts/check_reserved` names.
+ * by, so these are kept for the app's own pages and for whoever speaks for it. They govern a hunt's
+ * label only as it is made or relabelled, but a userlabel always (`CK.userlabel`): a word added here
+ * leaves a user holding it unable to make a hunt or be put on one, and every hunt of an org so
+ * named out of reach at its address, its own row unwritable. So add one only once
+ * `scripts/check_reserved`, run against production from the branch growing the list, names no row.
  */
 export const ReservedToplevelGroups = {
   /** The app's own corners, and the words for signing in and keeping an account */
   app:     [
     'lib', 'sys', 'pub', 'my', 'home', 'www', 'static', 'assets', 'public', 'search', 'status',
     'stats', 'dashboard', 'settings', 'account', 'accounts', 'acct', 'auth', 'oauth', 'logout',
-    'signin', 'signout', 'signup', 'register', 'mail', 'email',
+    'signin', 'signout', 'signup', 'register', 'mail', 'email', 'sync',
   ],
   /** What a site's marketing and help pages are called */
   pages:   [
@@ -210,7 +217,7 @@ export const ReservedToplevelGroups = {
     'staff', 'system', 'moderator', 'mod', 'everyone', 'anonymous',
     'guest', 'nobody', 'webmaster', 'postmaster', 'hostmaster', 'abuse', 'noreply', 'no_reply',
     'info', 'hello', 'sales', 'marketing', 'mailer_daemon', 'mailerdaemon', 'donotreply', 'do_not_reply',
-    'someone', 'anyone', 'unknown', 'deleted', 'claude', 'anthropic', 'gmail',
+    'someone', 'anyone', 'unknown', 'deleted', 'claude', 'anthropic', 'gmail', 'bot', 'bots',
   ],
   /** What the screen calls a person's name and their way in: a handle so named would read as the screen's own word */
   identity: [
@@ -222,6 +229,10 @@ export const ReservedToplevelGroups = {
     'smith', 'smiths', 'reviewer', 'reviewers', 'member', 'members', 'owner', 'owners',
     'moderators', 'mods', 'superuser', 'sysadmin', 'sudo',
   ],
+  /** What the app's own trial runs and showpieces are called: a hunt or handle so named would pass for the app's example, or for data its own checks made */
+  trials:  ['test', 'tests', 'demo', 'demos'],
+  /** The craft's own words, which the app may one day give a corner of its own (`/meta`): a hunt or handle so named would read as the screen's word for the thing, not someone's work */
+  craft:   ['meta'],
 } as const
 
 /** Every top-level reserved word, each group's in turn */

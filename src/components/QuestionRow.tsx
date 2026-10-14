@@ -11,7 +11,7 @@ import { DrawnReadout, WidgetedAskCell, WidgetedReadout } from './cells/readouts
 import { EntryCell } from './cells/entry'
 import { EstimatePartReadout } from './cells/estimates'
 import type * as Templating from '../lib/templating'
-import type { ColumnAlign, QuestionField } from '../models/column'
+import { RefTitles, type ColumnAlign, type QuestionField } from '../models/column'
 import type { EntryValueT } from '../models/widget'
 import { useAskingIn, type AsksT } from '../state/use-asking'
 import { isSameRowRun, type CellRunT, type ReaskT, type RowRunT } from './row-runs'
@@ -149,7 +149,7 @@ export const QuestionRow = memo(function QuestionRow({ question, targetHint, loc
   const fieldBody = (field: QuestionField): React.JSX.Element => {
     switch (field) {
     case 'title': {
-      const field = <PlainField label="Title" committed={question.title} locked={locked} onCommit={(title) => { commit({ title }) }} />
+      const field = <PlainField label={RefTitles.title} committed={question.title} locked={locked} onCommit={(title) => { commit({ title }) }} />
       return (
         <>
           {Question.isSecondary(question) ? (
@@ -164,28 +164,28 @@ export const QuestionRow = memo(function QuestionRow({ question, targetHint, loc
       )
     }
     case 'clueing': {
-      return <GrowingField label="Clueing" committed={question.clueing} locked={locked} onCommit={(clueing) => { commit({ clueing }) }} heightPx={heightPx} onNatural={setClueingNaturalPx} resizeToken={resizeToken} bag={bagFor('clueing')} />
+      return <GrowingField label={RefTitles.clueing} committed={question.clueing} locked={locked} onCommit={(clueing) => { commit({ clueing }) }} heightPx={heightPx} onNatural={setClueingNaturalPx} resizeToken={resizeToken} bag={bagFor('clueing')} />
     }
     case 'hint': {
-      return <GrowingField label="Hint" committed={question.hint} locked={locked} onCommit={(hint) => { commit({ hint }) }} heightPx={heightPx} onNatural={setHintNaturalPx} resizeToken={resizeToken} bag={bagFor('hint')} />
+      return <GrowingField label={RefTitles.hint} committed={question.hint} locked={locked} onCommit={(hint) => { commit({ hint }) }} heightPx={heightPx} onNatural={setHintNaturalPx} resizeToken={resizeToken} bag={bagFor('hint')} />
     }
     case 'chains_to': {
       return <ChainPicker question={question} locked={locked} onChain={(chains_to) => { onChain(question_id, chains_to) }} />
     }
     case 'qnum': {
-      return <QnumField label="Q#" committed={question.qnum} locked={locked} onCommit={(qnum) => { commit({ qnum }) }} />
+      return <QnumField label={RefTitles.qnum} committed={question.qnum} locked={locked} onCommit={(qnum) => { commit({ qnum }) }} />
     }
     case 'alt_text': {
-      return <StretchField label="Alt Text" plain committed={question.alt_text} locked={locked} onCommit={(alt_text) => { commit({ alt_text }) }} heightPx={heightPx} />
+      return <StretchField label={RefTitles.alt_text} plain committed={question.alt_text} locked={locked} onCommit={(alt_text) => { commit({ alt_text }) }} heightPx={heightPx} />
     }
     case 'notes': {
-      return <StretchField label="Notes" committed={question.notes} locked={locked} onCommit={(notes) => { commit({ notes }) }} heightPx={heightPx} bag={bagFor('notes')} />
+      return <StretchField label={RefTitles.notes} committed={question.notes} locked={locked} onCommit={(notes) => { commit({ notes }) }} heightPx={heightPx} bag={bagFor('notes')} />
     }
     case 'full_answer': {
-      return <StretchField label="Full Answer" committed={question.full_answer} locked={locked} onCommit={(full_answer) => { commit({ full_answer }) }} heightPx={heightPx} bag={bagFor('full_answer')} />
+      return <StretchField label={RefTitles.full_answer} committed={question.full_answer} locked={locked} onCommit={(full_answer) => { commit({ full_answer }) }} heightPx={heightPx} bag={bagFor('full_answer')} />
     }
     case 'recap': {
-      return <StretchField label="Recap" committed={question.recap} locked={locked} onCommit={(recap) => { commit({ recap }) }} heightPx={heightPx} bag={bagFor('recap')} />
+      return <StretchField label={RefTitles.recap} committed={question.recap} locked={locked} onCommit={(recap) => { commit({ recap }) }} heightPx={heightPx} bag={bagFor('recap')} />
     }
     }
   }

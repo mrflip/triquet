@@ -29,7 +29,7 @@ export function DangerZone({ acts }: Readonly<{ acts: readonly DangerousAct[] }>
   const [confirming, setConfirming] = useState<DangerousAct | null>(null)
   return (
     <section aria-labelledby="danger-zone-title">
-      <Typography id="danger-zone-title" variant="h6" component="h3" sx={{ mb: 1 }}>Danger Zone</Typography>
+      <Typography id="danger-zone-title" variant="h6" component="h3" sx={{ mb: 1 }}>Danger zone</Typography>
       <Box sx={{ border: 1, borderColor: 'error.main', borderRadius: 1, containerType: 'inline-size' }}>
         <Stack divider={<Divider sx={{ borderColor: 'error.light' }} />}>
           {acts.map((act) => (

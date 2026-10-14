@@ -258,7 +258,7 @@ describe('adopt:perform, the userlabel', () => {
     expect(await changed(tt, { find: { user_id: flippy.user_id }, title: 'Flip' })).to.deep.eq([{ kind: 'userlabel', from: 'flippy_kromer', to: 'flippy_kromer', title: 'Flip', huntships: 0, leaves: null }])
   })
 
-  it('retitles a user whose userlabel a word reserved since would refuse, plan and perform agreeing, its userlabel kept', async () => {
+  it("refuses to retitle alone a user whose userlabel a word reserved since refuses, and relabels it away, plan and perform agreeing", async () => {
     const tt = openTester()
     const { open, smith } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'handy_smith' })
     await tt.run(async (ctx) => {
@@ -266,13 +266,14 @@ describe('adopt:perform, the userlabel', () => {
       const huntships = await ctx.db.query('huntships').collect()
       for (const huntship of huntships) { await ctx.db.patch('huntships', huntship._id, { userlabel: 'handles' }) }
     })
-    const request: AdoptionDNA = { find: { userlabel: 'handles' }, title: 'Handy' }
+    await expect(planned(tt, { find: { user_id: smith.user_id }, title: 'Handy' })).rejects.toThrow(/holds the userlabel handles, which the reserved list keeps now/)
+    const request: AdoptionDNA = { find: { user_id: smith.user_id }, userlabel: 'handy_smith', title: 'Handy' }
     const plan = await planned(tt, request)
-    expect(plan.changes).to.deep.eq([{ kind: 'userlabel', from: 'handles', to: 'handles', title: 'Handy', huntships: 1, leaves: null }])
+    expect(plan.changes).to.deep.eq([{ kind: 'userlabel', from: 'handles', to: 'handy_smith', title: 'Handy', huntships: 1, leaves: 'free' }])
     expect(await adopted(tt, request)).to.deep.eq(plan)
     const { userlabel, title } = await userRow(tt, smith.user_id)
-    expect([userlabel, title]).to.deep.eq(['handles', 'Handy'])
-    expect(await membersIn(tt, open.hunt_id)).to.deep.eq([['handles', 'smith']])
+    expect([userlabel, title]).to.deep.eq(['handy_smith', 'Handy'])
+    expect(await membersIn(tt, open.hunt_id)).to.deep.eq([['handy_smith', 'smith']])
     await expectSound(tt)
   })
 
@@ -426,6 +427,19 @@ describe('adopt:perform, roles on hunts', () => {
     const anon = await anonymousUser(tt, 'anon_alice')
     await expect(adopted(tt, { find: { user_id: anon.user_id }, grants: [{ role: 'smith', hunts: 'every' }] })).rejects.toThrow(/is anonymous: only a user signed in with Google is put on a hunt/)
     expect(await membersIn(tt, quiet_otter)).to.deep.eq([])
+  })
+
+  it('refuses a role to a user whose userlabel a word reserved since refuses, plan and perform agreeing, and gives it under a new one', async () => {
+    const { tt, quiet_otter } = await clearedProduction()
+    const bob = await googleUser(tt, 'bob_reviews')
+    await tt.run(async (ctx) => { await ctx.db.patch('users', bob.user_id, { userlabel: 'handles' }) })
+    const ante = await heldIn(tt)
+    const request: AdoptionDNA = { find: { user_id: bob.user_id }, grants: [{ role: 'reviewer', hunts: { org: 'mrflip', hunt: 'quiet_otter' } }] }
+    await expect(planned(tt, request)).rejects.toThrow(/holds the userlabel handles, which the reserved list keeps now/)
+    await expect(adopted(tt, request)).rejects.toThrow(/holds the userlabel handles, which the reserved list keeps now/)
+    expect(await heldIn(tt)).to.deep.eq(ante)
+    await adopted(tt, { ...request, userlabel: 'bob_reviews' })
+    expect(await membersIn(tt, quiet_otter)).to.deep.eq([['bob_reviews', 'reviewer']])
   })
 
   it('refuses a role to a user holding no userlabel, given none', async () => {

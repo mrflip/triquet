@@ -68,7 +68,8 @@ effort, and a shallow clone may list no commits.
   own for them, set on the deployment (the Convex dashboard, or `npx convex env set`), never in
   the Doppler configs that sync to Vercel (`prd`, `stg`), since the web app Vercel builds never
   reads them: `JWT_PRIVATE_KEY` and `JWKS`, a key pair minted for that deployment alone
-  (`scripts/convex_auth_keys` shows how), and `SITE_URL`, the web app's address. Without them no
+  (`scripts/convex_auth_keys` shows how), and `SITE_URL`, the web app's address (production's,
+  `https://triquet.me`). Without them no
   browser can sign in, and so none can take a userlabel. Preview deployments take theirs from
   the project's default environment variables for previews. No variable names the admins, who may
   change the widget library: a user is one when its own `admin` flag says so, set only from the
@@ -92,8 +93,12 @@ effort, and a shallow clone may list no commits.
   picks them up without a redeploy (a local backend served the Google routes at once, 2026-10-11).
   **A local backend** takes them from the Doppler config `scripts/convex_dev` runs under (all three
   dev configs carry the dev client, which accepts lane 0's `dev` and `agent` callbacks, ports 3500
-  and 3501), and has them taken away under a config without them. **Previews and CI** never have
-  them: Google allows no wildcard redirect URI, and nothing automated signs in to Google.
+  and 3501), and has them taken away under a config without them. **An e2e role's** local backend,
+  CI's included, never has them: it signs in with a stand-in for Google on the same machine
+  (`scripts/mock-google.ts`), with placeholder keys and the stand-in's address
+  (`TRIQUET_MOCK_GOOGLE_ISSUER`, honoured only on a local backend), all set by `scripts/convex_dev`.
+  **Previews** never have them: Google allows no wildcard redirect URI, and nothing automated signs
+  in to Google.
 * **GitHub Actions** (`.github/workflows/ci.yml`) typechecks, lints, tests, builds and runs e2e
   (against the optimized build) on every pull request and every push to `main`, and checks that
   `convex/_generated/` was committed as the functions regenerate it. Every job runs against a local backend or none; CI
@@ -272,21 +277,45 @@ even dry.
 
 ### Checking the reserved list against production
 
-The reserved list (`src/lib/vv/patterns.ts`, `ReservedToplevelGroups` and the prefixes beside it)
-keeps a new hunt's label and a userlabel being claimed from the words for the app's own pages and
-people. It governs only new labels: a hunt or an org named before a word joined the list keeps
-it, at its address, and stays writable, since a hunt's row holds its label and org to their shape
-and the words every label is kept from alone. After the list grows, see what it leaves standing:
+Two reserved lists live in `src/lib/vv/patterns.ts`. The base list (`ReservedLabelGroups`, and the
+`_id` endings `Unreserved` refuses) keeps every label from the tool's own words, and a widgeting's
+label from its namespace's too (`ReservedWidgetingLabels`); every label a row holds is held to it
+whenever the row is written. The top-level list (`ReservedToplevelGroups` and the prefixes and
+forms beside it) keeps a new hunt's label and every userlabel from the words for the app's own
+pages and people. A hunt's own label is held to it only as it is made or relabelled, but a
+userlabel always (`CK.userlabel`), wherever it is held: a user's, a huntship's copy, a ghosting's,
+and a hunt's org.
+
+So a word added to either list while a row holds it locks that row: a hunt, quiz, column or
+widgeting so labelled, or a question chained to one, refuses every write; a user so named can make
+no hunt and be put on none, a name choice of it cannot be settled, and every hunt of an org so
+named is out of reach at its address. **Before either list grows**, from the branch that grows it:
 
 ```
 ./scripts/doppledo prd_janitor scripts/check_reserved
 ```
 
-It reads every hunt (`check_reserved:refused`) and names each one whose label or org the list
-would refuse were it made now, as `~org/label`, saying which of the two. It writes nothing, and
-behind the guard it names the deployment it reached first; `--deployment` changes nothing but which
-deployment it insists on. A hunt it names needs nothing done: it is there to tell you who holds a
-word now kept, if you want to ask them to move.
+It reads every row of our tables production holds, a page at a time (`check_reserved:page`; Convex
+Auth's own tables are not read, nor a user's email, phone, Google name, picture, locale, Workspace
+domain or verification times), and judges each by the row validators of the checkout it runs from
+(`RowValidators` in `convex/schema.ts`), so it sees the new words before production does, and judges
+each label as its field is when written. It names each value they would refuse by where it sits (the
+hunt's or quiz's address, the table, the row, the field), and, apart, each hunt whose own label the
+top-level list keeps from new ones, which keeps it and needs nothing done. Since it judges whole
+rows, it also names a row any other tightening of a validator on the branch would lock, but for the
+user fields it never reads, which no check holds today beyond being text or a number: a branch
+adding a check to one of those (a phone number's shape, say) is not warned of the users it would
+lock. Deploy only once it names no row: a user is moved with `scripts/adopt --userlabel` (found by
+its email or id: a reserved word is no userlabel to find it by), and a hunt, quiz, column or
+widgeting is relabelled in the app before the list deploys. A hunt's org and a question's label
+never move, so a word one holds stays off the list. It writes nothing, and behind the guard it names
+the deployment it reached first; `--deployment` changes nothing but which deployment it insists on.
+
+The guard reads through `check_reserved:page`, so it can check only a deployment that already
+runs that function: a release that first brings the guard (or changes the function's contract)
+cannot be checked by it beforehand, and fails with "Could not find function". The release that
+brought `check_reserved:page`, with `bot`, `tests` and `demos`, went out under the Coach's waiver
+("the db is mostly empty right now"); every release after it can be checked first.
 
 ### Adopting a user
 

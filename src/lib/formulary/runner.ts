@@ -126,7 +126,7 @@ export const RunMs = 5000
 const RunOverMessage = 'The quiz took too long to work out, so this column was not: a slow formula or template in a column before it, perhaps.'
 
 /** What a widgeting reads as when the library holds no widget by its name */
-const GoneMessage = (widget_label: string) => `There is no widget called "${widget_label}" any more`
+const GoneMessage = (widget_label: string) => `There is no widget called “${widget_label}” any more`
 
 /**
  * A quiz run: each widgeting in run order (`inRunOrder`: every entry first, then the rest by its

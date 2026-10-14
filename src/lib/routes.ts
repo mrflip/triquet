@@ -275,3 +275,43 @@ export function thenFrom(raw: string | null): string | null {
   const url = raw === null ? null : onSite(raw)
   return url && `${url.pathname}${url.search}${url.hash}`
 }
+
+/** The first segment of an old address (`/h/…`, `/c/…`), which names a hunt, as an org's address (`/~…`) does */
+const OldHuntSegs: ReadonlySet<string> = new Set(['h', 'c'])
+
+/**
+ * Whether `path` is worth coming back to after signing up, over the new user's own sandbox: a page
+ * of this app's that opens the database (`isSyncedPath`) and has work on it, which is an org's
+ * address (an org's hunts, a hunt, its quizzes or categories, a quiz) or an old address of a hunt
+ * or quiz. The app's own pages are not, with nothing on them yet for someone who has just said who
+ * they are: the front door, their hunts and profile (the Coach, 2026-10-13), the sign-in page and
+ * the stats page; nor is anything `isSyncedPath` refuses.
+ *
+ * @example isCompelling('/~pat_smith/quiet_otter')  // => true
+ * @example isCompelling('/h/quiet_otter')           // => true
+ * @example isCompelling('/my/hunts')                // => false
+ * @example isCompelling('/')                        // => false
+ * @example isCompelling('/privacy')                 // => false
+ */
+export function isCompelling(path: string): boolean {
+  if (! isSyncedPath(path)) { return false }
+  const [first = ''] = new URL(path, PathBase).pathname.slice(1).split('/', 1)
+  return first.startsWith('~') || OldHuntSegs.has(first)
+}
+
+/**
+ * Where a visitor who has just taken the handle `userlabel` lands: `then`, the page a link sent
+ * them to the front door from, when it is on this site (`thenFrom`) and compelling
+ * (`isCompelling`); their sandbox otherwise (`~userlabel/userlabel`), made as they took the handle.
+ *
+ * @param then - The front door's `?then=`, as it stands in the address; null for none.
+ * @param userlabel - The handle just taken.
+ *
+ * @example signedUpPath(null, 'flip_kromer')                       // => '/~flip_kromer/flip_kromer'
+ * @example signedUpPath('/my/hunts', 'flip_kromer')                // => '/~flip_kromer/flip_kromer'
+ * @example signedUpPath('/~pat_smith/quiet_otter', 'flip_kromer')  // => '/~pat_smith/quiet_otter'
+ */
+export function signedUpPath(then: string | null, userlabel: string): string {
+  const onward = thenFrom(then)
+  return onward !== null && isCompelling(onward) ? onward : huntPath({ org: userlabel, hunt: userlabel })
+}

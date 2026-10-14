@@ -69,10 +69,10 @@ git cherry pr/B pr/A                                   # no "+" lines: A ⊆ B b
 git cherry origin/main pr/N                            # no "+" lines: a ghost
 git merge-tree --write-tree origin/main pr/N           # exit 0 clean; 1 names the conflicting files
 git log origin/main..pr/N --format='%(trailers:key=Sprint,valueonly)' | sort -u   # its chain; blank = unstamped
-curl -s https://triquet.vercel.app/stats.json          # .build.sha, .build.pull.number, .build.built_at: what production was built from
+curl -s https://triquet.me/stats.json          # .build.sha, .build.pull.number, .build.built_at: what production was built from
 ```
 
-The body's "Stacked on #N" line is the base its author declared; "Follows #N" names a merged one. The `Sprint:` trailer names a commit's chain (`notes/git_hygiene.md`, *Commit messages*): `git log --all --grep='^Sprint: <chain>' --oneline` finds every commit of one, merged or open, and `git for-each-ref --contains <commit> refs/remotes/pr/` the PRs holding it, so a Pullchef picking the job up mid-way has no hunt for the head of the chain. Production says what it serves at `https://triquet.vercel.app/stats.json`, written at build and never updated: `build.sha`, the PR its merge names, when it was built. The backfills are not in it; they are on the `/stats` page, an admin's unless the deployment sets `EXPOSE_INTERNAL_STATS_TO_ALL` (`notes/deploy.md`).
+The body's "Stacked on #N" line is the base its author declared; "Follows #N" names a merged one. The `Sprint:` trailer names a commit's chain (`notes/git_hygiene.md`, *Commit messages*): `git log --all --grep='^Sprint: <chain>' --oneline` finds every commit of one, merged or open, and `git for-each-ref --contains <commit> refs/remotes/pr/` the PRs holding it, so a Pullchef picking the job up mid-way has no hunt for the head of the chain. Production says what it serves at `https://triquet.me/stats.json`, written at build and never updated: `build.sha`, the PR its merge names, when it was built. The backfills are not in it; they are on the `/stats` page, an admin's unless the deployment sets `EXPOSE_INTERNAL_STATS_TO_ALL` (`notes/deploy.md`).
 
 ### 2. Classify
 
@@ -175,9 +175,9 @@ Pullchef updates this in place; the Coach ticks boxes (Pullchef ticks only a ⚑
     ```
 
   - It should print `<what success looks like>`. Anything else: stop, tell Pullchef.
-- [ ] **3. ⚑ WAIT** for the Vercel build. Pullchef ticks this once https://triquet.vercel.app/stats.json names `<merge sha>`. Meanwhile: step 5.
+- [ ] **3. ⚑ WAIT** for the Vercel build. Pullchef ticks this once https://triquet.me/stats.json names `<merge sha>`. Meanwhile: step 5.
 - [ ] **4. ⚑ CHECK** the backfills:
-  - Open https://triquet.vercel.app/stats
+  - Open https://triquet.me/stats
   - The commit should be `<merge sha>`, and every backfill done.
 - [ ] **5. MERGE [#1301](https://github.com/o/r/pull/1301)** …
 - [ ] **6. ⚑ TOGGLE**:
@@ -208,4 +208,4 @@ Drafts ignored (no non-draft child): `#1388`, `#1390`.
 * Merge from the PR page with **Create a merge commit**, once the head shown is the runbook's SHA. By hand: `gh pr merge <n> --merge --match-head-commit <sha>`. Never squash, never rebase-and-merge.
 * The covered PRs turned purple? Their pages say merged, at the same minute.
 * Back a merge out whole: `git revert -m 1 <merge sha>`.
-* What production serves: https://triquet.vercel.app/stats.json (the build); the backfills, on https://triquet.vercel.app/stats.
+* What production serves: https://triquet.me/stats.json (the build); the backfills, on https://triquet.me/stats.

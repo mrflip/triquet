@@ -397,7 +397,7 @@ describe('importInto', () => {
     it("skips and logs one whose widget the library lacks", () => {
       const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'nowhere_widget', label: 'lost' }])
       expect(outcome.widgetingActions).to.deep.eq([])
-      expect(outcome.widgetingLog).to.deep.eq([{ label: 'lost', outcome: 'skipped', reason: 'the library holds no widget called "nowhere_widget"' }])
+      expect(outcome.widgetingLog).to.deep.eq([{ label: 'lost', outcome: 'skipped', reason: 'the library holds no widget called “nowhere_widget”' }])
       expect(outcome.ok).to.be.false
     })
 
@@ -409,7 +409,7 @@ describe('importInto', () => {
     it("skips one whose label the quiz holds for another widget, rather than re-pointing it", () => {
       const outcome = withWidgetings(widgetedQuiz(), [{ widget_label: 'answer_reversed', label: 'dumdum' }])
       expect(outcome.widgetingActions).to.deep.eq([])
-      expect(outcome.widgetingLog).to.deep.eq([{ label: 'dumdum', outcome: 'skipped', reason: 'it works "answer_reversed" here, and "dumdum" in this quiz' }])
+      expect(outcome.widgetingLog).to.deep.eq([{ label: 'dumdum', outcome: 'skipped', reason: 'it works “answer_reversed” here, and “dumdum” in this quiz' }])
     })
 
     it("skips one the quiz holds at another tier, rather than moving it", () => {

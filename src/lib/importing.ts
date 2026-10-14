@@ -497,7 +497,7 @@ function columnsRead(pasted: readonly unknown[], showable: ReadonlySet<string>):
     if (read.some((other) => other.label === column.label)) {
       log.push({ label: column.label, outcome: 'skipped', reason: 'another pasted column has its label' })
     } else if (shown !== null && ! showable.has(shown)) {
-      log.push({ label: column.label, outcome: 'skipped', reason: `it shows "${shown}", a widgeting this quiz will not have` })
+      log.push({ label: column.label, outcome: 'skipped', reason: `it shows “${shown}”, a widgeting this quiz will not have` })
     } else {
       read.push(column)
     }
@@ -569,7 +569,7 @@ function widgetingsMerged(quiz: QuizT, pasted: readonly unknown[], library: read
     const widgeting = params ? { ...parsed.data, params: params.data } : parsed.data
     const held = heldFor.get(widgeting.label)
     if (held) { return revisedFrom(held, widgeting) }
-    if (! widget) { return skippedAs(widgeting.label, `the library holds no widget called "${widgeting.widget_label}"`) }
+    if (! widget) { return skippedAs(widgeting.label, `the library holds no widget called “${widgeting.widget_label}”`) }
     return { action: { kind: 'add_widgeting', widgeting }, entry: { label: widgeting.label, outcome: 'added', reason: null } }
   })
   return { actions: merged.flatMap(({ action }) => (action ? [action] : [])), log: merged.map(({ entry }) => entry) }
@@ -578,7 +578,7 @@ function widgetingsMerged(quiz: QuizT, pasted: readonly unknown[], library: read
 /** A pasted widgeting the quiz already holds, as the revision of its description and params it comes to; skipped when it works another widget, or runs at another tier */
 function revisedFrom(held: WidgetingT, pasted: WidgetingT): { action: HuntActionDNA | null, entry: WidgetingLogEntry } {
   const { label } = held
-  if (held.widget_label !== pasted.widget_label) { return skippedAs(label, `it works "${pasted.widget_label}" here, and "${held.widget_label}" in this quiz`) }
+  if (held.widget_label !== pasted.widget_label) { return skippedAs(label, `it works “${pasted.widget_label}” here, and “${held.widget_label}” in this quiz`) }
   if (held.tier !== pasted.tier) { return skippedAs(label, `it runs for each ${pasted.tier} here, and for each ${held.tier} in this quiz`) }
   if (held.description === pasted.description && UU.jsonify(held.params) === UU.jsonify(pasted.params)) {
     return { action: null, entry: { label, outcome: 'kept', reason: null } }
