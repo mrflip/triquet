@@ -1,6 +1,6 @@
 # Sprint `auth_todos`: progress
 
-**Status: threads 1-4 and 7 landed (#247, #248, #250, #251, #252); thread 5 landing; thread 6 waits on 5 (2026-10-14).**
+**Status: threads 1-5 and 7 landed (#247, #248, #250, #251, #252, #253); thread 6 landing (2026-10-14).**
 
 The running handoff, newer than `auth_todos-plan.md` wherever the two disagree. Each thread writes
 its own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -11,11 +11,11 @@ its own section to `thread-<N>-<label>.md` beside this file; the orchestrator cu
 | 2 | `one_userlabel`: no held userlabel | landed #248 | `20261013-one_userlabel` | [#248](https://github.com/mrflip/triquet/pull/248) |
 | 3 | `mock_google`: a mock Google; signup, signin, verify tested through | landed #250 | `20261013-mock_google` | [#250](https://github.com/mrflip/triquet/pull/250) |
 | 4 | `short_userlabel`: a userlabel may be four letters | landed #251 | `20261013-short_userlabel` | [#251](https://github.com/mrflip/triquet/pull/251) |
-| 5 | `auto_sandbox`: the sandbox and its first quiz, made for you | landing | `20261013-auto_sandbox` | |
-| 6 | `microcontent`: the microcontent, consistent | pending | | |
+| 5 | `auto_sandbox`: the sandbox and its first quiz, made for you | landed #253 | `20261013-auto_sandbox` | [#253](https://github.com/mrflip/triquet/pull/253) |
+| 6 | `microcontent`: the microcontent, consistent | landing | `20261014-microcontent` | |
 | 7 | `more_reserved`: five more top-level reserved words | landed #252 | `20261013-more_reserved` | [#252](https://github.com/mrflip/triquet/pull/252) |
 
-Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only); thread 2's `--touched` ran the whole suite, 319/319, no flakes; thread 3 ran the full suite, 325/325, no flakes (on the top before thread 2; `google-sign-in` and `routing` rerun after, 75/75). Thread 4, the fourth landing, carried a full run: 325/325, no flakes. Thread 7's `--touched` ran the whole suite, 325/325, no flakes.
+Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only); thread 2's `--touched` ran the whole suite, 319/319, no flakes; thread 3 ran the full suite, 325/325, no flakes (on the top before thread 2; `google-sign-in` and `routing` rerun after, 75/75). Thread 4, the fourth landing, carried a full run: 325/325, no flakes. Thread 7's `--touched` ran the whole suite, 325/325, no flakes; thread 5's, 326/326, no flakes. Thread 6, last, proves with the full suite so it serves as the sprint-end run.
 
 *Orchestrator (2026-10-14):* the sprint stopped overnight when the account hit its weekly usage
 limit; threads 5 (building, three commits in) and 7 (landing, caught up) were resumed with their
@@ -62,7 +62,7 @@ context once it reset. Thread 4's failure notice came after it had landed; nothi
   a valid hunt label (tested), as thread 5 needs.
 * **A brand-new backend picks up the stand-in on its first run** (thread 3 checked from cold: 23/23),
   so `scripts/convex_dev`'s order of settings is fine as it stands.
-* **Taking a handle makes the sandbox** (thread 5, in review): `assumeUserlabel` calls
+* **Taking a handle makes the sandbox** (thread 5, #253): `assumeUserlabel` calls
   `makeSandboxFor` in the same mutation, for every user; the sandbox holds the blank quiz every
   new hunt is made with (a realm must hold one, so the quiz cannot be dropped separately). Only a
   sign-up lands at the sandbox (`Routes.signedUpPath`, `Routes.isCompelling`: compelling = an
@@ -71,6 +71,15 @@ context once it reset. Thread 4's failure notice came after it had landed; nothi
 * **Open for the Coach (thread 5)**: every handle now makes a hunt, so `PA.HuntsInApp` (999)
   caps sign-ups (`huntsFull`). The worker chose to refuse and recommends raising the cap before
   production nears ~999 users.
+* **For thread 6, gathered**: (a) the user menu closes itself if opened just after a return from
+  Google (`ShowUser` hands the header `null` while `useMe` reloads; thread 3); (b) the full-app
+  refusal at taking a handle says only "The app holds at most 999 hunts." (`RefusalNotices.huntsFull`),
+  not that the handle wasn't taken (thread 5); (c) the sandbox page is every new user's first
+  screen now (thread 5).
+* **The app's copy is sentence case**, now written down in `notes/views.md`, *Microcontent*
+  (thread 6, in review); the survey and the Coach's ranked list are `microcontent-survey.md`
+  (on thread 6's branch until it lands). The user menu "closing itself" after Google was measured
+  and is not that: a click in the first ~300 ms, before hydration, is lost; no fix.
 
 ## Reviews of landed threads
 
@@ -101,3 +110,10 @@ context once it reset. Thread 4's failure notice came after it had landed; nothi
   new groups `trials` and `craft`) reach every reader of the top-level list; nothing depends on
   the group keys. The Coach waived `check_reserved` against production; the PR's open items say
   how to run it anyway. Left for the Coach: `bot`, `tests`, `demos`, `metas` stay free.
+* **Thread 5, #253.** *Review: clean.* Sound: one write for handle and sandbox (a `huntsFull`
+  rolls back the userlabel), no label collision, no second sandbox, the smith huntship, no open
+  redirect (`onSite`), the gate telling a new visitor from a returning one, the test helpers. Left:
+  a full app refuses the handle itself (the Coach's call); the refusal's copy (thread 6); each
+  sign-up reads the whole `hunts` table for the cap, so bursts may hit write conflicts (a counter
+  would fix it; outside the sprint). The first quiz cannot be split off: every hunt is made with
+  one, and a realm must hold one.
