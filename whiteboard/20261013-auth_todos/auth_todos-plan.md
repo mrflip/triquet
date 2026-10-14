@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-13. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip), as `/sprint auth_todos` (the threads, verbatim below; the same items
-head `whiteboard/TODO.md`'s *Tiny Tasks*). **Status: threads 1-3 landed (#247, #248, #250); thread 4 landing; thread 5 underway.** `auth_todos-progress.md`, beside
+head `whiteboard/TODO.md`'s *Tiny Tasks*). **Status: threads 1-4 landed (#247, #248, #250, #251); thread 5 underway; thread 7 landing; thread 6 waits on 5.** `auth_todos-progress.md`, beside
 this file, is newer than this plan wherever the two disagree.
 
 The spine was empty at planning: the oauth sprint and its follow-ups (#226-#246) are merged, and
@@ -50,7 +50,8 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 
 ## Threads
 
-Wave one, side by side: 1, 2 and 3. Then 4 (after 2); 5 (after 3); 6 last (after 1-5).
+Wave one, side by side: 1, 2 and 3. Then 4 (after 2); 5 (after 3); 6 last (after 1-5). Thread 7,
+added by the Coach after 4 landed, beside 5.
 
 ### 1. The domain is triquet.me (`domain`)
 
@@ -163,6 +164,21 @@ case is the default: "Sign in with Google", "New hunt"), and write them as a sho
 by name: change the specs with the copy, in the same commits. Content pages (`src/content/`) only
 for headings' case; their prose is the Coach's. Depends on: 1-5 (it reviews what they add).
 
+### 7. Five more top-level reserved words (`more_reserved`, the Coach, 2026-10-13)
+
+*Coach's text:* "add the reserved words named, the db is mostly empty right now. those are all
+top-level reserved"
+
+Gloss: `bots`, `test`, `demo`, `sync`, `meta` (thread 4's list) join `PA.ReservedToplevelGroups`,
+each in the group whose reason fits (or a new group, with its why), pinned by the reserved-words
+tests. Top-level means no new hunt label or claimed userlabel may be one; a held one stays at its
+address but its rows lock (thread 2), so the rule is `scripts/check_reserved` against production
+first: **the Coach waives it** ("the db is mostly empty right now"), and the thread file says so.
+Run `scripts/check_reserved` against the lane's own local backend and fixtures, and search
+`e2e/`, `tests/` and `fixtures/` for any handle or hunt label among the five. Depends on: nothing.
+**Look-ahead:** thread 5 makes a sandbox labelled with the handle, so a handle `test` was the
+likeliest test data; thread 6 (copy) is unaffected.
+
 ## Decisions taken
 
 1. **`oauth2-mock-server`** is chosen for thread 3 (the Coach's suggestion, confirmed: reasons in the gloss).
@@ -177,8 +193,8 @@ for headings' case; their prose is the Coach's. Depends on: 1-5 (it reviews what
 
 ## For the Coach
 
-* Thread 1 lists what the new domain needs outside the repo (Convex `SITE_URL`, Google's console,
-  Vercel). Nothing changes there until you do it.
+* ~~Thread 1 lists what the new domain needs outside the repo (Convex `SITE_URL`, Google's console,
+  Vercel).~~ *Done by the Coach, 2026-10-13: "I've updated those".*
 * Thread 2 makes a row already holding a newly reserved word unwritable; production's clear leaves
   none, but `scripts/check_reserved` against production before deploying settles it.
 * ~~Decision 3 (sandbox for Google sign-ups too)~~: confirmed by the Coach, 2026-10-13.

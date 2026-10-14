@@ -1,6 +1,6 @@
 # Sprint `auth_todos`: progress
 
-**Status: threads 1-3 landed (#247, #248, #250); thread 4 landing; thread 5 underway (2026-10-13).**
+**Status: threads 1-4 landed (#247, #248, #250, #251); thread 5 underway; thread 7 landing; thread 6 waits on 5 (2026-10-13).**
 
 The running handoff, newer than `auth_todos-plan.md` wherever the two disagree. Each thread writes
 its own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -10,11 +10,16 @@ its own section to `thread-<N>-<label>.md` beside this file; the orchestrator cu
 | 1 | `domain`: the domain is triquet.me | landed #247 | `20261013-domain` | [#247](https://github.com/mrflip/triquet/pull/247) |
 | 2 | `one_userlabel`: no held userlabel | landed #248 | `20261013-one_userlabel` | [#248](https://github.com/mrflip/triquet/pull/248) |
 | 3 | `mock_google`: a mock Google; signup, signin, verify tested through | landed #250 | `20261013-mock_google` | [#250](https://github.com/mrflip/triquet/pull/250) |
-| 4 | `short_userlabel`: a userlabel may be four letters | landing | `20261013-short_userlabel` | |
+| 4 | `short_userlabel`: a userlabel may be four letters | landed #251 | `20261013-short_userlabel` | [#251](https://github.com/mrflip/triquet/pull/251) |
 | 5 | `auto_sandbox`: the sandbox and its first quiz, made for you | underway | `20261013-auto_sandbox` | |
 | 6 | `microcontent`: the microcontent, consistent | pending | | |
+| 7 | `more_reserved`: five more top-level reserved words | landing | `20261013-more_reserved` | |
 
-Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only); thread 2's `--touched` ran the whole suite, 319/319, no flakes; thread 3 ran the full suite, 325/325, no flakes (on the top before thread 2; `google-sign-in` and `routing` rerun after, 75/75). Thread 4, the fourth landing, carries a full run.
+Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only); thread 2's `--touched` ran the whole suite, 319/319, no flakes; thread 3 ran the full suite, 325/325, no flakes (on the top before thread 2; `google-sign-in` and `routing` rerun after, 75/75). Thread 4, the fourth landing, carried a full run: 325/325, no flakes.
+
+*Orchestrator (2026-10-14):* the sprint stopped overnight when the account hit its weekly usage
+limit; threads 5 (building, three commits in) and 7 (landing, caught up) were resumed with their
+context once it reset. Thread 4's failure notice came after it had landed; nothing lost.
 
 ## What the threads have taught
 
@@ -22,9 +27,8 @@ Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 la
 
 * **Production's address is written once**, in `notes/deploy.md` beside `SITE_URL`; no code
   derives it (no `metadataBase`, canonical link or sitemap), so no constant was added (thread 1).
-* **The new domain needs the Coach outside the repo**: Vercel's domain and a 308 from the old
-  name; Convex production's `SITE_URL`; Google's consent-screen links and authorized domain (the
-  redirect URI, on `<prod>.convex.site`, does not change). `thread-1-domain.md`, *For the Coach*.
+* **The new domain's outside work is done** (the Coach, 2026-10-13): Vercel's domain and redirect,
+  Convex production's `SITE_URL`, Google's consent screen.
 
 * **One userlabel check, `CK.userlabel`**, top-level words and all, for every row and argument
   that held `heldUserlabel` (thread 2, #248). `User.relabelled` is folded into
@@ -51,13 +55,11 @@ Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 la
   (`ShowUser` hands the header `null` while `useMe` reloads). Thread 3's spec waits it out
   (`userMenuSaying`); thread 6 takes it if it is cheap, else TODO.
 * `testing:mergeInto` is gone (the merge is real now); `vouchFor` stays for kept sessions.
-* **A userlabel is 4 to 24 characters** (thread 4, clean review), stated once in `PA.Userlabel`;
+* **A userlabel is 4 to 24 characters** (thread 4, #251), stated once in `PA.Userlabel`;
   the unfinished-handle notices read the minimum from it. Every name now gets a handle suggestion
   (`Flip` -> `flip`, `Jo` -> `jo_2`). No reserved words added: the short words were already kept,
   since hunt labels have always been allowed from two characters. A four-letter sandbox label is
   a valid hunt label (tested), as thread 5 needs.
-* **Watch at thread 4's landing**: thread 3's specs (now beneath it) were written on six-character
-  handles; one expecting a numbered suggestion for a short name would now differ. Its full run will show it.
 * **A brand-new backend picks up the stand-in on its first run** (thread 3 checked from cold: 23/23),
   so `scripts/convex_dev`'s order of settings is fine as it stands.
 
@@ -81,3 +83,8 @@ Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 la
   Playwright-on-Chromium behaviour; the user menu closing just after Google (thread 6). The
   reviewer's cold-start doubt was settled by the worker (passes from cold). One suppression:
   `eslint-disable-line unicorn/prefer-https` in `tests/convex/auth.test.ts`.
+* **Thread 4, #251.** *Review: clean.* Every suggestion `suggestionsFor` can offer passes the
+  server's own check; the notices read `PA.Userlabel.min`; the routes a short org could clash with
+  are reserved. Left for the Coach (in the PR): free short words that might deserve reserving
+  (`bots`, `test`, `demo`, `sync`, `meta`), each needing `check_reserved` against production first.
+  Thread 3's specs needed no change at the catch-up.
