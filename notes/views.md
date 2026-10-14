@@ -33,6 +33,35 @@ text: a field's helper text is for what is wrong with it, or what is waiting on 
 that asks first is `ConfirmRemove`, a text button or a bin, which turns into its own question in
 place; `DangerZone`'s type-to-confirm is the one other gesture, kept for deleting a quiz or hunt.
 
+## Microcontent
+
+Every string the app writes for a person to read: buttons, menu items, tabs, panel and dialog
+titles, field labels, the column titles it gives, tooltips, notices, alarms, empty states, page
+titles. Settled by the auth_todos sprint's survey (`whiteboard/20261013-auth_todos/microcontent-survey.md`),
+which found the app already in sentence case, with a handful of strays.
+
+* **Sentence case**, Material's: "Sign in with Google", "New hunt", "Quiz entries", "Danger
+  zone". Capitals only for proper nouns (Google, Claude, Triquet, JSONata, Liquid, Sheets), for
+  terms of art written so (BUT NOT, Q#, LL), and for the export formats, which are named things
+  (Raw Export, LL Export, Full History). A role or a kind said mid-sentence is lower case ("You
+  are a smith on it"). What an author titles is theirs.
+* **A full stop ends a sentence**: a notice, a refusal, a blurb. A title, label, tab, button, an
+  alarm's heading or a cell's word (*Copied*, *Double-click to ask*) takes none.
+* **Typography**: curly quotes around a name (“spring_hunt”); an em dash with spaces between
+  clauses (" — "), never a typed `--`; the ellipsis character (…), never three dots. Apostrophes
+  stay as typed.
+* **An ellipsis ends a control that asks for more** before it acts (*+ New widget…*, *Sign
+  out…*), and a waiting notice (*Opening…*). A leading `+` marks a control that adds a row to a
+  list; *New* makes a thing, *Add* puts one into what holds it.
+* **The words**: *handle*, never "username"; *name* for what a person, hunt or quiz is called
+  ("Your name", "Hunt name", "Quiz name"); *web address*, never "URL" or "link" for an address;
+  *standalone account* and *verified account*, never "anonymous"; *sign in*, *sign up*, *sign
+  out* as verbs, *sign-in* as a noun; *remove* takes something off what keeps going, *delete* is
+  for good. An identity is not a person: say what a handle or an account is, not who someone is.
+  `notes/vocabulary.md` has the rest.
+* **One string for the screen and the spec**: a notice lives in `src/lib/notices.ts` (or a
+  constant beside its view), and an e2e spec that looks for it imports it rather than restating it.
+
 ## What a view offers
 
 A view offers the author what the server would accept of them, and decides it with the same
