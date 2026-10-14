@@ -34,7 +34,7 @@ case "$role" in
     exit 1
     ;;
 esac
-read -r _ port site_port <<< "$(node scripts/lanes.ts ports "$role")"
+read -r _ port site_port _ <<< "$(node scripts/lanes.ts ports "$role")"
 datadir="data/convex-${role}"
 instance_name="triquet-${role}"
 

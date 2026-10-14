@@ -69,7 +69,7 @@ describe('hunts.perform: add_huntship', () => {
 
   it('refuses a userlabel that is not one at the door', async () => {
     const seeded = await smithed()
-    await expect(seeded.asAlice({ kind: 'add_huntship', userlabel: 'bob', role: 'reviewer' })).rejects.toThrow(/should have «6» or more/)
+    await expect(seeded.asAlice({ kind: 'add_huntship', userlabel: 'bob', role: 'reviewer' })).rejects.toThrow(/should have «4» or more/)
   })
 
   it('refuses a change to one\'s own role: another smith makes it', async () => {

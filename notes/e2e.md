@@ -44,8 +44,8 @@ admin key, `e2e/admin.ts`). A spec that is not about the gear asks for its quiz'
 `test.use({ layout: { widgetings: [...], columns: [...] } })`, rather than walking the dialogs
 (`addWidgetings`, `addColumns`), which stay for the specs about them. A spec that is about the way
 in itself (the front door, the hunts list, making a hunt) says `test.use({ startAt: null })` and
-goes there itself, in a fresh anonymous session (`startHunt(page)` walks the front door and the
-hunts list); a file whose tests are only partly about it says so in a `describe`, or in an
+goes there itself, in a fresh anonymous session (`startHunt(page)` walks the front door to the
+sandbox a new user lands at, and opens its quiz); a file whose tests are only partly about it says so in a `describe`, or in an
 anonymous one, `test.describe(() => { test.use({ startAt: null }) ... })`, which leaves the
 titles of the tests in it as they were; one that must stub a route before the page first asks for it stubs it and reloads. A
 helper two specs need lives in support with a doc block; a helper one spec needs lives at the top
@@ -82,7 +82,7 @@ tested in its place. CI runs the suite against the build too, on the `e2e` role'
 and build directory, with `TRIQUET_E2E_SERVER=built` choosing the server: the mode travels apart
 from the role. A spec must pass under both servers. Each test's browser context holds its worker's session, with a fresh hunt of which the worker's
 user is the smith, vouched for as no longer anonymous (`vouchFor`, through `testing:vouchFor`:
-what signing in with Google would leave it, since nothing automated signs in to Google); the session is handed on from test to test, since each page that opens on it
+what signing in with Google would leave it, without the round trip); the session is handed on from test to test, since each page that opens on it
 spends its refresh token (`KeptSessionT` in support). Specs share one database, and a worker's
 tests share one user, so find rows and pages by your own labels and titles, never by position or
 by the hunts a user is on, and never change who the page's session is. A second visitor is the
@@ -93,11 +93,25 @@ friend is on no hunt of the test's, a stranger to it, until put on one: by the b
 or through the Members panel (`addMember`) in a spec about the panel. A visitor nobody has seen,
 or one whose own way in is what the spec is about, is `otherVisitor(browser)`: a browser context
 with no session, closed after the test, who says who they are with `assumeUserlabel`: an
-anonymous user, sealed in its sandbox until the spec vouches for it (`vouchFor`, which may also give
-it an email, as Google would have). A name choice is left by `mergeInto`, standing in for a Google
-sign-in's merge. One browser that more than one user has used forgets its session with
+anonymous user, sealed in its sandbox until the spec vouches for it (`vouchFor`). One browser that more than one user has used forgets its session with
 `forgetSession`, as the user menu's *Sign out* does (`google-sign-in.spec.ts` walks the menu's own). A
 context made any other way inherits the worker's session.
+
+**Signing in with Google goes all the way through.** The suite's backend signs in with a stand-in
+for Google on the same machine (`scripts/mock-google.ts`, on `oauth2-mock-server`), which
+`scripts/convex_dev` starts beside every e2e role's backend, in CI as locally: a browser leaves for
+its consent step and comes back, and the backend exchanges the code with it as it would with
+Google. A spec says who answers before it presses the button, `answerGoogleAs(page, account)` (a
+`freshGoogleAccount`, its claims overridden as the spec needs: an unverified email, a locale, a
+Workspace domain), or `'refused'` for a consent said no to; `e2e/google.ts` holds these, with
+`signUpWithGoogle` (from the front door, or from a link that sends a visitor there),
+`continueWithGoogle` (the user menu's button), and `mockIssuerUrl`. What a sign-in kept that no
+screen shows (the verification, locale and domain) is read with `keptOf` (`e2e/admin.ts`, through
+`testing:keptOf`). Where a new user lands after signing up, either way, is one helper,
+`landedAfterSignUp` in support, which asks the app's own rule (`Routes.signedUpPath`): the page a
+link sent them from, when it is worth coming back to, and their sandbox otherwise. Change it there,
+never in each spec. `vouchFor` stays the quick way
+to an unsealed visitor for a spec whose way in is not what it is about.
 The grid is `grid(page)`, the table named *Questions*: the page holds other tables.
 
 A change lands one round trip after the author makes it: the screen shows it once the server

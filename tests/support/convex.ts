@@ -35,6 +35,7 @@ import * as Sortings from '../../src/lib/sortings'
 import { mintId } from '../../src/lib/ids'
 import { widgetFrom } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
+import { User } from '../../src/models/user'
 import type { WidgetT } from '../../src/models/widget'
 import type { AffirmsT, HuntActionDNA, HuntAffirmsT, LibraryActionDNA, QuizAffirmsT } from '../../src/models/actions'
 import type { HuntRole } from '../../src/models/huntship'
@@ -253,9 +254,11 @@ type UserkindT = 'google' | 'anonymous'
 
 /**
  * The session holding the userlabel `label`, of the kind `userkind`: the one already signed in for
- * it in `tt`, or else a fresh browser's, whose user takes it through `users.perform`. A Google
- * user's account row is seeded, never signed in to, and its user is no longer anonymous, as signing
- * in with Google leaves it. A userlabel has one holder, so asking twice is asking for the same user;
+ * it in `tt`, or else a fresh browser's, whose user is given it as the command line gives one,
+ * written straight to its row, so that it is on no hunt. Taking it through `users.perform` would
+ * make it its sandbox too (`assumeUserlabel`), which a test of that does itself. A Google user's
+ * account row is seeded, never signed in to, and its user is no longer anonymous, as signing in
+ * with Google leaves it. A userlabel has one holder, so asking twice is asking for the same user;
  * asking for it as the other kind is a mistake in the test.
  */
 async function labelledUser(tt: Tester, label: string, userkind: UserkindT): Promise<Labelled> {
@@ -273,7 +276,7 @@ async function labelledUser(tt: Tester, label: string, userkind: UserkindT): Pro
       await ctx.db.insert('authAccounts', { userId: session.user_id, provider: 'google', providerAccountId: `google-sub-${label}` })
     })
   }
-  await session.as.mutation(api.users.perform, { action: { kind: 'assume_userlabel', userlabel: label, title: '' } })
+  await tt.run(async (ctx) => { await triggers.wrapDB(ctx).db.patch('users', session.user_id, User.labelled(label, '')) })
   const current = present(await session.as.query(api.users.current, {}), 'the user, labelled')
   const holder = { ...session, label, actor: current.actor }
   holders.set(label, holder)
@@ -283,7 +286,8 @@ async function labelledUser(tt: Tester, label: string, userkind: UserkindT): Pro
 /**
  * The session of a user signed in with Google, holding the userlabel `label`, on no hunt: a
  * stranger to every hunt, but free of sealing. Its account row is seeded (`provider: 'google'`),
- * never signed in to: nothing automated signs in to Google. How to call as it, its user, and the
+ * never signed in to (`signInWithGoogle` drives Convex Auth's store past Google's part, and the
+ * e2e suite signs in with a stand-in for Google). How to call as it, its user, and the
  * actor the server builds for it, for a test that asks a rule directly.
  *
  * @example const alice = await googleUser(tt, 'alice_reviews'); await alice.as.query(api.hunts.list, {})
@@ -293,8 +297,9 @@ export async function googleUser(tt: Tester, label: string): Promise<Labelled> {
 }
 
 /**
- * The session of an anonymous user holding the userlabel `label`: sealed in its sandbox (no other
- * hunt, nobody added to its own, no reviews). As `googleUser`, of the other kind.
+ * The session of an anonymous user holding the userlabel `label`, on no hunt yet: sealed in its
+ * sandbox, once it makes one (no other hunt, nobody added to its own, no reviews), as a user that
+ * took its handle before sandboxes were made for it does. As `googleUser`, of the other kind.
  *
  * @example const anon = await anonymousUser(tt, 'anon_alice'); await anon.as.mutation(api.hunts.performOuter, { action })
  */

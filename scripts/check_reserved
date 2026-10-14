@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Names every hunt whose label or org the reserved list would refuse, were it made now: they stand
-# at their addresses, since the list governs only new labels. Read-only, behind the janitor's guard,
-# which names the deployment it reached. See scripts/check-reserved.ts, and notes/deploy.md,
-# *Checking the reserved list against production*.
+# The guard to run before the reserved list grows: reads every userlabel, ghosting and hunt label
+# the deployment holds, and names each the list of this checkout keeps. A userlabel is held to the
+# whole list always, so deploy a grown list only once this names no holder. Read-only, behind the
+# janitor's guard, which names the deployment it reached. See scripts/check-reserved.ts, and
+# notes/deploy.md, *Checking the reserved list against production*.
 #
 #   ./scripts/doppledo prd_janitor scripts/check_reserved
 #
 # Usage: scripts/check_reserved [--deployment <name>]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-exec node scripts/check-reserved.ts "$@"
+exec node_modules/.bin/tsx scripts/check-reserved.ts "$@"

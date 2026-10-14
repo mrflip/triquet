@@ -41,13 +41,15 @@ import styles from './workbench.module.css'
  * merge has retired, no hunt is addressed by and no reserved word is), to take or change; the
  * handle follows the offered one until either field is typed in.
  *
- * A visitor who has already said is sent on at once: to where the address's `then` points, when
- * a link sent them here, and to their hunts otherwise.
+ * A visitor who has just taken their handle here lands at their sandbox, made as they took it,
+ * unless a link sent them here from a page worth coming back to (`Routes.signedUpPath`). A visitor
+ * who had already said is sent on at once: to where the address's `then` points, when a link sent
+ * them here, and to their hunts otherwise.
  */
 export function UserlabelGate() {
   const router = useRouter()
   const params = useSearchParams()
-  const onward = Routes.thenFrom(params.get('then')) ?? Routes.huntsPath()
+  const then = params.get('then')
   const { user, loaded } = useMe()
   const shown = useShown().user
   const own = shown?.own ?? null
@@ -65,6 +67,8 @@ export function UserlabelGate() {
   const [left, setLeft] = useState(false)
   // Sends once: the user arriving by sync after its userlabel was typed must not send twice.
   const sent = useRef(false)
+  // Whether the visitor has taken their handle here, rather than arriving with one: they land elsewhere.
+  const taking = useRef(false)
 
   const offered = own?.suggested ?? null
   const title = titleDraft ?? offered?.title ?? ''
@@ -77,8 +81,8 @@ export function UserlabelGate() {
   useEffect(() => {
     if (! loaded || ! user || sent.current) { return }
     sent.current = true
-    router.replace(onward)
-  }, [loaded, user, onward, router])
+    router.replace(taking.current ? Routes.signedUpPath(then, user.userlabel) : Routes.thenFrom(then) ?? Routes.huntsPath())
+  }, [loaded, user, then, router])
 
   if (! loaded || user) {
     return <OpeningNotice notice={null} waiting={AppNotices.opening} />
@@ -86,8 +90,10 @@ export function UserlabelGate() {
 
   const onSubmit = async () => {
     if (flaw !== null || held !== null) { return }
-    // Once the user holds it, it arrives by sync, and the effect above sends them on.
-    await act({ kind: 'assume_userlabel', userlabel: label, title })
+    // Once the user holds it, it arrives by sync, and the effect above sends them on, to where a new user lands.
+    taking.current = true
+    const outcome = await act({ kind: 'assume_userlabel', userlabel: label, title })
+    if (! outcome.kept) { taking.current = false }
   }
 
   return (

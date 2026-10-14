@@ -174,6 +174,55 @@ describe('Routes.thenFrom', () => {
   })
 })
 
+describe("Routes.isCompelling", () => {
+  const Cases: [string, boolean, string][] = [
+    ["/~pat_smith",                                                 true,  "an org's hunts"],
+    ["/~pat_smith/quiet_otter",                                     true,  'a hunt'],
+    ["/~pat_smith/quiet_otter/quizzes",                             true,  "a hunt's quizzes"],
+    ["/~pat_smith/quiet_otter/categories",                          true,  "a hunt's categories"],
+    ["/~pat_smith/quiet_otter/quizzes/home/loud_heron/!playtest",   true,  'a quiz, in a mode'],
+    ["/~pat_smith/quiet_otter?shown=all#q3",                        true,  'a hunt, with a query and a fragment'],
+    ["/h/quiet_otter",                                              true,  'an old address of a hunt'],
+    ["/h/quiet_otter/home/loud_heron",                              true,  'an old address of a quiz'],
+    ["/c/quiet_otter/categories",                                   true,  "an old address of a hunt's categories"],
+    ["/",                                                           false, 'the front door'],
+    ["/my/hunts",                                                   false, "the visitor's hunts"],
+    ["/my/hunts?x=1",                                               false, "the visitor's hunts, with a query"],
+    ["/my/profile",                                                 false, "the visitor's profile"],
+    ["/signin",                                                     false, 'the sign-in page'],
+    ["/stats",                                                      false, 'the stats page'],
+    ["/privacy",                                                    false, 'a page that opens no database'],
+    ["/~pat_smith/quiet_otter/nothing",                             false, 'an org address reaching no page'],
+    ["https://elsewhere.example/~pat_smith/quiet_otter",            false, 'another site'],
+  ]
+  for (const [where, expected, story] of Cases) {
+    it(`counts ${story} as ${expected ? '' : 'not '}compelling (${where})`, () => {
+      expect(Routes.isCompelling(where)).to.eq(expected)
+    })
+  }
+})
+
+describe("Routes.signedUpPath", () => {
+  it("lands a new user at their sandbox when nothing sent them to the front door", () => {
+    expect(Routes.signedUpPath(null, 'flip_kromer')).to.eq('/~flip_kromer/flip_kromer')
+  })
+
+  it("lands a new user at their sandbox over a page that is not compelling", () => {
+    for (const then of ['/', '/my/hunts', '/my/profile', '/signin', '/stats', '/privacy']) {
+      expect(Routes.signedUpPath(then, 'flip_kromer'), then).to.eq('/~flip_kromer/flip_kromer')
+    }
+  })
+
+  it("sends a new user back to a compelling page a link sent them to the front door from, query and all", () => {
+    expect(Routes.signedUpPath('/~pat_smith/quiet_otter/quizzes/home/loud_heron/!playtest?shown=all', 'flip_kromer')).to.eq('/~pat_smith/quiet_otter/quizzes/home/loud_heron/!playtest?shown=all')
+  })
+
+  it("follows only a path on this site, as the browser reads it", () => {
+    expect(Routes.signedUpPath('//elsewhere.example/~pat_smith/quiet_otter', 'flip_kromer')).to.eq('/~flip_kromer/flip_kromer')
+    expect(Routes.signedUpPath('/~pat_smith/\tquiet_otter', 'flip_kromer')).to.eq('/~pat_smith/quiet_otter')
+  })
+})
+
 /** The directories in `dir`, by name */
 function dirsOf(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)

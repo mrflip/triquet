@@ -5,11 +5,9 @@ import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 
-export const UserValidators = Validator(({ obj, str, num, bool, zid, userlabel, heldUserlabel, titleish, stamps }) => {
+export const UserValidators = Validator(({ obj, str, num, bool, zid, userlabel, titleish, stamps }) => {
   const label = userlabel
-    .describe('A userlabel being claimed: what a person types to become a user (a handle on screen). Kept from every reserved word, top-level ones included (`Labelmaker.isReserved`), and free only while no user holds it, no ghosting holds it, and no hunt carries it as its orglabel.')
-  const held = heldUserlabel
-    .describe('A userlabel already held: what others add the user to a hunt by, and the org of the hunts it makes. Unique across the app and set once. Held to the words every label is kept from, not the top-level ones, so a word reserved later leaves a user holding it writable (`CK.heldUserlabel`).')
+    .describe('A userlabel: what a person types to become a user (a handle on screen), what others add the user to a hunt by, and the org of the hunts it makes. Kept from every reserved word, top-level ones included (`Labelmaker.isReserved`), whether claimed now or held already; free to claim only while no user holds it, no ghosting holds it, and no hunt carries it as its orglabel. Unique across the app.')
   const title = titleish.min(1)
     .describe('What the user is called on screen: the name typed beside the userlabel, or the userlabel titleized. Set with the userlabel, and changed at will after.')
   const googleProfile = obj({
@@ -69,7 +67,7 @@ export const UserValidators = Validator(({ obj, str, num, bool, zid, userlabel, 
       .describe('The language and region Google last sent for the account; absent when it sent none.'),
     hosted_domain:         str.optional()
       .describe("The Google Workspace domain Google last said the account belongs to; absent for a personal account."),
-    userlabel:             held.optional()
+    userlabel:             label.optional()
       .describe('The user\'s userlabel, absent until chosen.'),
     title:                 title.optional()
       .describe('What the user is called on screen; set with its userlabel, which titleized stands in for a title it lacks (`User.titleOf`).'),
@@ -82,7 +80,7 @@ export const UserValidators = Validator(({ obj, str, num, bool, zid, userlabel, 
   })
     .describe('One user: what a session is signed in as, holding its userlabel, title and admin flag beside the fields Convex Auth keeps. Never a person: one person may hold several.')
 
-  return { userlabel: label, heldUserlabel: held, title, googleProfile, merged, signIn, row }
+  return { userlabel: label, title, googleProfile, merged, signIn, row }
 })
 
 export type UserDNA  = Z.input<typeof UserValidators.row>
@@ -178,8 +176,8 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    * @param profile - What Google sent: the name and email, either of which may be missing.
    * @returns The userlabels, best first; empty when neither makes one.
    *
-   * @example User.suggestionsFor({ name: 'Flip Kromer', email: 'flip@example.com' }).slice(0, 3)  // => ['flip_kromer', 'flip_kromer_2', 'flip_kromer_3']
-   * @example User.suggestionsFor({ email: 'flip@example.com' }).slice(0, 2)                        // => ['flip_2', 'flip_3']
+   * @example User.suggestionsFor({ name: 'Flip Kromer', email: 'flip@example.com' }).slice(0, 3)  // => ['flip_kromer', 'flip', 'flip_kromer_2']
+   * @example User.suggestionsFor({ email: 'jo@example.com' }).slice(0, 2)                          // => ['jo_2', 'jo_3']
    * @example User.suggestionsFor({})                                                               // => []
    */
   static suggestionsFor(profile: { name?: string, email?: string }): string[] {
@@ -202,7 +200,7 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    *
    * @example User.flawIn('flip_kromer')  // => null
    * @example User.flawIn('Flip Kromer')  // => 'shape'
-   * @example User.flawIn('flip')         // => 'unfinished'
+   * @example User.flawIn('flo')          // => 'unfinished'
    * @example User.flawIn('support')      // => 'reserved'
    */
   static flawIn(label: string): LabelFlawT | null {
@@ -221,8 +219,8 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    * @param left - Whether the field has been left (where the label follows another field, either of them has).
    * @returns The flaw to say, or null.
    *
-   * @example User.flawToSay('flip', false)  // => null
-   * @example User.flawToSay('flip', true)   // => 'unfinished'
+   * @example User.flawToSay('flo', false)   // => null
+   * @example User.flawToSay('flo', true)    // => 'unfinished'
    * @example User.flawToSay('Flip', false)  // => 'shape'
    */
   static flawToSay(label: string, left: boolean): LabelFlawT | null {
@@ -308,8 +306,9 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
   }
 
   /**
-   * What a user's row becomes once it takes `userlabel`: the userlabel, and the title, a blank one
-   * defaulting to the userlabel titleized. The fields to patch, validated.
+   * What a user's row becomes once it takes `userlabel`, claimed or taken over from a user merged
+   * into it: the userlabel, and the title, a blank one defaulting to the userlabel titleized. The
+   * fields to patch, validated.
    *
    * @param userlabel - The userlabel, already normalized.
    * @param title - What to call the user, where blank means "use the userlabel".
@@ -320,21 +319,6 @@ export class User implements Pick<UserRowT, 'userlabel' | 'title' | 'isAnonymous
    */
   static labelled(userlabel: string, title: string): { userlabel: string, title: string } {
     return { userlabel: UserValidators.userlabel(userlabel), title: this.titleFor(userlabel, title) }
-  }
-
-  /**
-   * What a user's row becomes once it takes over `userlabel`, a userlabel already held, from a user
-   * merged into it: the userlabel, and the title. Held to what a held userlabel is
-   * (`heldUserlabel`), not to the rules for claiming one, as it was claimed once already.
-   *
-   * @param userlabel - The userlabel taken over.
-   * @param title - What to call the user, where blank means "use the userlabel".
-   * @returns The fields to patch onto the row.
-   *
-   * @example User.relabelled('flip_kromer', 'Flip')  // => { userlabel: 'flip_kromer', title: 'Flip' }
-   */
-  static relabelled(userlabel: string, title: string): { userlabel: string, title: string } {
-    return { userlabel: UserValidators.heldUserlabel(userlabel), title: this.titleFor(userlabel, title) }
   }
 
   /**

@@ -171,12 +171,12 @@ can tell.
   screen, *anonymous*, beside *signed in with Google*. Read to fail closed: only `isAnonymous:
   false`, which a Google sign-in writes, is signed in with Google, and a row without the field is
   anonymous. An anonymous user is **sealed** in its
-  sandbox (`Actor.isSealed`): it may take a userlabel and make its one sandbox, and may not be put
+  sandbox (`Actor.isSealed`): it may take a userlabel, which makes its one sandbox, and may not be put
   on any other hunt, bring anyone onto its own, or review. Each refusal says "Sign in with Google
   to ..." (`sealedHunts`, `sealedMembers`, `sealedJoin`, `sealedReview`). Never the actor's
   `unlabelled` kind, which is a user holding no userlabel yet, anonymous or not (*actor*).
 * **userlabel** -- a user's label, what a person types to become it (`PA.Userlabel`,
-  `ValidatorKit.userlabel`): 6 to 24 characters of the label alphabet, unique across the app, its
+  `ValidatorKit.userlabel`): 4 to 24 characters of the label alphabet, unique across the app, its
   own word as `orglabel` is, and chosen once (`userlabelSet`). It is **free** only while no user
   holds it, no ghosting holds it, and no hunt carries it as its `orglabel` (`holderOfUserlabel`);
   only the command line gives out one that only an address holds (`scripts/adopt`). Never "username", a
@@ -189,9 +189,13 @@ can tell.
   most one per hunt and user: putting someone on again changes their role. A **member** of a hunt
   is a user with a huntship on it. A hunt's maker is its first smith, and nobody changes their own
   huntship: another smith does. Replaced the **hunting**.
-* **sandbox** -- the one hunt an anonymous user may make: labelled with its own userlabel, so at
-  `~label/label` (`Hunt.isSandbox`), with no other member. Its address stays when a merge hands it
-  to a user signed in with Google (`smithOfSandbox`).
+* **sandbox** -- the hunt labelled with its user's own userlabel, so at `~label/label`
+  (`Hunt.isSandbox`), made for every user, anonymous or signed in with Google, in the same write
+  that takes its handle (`makeSandboxFor`), holding one blank quiz; the page a new user lands at,
+  unless a link sent them to the front door from a page worth coming back to
+  (`Routes.signedUpPath`). The one hunt an anonymous user may have, with no other member; a user
+  that took its handle before sandboxes were made makes it by hand from its hunts. Its address
+  stays when a merge hands it to a user signed in with Google (`smithOfSandbox`).
 * **upgrade**, **switch**, **merge** -- what a Google sign-in does with the browser's user
   (`userForSignIn`): a new Google account **upgrades** an anonymous browser's user in place, which
   is then signed in with Google; a known one **switches** the browser to the account's user; and
@@ -474,10 +478,12 @@ than one kind of player. Begun by the categories sprint, October 2026
   a hunt or a quiz replaces it, and a question's stays as minted. A few words no label may be, nor
   any ending in `_id`: the tool's fields and nouns, and words code, a spreadsheet or Windows reads
   specially (`PA.ReservedLabels`, by group and why). A new hunt's label and a userlabel being
-  claimed are also kept from the words for the app's own pages, people and roles, and from any
-  beginning `secur`, `login`, `triquet`, `help`, `admin`, `support`, `official`, `verif` or `google`
-  (`PA.ReservedToplevel` and its prefixes); one already held keeps its word when the list grows
-  (`CK.heldUserlabel`). `Labelmaker` is the facility for all of this, and `Labelmaker.isReserved`
+  claimed are also kept from the words for the app's own pages, people and roles, its trial runs
+  and showpieces (`test`, `demo`) and the craft's `meta`, and from any beginning `secur`, `login`,
+  `triquet`, `help`, `admin`, `support`, `official`, `verif` or `google` (`PA.ReservedToplevel`
+  and its prefixes). A hunt's label already held keeps its word when the
+  list grows; a userlabel is held to the whole list always (`CK.userlabel`), so the list grows only
+  once `scripts/check_reserved` names no holder. `Labelmaker` is the facility for all of this, and `Labelmaker.isReserved`
   the one answer to whether a word may be claimed. (Until October 2026 a row could also hold a `forced_label` overriding the minted
   one, "the effective label"; that pair is retired, and only an import of an older export still
   reads a `forced_label`.)

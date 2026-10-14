@@ -6,23 +6,30 @@ import { Huntship } from '../../src/models/huntship'
 import { User, UserValidators, type SignInDNA, type SignInT } from '../../src/models/user'
 import type { UserActionT } from '../../src/models/actions'
 import { googleAccountOf, holderOfUserlabel, huntInOrg, huntshipFor, huntshipsFor, userForUserlabel } from '../reading'
+import { makeSandboxFor } from './hunt_actions'
 import { removeHuntship, smithOfSandbox } from './huntship_actions'
 import type { Writer } from './quiz_writing'
 
 /**
- * Give the user `user_id` the userlabel `userlabel`, titled `title`: one write to the user. A user
- * holds one userlabel, set once, so a user already holding this one is left as it is (whether it
- * may take another is policy's to say first: `Approve.mayAssertUserlabel`). In order:
+ * Give the user `user_id` the userlabel `userlabel`, titled `title`, and make it its sandbox: one
+ * write. A user holds one userlabel, set once, so a user already holding this one is left as it is
+ * (whether it may take another is policy's to say first: `Approve.mayAssertUserlabel`). In order:
  *
  * * The user holds it already: nothing to do.
  * * Something else holds it (`holderOfUserlabel`): another user, a ghosting that keeps a userlabel
  *   a merge retired, or a hunt carrying it as its address (`orglabel`). Refused,
  *   `userlabelClaimed`, which says what to do instead.
- * * It is free: the user takes it, and the title, a blank one its userlabel titleized.
+ * * It is free: the user takes it, and the title, a blank one its userlabel titleized; and it is
+ *   made its sandbox, `~label/label`, holding its first quiz (`makeSandboxFor`), anonymous or
+ *   signed in with Google alike, so a new user has somewhere to begin.
  *
  * The userlabel is looked up and taken inside the one write, so two users taking one userlabel at
  * once leave one holder: Convex runs the second again once the first has landed, and it finds the
- * userlabel held.
+ * userlabel held. The sandbox is made in that write too, so no user is left holding a userlabel
+ * taken here without one. Only this makes one: a user that took its handle before sandboxes were
+ * made for it has none until it makes one from its hunts (`HuntsList`); one the command line gives
+ * a userlabel (`adopt`) gets none; and one that takes a userlabel by a merge takes the merged
+ * user's sandbox with it (`mergeInto`).
  *
  * @param db - The mutation's database.
  * @param user_id - The user taking the userlabel.
@@ -30,14 +37,16 @@ import type { Writer } from './quiz_writing'
  * @param userlabel - The userlabel, already validated.
  * @param title - What to call the user; its userlabel titleized when blank.
  * @returns The user's row id.
- * @throws A refusal (`userlabelClaimed`); nothing is written.
+ * @throws A refusal (`userlabelClaimed`, or `huntsFull` when the app holds all the hunts it may); nothing is written.
  *
- * @example await assumeUserlabel(ctx.db, user_id, ctx.actor, 'flip_kromer', 'Flip')
+ * @example await assumeUserlabel(ctx.db, user_id, ctx.actor, 'flip_kromer', 'Flip')  // flip_kromer, smith of ~flip_kromer/flip_kromer
  */
 export async function assumeUserlabel(db: Writer, user_id: Id<'users'>, actor: Actor.ActorT, userlabel: string, title: string): Promise<Id<'users'>> {
   if (! Actor.isUnlabelled(actor) && actor.userlabel === userlabel) { return user_id } // the user's own already
   if (await holderOfUserlabel(db, userlabel) !== null) { refuse('userlabelClaimed') }   // not free
-  await db.patch('users', user_id, User.labelled(userlabel, title))                    // free: the user's now
+  const labelled = User.labelled(userlabel, title)
+  await db.patch('users', user_id, labelled)                                           // free: the user's now
+  await makeSandboxFor(db, { _id: user_id, ...labelled })                              // and its sandbox
   return user_id
 }
 
@@ -66,17 +75,15 @@ export async function retitleUser(db: Writer, actor: Actor.ActorT, title: string
  *
  * @param db - The mutation's database.
  * @param user_id - The user to relabel.
- * @param userlabel - Its userlabel: a new one is held to the shape and words of one being claimed; the one it holds already is kept as it is, though a word reserved since would refuse it now.
+ * @param userlabel - Its userlabel, new or the one it holds already, held to the one userlabel check (`User.labelled`).
  * @param title - What to call it; its userlabel titleized when blank.
  * @returns How many of its huntships' copies were rewritten.
- * @throws When a new userlabel is not one, or the title is not a title; nothing is written.
+ * @throws When the userlabel is not one, or the title is not a title; nothing is written.
  *
  * @example await relabelUser(db, user_id, 'mrflip', '')  // => 3, for a user on three hunts
  */
 export async function relabelUser(db: Writer, user_id: Id<'users'>, userlabel: string, title: string): Promise<number> {
-  const user = await db.get('users', user_id)
-  const labelled = user?.userlabel === userlabel ? { userlabel, title: User.titleFor(userlabel, title) } : User.labelled(userlabel, title)
-  return await rewriteUserlabel(db, user_id, labelled)
+  return await rewriteUserlabel(db, user_id, User.labelled(userlabel, title))
 }
 
 /**
@@ -117,8 +124,7 @@ async function recopyOntoHuntships(db: Writer, user_id: Id<'users'>, labelled: {
  * * Keeping its own: `merged` is retired, held by the user merged away.
  * * Keeping `merged`: the user is relabelled with it and retitled with the merged user's title,
  *   and its huntships' copies follow (`notes/convex.md`, *Denormalized fields*); its own handle
- *   is retired, held by itself. `merged` is a userlabel claimed once already, so it is held to
- *   what a held one is (`User.relabelled`), not to the rules for claiming one.
+ *   is retired, held by itself.
  *
  * No address moves: a hunt's `orglabel` stays as it was made. The next pending choice, if any,
  * comes up by itself (`nameChoiceFor`).
@@ -144,7 +150,7 @@ export async function settleNameChoice(db: Writer, actor: Actor.ActorT, merged: 
   const retired = keepsMerged ? { userlabel: actor.userlabel, user_id: actor.user_id } : { userlabel: merged, user_id: gone._id }
   await db.patch('users', gone._id, { userlabel: undefined })
   await db.insert('ghostings', GhostingValidators.row({ ...retired, into_user_id: actor.user_id, account_id: mark.account_id }))
-  if (keepsMerged) { await rewriteUserlabel(db, actor.user_id, User.relabelled(merged, gone.title ?? '')) }
+  if (keepsMerged) { await rewriteUserlabel(db, actor.user_id, User.labelled(merged, gone.title ?? '')) }
   return actor.user_id
 }
 
@@ -292,8 +298,9 @@ async function mergeInto(db: Writer, gone: Doc<'users'>, goneLabel: string, into
   const carried = sandbox === null ? null : await huntshipFor(db, sandbox._id, gone._id)
   const takesLabel = into.userlabel === undefined
   await db.patch('users', gone._id, { ...User.mergedInto(into._id, account._id), ...(takesLabel && { userlabel: undefined }) })
-  const heir = takesLabel ? { ...into, ...User.relabelled(goneLabel, gone.title ?? '') } : into
-  if (takesLabel) { await db.patch('users', into._id, User.relabelled(goneLabel, gone.title ?? '')) }
+  const taken = takesLabel ? User.labelled(goneLabel, gone.title ?? '') : null
+  const heir = taken === null ? into : { ...into, ...taken }
+  if (taken !== null) { await db.patch('users', into._id, taken) }
   if (sandbox !== null && carried !== null) {
     await smithOfSandbox(db, heir, sandbox)
     await removeHuntship(db, sandbox._id, gone._id)

@@ -70,9 +70,10 @@ export type HuntsListProps = {
  * for quizzes no longer among them, to download.
  *
  * Given an `org`, only that org's hunts, without the histories; a new hunt is offered only on the
- * visitor's own. A standalone account (anonymous: `Actor.isSealed`) is offered one hunt, its
- * sandbox, labelled with its own handle, and once it is made, told that more come with a verified
- * account. Above the hunts, where the deployment offers Google, a standalone account is told it has
+ * visitor's own. A standalone account (anonymous: `Actor.isSealed`) has one hunt, its sandbox,
+ * labelled with its own handle, made as it took the handle, and is told that more come with a
+ * verified account; one that took its handle before sandboxes were made for it is offered its
+ * sandbox here, by hand. Above the hunts, where the deployment offers Google, a standalone account is told it has
  * limits, and offered a verified account (`StandaloneAccountPanel`). A visitor who has not said who
  * they are is sent to say so first, and brought back to the page they asked for.
  */
