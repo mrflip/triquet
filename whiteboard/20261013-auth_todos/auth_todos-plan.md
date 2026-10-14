@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-13. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip), as `/sprint auth_todos` (the threads, verbatim below; the same items
-head `whiteboard/TODO.md`'s *Tiny Tasks*). **Status: thread 8 landing (second review clean; full e2e as the sprint-end run) (added by the Coach, 2026-10-14). Threads 1-7 landed: #247, #248, #250-#254 (one stack, all open); see `human/20261014-sprint_auth_todos_done.md`.** `auth_todos-progress.md`, beside
+head `whiteboard/TODO.md`'s *Tiny Tasks*). **Status: done, 2026-10-14. Every thread landed: #247, #248, #250-#255 (one stack, all open). See `human/20261014-sprint_auth_todos_done.md`.** `auth_todos-progress.md`, beside
 this file, is newer than this plan wherever the two disagree.
 
 The spine was empty at planning: the oauth sprint and its follow-ups (#226-#246) are merged, and

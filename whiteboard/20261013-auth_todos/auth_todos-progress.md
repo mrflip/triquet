@@ -1,6 +1,8 @@
 # Sprint `auth_todos`: progress
 
-**Status: thread 8 landing (second review clean; full e2e as the sprint-end run) (added by the Coach, 2026-10-14). Threads 1-7 landed: #247, #248, #250, #251, #252, #253, #254, one stack, all open; sprint-end full run 326/326, no flakes (thread 6's landing proof). See `human/20261014-sprint_auth_todos_done.md`.**
+**Status: done (2026-10-14). Every thread landed: #247, #248, #250, #251, #252, #253, #254, #255, one stack, all open. Sprint-end full run 326/326, no flakes (thread 8's landing proof). See `human/20261014-sprint_auth_todos_done.md`.**
+
+*Orchestrator (2026-10-14, after the close):* the Coach answered question 10 ("Yes leave those fields out too"): a follow-up lands into #255 (`pnpm land --into 20261014-reserved_guard`), leaving users' `name`, `image`, `locale`, `hosted_domain` and the two verification timestamps out of the guard's pages too. *Landed* (thread 8b, into #255 at `16a9974b`): review fixed one doc line; the worker had also stripped `title`, which the orchestrator put back on the reviewer's case (the one such field with a real check, `titleish`, and already shown to other users), so the list is the Coach's exactly. e2e full 326/326, no flakes. Then, at the Coach's word ("Squash your commits if there are many back and forths"), the stack is squashed branch by branch: each branch's sweeps folded into one, each review fix folded into the commit it amends, every branch's tip tree unchanged, pushed with leases.
 
 The running handoff, newer than `auth_todos-plan.md` wherever the two disagree. Each thread writes
 its own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -14,9 +16,9 @@ its own section to `thread-<N>-<label>.md` beside this file; the orchestrator cu
 | 5 | `auto_sandbox`: the sandbox and its first quiz, made for you | landed #253 | `20261013-auto_sandbox` | [#253](https://github.com/mrflip/triquet/pull/253) |
 | 6 | `microcontent`: the microcontent, consistent | landed #254 | `20261014-microcontent` | [#254](https://github.com/mrflip/triquet/pull/254) |
 | 7 | `more_reserved`: five more top-level reserved words | landed #252 | `20261013-more_reserved` | [#252](https://github.com/mrflip/triquet/pull/252) |
-| 8 | `reserved_guard`: `bot`, `tests`, `demos`; the guard reads every label | landing | `20261014-reserved_guard` | |
+| 8 | `reserved_guard`: `bot`, `tests`, `demos`; the guard reads every label | landed #255 | `20261014-reserved_guard` | [#255](https://github.com/mrflip/triquet/pull/255) |
 
-Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only); thread 2's `--touched` ran the whole suite, 319/319, no flakes; thread 3 ran the full suite, 325/325, no flakes (on the top before thread 2; `google-sign-in` and `routing` rerun after, 75/75). Thread 4, the fourth landing, carried a full run: 325/325, no flakes. Thread 7's `--touched` ran the whole suite, 325/325, no flakes; thread 5's, 326/326, no flakes. Thread 6, last, proves with the full suite so it serves as the sprint-end run.
+Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only); thread 2's `--touched` ran the whole suite, 319/319, no flakes; thread 3 ran the full suite, 325/325, no flakes (on the top before thread 2; `google-sign-in` and `routing` rerun after, 75/75). Thread 4, the fourth landing, carried a full run: 325/325, no flakes. Thread 7's `--touched` ran the whole suite, 325/325, no flakes; thread 5's, 326/326, no flakes. Thread 6 proved with the full suite (326/326). Thread 8, added after, the eighth landing and the last, carried the full run again: 326/326, no flakes; it is the sprint-end run.
 
 *Orchestrator (2026-10-14):* the sprint stopped overnight when the account hit its weekly usage
 limit; threads 5 (building, three commits in) and 7 (landing, caught up) were resumed with their
@@ -81,6 +83,12 @@ context once it reset. Thread 4's failure notice came after it had landed; nothi
   (thread 6, #254); the survey and the Coach's ranked list are `microcontent-survey.md`
   (on thread 6's branch until it lands). The user menu "closing itself" after Google was measured
   and is not that: a click in the first ~300 ms, before hydration, is lost; no fix.
+* **The reserved-list guard reads every row** (thread 8, #255): `check_reserved:page` hands
+  back 100 rows of one of our tables at a time (Convex Auth's refused; users' `email` and `phone`
+  left out, the Coach's call), and `scripts/check_reserved` judges each whole row by the
+  checkout's own row validator, so it guards growth of either list, and any tightened validator.
+  It can check only a deployment already running `page`: this release goes out under thread 7's
+  waiver. `bot`, `tests`, `demos` are top-level reserved too.
 
 ## Reviews of landed threads
 
@@ -123,3 +131,10 @@ context once it reset. Thread 4's failure notice came after it had landed; nothi
   viewer's own sandbox. The reviewer's wording minor was taken before landing ("This is your
   sandbox: a hunt of your own, named for your handle, to try things in."). The Coach's ranked list
   is `microcontent-survey.md`, *For the Coach*. Full suite 326/326, no flakes: the sprint-end run.
+* **Thread 8, #255.** *Review: flagged, then clean.* The first review kept no fixes and flagged
+  two findings, both decided by the Coach and built: the guard cannot check production before
+  this release deploys ("Waiver + fix docs": `notes/deploy.md` and the thread file say so), and
+  whole user rows reached the guard's machine ("Strip them": `email`, `phone` left out). Its minor
+  (a hunt named twice) taken. The second review, over the new commits only: clean. Left for the
+  Coach: whether to also leave out `name`, `image`, `locale`, `hosted_domain` and the two
+  verification timestamps. Full suite 326/326, no flakes: the sprint-end run.

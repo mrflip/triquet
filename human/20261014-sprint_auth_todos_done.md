@@ -1,18 +1,19 @@
-# 2026-10-14: Sprint auth_todos done -- seven threads, seven PRs open, one stack
+# 2026-10-14: Sprint auth_todos done -- eight threads, eight PRs open, one stack
 
 The sprint took the six auth items from `whiteboard/TODO.md`'s *Tiny Tasks*, plus a seventh the
-Coach added midway. Production is now `triquet.me`. There is one userlabel check, with no "held"
-exception. Handles may be four characters. Five more words are reserved at the top level. e2e
-signs in with Google for real through a stand-in issuer, in CI too. Taking a handle makes the
-user's sandbox, with its first quiz, and lands them there. The on-screen copy is held to sentence
-case, written down in `notes/views.md`. Every thread was reviewed at `medium`: two fixed, five
-clean, none flagged. Every e2e proof was green with no flakes. The sprint-end full run on the top
-was 326/326. The plan and progress files are in `whiteboard/20261013-auth_todos/`, and the
-[sprint doc](https://claude.ai/code/artifact/fb22a634-041c-45fe-ab92-4dc62532872c) mirrors them.
+Coach added midway and an eighth after it closed. Production is now `triquet.me`. There is
+one userlabel check, with no "held" exception. Handles may be four characters. Eight more words
+are reserved at the top level, and the reserved-list guard now judges every row. e2e signs in
+with Google for real through a stand-in issuer, in CI too. Taking a handle makes the user's
+sandbox, with its first quiz, and lands them there. The on-screen copy is held to sentence case,
+written down in `notes/views.md`. Every thread was reviewed at `medium`: two fixed, five clean,
+one flagged (thread 8, decided by the Coach, then clean). Every e2e proof was green with no
+flakes. The sprint-end full run on the top was 326/326 (thread 8's proof). The plan and progress
+files are in `whiteboard/20261013-auth_todos/`, and the [sprint doc](https://claude.ai/code/artifact/fb22a634-041c-45fe-ab92-4dc62532872c) mirrors them.
 
 ## The PRs, in the order they landed
 
-One stack. Merge the top, #254, and every PR beneath it is marked merged.
+One stack. Merge the top, #255, and every PR beneath it is marked merged.
 
 | PR | Thread | Stacked on | Review |
 |----|--------|------------|--------|
@@ -23,6 +24,7 @@ One stack. Merge the top, #254, and every PR beneath it is marked merged.
 | [#252](https://github.com/mrflip/triquet/pull/252) | 7 `more_reserved`: `bots`, `test`, `demo`, `sync`, `meta` | #251 | clean |
 | [#253](https://github.com/mrflip/triquet/pull/253) | 5 `auto_sandbox`: the sandbox and first quiz, made on taking a handle | #252 | clean |
 | [#254](https://github.com/mrflip/triquet/pull/254) | 6 `microcontent`: sentence case settled, strays fixed | #253 | clean |
+| [#255](https://github.com/mrflip/triquet/pull/255) | 8 `reserved_guard`: `bot`, `tests`, `demos`; the guard reads every row | #254 | flagged, decided, then clean |
 
 No migration: no row changed shape. Thread 2 tightens what a row may hold; with production's
 people cleared, nothing should hold a newly refused word.
@@ -33,7 +35,10 @@ people cleared, nothing should hold a newly refused word.
   Google's consent screen.
 * Confirmed: every new user gets a sandbox, and lands at it unless a more compelling return-to
   was saved.
-* Waived `check_reserved` against production for thread 7's words ("the db is mostly empty").
+* Waived `check_reserved` against production for thread 7's words ("the db is mostly empty"),
+  and for thread 8's release, which first brings the guard production can run.
+* Thread 8's review: "Waiver + fix docs" for the deploy order; "Strip them" for users' email and
+  phone in the guard's pages.
 
 ## Open questions, in one place
 
@@ -55,15 +60,19 @@ people cleared, nothing should hold a newly refused word.
    * two of the Coach's own lines: "if that's you", and "share puzzles" said to a visitor with no
      account;
    * *Save* versus *Apply*, and three ways of asking for a missing field.
-6. **The reserved-list guard covers the top-level list only** (#248). Adding a word to the base
-   list (`PA.ReservedLabelGroups`) locks every row already labelled with it, and nothing checks
-   for that today. A hunt's org never moves, so a word an org holds must stay off the list.
-7. **More reserved forms?** (#252) `bot`, `tests`, `demos` and `metas` stay free.
-8. **To be certain despite the waiver** (#252): run
-   `./scripts/doppledo prd_janitor scripts/check_reserved` from the branch before deploying.
+6. ~~**The reserved-list guard covers the top-level list only** (#248).~~ *Closed by #255*: the
+   guard judges every row by its validator. Still true: a question's label and a hunt's org never
+   move, so a base-list word either holds must stay off the list, or needs a migration.
+7. ~~**More reserved forms?**~~ *Closed by #255*: `bot`, `tests`, `demos` reserved; `metas` free.
+8. **Running the guard** (#255): it can check only a deployment that already runs
+   `check_reserved:page`, so this release goes out under the waiver. After deploying, run
+   `./scripts/doppledo prd_janitor scripts/check_reserved` once to see production as it stands.
 9. **Housekeeping** (#250): an e2e dev server started before #250 has no stand-in beside it, so
    restart it once. The test-only header rides redirects as Playwright-on-Chromium behaviour; look
    again if another browser is added.
+10. ~~**Strip more from the guard's pages?**~~ *Answered* ("Yes leave those fields out too"):
+    landed into #255. A user's `title` stays, as it carries a real check (`titleish`) and is
+    already shown to other users.
 
 The weekly usage limit interrupted the sprint overnight. Threads 5 and 7 resumed with their
 context once it reset, and nothing was lost.
