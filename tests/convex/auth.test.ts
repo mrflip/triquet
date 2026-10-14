@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest'
 import * as EST from 'es-toolkit'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { GoogleScope, googleKeyed, googleProfileOf, returnUrlFor } from '../../convex/auth'
+import { GoogleScope, googleKeyed, googleProfileOf, mockGoogleIssuerOf, returnUrlFor } from '../../convex/auth'
 import { GoogleProfile as Profile, anonymousSession, googleCallback, googleUser, openTester, signInWithGoogle, type Tester } from '../support/convex'
 import { present } from '../support/present'
 
@@ -100,6 +100,34 @@ describe('the providers, on a deployment without Google', () => {
       vi.resetModules()
     }
   })
+})
+
+/** A local backend's own environment, as `scripts/convex_dev` leaves an e2e role's */
+const Clearable = { TRIQUET_CLEARABLE: 'yes' }
+
+const MockIssuerCases: [Parameters<typeof mockGoogleIssuerOf>[0], string | undefined, string][] = [
+  // regular usage:
+  [{ ...Clearable, TRIQUET_MOCK_GOOGLE_ISSUER: "http://127.0.0.1:3643" },    "http://127.0.0.1:3643", 'a stand-in on this machine, on a local backend, replaces Google'],
+  [{ ...Clearable, TRIQUET_MOCK_GOOGLE_ISSUER: "http://localhost:3643" },    "http://localhost:3643", 'localhost is this machine too'],
+  [{ ...Clearable, TRIQUET_MOCK_GOOGLE_ISSUER: "http://[::1]:3643" },        "http://[::1]:3643",     'and so is IPv6 loopback'],
+  [{ ...Clearable },                                                           undefined,               'none named: Google'],
+  // the guard:
+  [{ TRIQUET_MOCK_GOOGLE_ISSUER: "http://127.0.0.1:3643" },                    undefined,               'not on a deployment that may be emptied, as production never is: Google'],
+  [{ TRIQUET_CLEARABLE: 'no', TRIQUET_MOCK_GOOGLE_ISSUER: "http://127.0.0.1:3643" }, undefined,        'anything but yes is no'],
+  [{ ...Clearable, TRIQUET_MOCK_GOOGLE_ISSUER: "https://issuer.example.com" }, undefined,              'not this machine: Google'],
+  [{ ...Clearable, TRIQUET_MOCK_GOOGLE_ISSUER: "http://127.0.0.1.example.com:3643" }, undefined,      'a host that only begins like loopback is not this machine'], // eslint-disable-line unicorn/prefer-https -- an http address that is not this machine is the case
+  [{ ...Clearable, TRIQUET_MOCK_GOOGLE_ISSUER: "https://127.0.0.1:3643" },    undefined,               'only http, as the stand-in serves'],
+  // weird cases:
+  [{ ...Clearable, TRIQUET_MOCK_GOOGLE_ISSUER: "" },                           undefined,               'a blank one names none'],
+  [{ ...Clearable, TRIQUET_MOCK_GOOGLE_ISSUER: "127.0.0.1:3643" },             undefined,               'no address at all: Google'],
+]
+
+describe('mockGoogleIssuerOf, the stand-in for Google', () => {
+  for (const [vars, expected, describes] of MockIssuerCases) {
+    it(describes, () => {
+      expect(mockGoogleIssuerOf(vars)).to.eq(expected)
+    })
+  }
 })
 
 describe('returnUrlFor, the redirect callback', () => {

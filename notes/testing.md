@@ -122,8 +122,9 @@ the kind of user it is signed in as (`googleUser`, `anonymousUser`, `anonymousSe
 The browser's hooks (`src/state/use-*.ts`) are not unit tested: what they add to the functions is
 React's and Convex's client's, and the e2e suite drives them. The exceptions are the hooks that
 meet Convex Auth's provider when a browser comes back from Google (`use-session.dom.test.tsx` and
-`use-google-sign-in.dom.test.tsx`, below), which no e2e test can reach, since nothing automated
-signs in to Google. Anything pure inside one (`placeIn` in `use-hunt`) is exported and tested on its
+`use-google-sign-in.dom.test.tsx`, below), which the e2e suite crosses only as a whole (it signs in
+with a stand-in for Google, `notes/e2e.md`), never in the moment between the browser's return and
+the code's exchange. Anything pure inside one (`placeIn` in `use-hunt`) is exported and tested on its
 own.
 
 A view is unit tested only for what it chooses to say: a notice in place of the page, a dash in

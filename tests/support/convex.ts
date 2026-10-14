@@ -283,7 +283,8 @@ async function labelledUser(tt: Tester, label: string, userkind: UserkindT): Pro
 /**
  * The session of a user signed in with Google, holding the userlabel `label`, on no hunt: a
  * stranger to every hunt, but free of sealing. Its account row is seeded (`provider: 'google'`),
- * never signed in to: nothing automated signs in to Google. How to call as it, its user, and the
+ * never signed in to (`signInWithGoogle` drives Convex Auth's store past Google's part, and the
+ * e2e suite signs in with a stand-in for Google). How to call as it, its user, and the
  * actor the server builds for it, for a test that asks a rule directly.
  *
  * @example const alice = await googleUser(tt, 'alice_reviews'); await alice.as.query(api.hunts.list, {})

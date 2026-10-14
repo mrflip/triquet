@@ -23,7 +23,13 @@ const Switch = CVX.union(CVX.literal('true'), CVX.literal('false'))
  * * `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are Google's keys for signing in with Google, which
  *   Convex Auth reads itself: a deployment offers Google only where both are set
  *   (`googleKeyed` in `auth.ts`). `scripts/convex_dev` sets them on a local backend from its Doppler
- *   config; a Coach sets production's (`notes/deploy.md`); a preview and CI have none.
+ *   config; a Coach sets production's (`notes/deploy.md`); a preview has none. An e2e role's local
+ *   backend, CI's among them, has placeholders instead, for the stand-in Google below.
+ * * `TRIQUET_MOCK_GOOGLE_ISSUER` names a stand-in for Google on this machine
+ *   (`scripts/mock-google.ts`), which an e2e role's backend signs in with in Google's place
+ *   (`scripts/convex_dev`). Honoured only on a deployment that also has `TRIQUET_CLEARABLE=yes`, and
+ *   only for an `http` address on this machine (`mockGoogleIssuerOf` in `auth.ts`); production
+ *   never has it, and Google is Google everywhere else.
  *
  * `migrations` keeps the state of the backfills in `convex/migrations.ts`.
  */
@@ -37,6 +43,7 @@ const app = defineApp({
     SITE_URL:                     CVX.optional(CVX.string()),
     AUTH_GOOGLE_ID:               CVX.optional(CVX.string()),
     AUTH_GOOGLE_SECRET:           CVX.optional(CVX.string()),
+    TRIQUET_MOCK_GOOGLE_ISSUER:   CVX.optional(CVX.string()),
   },
 })
 app.use(migrations) // eslint-disable-line unicorn/no-top-level-side-effects -- Convex registers a component only this way

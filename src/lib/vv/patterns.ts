@@ -70,7 +70,7 @@ export const Plain        = { re: /^[A-Za-z0-9 ]*$/, msg: 'should have only plai
 
 export const Label      = { re: /^[a-z](_?[a-z0-9])+$/, min: 2, max: 40, msg: 'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
 /** A userlabel -- a user's handle: label-shaped, and long enough to be a name someone chose rather than an initial */
-export const Userlabel  = { re: /^[a-z](_?[a-z0-9])+$/, min: 6, max: 24, msg: 'should be 6 to 24 plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
+export const Userlabel  = { re: /^[a-z](_?[a-z0-9])+$/, min: 4, max: 24, msg: 'should be 4 to 24 plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
 /** A userlabel as far as it has been typed: empty, or what typing on could still make a `Userlabel` -- every character one it keeps, with at most a trailing underscore or too few characters between it and done */
 export const Userbegun  = { re: /^(?:[a-z](?:_?[a-z0-9])*_?)?$/, max: Userlabel.max, msg: 'should be plain lowercase letters/_/numbers, with a letter first and no __ in a row' } as const satisfies Patternbag
 export const Dashlabel  = { re: /^[a-z][a-z0-9_-]*$/,   min: 1, max: 25, msg: 'should have only plain lowercase letters/_/-/numbers with a letter first' } as const satisfies Patternbag
@@ -188,9 +188,11 @@ export function isUnreserved(val: string, allowed?: ReadonlySet<string>): boolea
 /**
  * The words no new hunt may be labelled and no userlabel may be claimed as, beyond those no label
  * may be. A hunt's label and a userlabel are each global, the first word of an address or the name a person goes
- * by, so these are kept for the app's own pages and for whoever speaks for it. They govern a label
- * being made or claimed, and never one already held: a word added here leaves every hunt and org
- * already so labelled at its address (`CK.heldUserlabel`), which `scripts/check_reserved` names.
+ * by, so these are kept for the app's own pages and for whoever speaks for it. They govern a hunt's
+ * label only as it is made or relabelled, but a userlabel always (`CK.userlabel`): a word added here
+ * leaves a user holding it unable to make a hunt or be put on one, and every hunt of an org so
+ * named out of reach at its address, its own row unwritable. So add one only once
+ * `scripts/check_reserved`, run against production from the branch growing the list, names no holder.
  */
 export const ReservedToplevelGroups = {
   /** The app's own corners, and the words for signing in and keeping an account */

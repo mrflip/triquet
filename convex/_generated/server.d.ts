@@ -38,6 +38,7 @@ type Env = {
   readonly SITE_URL: string | undefined;
   readonly TRIQUET_CLEARABLE: "yes" | undefined;
   readonly TRIQUET_EVERYONE_ADMIN: "yes" | undefined;
+  readonly TRIQUET_MOCK_GOOGLE_ISSUER: string | undefined;
 };
 
 /**

@@ -11,13 +11,13 @@ import { HomeRealmLabel, Realm, RealmValidators, type RealmT } from './realm'
 /** The branch every hunt starts on, and so the git branch its history begins on */
 export const DefaultBranch = 'main'
 
-export const HuntValidators = Validator(({ obj, arr, label, toplabel, heldUserlabel, titleish, stamps, treeid }) => {
+export const HuntValidators = Validator(({ obj, arr, label, toplabel, userlabel, titleish, stamps, treeid }) => {
   const huntLabel = label
     .describe('What the hunt is called in an address, within its org. Minted when the hunt is made, and unique within its org: two hunts of one org minted with one label resolve to the earlier. Held to `newLabel` when given, and only to a label\'s shape and words after: a word kept for the app\'s own pages since leaves the hunt at its address.')
   const newLabel = toplabel
     .describe('A label a hunt is given, made or relabelled: a hunt label, and none of the words kept for the app\'s own pages and people (`PA.ReservedToplevel`).')
-  const orglabel = heldUserlabel
-    .describe('The org the hunt is addressed under (`/~<org>/<hunt>`), which namespaces its label: the userlabel of whoever made it, copied when it was made. Never changes: not when its maker is retitled, leaves the hunt, or changes role, nor when a word it is is kept for the app\'s own use later.')
+  const orglabel = userlabel
+    .describe('The org the hunt is addressed under (`/~<org>/<hunt>`), which namespaces its label: the userlabel of whoever made it, copied when it was made. Never changes: not when its maker is retitled, leaves the hunt, or changes role. Held to the one userlabel check, so a word kept for the app\'s own use later leaves the hunt unwritable and its address out of reach.')
   const title = titleish
     .describe('What the hunt is called on screen; a blank one displays as its label titleized.')
   const branch = label

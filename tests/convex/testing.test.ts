@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, internal } from '../../convex/_generated/api'
+import { internal } from '../../convex/_generated/api'
 import { Hunt } from '../../src/models/hunt'
 import * as PA from '../../src/lib/vv/patterns'
 import { EstimatesColumnWidthPx, NewColumnWidthPx } from '../../src/lib/widgeting-edit'
@@ -285,14 +285,6 @@ describe("testing.vouchFor", () => {
     expect([user.isAnonymous, members.at(-1)]).to.deep.eq([false, ['tester_anon', 'reviewer']])
   })
 
-  it("gives the user the email asked for, as Google would have sent it, for its owner to be shown", async () => {
-    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
-    const tt = openTester()
-    const anon = await anonymousUser(tt, 'tester_anon')
-    await tt.mutation(internal.testing.vouchFor, { userlabel: 'tester_anon', email: 'tester@example.com' })
-    expect(await anon.as.query(api.users.own, {})).to.deep.eq({ google: true, email: 'tester@example.com', suggested: null, nameChoice: null })
-  })
-
   it("signs nobody in, and touches no account", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
@@ -314,32 +306,36 @@ describe("testing.vouchFor", () => {
   })
 })
 
-describe("testing.mergeInto", () => {
+describe("testing.keptOf", () => {
   afterEach(() => {
     vi.unstubAllEnvs()
   })
 
-  it("marks one user merged into another, which then has a name choice between the two handles, signing nobody in", async () => {
+  it("says what a user signed in with Google keeps of what Google sent, each field null where it holds none", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
-    const [anon, alice] = [await anonymousUser(tt, 'tester_anon'), await googleUser(tt, 'tester_alice')]
-    const before = await tt.run(async (ctx) => await ctx.db.query('authSessions').collect())
-    await tt.mutation(internal.testing.mergeInto, { userlabel: 'tester_anon', into: 'tester_alice' })
-    const gone = present(await tt.run(async (ctx) => await ctx.db.get('users', anon.user_id)))
-    expect(gone.merged?.into_user_id).to.eq(alice.user_id)
-    expect(await alice.as.query(api.users.own, {})).to.deep.include({ nameChoice: { merged: { userlabel: 'tester_anon', title: 'Tester Anon' }, own: { userlabel: 'tester_alice', title: 'Tester Alice' } } })
-    expect(await tt.run(async (ctx) => await ctx.db.query('authSessions').collect())).to.deep.eq(before)
+    const alice = await googleUser(tt, 'tester_alice')
+    await tt.run(async (ctx) => { await ctx.db.patch('users', alice.user_id, { email: 'alice@example.com', emailVerificationTime: 1_760_300_000_000, name: 'Alice', locale: 'en-GB' }) })
+    expect(await tt.query(internal.testing.keptOf, { userlabel: 'tester_alice' })).to.deep.eq({
+      anonymous: false, email: 'alice@example.com', email_verified_at: 1_760_300_000_000, name: 'Alice', locale: 'en-GB', hosted_domain: null,
+    })
   })
 
-  it("refuses a userlabel no user holds, and a deployment that may not be made into, writing nothing", async () => {
+  it("says an anonymous user is anonymous, and keeps nothing of Google's", async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
     const tt = openTester()
-    const anon = await anonymousUser(tt, 'tester_anon')
-    await googleUser(tt, 'tester_alice')
-    await expect(tt.mutation(internal.testing.mergeInto, { userlabel: 'tester_anon', into: 'tester_nobody' })).rejects.toThrow(/No user holds the userlabel tester_nobody/)
+    await anonymousUser(tt, 'tester_anon')
+    expect(await tt.query(internal.testing.keptOf, { userlabel: 'tester_anon' })).to.deep.eq({
+      anonymous: true, email: null, email_verified_at: null, name: null, locale: null, hosted_domain: null,
+    })
+  })
+
+  it("answers null for a userlabel no user holds, and refuses a deployment that is not one to read users by hand", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    await anonymousUser(tt, 'tester_anon')
+    expect(await tt.query(internal.testing.keptOf, { userlabel: 'tester_nobody' })).to.be.null
     vi.stubEnv('TRIQUET_CLEARABLE', '')
-    await expect(tt.mutation(internal.testing.mergeInto, { userlabel: 'tester_anon', into: 'tester_alice' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
-    const gone = await tt.run(async (ctx) => await ctx.db.get('users', anon.user_id))
-    expect(gone?.merged).to.be.undefined
+    await expect(tt.query(internal.testing.keptOf, { userlabel: 'tester_anon' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
   })
 })

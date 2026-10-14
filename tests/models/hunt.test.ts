@@ -5,6 +5,7 @@ import { Hunt, HuntValidators } from '../../src/models/hunt'
 import { defaultLayout } from '../../src/models/layout'
 import { Quiz, type QuizDNA } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
+import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
 
 /** A hunt of one realm, `home`, holding `quizzes` */
@@ -100,8 +101,12 @@ describe('HuntValidators.row', () => {
     expect(() => HuntValidators.row({ ...Row, orglabel: 'constructor' })).to.throw(Z.ZodError)
   })
 
-  it("takes a label and an org kept for the app's own pages since they were made, so the hunt stays writable at its address", () => {
-    expect(HuntValidators.row({ ...Row, label: 'pricing', orglabel: 'google_fan' })).to.deep.eq({ ...Row, label: 'pricing', orglabel: 'google_fan' })
+  it("takes a label kept for the app's own pages since it was made, so the hunt stays writable at its address", () => {
+    expect(HuntValidators.row({ ...Row, label: 'pricing' })).to.deep.eq({ ...Row, label: 'pricing' })
+  })
+
+  it("refuses an org kept for the app's own pages, as every userlabel is held to the whole list", () => {
+    expect(() => HuntValidators.row({ ...Row, orglabel: 'google_fan' })).to.throw(Z.ZodError)
   })
 
   it("takes a branch kept for the app's own pages", () => {
@@ -126,6 +131,12 @@ describe('HuntValidators.row', () => {
 describe('HuntValidators.newLabel', () => {
   it("takes a label a hunt may be given", () => {
     expect(HuntValidators.newLabel('quiet_otter')).to.eq('quiet_otter')
+  })
+
+  it("takes a userlabel of the fewest characters and of the most, as a sandbox is labelled with its own", () => {
+    const shortest = 'x'.repeat(PA.Userlabel.min)
+    const longest  = 'x'.repeat(PA.Userlabel.max)
+    expect([HuntValidators.newLabel(shortest), HuntValidators.newLabel(longest)]).to.deep.eq([shortest, longest])
   })
 
   it("refuses a word kept for the app's own pages and people, which only a label already held may be", () => {
