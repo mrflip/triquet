@@ -108,9 +108,10 @@ export async function continueWithGoogle(page: Page): Promise<void> {
 }
 
 /**
- * The user menu, opened once it says `text`: for a page just back from Google, whose header is
- * drawn again once the code's exchange settles who the browser is, closing a menu opened a moment
- * before. A menu that does not yet say it is closed (Escape) and opened again, for a while.
+ * The user menu, opened once it says `text`: for a page just back from Google, where a click on
+ * the header's button before the page has hydrated (while the address still holds the code) opens
+ * nothing, and a menu opened before the server has said who is looking holds only *Profile* until
+ * it does. A menu that does not yet say it is closed (Escape) and opened again, for a while.
  *
  * @example await expect(await userMenuSaying(page, signedInAsNotice(account.email))).toContainText(`@${label}`)
  */
