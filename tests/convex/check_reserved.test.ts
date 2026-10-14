@@ -5,7 +5,7 @@ import { noticeOf } from '../../src/lib/refusals'
 import type { OuterHuntActionDNA } from '../../src/models/actions'
 import * as PA from '../../src/lib/vv/patterns'
 import { Hunt } from '../../src/models/hunt'
-import { callerOf, googleUser, openTester, seedHunt, type Session, type Tester } from '../support/convex'
+import { anonymousSession, callerOf, googleUser, openTester, seedHunt, type Session, type Tester } from '../support/convex'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
 
@@ -50,67 +50,90 @@ async function performOuter(by: Session, action: OuterHuntActionDNA) {
   return await callerOf(by).mutation(api.hunts.performOuter, { action })
 }
 
-describe('check_reserved:refused', () => {
-  it('names every hunt whose label or org the reserved list would refuse, in the order they were made, and counts every hunt', async () => {
+/** What `check_reserved:held` answers */
+async function heldIn(tt: Tester) {
+  return await tt.query(internal.check_reserved.held, {})
+}
+
+describe("check_reserved:held", () => {
+  it("answers every userlabel a user holds, alphabetically, and every one a ghosting holds and every hunt's org and label, each in the order made, unjudged", async () => {
     const tt = openTester()
     await standing(tt, 'quiet_otter', 'pat_smith')
-    await standing(tt, 'privacy', 'pat_smith')
-    await standing(tt, 'loud_heron', 'google_fan')
-    await standing(tt, 'handle', 'support_desk')
-    expect(await tt.query(internal.check_reserved.refused, {})).to.deep.eq({
-      counted: 4,
-      refused: [
-        { orglabel: 'pat_smith',    label: 'privacy',    refused: ['label'] },
-        { orglabel: 'google_fan',   label: 'loud_heron', refused: ['orglabel'] },
-        { orglabel: 'support_desk', label: 'handle',     refused: ['orglabel', 'label'] },
-      ],
+    await standing(tt, 'privacy', 'google_fan')
+    await googleUser(tt, 'abel_google')
+    const { user_id } = await anonymousSession(tt)
+    await tt.run(async (ctx) => {
+      const account = present(await ctx.db.query('authAccounts').first(), 'an account')
+      await ctx.db.insert('ghostings', { userlabel: 'support_me', user_id, into_user_id: user_id, account_id: account._id })
+    })
+    expect(await heldIn(tt)).to.deep.eq({
+      users:     ['abel_google', 'alice_smiths'],
+      ghostings: ['support_me'],
+      hunts:     [{ orglabel: 'pat_smith', label: 'quiet_otter' }, { orglabel: 'google_fan', label: 'privacy' }],
     })
   })
 
-  it('names none on a deployment holding no hunt, or none so labelled', async () => {
+  it("answers nothing on a deployment holding nothing, a user with no userlabel among it", async () => {
     const tt = openTester()
-    expect(await tt.query(internal.check_reserved.refused, {})).to.deep.eq({ counted: 0, refused: [] })
-    await standing(tt, 'quiet_otter', 'pat_smith')
-    expect(await tt.query(internal.check_reserved.refused, {})).to.deep.eq({ counted: 1, refused: [] })
+    expect(await heldIn(tt)).to.deep.eq({ users: [], ghostings: [], hunts: [] })
+    await anonymousSession(tt)
+    expect(await heldIn(tt)).to.deep.eq({ users: [], ghostings: [], hunts: [] })
   })
 
-  it('reads and writes nothing else: a hunt it names is as it was', async () => {
+  it("writes nothing: a hunt it reads is as it was", async () => {
     const tt = openTester()
     const { open: { hunt_id } } = await standing(tt, 'privacy', 'google_fan')
     const ante = await heldHunt(tt, hunt_id)
-    await tt.query(internal.check_reserved.refused, {})
+    await heldIn(tt)
     expect(await heldHunt(tt, hunt_id)).to.deep.eq(ante)
   })
 })
 
-describe('a hunt named before its words were reserved', () => {
-  it('opens at its address, org and all', async () => {
+describe("a hunt labelled before its label was reserved", () => {
+  it("opens at its address", async () => {
     const tt = openTester()
-    const { smith } = await standing(tt, 'privacy', 'google_fan')
-    const opening = await smith.as.query(api.hunts.open, { orglabel: 'google_fan', hunt_label: 'privacy' })
-    expect([opening.why, opening.hunt?.label, opening.hunt?.org]).to.deep.eq([null, 'privacy', 'google_fan'])
+    const { smith } = await standing(tt, 'privacy', 'pat_smith')
+    const opening = await smith.as.query(api.hunts.open, { orglabel: 'pat_smith', hunt_label: 'privacy' })
+    expect([opening.why, opening.hunt?.label, opening.hunt?.org]).to.deep.eq([null, 'privacy', 'pat_smith'])
   })
 
-  it('stays writable: retitled, rebranched and worked in, keeping its label and org', async () => {
+  it("stays writable: retitled, rebranched and worked in, keeping its label", async () => {
     const tt = openTester()
-    const { open: { hunt_id }, smith, act } = await standing(tt, 'privacy', 'google_fan')
+    const { open: { hunt_id }, smith, act } = await standing(tt, 'privacy', 'pat_smith')
     await performOuter(smith, { kind: 'retitle_hunt', hunt_id, title: 'Our Privacy Hunt' })
     await performOuter(smith, { kind: 'rebranch_hunt', hunt_id, branch: 'playtest' })
     await act({ kind: 'retitle_hunt', title: 'Still Ours' })
     await act({ kind: 'add_question' })
     const hunt = await heldHunt(tt, hunt_id)
-    expect([hunt.label, hunt.orglabel, hunt.title, hunt.branch]).to.deep.eq(['privacy', 'google_fan', 'Still Ours', 'playtest'])
+    expect([hunt.label, hunt.orglabel, hunt.title, hunt.branch]).to.deep.eq(['privacy', 'pat_smith', 'Still Ours', 'playtest'])
     await expectSound(tt)
   })
 
-  it('takes a new label only if the list allows it', async () => {
+  it("takes a new label only if the list allows it", async () => {
     const tt = openTester()
-    const { open: { hunt_id }, smith, act } = await standing(tt, 'privacy', 'google_fan')
+    const { open: { hunt_id }, smith, act } = await standing(tt, 'privacy', 'pat_smith')
     expect(await noticeFor(performOuter(smith, { kind: 'relabel_hunt', hunt_id, label: 'terms' }))).to.include(PA.UnreservedToplevel.msg)
     expect(await noticeFor(act({ kind: 'relabel_hunt', label: 'google_docs' }))).to.include(PA.UnreservedToplevel.msg)
     expect(await labelOf(tt, hunt_id)).to.eq('privacy')
     await performOuter(smith, { kind: 'relabel_hunt', hunt_id, label: 'autumn_hunt' })
     expect(await labelOf(tt, hunt_id)).to.eq('autumn_hunt')
+  })
+})
+
+describe("a hunt of an org whose word was reserved after it was named", () => {
+  it("is out of reach at its address", async () => {
+    const tt = openTester()
+    const { smith } = await standing(tt, 'quiet_otter', 'google_fan')
+    await expect(smith.as.query(api.hunts.open, { orglabel: 'google_fan', hunt_label: 'quiet_otter' })).rejects.toThrow(PA.UnreservedToplevel.msg)
+  })
+
+  it("takes no write to its own row, and keeps its org", async () => {
+    const tt = openTester()
+    const { open: { hunt_id }, smith, act } = await standing(tt, 'quiet_otter', 'google_fan')
+    const ante = await heldHunt(tt, hunt_id)
+    await expect(performOuter(smith, { kind: 'retitle_hunt', hunt_id, title: 'Ours' })).rejects.toThrow(PA.UnreservedToplevel.msg)
+    await expect(act({ kind: 'retitle_hunt', title: 'Still Ours' })).rejects.toThrow(PA.UnreservedToplevel.msg)
+    expect(await heldHunt(tt, hunt_id)).to.deep.eq(ante)
   })
 })
 

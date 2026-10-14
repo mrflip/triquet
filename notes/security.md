@@ -188,10 +188,14 @@ security expert who knows what questions to ask.
   passing for the app, its pages, its roles, Google or the bot (`PA.ReservedToplevelGroups`, and
   the prefixes `google`, `triquet`, `admin`, `support`, `official`, `verif`, `secur`, `login`,
   `help`). It is matched exactly against labels, which hold only lowercase ASCII letters, digits
-  and underscores, so near spellings (`go0gle`, `triquett`) pass. It governs only a label being
-  made or claimed: a hunt row's label and org are held to their shape and the words every label is
-  kept from (`CK.heldUserlabel`), so a hunt or org named before a word was kept keeps it, and
-  `scripts/check_reserved` names them.
+  and underscores, so near spellings (`go0gle`, `triquett`) pass. It governs a hunt's label only as
+  it is made or relabelled, but a userlabel always: since the auth_todos sprint (2026-10-13, thread
+  2) there is one userlabel check (`CK.userlabel`), for one claimed and one held alike, the held
+  rule (`CK.heldUserlabel`) gone. So a word reserved later locks its holder out: the user can make
+  no hunt and be put on none, and every hunt of an org so named is out of reach at its address and
+  refuses every write to its row. The list is grown only after `scripts/check_reserved`, run
+  against production from the branch growing it (it judges by the checkout's list), names no
+  holder.
 * 2026-10-11 (oauth sprint, thread 2): `clear_people:clearBatch` (`convex/clear_people.ts`), an
   internal mutation, deletes every row of Convex Auth's tables (`users`, `authAccounts`,
   `authSessions`, `authRefreshTokens`, `authVerifiers`, `authVerificationCodes`,

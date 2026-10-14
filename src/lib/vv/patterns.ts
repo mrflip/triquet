@@ -188,9 +188,11 @@ export function isUnreserved(val: string, allowed?: ReadonlySet<string>): boolea
 /**
  * The words no new hunt may be labelled and no userlabel may be claimed as, beyond those no label
  * may be. A hunt's label and a userlabel are each global, the first word of an address or the name a person goes
- * by, so these are kept for the app's own pages and for whoever speaks for it. They govern a label
- * being made or claimed, and never one already held: a word added here leaves every hunt and org
- * already so labelled at its address (`CK.heldUserlabel`), which `scripts/check_reserved` names.
+ * by, so these are kept for the app's own pages and for whoever speaks for it. They govern a hunt's
+ * label only as it is made or relabelled, but a userlabel always (`CK.userlabel`): a word added here
+ * leaves a user holding it unable to make a hunt or be put on one, and every hunt of an org so
+ * named out of reach at its address, its own row unwritable. So add one only once
+ * `scripts/check_reserved`, run against production from the branch growing the list, names no holder.
  */
 export const ReservedToplevelGroups = {
   /** The app's own corners, and the words for signing in and keeping an account */

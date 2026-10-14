@@ -15,7 +15,7 @@
  * `convex logs --jsonl --success`; in the cloud, the Convex dashboard's usage page.
  *
  *   node scripts/measure-latency.ts run http://localhost:3004 --rounds 8
- *   node scripts/measure-latency.ts run https://triquet.vercel.app --remote
+ *   node scripts/measure-latency.ts run https://triquet.me --remote
  *   node scripts/measure-latency.ts summarize data/measurements/latency-*.json
  *
  * `run` prints a line per edit and a summary, and keeps the run as JSON (`--out`, by default

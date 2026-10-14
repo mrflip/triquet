@@ -16,7 +16,7 @@ export const AdoptionValidators = Validator(({ obj, arr, bool, discrim, lit, one
   const finding = union([
     zod.strictObject({ user_id: zid('users') })
       .describe('The user with this row id.'),
-    zod.strictObject({ userlabel: UserValidators.heldUserlabel })
+    zod.strictObject({ userlabel: UserValidators.userlabel })
       .describe('The user holding this userlabel.'),
     zod.strictObject({ email: zod.email() })
       .describe("The one user whose row holds this email, as Google sent it: a lookup for a Coach watching it once, refused unless exactly one user holds it."),
@@ -24,7 +24,7 @@ export const AdoptionValidators = Validator(({ obj, arr, bool, discrim, lit, one
     .describe('Which user to adopt: by its id, its userlabel, or its email, and by one of them alone.')
 
   const hunts = union([
-    obj({ org: UserValidators.heldUserlabel, hunt: label })
+    obj({ org: UserValidators.userlabel, hunt: label })
       .describe('The hunt at `/~<org>/<hunt>`.'),
     lit('every')
       .describe('Every hunt there is.'),

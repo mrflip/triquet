@@ -69,9 +69,9 @@ export function googleKeyed(): boolean {
  * @returns The absolute address.
  * @throws For a deployment with no `SITE_URL`: the sign-in goes no further.
  *
- * @example returnUrlFor('/~pat_smith/quiet_otter')  // => 'https://triquet.vercel.app/~pat_smith/quiet_otter'
- * @example returnUrlFor('/privacy')                 // => 'https://triquet.vercel.app/'
- * @example returnUrlFor('https://example.com/')     // => 'https://triquet.vercel.app/'
+ * @example returnUrlFor('/~pat_smith/quiet_otter')  // => 'https://triquet.me/~pat_smith/quiet_otter'
+ * @example returnUrlFor('/privacy')                 // => 'https://triquet.me/'
+ * @example returnUrlFor('https://example.com/')     // => 'https://triquet.me/'
  */
 export function returnUrlFor(redirectTo: string): string {
   const site = env.SITE_URL

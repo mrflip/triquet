@@ -90,8 +90,7 @@ between parents (a quiz does not change hunts, a userlabel is set once). The one
 has, a fan-out bounded by the hunts one user is on. `relabelUser` (`writing/user_actions.ts`),
 the one write that changes a userlabel once set, rewrites `huntships.userlabel` and `usertitle` the
 same way: the command line's `adopt:perform` calls it. Settling a merge's name choice in favour of
-the merged browser's handle (`settleNameChoice`) rewrites them through the same write, holding that
-handle to a held userlabel's rules rather than a claimed one's. A hunt's
+the merged browser's handle (`settleNameChoice`) rewrites them through the same write. A hunt's
 `orglabel` is an address, never a copy, and never changes. A copy that would need upkeep beyond that is
 not added; a new one goes in this table, and in `Copies` in `tests/support/soundness.ts`, which
 `expectSound` checks against its source. A reviewing does not copy its review's `phase`, which
