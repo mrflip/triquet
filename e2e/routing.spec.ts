@@ -116,6 +116,7 @@ test.describe('the front door', () => {
     const label = await assumeUserlabel(page)
     await expect(page).toHaveURL(Routes.huntPath({ org: label, hunt: label }))
     await expect(page.getByRole('table', { name: 'Members of this hunt' }).getByRole('row')).toHaveCount(2)
+    await expect(page.getByRole('region', { name: 'Quizzes' }).getByText(AppNotices.ownSandbox)).toBeVisible()
     const quizzes = page.getByRole('region', { name: 'Quizzes' }).getByRole('link')
     await expect(quizzes).toHaveCount(1)
     await quizzes.click()
@@ -353,6 +354,8 @@ test.describe('a hunt', () => {
     await expect(whereYouAre(page).getByRole('link', { name: huntTitle })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('heading', { name: 'Quizzes' })).toBeVisible()
     await expect(page.getByRole('table', { name: 'Members of this hunt' }).getByRole('row').filter({ hasText: userlabel })).toContainText('Smith')
+    // Not a sandbox, so its quizzes say nothing of one.
+    await expect(page.getByText(AppNotices.ownSandbox)).toHaveCount(0)
 
     await page.getByRole('link', { name: 'The category wheel' }).click()
     await expect(page).toHaveURL(Routes.categoriesPath(hunt))

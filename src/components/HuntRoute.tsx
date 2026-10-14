@@ -6,6 +6,7 @@ import { Box, Link, Stack, Table, TableBody, TableCell, TableContainer, TableHea
 import * as Actor from '../lib/actor'
 import * as Approve from '../lib/approve'
 import { AppNotices, noSuchHuntNotice, quizzesAboutNotice } from '../lib/notices'
+import { Hunt } from '../models/hunt'
 import { HuntRoleTitles } from '../models/huntship'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT } from '../lib/rows'
@@ -90,12 +91,17 @@ function QuizzesScreen({ hunt }: Readonly<{ hunt: ShallowHuntT }>) {
   )
 }
 
-/** The hunt's own page: its quizzes, its branch, its history to download, the way to its categories, and who is on it in what role */
+/**
+ * The hunt's own page: its quizzes, its branch, its history to download, the way to its categories,
+ * and who is on it in what role. On the visitor's own sandbox, the page a new user lands at, its
+ * quizzes say first what the hunt is.
+ */
 function HuntScreen({ hunt, actor }: Readonly<{ hunt: ShallowHuntT, actor: Actor.ActorT }>) {
   const rebranchable = Approve.mayOffer('rebranch_hunt', Actor.claimsOn(actor, hunt._id, hunt))
+  const ownSandbox = Hunt.isSandbox({ label: hunt.label, orglabel: hunt.org }) && ! Actor.isUnlabelled(actor) && actor.userlabel === hunt.org
   return (
     <Stack component="main" className={styles.page} spacing={2.5} sx={{ maxWidth: 960 }}>
-      <Panel title="Quizzes" about={quizzesAboutNotice(HuntRoleTitles[hunt.role])}>
+      <Panel title="Quizzes" blurb={ownSandbox ? AppNotices.ownSandbox : undefined} about={quizzesAboutNotice(HuntRoleTitles[hunt.role])}>
         <QuizLinks hunt={hunt} />
       </Panel>
       <Panel title="Branch" about="The line of work every quiz of this hunt is on, and the git branch each browser keeps their history on.">

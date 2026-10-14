@@ -18,6 +18,7 @@ export const AppNotices = {
   openingHunts:         'Opening your hunts…',
   openingHunt:          'Opening the hunt…',
   noHunts:              'No hunts yet.',
+  ownSandbox:           'This is your sandbox: a hunt of your own, named for your handle, to try things in.',
   memberLabelShape:      'A handle is lowercase letters, numbers and single underscores, starting with a letter.',
   memberLabelUnfinished: `A handle is at least ${String(PA.Userlabel.min)} characters long, ending in a letter or number.`,
   memberLabelReserved:   "No one goes by that handle: it's kept for the app's own use.",
