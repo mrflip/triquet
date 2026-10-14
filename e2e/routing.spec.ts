@@ -253,7 +253,7 @@ test.describe('the hunts', () => {
     const gear = page.getByRole('dialog', { name: 'Edit hunt' })
     await expect(gear.getByText(RefusalNotices.sealedRelabel)).toBeVisible()
     await expect(gear.getByRole('textbox', { name: 'Label', exact: true })).toHaveCount(0)
-    await expect(gear.getByRole('textbox', { name: 'Title', exact: true })).toBeVisible()
+    await expect(gear.getByRole('textbox', { name: 'Name', exact: true })).toBeVisible()
   })
 
   test("tell an anonymous smith asking to review its sandbox's quiz that reviewing comes with Google, and lead it back to working on it", async ({ page }) => {
@@ -315,8 +315,8 @@ test.describe('the hunts', () => {
     await loadAfresh(page, '/my/hunts')
     await page.getByRole('button', { name: /^Edit hunt / }).click()
     const dialog = page.getByRole('dialog', { name: 'Edit hunt' })
-    await expect(dialog.getByText("Changing this label updates the URL. Old links won't find this page anymore.")).toBeVisible()
-    await dialog.getByRole('textbox', { name: 'Title', exact: true }).fill(huntTitle)
+    await expect(dialog.getByText(AppNotices.huntRelabelMoves)).toBeVisible()
+    await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(huntTitle)
     await dialog.getByRole('textbox', { name: 'Label', exact: true }).fill(huntLabel)
     await dialog.getByRole('button', { name: 'Save' }).click()
     await expect(dialog).toBeHidden()
