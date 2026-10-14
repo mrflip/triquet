@@ -482,11 +482,12 @@ than one kind of player. Begun by the categories sprint, October 2026
   any ending in `_id`: the tool's fields and nouns, and words code, a spreadsheet or Windows reads
   specially (`PA.ReservedLabels`, by group and why). A new hunt's label and a userlabel being
   claimed are also kept from the words for the app's own pages, people and roles, its trial runs
-  and showpieces (`test`, `demo`) and the craft's `meta`, and from any beginning `secur`, `login`,
+  and showpieces (`test`, `demo` and their plurals) and the craft's `meta`, and from any beginning `secur`, `login`,
   `triquet`, `help`, `admin`, `support`, `official`, `verif` or `google` (`PA.ReservedToplevel`
   and its prefixes). A hunt's label already held keeps its word when the
-  list grows; a userlabel is held to the whole list always (`CK.userlabel`), so the list grows only
-  once `scripts/check_reserved` names no holder. `Labelmaker` is the facility for all of this, and `Labelmaker.isReserved`
+  top-level list grows; a userlabel is held to the whole list always (`CK.userlabel`), and every
+  other label to the words every label is kept from whenever its row is written, so either list
+  grows only once `scripts/check_reserved` names no row. `Labelmaker` is the facility for all of this, and `Labelmaker.isReserved`
   the one answer to whether a word may be claimed. (Until October 2026 a row could also hold a `forced_label` overriding the minted
   one, "the effective label"; that pair is retired, and only an import of an older export still
   reads a `forced_label`.)

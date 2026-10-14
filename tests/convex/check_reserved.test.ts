@@ -5,7 +5,11 @@ import { noticeOf } from '../../src/lib/refusals'
 import type { OuterHuntActionDNA } from '../../src/models/actions'
 import * as PA from '../../src/lib/vv/patterns'
 import { Hunt } from '../../src/models/hunt'
-import { anonymousSession, callerOf, googleUser, openTester, seedHunt, type Session, type Tester } from '../support/convex'
+import { Unsent } from '../../convex/check_reserved'
+import { RowValidators } from '../../convex/schema'
+import * as CheckReserved from '../../scripts/check-reserved'
+import { bigQuiz } from '../support/big-quiz'
+import { anonymousSession, callerOf, googleUser, huntHolding, openTester, seedHunt, type Session, type Tester } from '../support/convex'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
 
@@ -50,42 +54,135 @@ async function performOuter(by: Session, action: OuterHuntActionDNA) {
   return await callerOf(by).mutation(api.hunts.performOuter, { action })
 }
 
-/** What `check_reserved:held` answers */
-async function heldIn(tt: Tester) {
-  return await tt.query(internal.check_reserved.held, {})
+/** Run a function on the tester as the guard runs one on a deployment: only `check_reserved:page` */
+function runOn(tt: Tester): CheckReserved.RunT {
+  return async (fnpath, args) => {
+    expect(fnpath).to.eq('check_reserved:page')
+    return await tt.query(internal.check_reserved.page, args as { table: string, cursor: string | null })
+  }
 }
 
-describe("check_reserved:held", () => {
-  it("answers every userlabel a user holds, alphabetically, and every one a ghosting holds and every hunt's org and label, each in the order made, unjudged", async () => {
+/** What the guard reads of the tester, and makes of it */
+async function reportOn(tt: Tester): Promise<CheckReserved.ReportT> {
+  return CheckReserved.reportOf(await CheckReserved.heldFrom(runOn(tt)))
+}
+
+/** A hunt of a quiz of three questions in the classic layout, a cell of it answered, its smith and a reviewer on it, a ghosting, and the library */
+async function wellStocked(tt: Tester) {
+  const seeded = await seedHunt(tt, huntHolding([bigQuiz(3)]), { smith: 'alice_smiths' })
+  const { join, read } = seeded
+  await join('bob_reviews', 'reviewer')
+  const seen = await read()
+  const [question] = present(seen.quizzes[0]).questions
+  await seeded.act({ kind: 'record_widgeted', widgeted: { question_id: present(question)._id, widgeting_label: 'dumdum', status: 'ok', value: 'Leon?' } })
+  const { user_id } = await anonymousSession(tt)
+  await tt.run(async (ctx) => {
+    const account = present(await ctx.db.query('authAccounts').first(), 'an account')
+    await ctx.db.insert('ghostings', { userlabel: 'old_alice', user_id, into_user_id: user_id, account_id: account._id })
+  })
+  return seeded
+}
+
+describe("check_reserved:page", () => {
+  it("answers a table's rows a page at a time, unjudged, and null for a table not ours", async () => {
     const tt = openTester()
-    await standing(tt, 'quiet_otter', 'pat_smith')
-    await standing(tt, 'privacy', 'google_fan')
-    await googleUser(tt, 'abel_google')
-    const { user_id } = await anonymousSession(tt)
-    await tt.run(async (ctx) => {
-      const account = present(await ctx.db.query('authAccounts').first(), 'an account')
-      await ctx.db.insert('ghostings', { userlabel: 'support_me', user_id, into_user_id: user_id, account_id: account._id })
-    })
-    expect(await heldIn(tt)).to.deep.eq({
-      users:     ['abel_google', 'alice_smiths'],
-      ghostings: ['support_me'],
-      hunts:     [{ orglabel: 'pat_smith', label: 'quiet_otter' }, { orglabel: 'google_fan', label: 'privacy' }],
-    })
+    const { open: { hunt_id } } = await standing(tt, 'privacy', 'google_fan')
+    const first = await tt.query(internal.check_reserved.page, { table: 'hunts', cursor: null })
+    expect(first?.isDone).to.be.true
+    expect(first?.page.map((hunt) => hunt._id)).to.deep.eq([hunt_id])
+    expect(await tt.query(internal.check_reserved.page, { table: 'authAccounts', cursor: null })).to.eq(null)
+    expect(await tt.query(internal.check_reserved.page, { table: 'no_such_table', cursor: null })).to.eq(null)
   })
 
-  it("answers nothing on a deployment holding nothing, a user with no userlabel among it", async () => {
+  it("leaves out of every page how to reach the person behind a user and what Google says of them, and still names its userlabel", async () => {
     const tt = openTester()
-    expect(await heldIn(tt)).to.deep.eq({ users: [], ghostings: [], hunts: [] })
-    await anonymousSession(tt)
-    expect(await heldIn(tt)).to.deep.eq({ users: [], ghostings: [], hunts: [] })
+    const { user_id } = await googleUser(tt, 'abel_google')
+    const personal = {
+      email:         'abel_google@example.com', emailVerificationTime: 1_760_000_000_000,
+      phone:         '+1 555 0100',             phoneVerificationTime: 1_760_000_000_000,
+      name:          'Abel Google',             image:                 'https://example.com/abel.png',
+      locale:        'en-GB',                   hosted_domain:         'example.com',
+    }
+    await tt.run(async (ctx) => { await ctx.db.patch('users', user_id, { ...personal, userlabel: 'support_me' }) })
+    const held = present(await tt.run(async (ctx) => await ctx.db.get('users', user_id)))
+    expect(held).to.include(personal)
+    const users = present(await tt.query(internal.check_reserved.page, { table: 'users', cursor: null })).page
+    expect(users.map((user) => Object.keys(user).filter((key) => Object.hasOwn(personal, key)))).to.deep.eq([[]])
+    expect(new Set(Unsent.users)).to.deep.eq(new Set(Object.keys(personal)))
+    const report = await reportOn(tt)
+    expect(report.refused.map(({ table, row, field, val }) => [table, row, field, val])).to.deep.eq([
+      ['users', 'support_me', 'userlabel', 'support_me'],
+    ])
+  })
+
+  it("leaves out only fields a row may lack and no label check holds, so no verdict on a label is lost", () => {
+    const { shape } = RowValidators.users
+    const unsent = present(Unsent.users) as (keyof typeof shape)[]
+    expect(unsent.filter((fieldname) => ! shape[fieldname].safeParse(undefined).success)).to.deep.eq([])
+    // Every label check refuses a reserved word: each field takes one as text, or holds a number
+    const takesAnyWord = (fieldname: keyof typeof shape) => shape[fieldname].safeParse('constructor').success || shape[fieldname].safeParse(0).success
+    expect(unsent.filter((fieldname) => ! takesAnyWord(fieldname))).to.deep.eq([])
   })
 
   it("writes nothing: a hunt it reads is as it was", async () => {
     const tt = openTester()
     const { open: { hunt_id } } = await standing(tt, 'privacy', 'google_fan')
     const ante = await heldHunt(tt, hunt_id)
-    await heldIn(tt)
+    await reportOn(tt)
     expect(await heldHunt(tt, hunt_id)).to.deep.eq(ante)
+  })
+})
+
+describe("the guard, over what the app writes", () => {
+  it("reads every one of our tables, and refuses no row the app wrote", async () => {
+    const tt = openTester()
+    await wellStocked(tt)
+    const report = await reportOn(tt)
+    expect(report.refused).to.deep.eq([])
+    expect(report.absent).to.deep.eq([])
+    expect(new Set(Object.keys(report.counted))).to.deep.eq(new Set(Object.keys(RowValidators)))
+    expect([report.counted.hunts, report.counted.questions, report.counted.ghostings, report.counted.huntships]).to.deep.eq([1, 3, 1, 2])
+    expect(report.counted.widgetings).to.be.above(0)
+    expect(report.counted.widgeteds).to.be.above(0)
+    expect(report.counted.widgets).to.be.above(0)
+  })
+
+  it("names each label a word every label is kept from now holds, in every table, by where it sits", async () => {
+    const tt = openTester()
+    const { open: { hunt_id, quiz_id } } = await wellStocked(tt)
+    await tt.run(async (ctx) => {
+      const [question] = await ctx.db.query('questions').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id)).take(1)
+      await ctx.db.patch('questions', present(question)._id, { chains_to: 'constructor' })
+      const [widgeting] = await ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).take(1)
+      await ctx.db.patch('widgetings', present(widgeting)._id, { label: 'rank', params: { data: 1 } })
+      await ctx.db.patch('hunts', hunt_id, { branch: 'prototype' })
+    })
+    const hunt = await heldHunt(tt, hunt_id)
+    const quizAt = `/~alice_smiths/${hunt.label}/quizzes/home/princes`
+    const { refused } = await reportOn(tt)
+    expect(refused.map(({ table, where, field, val }) => [table, where, field, val])).to.deep.eq([
+      ['hunts',      `/~alice_smiths/${hunt.label}`, 'branch',      'prototype'],
+      ['widgetings', quizAt,                         'label',       'rank'],
+      ['widgetings', quizAt,                         'params.data', 'data'],
+      ['questions',  quizAt,                         'chains_to',   'constructor'],
+    ])
+  })
+
+  it("names a userlabel or org a top-level word now holds, wherever it is held, and a hunt's own label apart, as standing, once", async () => {
+    const tt = openTester()
+    const { open: { hunt_id } } = await wellStocked(tt)
+    await tt.run(async (ctx) => {
+      await ctx.db.patch('hunts', hunt_id, { orglabel: 'google_fan', label: 'privacy' })
+      await ctx.db.insert('hunts', { label: 'terms', orglabel: 'alice_smiths', title: '', branch: 'main' })
+      const ghosting = present(await ctx.db.query('ghostings').first())
+      await ctx.db.patch('ghostings', ghosting._id, { userlabel: 'support_me' })
+    })
+    const report = await reportOn(tt)
+    expect(report.refused.map(({ table, row, field, val }) => [table, row, field, val])).to.deep.eq([
+      ['ghostings', 'support_me', 'userlabel', 'support_me'],
+      ['hunts',     'privacy',    'orglabel',  'google_fan'],
+    ])
+    expect(report.standing).to.deep.eq(['/~alice_smiths/terms'])
   })
 })
 

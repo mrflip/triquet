@@ -115,6 +115,11 @@ const ModelNouns = [
  * or in a path, and so trouble that is cheap to refuse now and dear to unpick later: easier to
  * take a word off later than to add one. A word in two groups is harmless. What only one
  * namespace must avoid is that namespace's own list (`ReservedWidgetingLabels`).
+ *
+ * Every label a row holds is held to these whenever the row is written, so a word added here
+ * leaves every row already so labelled (a hunt, a quiz, a column, a question chained to it, a
+ * widgeting's param) refusing each write. So add one only once `scripts/check_reserved`, run
+ * against production from the branch growing the list, names no row.
  */
 export const ReservedLabelGroups = {
   /** What rows carry beside their label, to say what and where they are and when they were made */
@@ -192,7 +197,7 @@ export function isUnreserved(val: string, allowed?: ReadonlySet<string>): boolea
  * label only as it is made or relabelled, but a userlabel always (`CK.userlabel`): a word added here
  * leaves a user holding it unable to make a hunt or be put on one, and every hunt of an org so
  * named out of reach at its address, its own row unwritable. So add one only once
- * `scripts/check_reserved`, run against production from the branch growing the list, names no holder.
+ * `scripts/check_reserved`, run against production from the branch growing the list, names no row.
  */
 export const ReservedToplevelGroups = {
   /** The app's own corners, and the words for signing in and keeping an account */

@@ -277,28 +277,45 @@ even dry.
 
 ### Checking the reserved list against production
 
-The reserved list (`src/lib/vv/patterns.ts`, `ReservedToplevelGroups` and the prefixes beside it)
-keeps a new hunt's label and every userlabel from the words for the app's own pages and people. A
-hunt's own label is held to it only as it is made or relabelled, but a userlabel always
-(`CK.userlabel`), wherever it is held: a user's, a huntship's copy, a ghosting's, and a hunt's org.
-So a word added while someone holds it locks them out: that user can make no hunt and be put on
-none, a name choice of it cannot be settled, and every hunt of an org so named is out of reach at
-its address, its own row refusing every write. **Before the list grows**, from the branch that
-grows it:
+Two reserved lists live in `src/lib/vv/patterns.ts`. The base list (`ReservedLabelGroups`, and the
+`_id` endings `Unreserved` refuses) keeps every label from the tool's own words, and a widgeting's
+label from its namespace's too (`ReservedWidgetingLabels`); every label a row holds is held to it
+whenever the row is written. The top-level list (`ReservedToplevelGroups` and the prefixes and
+forms beside it) keeps a new hunt's label and every userlabel from the words for the app's own
+pages and people. A hunt's own label is held to it only as it is made or relabelled, but a
+userlabel always (`CK.userlabel`), wherever it is held: a user's, a huntship's copy, a ghosting's,
+and a hunt's org.
+
+So a word added to either list while a row holds it locks that row: a hunt, quiz, column or
+widgeting so labelled, or a question chained to one, refuses every write; a user so named can make
+no hunt and be put on none, a name choice of it cannot be settled, and every hunt of an org so
+named is out of reach at its address. **Before either list grows**, from the branch that grows it:
 
 ```
 ./scripts/doppledo prd_janitor scripts/check_reserved
 ```
 
-It reads every label production holds (`check_reserved:held`: users' and ghostings' userlabels,
-hunts' orgs and labels) and judges them against the list of the checkout it runs from, so it sees
-the new words before production does. It names each holder the list would lock out (`~userlabel`,
-or `~org/label` for a hunt of such an org), and, apart, each hunt whose own label the list keeps
-from new ones, which keeps it and needs nothing done. Deploy the grown list only once it names no
-holder: a user is moved with `scripts/adopt --userlabel` (found by its email or id: a reserved word
-is no userlabel to find it by), and a hunt's org never moves, so a word one holds stays off the
-list. It writes nothing, and behind the guard it names the deployment it reached first;
-`--deployment` changes nothing but which deployment it insists on.
+It reads every row of our tables production holds, a page at a time (`check_reserved:page`; Convex
+Auth's own tables are not read, nor a user's email, phone, Google name, picture, locale, Workspace
+domain or verification times), and judges each by the row validators of the checkout it runs from
+(`RowValidators` in `convex/schema.ts`), so it sees the new words before production does, and judges
+each label as its field is when written. It names each value they would refuse by where it sits (the
+hunt's or quiz's address, the table, the row, the field), and, apart, each hunt whose own label the
+top-level list keeps from new ones, which keeps it and needs nothing done. Since it judges whole
+rows, it also names a row any other tightening of a validator on the branch would lock, but for the
+user fields it never reads, which no check holds today beyond being text or a number: a branch
+adding a check to one of those (a phone number's shape, say) is not warned of the users it would
+lock. Deploy only once it names no row: a user is moved with `scripts/adopt --userlabel` (found by
+its email or id: a reserved word is no userlabel to find it by), and a hunt, quiz, column or
+widgeting is relabelled in the app before the list deploys. A hunt's org and a question's label
+never move, so a word one holds stays off the list. It writes nothing, and behind the guard it names
+the deployment it reached first; `--deployment` changes nothing but which deployment it insists on.
+
+The guard reads through `check_reserved:page`, so it can check only a deployment that already
+runs that function: a release that first brings the guard (or changes the function's contract)
+cannot be checked by it beforehand, and fails with "Could not find function". The release that
+brought `check_reserved:page`, with `bot`, `tests` and `demos`, went out under the Coach's waiver
+("the db is mostly empty right now"); every release after it can be checked first.
 
 ### Adopting a user
 

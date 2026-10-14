@@ -114,6 +114,9 @@ export async function awaitBackfills(waiter: Waiter, limitSeconds: number): Prom
   }
 }
 
+/** How much a function run may print: a page of rows (`check_reserved:page`) may run to megabytes, past the 1 MiB a spawn keeps by default */
+const RunBytesMax = 64 * 1024 * 1024
+
 /**
  * What the convex CLI prints for running `fn` with `args` on the deployment its environment names,
  * parsed as JSON. Run from `cwd` (this checkout, unless told otherwise), with `env` over the
@@ -123,7 +126,7 @@ export async function awaitBackfills(waiter: Waiter, limitSeconds: number): Prom
 export function convexRun(fn: string, args?: Record<string, unknown>, opts: { cwd?: string, env?: Record<string, string | undefined>, quiet?: boolean } = {}): unknown {
   const argv = ['exec', 'convex', 'run', fn, ...(args ? [JSON.stringify(args)] : [])]
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- the pnpm this checkout already runs
-  const ran = spawnSync('pnpm', argv, { cwd: opts.cwd, env: { ...process.env, ...opts.env }, encoding: 'utf8', stdio: ['ignore', 'pipe', opts.quiet ? 'pipe' : 'inherit'] })
+  const ran = spawnSync('pnpm', argv, { cwd: opts.cwd, env: { ...process.env, ...opts.env }, encoding: 'utf8', stdio: ['ignore', 'pipe', opts.quiet ? 'pipe' : 'inherit'], maxBuffer: RunBytesMax })
   if (ran.status !== 0) {
     const said = opts.quiet ? failureIn(ran.stderr || '') : 'see above'
     throw new Error(`convex run ${fn} failed (exit ${String(ran.status)}): ${said}`)

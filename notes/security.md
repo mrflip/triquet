@@ -211,9 +211,21 @@ security expert who knows what questions to ask.
   no hunt and be put on none, and every hunt of an org so named is out of reach at its address and
   refuses every write to its row. The list is grown only after `scripts/check_reserved`, run
   against production from the branch growing it (it judges by the checkout's list), names no
-  holder. Once waived: thread 7 of the same sprint added `bots`, `test`, `demo`, `sync` and `meta`
-  with production nearly empty, the Coach waiving the run ("the db is mostly empty right now"); the
-  guard ran against a local backend only.
+  holder. Twice waived: thread 7 of the same sprint added `bots`, `test`, `demo`, `sync` and `meta`
+  with production nearly empty, the Coach waiving the run ("the db is mostly empty right now"), and
+  thread 8 added `bot`, `tests` and `demos` under the same waiver; the guard ran against local
+  backends only. *Amended 2026-10-14 (thread 8)*: the guard now reads every row of our tables
+  (`check_reserved:page`, an internal query answering one page of any table with a row validator,
+  Convex Auth's own refused, so no token or secret leaves the deployment) and judges each by the
+  checkout's row validators, so it covers growth of the base list (`PA.ReservedLabelGroups`) too.
+  The rows it reads reach the machine running it, in memory only. How to reach the person behind a
+  user, and what Google says of them, are left out of every page (`Unsent`), as defence in depth
+  (the Coach's calls, 2026-10-14: email and phone first, then the rest): email, phone and when each
+  was verified, and Google's name, picture, locale and Workspace domain. Each is optional and none
+  is held to a label's words, so no verdict on a label is lost (tested); a check added to one of
+  those fields would go unseen. What a user's row still sends is its userlabel and title (both
+  shown to other users already, `UserFaceT`), flags (anonymous, admin, provisional), a merge's ids
+  and its stamps.
 * 2026-10-11 (oauth sprint, thread 2): `clear_people:clearBatch` (`convex/clear_people.ts`), an
   internal mutation, deletes every row of Convex Auth's tables (`users`, `authAccounts`,
   `authSessions`, `authRefreshTokens`, `authVerifiers`, `authVerificationCodes`,

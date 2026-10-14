@@ -3,7 +3,7 @@ import * as Z from 'zod'
 import { describe, expect, it } from 'vitest'
 import { authTables } from '@convex-dev/auth/server'
 import type { Id, TableNames as AllTableNames } from '../../convex/_generated/dataModel'
-import schema from '../../convex/schema'
+import schema, { RowValidators as SchemaRowValidators, type RowValidator } from '../../convex/schema'
 import { StampedTables } from '../../convex/stamping'
 import { CategoryLabelVals } from '../../src/models/category'
 import { ColumnValidators } from '../../src/models/column'
@@ -38,28 +38,8 @@ function isOurs(tablename: string): boolean {
   return tablename === 'users' || ! Object.hasOwn(authTables, tablename)
 }
 
-/** A row validator: one shape, or a union of shapes told apart by a field */
-type RowValidator = Z.ZodObject | Z.ZodDiscriminatedUnion<Z.ZodObject[]>
-
-/** Every table, and the row validator its writes pass through */
-const RowValidators: Record<TableNames, RowValidator> = {
-  columns:     ColumnValidators.row,
-  hunts:       HuntValidators.row,
-  ghostings:   GhostingValidators.row,
-  huntships:   HuntshipValidators.row,
-  users:       UserValidators.row,
-  questions:   QuestionValidators.row,
-  quizzes:     QuizValidators.row,
-  realms:      RealmValidators.row,
-  reviews:     ReviewValidators.row,
-  reviewings:  ReviewingValidators.row,
-  signals:     SignalValidators.row,
-  schema_steps: SchemaStepValidators.row,
-  widgets:     WidgetValidators.row,
-  widgetings:  WidgetingValidators.row,
-  widgeteds:   WidgetedValidators.row,
-  quiz_widgeteds: WidgetedValidators.quizRow,
-}
+/** Every table, and the row validator its writes pass through: the schema's own, held to the tables the data model names */
+const RowValidators: Record<TableNames, RowValidator> = SchemaRowValidators
 
 /** A row's stamps, which the trigger writes once the row has landed (`convex/stamping.ts`), so that a row goes in without them */
 const Stamps = ['created_at', 'updated_at']

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# The guard to run before the reserved list grows: reads every userlabel, ghosting and hunt label
-# the deployment holds, and names each the list of this checkout keeps. A userlabel is held to the
-# whole list always, so deploy a grown list only once this names no holder. Read-only, behind the
-# janitor's guard, which names the deployment it reached. See scripts/check-reserved.ts, and
-# notes/deploy.md, *Checking the reserved list against production*.
+# The guard to run before a reserved list grows: reads every row of our tables the deployment
+# holds, a page at a time, and names each value the row validators of this checkout refuse, by
+# where it sits: a label held to either list (the top-level words, or those every label is kept
+# from) that a word added since now keeps. Deploy a grown list only once this names no row.
+# Read-only, behind the janitor's guard, which names the deployment it reached. See
+# scripts/check-reserved.ts, and notes/deploy.md, *Checking the reserved list against production*.
 #
 #   ./scripts/doppledo prd_janitor scripts/check_reserved
 #
