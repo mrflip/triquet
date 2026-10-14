@@ -124,6 +124,7 @@ export const RefusalNotices = {
   quizzesFull:      `A realm holds at most ${String(PA.QuizzesPerRealm.max)} quizzes.`,
   libraryFull:      `The library holds at most ${String(PA.WidgetsInLibrary.max)} widgets.`,
   huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,
+  noRoomForSandbox: `Your handle wasn't saved: every new handle comes with a hunt of its own, and the app already holds the most hunts it can (${String(PA.HuntsInApp.max)}).`,
   orgFull:          `One handle may make at most ${String(PA.HuntsPerOrg.max)} hunts.`,
   huntshipsFull:    `A hunt holds at most ${String(PA.HuntshipsPerHunt.max)} members.`,
   sealedHunts:      `${AppNotices.verifyAccount} to make more hunts than the one named for your handle.`,

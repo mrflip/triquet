@@ -69,7 +69,7 @@ export const holder = zPlainQuery({
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`: `notSignedIn` for a request
  *   with no session, `notIdentified` for a retitle by a user holding no userlabel, `userlabelSet`
  *   for a user taking a second one, `userlabelClaimed` for a userlabel that is not free,
- *   `huntsFull` for one taken while the app holds all the hunts it may, so there is no room for
+ *   `noRoomForSandbox` for one taken while the app holds all the hunts it may, so there is no room for
  *   its sandbox, `nameChoiceGone` for a name choice not pending), or
  *   `{ ZodError }` for an argument that is not valid; nothing is written.
  */

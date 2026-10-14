@@ -89,7 +89,7 @@ describe('users.perform: assume_userlabel', () => {
     expect(await allOf(tt, 'hunts')).to.have.lengthOf(1)
   })
 
-  it("refuses the handle, and makes no sandbox, when the app holds all the hunts it may: no user holds a handle taken here without one", async () => {
+  it("refuses the handle, saying it was not saved, and makes no sandbox, when the app holds all the hunts it may: no user holds a handle taken here without one", async () => {
     const tt = openTester()
     await tt.run(async (ctx) => {
       for (let idx = 0; idx < PA.HuntsInApp.max; idx += 1) {
@@ -97,7 +97,9 @@ describe('users.perform: assume_userlabel', () => {
       }
     })
     const session = await anonymousSession(tt)
-    expect(await refusedAs(assume(session, 'flip_kromer', 'Flip'))).to.eq('huntsFull')
+    const err = await rejectionOf(assume(session, 'flip_kromer', 'Flip'))
+    expect([failurekindOf(err), noticeOf(err)]).to.deep.eq(['noRoomForSandbox', RefusalNotices.noRoomForSandbox])
+    expect(noticeOf(err)).to.match(/^Your handle wasn't saved: /)
     expect(await fieldOf(tt, session.user_id, 'userlabel')).to.be.undefined
     expect(await tt.run(async (ctx) => await ctx.db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', 'flip_kromer')).collect())).to.deep.eq([])
   })

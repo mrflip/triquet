@@ -1,6 +1,7 @@
 import type { Id } from '../_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
 import * as PA from '../../src/lib/vv/patterns'
+import type { Refusalkind } from '../../src/lib/notices'
 import { refuse } from '../../src/lib/refusals'
 import type { OuterHuntActionT } from '../../src/models/actions'
 import type { WheelT } from '../../src/models/category'
@@ -39,13 +40,15 @@ export async function newHunt(db: Writer, actor: Actor.ActorT, label: string): P
  * put it in an address. So is one hunt more than the app may hold.
  *
  * @param maker - Who makes it, its first smith, whose userlabel is its org.
+ * @param whenFull - The refusal for one hunt more than the app may hold: `huntsFull`, or, for a
+ *   sandbox, the one that tells a new user its handle was not saved (`noRoomForSandbox`).
  * @returns The hunt's row id.
- * @throws A refusal (`labelTaken`, `huntsFull`); nothing is written.
+ * @throws A refusal (`labelTaken`, or `whenFull`); nothing is written.
  */
-export async function makeHuntFor(db: Writer, maker: Pick<UserFaceT, '_id' | 'userlabel' | 'title'>, label: string): Promise<Id<'hunts'>> {
+export async function makeHuntFor(db: Writer, maker: Pick<UserFaceT, '_id' | 'userlabel' | 'title'>, label: string, whenFull: Refusalkind = 'huntsFull'): Promise<Id<'hunts'>> {
   const [hunts, taken] = await Promise.all([huntsOf(db), huntInOrg(db, maker.userlabel, label)])
   if (taken) { refuse('labelTaken') }
-  if (hunts.length >= PA.HuntsInApp.max) { refuse('huntsFull') }
+  if (hunts.length >= PA.HuntsInApp.max) { refuse(whenFull) }
   const hunt_id = await insertHunt(db, label, maker.userlabel)
   await db.insert('huntships', HuntshipValidators.row({ hunt_id, user_id: maker._id, userlabel: maker.userlabel, usertitle: maker.title, role: 'smith' }))
   return hunt_id
@@ -60,12 +63,12 @@ export async function makeHuntFor(db: Writer, maker: Pick<UserFaceT, '_id' | 'us
  *
  * @param maker - The user, its userlabel and title as it has just taken them.
  * @returns The sandbox's row id.
- * @throws A refusal (`huntsFull`) when the app holds all the hunts it may; nothing is written.
+ * @throws A refusal (`noRoomForSandbox`) when the app holds all the hunts it may; nothing is written.
  *
  * @example await makeSandboxFor(db, { _id: user_id, userlabel: 'flip_kromer', title: 'Flip' })  // => the id of ~flip_kromer/flip_kromer
  */
 export async function makeSandboxFor(db: Writer, maker: Pick<UserFaceT, '_id' | 'userlabel' | 'title'>): Promise<Id<'hunts'>> {
-  return await makeHuntFor(db, maker, maker.userlabel)
+  return await makeHuntFor(db, maker, maker.userlabel, 'noRoomForSandbox')
 }
 
 /**

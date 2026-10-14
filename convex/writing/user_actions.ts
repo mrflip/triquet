@@ -37,7 +37,7 @@ import type { Writer } from './quiz_writing'
  * @param userlabel - The userlabel, already validated.
  * @param title - What to call the user; its userlabel titleized when blank.
  * @returns The user's row id.
- * @throws A refusal (`userlabelClaimed`, or `huntsFull` when the app holds all the hunts it may); nothing is written.
+ * @throws A refusal (`userlabelClaimed`, or `noRoomForSandbox` when the app holds all the hunts it may); nothing is written.
  *
  * @example await assumeUserlabel(ctx.db, user_id, ctx.actor, 'flip_kromer', 'Flip')  // flip_kromer, smith of ~flip_kromer/flip_kromer
  */
