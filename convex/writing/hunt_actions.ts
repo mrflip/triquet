@@ -1,6 +1,7 @@
 import type { Id } from '../_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
 import * as PA from '../../src/lib/vv/patterns'
+import type { Refusalkind } from '../../src/lib/notices'
 import { refuse } from '../../src/lib/refusals'
 import type { OuterHuntActionT } from '../../src/models/actions'
 import type { WheelT } from '../../src/models/category'
@@ -15,7 +16,8 @@ import { deleteQuiz, insertHunt, updateHunt, type Writer } from './quiz_writing'
  * without a userlabel is refused, since a hunt nobody is on is a hunt nobody can open. A sealed
  * one (`Actor.isSealed`: anonymous) makes only its sandbox, whose label policy has already held to
  * its userlabel (`Approve.mayMakeHunt`), and so only once: its org holding any hunt refuses a
- * second. Anyone is refused one hunt more than their org may hold (`PA.HuntsPerOrg`), so no one
+ * second. (A user taking its handle is made its sandbox then, `makeSandboxFor`; this makes one by
+ * hand for a user that took its handle before that.) Anyone is refused one hunt more than their org may hold (`PA.HuntsPerOrg`), so no one
  * userlabel takes up the app's room; and whatever `makeHuntFor` refuses.
  *
  * @returns The hunt's row id.
@@ -31,22 +33,42 @@ export async function newHunt(db: Writer, actor: Actor.ActorT, label: string): P
 
 /**
  * Make a fresh hunt under `label` for `maker`, as `newHunt` does, however many hunts its org
- * already holds and whatever sealing says: for the deployment's admin alone (`testing:makeHunt`,
- * by which the e2e suite makes a whole run's hunts, under one user per worker). A label some hunt
+ * already holds and whatever sealing says: for a new user's sandbox (`makeSandboxFor`), and for the
+ * deployment's admin (`testing:makeHunt`, by which the e2e suite makes a whole run's hunts, under
+ * one user per worker). A label some hunt
  * of the org already answers to (`huntInOrg`) is refused, as a quiz's is: the caller has already
  * put it in an address. So is one hunt more than the app may hold.
  *
  * @param maker - Who makes it, its first smith, whose userlabel is its org.
+ * @param whenFull - The refusal for one hunt more than the app may hold: `huntsFull`, or, for a
+ *   sandbox, the one that tells a new user its handle was not saved (`noRoomForSandbox`).
  * @returns The hunt's row id.
- * @throws A refusal (`labelTaken`, `huntsFull`); nothing is written.
+ * @throws A refusal (`labelTaken`, or `whenFull`); nothing is written.
  */
-export async function makeHuntFor(db: Writer, maker: Pick<UserFaceT, '_id' | 'userlabel' | 'title'>, label: string): Promise<Id<'hunts'>> {
+export async function makeHuntFor(db: Writer, maker: Pick<UserFaceT, '_id' | 'userlabel' | 'title'>, label: string, whenFull: Refusalkind = 'huntsFull'): Promise<Id<'hunts'>> {
   const [hunts, taken] = await Promise.all([huntsOf(db), huntInOrg(db, maker.userlabel, label)])
   if (taken) { refuse('labelTaken') }
-  if (hunts.length >= PA.HuntsInApp.max) { refuse('huntsFull') }
+  if (hunts.length >= PA.HuntsInApp.max) { refuse(whenFull) }
   const hunt_id = await insertHunt(db, label, maker.userlabel)
   await db.insert('huntships', HuntshipValidators.row({ hunt_id, user_id: maker._id, userlabel: maker.userlabel, usertitle: maker.title, role: 'smith' }))
   return hunt_id
+}
+
+/**
+ * Make the user `maker` its sandbox: the hunt labelled with its own userlabel, so at
+ * `~label/label` (`Hunt.isSandbox`), with it as its smith, holding its first quiz, the blank one
+ * every hunt is made with. What taking a handle makes (`assumeUserlabel`), in the same write. No
+ * hunt of its org can answer to the label already, as a userlabel is free only while no hunt
+ * carries it as its org; and a userlabel always passes as a hunt's label (`CK.userlabel`).
+ *
+ * @param maker - The user, its userlabel and title as it has just taken them.
+ * @returns The sandbox's row id.
+ * @throws A refusal (`noRoomForSandbox`) when the app holds all the hunts it may; nothing is written.
+ *
+ * @example await makeSandboxFor(db, { _id: user_id, userlabel: 'flip_kromer', title: 'Flip' })  // => the id of ~flip_kromer/flip_kromer
+ */
+export async function makeSandboxFor(db: Writer, maker: Pick<UserFaceT, '_id' | 'userlabel' | 'title'>): Promise<Id<'hunts'>> {
+  return await makeHuntFor(db, maker, maker.userlabel, 'noRoomForSandbox')
 }
 
 /**

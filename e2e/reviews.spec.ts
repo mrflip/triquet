@@ -30,7 +30,7 @@ test.describe('a review', () => {
     await waitUntilSaved(page)
 
     const reviewer = await enterReview(page, friend, friendLabel)
-    await expect(reviewer.getByRole('heading', { name: 'For review — PLAYTESTING' })).toBeVisible()
+    await expect(reviewer.getByRole('heading', { name: 'For review — playtesting' })).toBeVisible()
     await expect(reviewer.getByText('Which prince was Danish?')).toBeVisible()
     await expect(reviewer.getByText('Oops: no hint is attached').first()).toBeVisible()
 

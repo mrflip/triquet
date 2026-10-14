@@ -205,7 +205,7 @@ describe('runQuiz', () => {
   it('reports a widgeting whose widget is gone as a failure, naming it', () => {
     const { quiz } = columnQuiz('1')
     const widgeted = Runner.widgetedOf(runOf(quiz, []), 'tally', present(quiz.questions[0])._id)
-    expect(widgeted).to.deep.eq(failed('There is no widget called "custom" any more'))
+    expect(widgeted).to.deep.eq(failed('There is no widget called “custom” any more'))
   })
 
   it('stops a formula that will not end, and does not wait on it again for the rest of its widgeting', () => {
@@ -417,7 +417,7 @@ describe('the widgetings run once for the whole quiz', () => {
     expect(Runner.quizWidgetedOf(unentered, 'playtesters')).to.deep.eq(Widgeted.missing)
     expect(Runner.widgetedOf(unentered, 'thanked', first._id)).to.deep.eq(Widgeted.missing)
     const gone = runOf(quiz, library.slice(1))
-    expect(Runner.quizWidgetedOf(gone, 'playtesters')).to.deep.eq(failed('There is no widget called "name_list" any more'))
+    expect(Runner.quizWidgetedOf(gone, 'playtesters')).to.deep.eq(failed('There is no widget called “name_list” any more'))
   })
 
   it("leave the frame's quiz as it stands once every widgeting has run, and each bag's quiz as it stood when that one ran", () => {
@@ -514,7 +514,7 @@ describe('sourceOf', () => {
   it('is what a run reads its widgeteds from', () => {
     const run = Runner.runQuiz(source)
     expect(Runner.widgetedOf(run, 'asked', recorded._id)).to.deep.eq(Widgeted.ok('hi'))
-    expect(Runner.widgetedOf(run, 'orphan', recorded._id)).to.deep.eq(failed('There is no widget called "nobody" any more'))
+    expect(Runner.widgetedOf(run, 'orphan', recorded._id)).to.deep.eq(failed('There is no widget called “nobody” any more'))
   })
 })
 

@@ -73,7 +73,7 @@ export function HuntEditModal({ hunt, relabelable, onClose }: Readonly<HuntEditM
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
-            label="Title"
+            label="Name"
             value={titleDraft}
             size="small"
             autoFocus

@@ -157,11 +157,19 @@ const UnreservedToplevelCases: [string, boolean, string][] = [
   ["privacy",       false,  'the privacy policy\'s route is refused'],
   ["terms",         false,  'the terms\' route is refused'],
   ["stats",         false,  'the stats page\'s route is refused'],
+  ["bots",          false,  'the bots, many, which would pass for the app\'s reviewers speaking, is refused'],
+  ["sync",          false,  'a corner the app may serve its sync from is refused'],
+  ["test",          false,  'what the app\'s own checks would call their data is refused'],
+  ["demo",          false,  'what the app\'s showpiece would be called is refused'],
+  ["meta",          false,  'the craft\'s word for a quiz\'s second layer is refused'],
   // near misses, which must be allowed:
   ["about_face",    true,   'a top-level word with more after it is another word'],
   ["smithson",      true,   'a role\'s name with more after it is another word'],
   ["handlebar",     true,   'handle with more after it is another word'],
   ["my_team",       true,   'a top-level word at the end of a longer one is another word'],
+  ["test_kitchen",  true,   'test with more after it is allowed: only the bare word is kept'],
+  ["meta_hunt",     true,   'meta with more after it is allowed: only the bare word is kept'],
+  ["bot_fan",       true,   'bot with more after it is another word: only bots, whole, is kept'],
   // trivial cases:
   ["",              true,   'an empty string is not reserved: refusing it is the label pattern\'s job'],
 ]

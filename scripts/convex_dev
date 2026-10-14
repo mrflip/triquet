@@ -7,7 +7,12 @@
 #      someone else's or your own, is used and left alone.
 #   2. Gives it Google's keys for signing in with Google (AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET) from
 #      the Doppler config this runs under, or takes them away where that config has none, so the
-#      backend offers Google exactly when its config does (convex/auth.ts). Pushes convex/ to it
+#      backend offers Google exactly when its config does (convex/auth.ts). An e2e role's backend
+#      signs in with a stand-in for Google instead, never Google, in CI as locally: the stand-in
+#      (scripts/mock-google.ts) is started on the role's issuer port unless it is already
+#      answering, logging to data/convex-<role>/mock-google.log, and stopped again on the way out,
+#      and the backend is given its address (TRIQUET_MOCK_GOOGLE_ISSUER) and placeholder keys of
+#      its own, whatever the config holds. Pushes convex/ to it
 #      (regenerating convex/_generated/), marks it clearable (TRIQUET_CLEARABLE=yes, which
 #      testing:clearAll asks for), and gives it Convex Auth's keys when it has none
 #      (scripts/convex_auth_keys).
@@ -36,7 +41,7 @@ case "$role" in
   *) echo "$usage" >&2; exit 1 ;;
 esac
 # The role's web and backend ports in this checkout's lane, as scripts/convex_backend has them.
-read -r web_port port _ <<< "$(node scripts/lanes.ts ports "$role")"
+read -r web_port port _ issuer_port <<< "$(node scripts/lanes.ts ports "$role")"
 shift
 reset=no
 seed=no
@@ -66,6 +71,14 @@ trap 'exit 143' INT TERM
 
 answering() { curl --silent --fail --max-time 2 "${url}/version" > /dev/null; }
 
+# An e2e role signs in with a stand-in for Google on this machine, never Google
+case "$role" in
+  e2e | e2e-agent | e2e-built) mock_google=yes ;;
+  *) mock_google=no ;;
+esac
+issuer_url="http://127.0.0.1:${issuer_port}"
+issuerAnswering() { curl --silent --fail --max-time 2 "${issuer_url}/.well-known/openid-configuration" > /dev/null; }
+
 if ! answering; then
   mkdir -p "$datadir"
   scripts/convex_backend "$role" > "${datadir}/backend.log" 2>&1 &
@@ -77,6 +90,21 @@ if ! answering; then
   if ! answering; then
     echo "The ${role} Convex backend did not answer at ${url}; its log:" >&2
     tail -n 20 "${datadir}/backend.log" >&2
+    exit 1
+  fi
+fi
+
+if [[ "$mock_google" == yes ]] && ! issuerAnswering; then
+  mkdir -p "$datadir"
+  node scripts/mock-google.ts serve "$role" > "${datadir}/mock-google.log" 2>&1 &
+  children+=("$!")
+  for _ in $(seq 1 30); do
+    issuerAnswering && break
+    sleep 1
+  done
+  if ! issuerAnswering; then
+    echo "The ${role} stand-in for Google did not answer at ${issuer_url}; its log:" >&2
+    tail -n 20 "${datadir}/mock-google.log" >&2
     exit 1
   fi
 fi
@@ -93,11 +121,22 @@ while IFS='=' read -r envname val; do
   esac
 done < "${datadir}/cli.env"
 
-# Google's keys, from this environment (the Doppler config), or neither. Set before the push: the
+# Google's keys, from this environment (the Doppler config), or neither; for an e2e role, the
+# stand-in's address and its placeholder keys (scripts/mock-google.ts env). Set before the push: the
 # push is when the backend learns the HTTP routes Convex Auth adds for Google. The secret goes
 # through a file only this user can read, removed at once, never a command line or the output.
 googleKeys() {
-  if [[ -n "${AUTH_GOOGLE_ID:-}" && -n "${AUTH_GOOGLE_SECRET:-}" ]]; then
+  if [[ "$mock_google" == yes ]]; then
+    (
+      keyfile="$(umask 077 && mktemp "${TMPDIR:-/tmp}/triquet-google-keys.XXXXXX")"
+      trap 'rm -f "$keyfile"' EXIT
+      node scripts/mock-google.ts env "$role" > "$keyfile"
+      if ! "$convex" env set --force --from-file "$keyfile" > /dev/null 2>&1; then
+        echo "Could not point the ${role} backend at its stand-in for Google." >&2
+        exit 1
+      fi
+    )
+  elif [[ -n "${AUTH_GOOGLE_ID:-}" && -n "${AUTH_GOOGLE_SECRET:-}" ]]; then
     (
       keyfile="$(umask 077 && mktemp "${TMPDIR:-/tmp}/triquet-google-keys.XXXXXX")"
       trap 'rm -f "$keyfile"' EXIT
@@ -108,8 +147,9 @@ googleKeys() {
         exit 1
       fi
     )
+    "$convex" env remove TRIQUET_MOCK_GOOGLE_ISSUER > /dev/null 2>&1 || true
   else
-    for envname in AUTH_GOOGLE_ID AUTH_GOOGLE_SECRET; do
+    for envname in AUTH_GOOGLE_ID AUTH_GOOGLE_SECRET TRIQUET_MOCK_GOOGLE_ISSUER; do
       "$convex" env remove "$envname" > /dev/null 2>&1 || true
     done
   fi

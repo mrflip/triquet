@@ -1,8 +1,9 @@
 import { test as base, expect, type Browser, type BrowserContext, type BrowserContextOptions, type Locator, type Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices } from '../src/lib/notices'
-import type * as Routes from '../src/lib/routes'
+import * as Routes from '../src/lib/routes'
 import { namesFor, type QuestionField, type QuestionView } from '../src/models/column'
+import { HomeRealmLabel } from '../src/models/realm'
 import * as Z from 'zod'
 import { runAsAdmin, vouchFor } from './admin'
 
@@ -287,7 +288,7 @@ export async function openManage(page: Page): Promise<void> {
  * open, typing `label` to confirm it.
  */
 export async function actDangerously(page: Page, actname: string, label: string): Promise<void> {
-  await manageDialog(page).getByRole('region', { name: 'Danger Zone' }).getByRole('button', { name: actname }).click()
+  await manageDialog(page).getByRole('region', { name: 'Danger zone' }).getByRole('button', { name: actname }).click()
   const confirming = page.getByRole('dialog', { name: `${actname}?` })
   await confirming.getByRole('textbox').fill(label)
   await confirming.getByRole('button', { name: actname }).click()
@@ -444,13 +445,26 @@ const CollisionCode = 'OptimisticConcurrencyControlFailure'
 /**
  * Have the backend make a hunt for the user holding the userlabel `label`, laid out as `layout`
  * says, and open its quiz: the fixture's way in, for a page whose session is that user's.
+ */
+async function enterFreshHunt(page: Page, label: string, layout: LayoutT): Promise<void> {
+  await page.goto(await huntMadeFor(label, layout))
+  await expect(grid(page)).toBeVisible()
+}
+
+/**
+ * Have the backend make a hunt for the user holding the userlabel `label`, as its smith, laid out
+ * as `layout` says (`testing:makeHunt`), without walking the hunts list.
  *
  * Making a hunt reads every hunt (the app caps how many it holds), so two made at once collide,
  * and Convex gives up on one after retrying it a few times; with every worker making a hunt a
  * test, that happens. A write that collided wrote nothing, so it is tried again, for a while. Any
  * other refusal (a widget the library lacks, say) fails the test at once.
+ *
+ * @returns The address of the hunt's quiz, open to edit.
+ *
+ * @example await page.goto(await huntMadeFor(friendLabel))
  */
-async function enterFreshHunt(page: Page, label: string, layout: LayoutT): Promise<void> {
+export async function huntMadeFor(label: string, layout: LayoutT = {}): Promise<string> {
   const made: { address: string, refusal: Error | null } = { address: '', refusal: null }
   await expect(async () => {
     try {
@@ -464,8 +478,7 @@ async function enterFreshHunt(page: Page, label: string, layout: LayoutT): Promi
     }
   }, 'the backend should make a hunt').toPass({ intervals: [100, 250, 500, 1000], timeout: 10_000 })
   if (made.refusal !== null) { throw made.refusal }
-  await page.goto(made.address)
-  await expect(grid(page)).toBeVisible()
+  return made.address
 }
 
 /**
@@ -497,8 +510,8 @@ export function freshWidgetLabel(stem: string): string {
 }
 
 /**
- * Say who this browser is at the front door, and wait to be sent on to the hunts: its user, an
- * anonymous one, takes the userlabel `label`.
+ * Say who this browser is at the front door, and wait until it has landed where a new user lands
+ * (`landedAfterSignUp`): its user, an anonymous one, takes the userlabel `label`.
  *
  * @param label - The userlabel to take; a fresh one when omitted.
  * @returns The userlabel.
@@ -507,11 +520,45 @@ export async function assumeUserlabel(page: Page, label = freshUserlabel()): Pro
   await page.goto('/')
   await page.getByRole('textbox', { name: 'Handle', exact: true }).fill(label)
   await page.getByRole('button', { name: AppNotices.signUp, exact: true }).click()
-  await expect(page).toHaveURL(/\/my\/hunts$/)
+  await landedAfterSignUp(page, label)
   return label
 }
 
-/** Where a new hunt's quiz is worked on: under its maker's org, its hunt and quiz share a label, in the realm `home`; an anonymous maker's, its sandbox, labelled as its org is */
+/**
+ * Wait until a visitor who has just taken the handle `label` at the front door, by signing up
+ * there (`assumeUserlabel`) or with Google (`signUpWithGoogle` in `google.ts`), has landed where a
+ * new user lands (`Routes.signedUpPath`): the page a link sent them to the front door from (its
+ * `?then=`), when one did and it is worth coming back to (`Routes.isCompelling`); otherwise their
+ * sandbox, `~label/label`, made as they took the handle, with them its smith. The one place a spec
+ * says where a sign-up lands.
+ *
+ * @param label - The handle taken.
+ * @param then - The path the front door was to send them on to, if a link sent them there.
+ *
+ * @example await landedAfterSignUp(page, label)
+ * @example await landedAfterSignUp(page, label, '/~pat_smith/quiet_otter')
+ * @example await landedAfterSignUp(page, label, '/my/hunts')  // at ~label/label all the same
+ */
+export async function landedAfterSignUp(page: Page, label: string, then?: string): Promise<void> {
+  const landing = Routes.signedUpPath(then ?? null, label)
+  await expect(page).toHaveURL((url) => `${url.pathname}${url.search}` === landing)
+  if (landing !== Routes.huntPath({ org: label, hunt: label })) { return }
+  await expect(page.getByRole('table', { name: 'Members of this hunt' }).getByRole('row').filter({ hasText: label })).toContainText('Smith')
+}
+
+/**
+ * Open the quiz of the sandbox of the user holding `label` for work, from the sandbox's own page,
+ * where a new user lands (`landedAfterSignUp`): its first quiz, sharing its label, in the realm
+ * `home`.
+ */
+async function openSandboxQuiz(page: Page, label: string): Promise<void> {
+  const quiz = Routes.quizPath({ org: label, hunt: label, realm: HomeRealmLabel, quiz: label }, 'edit')
+  await page.getByRole('region', { name: 'Quizzes' }).getByRole('link').first().click()
+  await expect(page).toHaveURL(quiz)
+  await expect(grid(page)).toBeVisible()
+}
+
+/** Where a new hunt's quiz is worked on: under its maker's org, its hunt and quiz share a label, in the realm `home`; a sandbox's, labelled as its org is, too */
 export const NewHuntUrl = /\/~[a-z0-9_]+\/([a-z0-9_]+)\/quizzes\/home\/\1\/!edit$/
 
 /** Make a hunt from the hunts list, and wait until its quiz is on screen */
@@ -522,14 +569,14 @@ export async function newHunt(page: Page): Promise<void> {
 }
 
 /**
- * A fresh browser's way in to a quiz: say who it is, make a hunt (its anonymous user's sandbox,
- * `~label/label`), and open the hunt's quiz.
+ * A fresh browser's way in to a quiz: say who it is, which makes it its sandbox (`~label/label`),
+ * and open the sandbox's quiz from the sandbox's page, where it lands.
  *
  * @returns The userlabel.
  */
 export async function startHunt(page: Page): Promise<string> {
   const label = await assumeUserlabel(page)
-  await newHunt(page)
+  await openSandboxQuiz(page, label)
   return label
 }
 

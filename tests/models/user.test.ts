@@ -6,7 +6,7 @@ import { User, UserValidators } from '../../src/models/user'
 describe('User.labelFor', () => {
   const Cases = [
     ["Flip Kromer",          "flip_kromer",                  'makes words a label'],
-    ["  flip  ",             "flip",                         'trims, leaving a label too short for the validator to take'],
+    ["  flo  ",              "flo",                          'trims, leaving a label too short for the validator to take'],
     ["Ünïcödé Pérson",       "unicode_person",               'deburrs'],
     ["Philip (flip) Kromer", "philip_flip_kromer",           'drops punctuation, as a name may hold any'],
     ["the_quite_long_name_indeed", "the_quite_long_name_inde", 'stops at 24 characters'],
@@ -27,8 +27,10 @@ describe('User.suggestionsFor', () => {
     [{ name: "Flip Kromer", email: "flip.kromer@example.com" }, ["flip_kromer", "flip_kromer_2"], 'offers the name first, then numbered, the email making the same one adding nothing'],
     [{ name: "Flip Kromer", email: "mrflip@example.com" },      ["flip_kromer", "mrflip"],        'offers the email before the @ after the name'],
     [{ email: "mrflip@example.com" },                           ["mrflip", "mrflip_2"],           'offers the email alone where Google sent no name'],
+    [{ name: "Flip", email: "flip@example.com" },               ["flip", "flip_2"],               "offers a name of four letters, the fewest a userlabel holds, as it is"],
     // mended or dropped:
-    [{ name: "Flip", email: "flip@example.com" },               ["flip_2", "flip_3"],             'mends a name too short to be a userlabel by numbering it'],
+    [{ name: "Jo", email: "jo@example.com" },                   ["jo_2", "jo_3"],                 'mends a name too short to be a userlabel by numbering it'],
+    [{ name: "J" },                                             ["jz_2", "jz_3"],                 "mends a one-letter name, padded as every label is, by numbering it"],
     [{ name: "Handles", email: "mrflip@example.com" },          ["mrflip", "handles_2"],          'never offers a reserved word'],
     [{ name: "Google Fan", email: "support@example.com" },      [],                               'offers nothing where every word is kept, numbered or not'],
     [{ name: "The Quite Long Name Indeed" },                    ["the_quite_long_name_inde", "the_quite_long_name_in_2"], 'cuts a long one short to leave room for its number'],
@@ -51,8 +53,8 @@ describe('User.suggestionsFor', () => {
   })
 
   it('matches its examples', () => {
-    expect(User.suggestionsFor({ name: 'Flip Kromer', email: 'flip@example.com' }).slice(0, 3)).to.deep.eq(['flip_kromer', 'flip_kromer_2', 'flip_kromer_3'])
-    expect(User.suggestionsFor({ email: 'flip@example.com' }).slice(0, 2)).to.deep.eq(['flip_2', 'flip_3'])
+    expect(User.suggestionsFor({ name: 'Flip Kromer', email: 'flip@example.com' }).slice(0, 3)).to.deep.eq(['flip_kromer', 'flip', 'flip_kromer_2'])
+    expect(User.suggestionsFor({ email: 'jo@example.com' }).slice(0, 2)).to.deep.eq(['jo_2', 'jo_3'])
     expect(User.suggestionsFor({})).to.deep.eq([])
   })
 })
@@ -63,8 +65,9 @@ describe('User.flawIn', () => {
     ["flip_kromer",                  null,         'takes a userlabel'],
     ["flip_kromer_2",                null,         'takes numbers and single underscores after the first letter'],
     ["x".repeat(24),                 null,         'takes as many characters as a label holds'],
+    ["flip",                         null,         "takes as few characters as a userlabel holds"],
     // still being typed:
-    ["flip",                         'unfinished', 'finds a label of fewer than six characters unfinished'],
+    ["flo",                          'unfinished', "finds a label of fewer than four characters unfinished"],
     ["",                             'unfinished', 'finds nothing typed unfinished, not misshapen'],
     ["flip_kromer_",                 'unfinished', 'finds a trailing underscore unfinished, as typing on would mend it'],
     // no typing on mends it:
@@ -100,8 +103,8 @@ describe('User.flawToSay', () => {
   const Cases = [
     ["Flip",        false, 'shape',      'says a misshapen label at once'],
     ["Flip",        true,  'shape',      'says a misshapen label once left'],
-    ["flip",        false, null,         'keeps quiet of an unfinished label while it is being typed'],
-    ["flip",        true,  'unfinished', 'says an unfinished label once the field is left'],
+    ["flo",         false, null,         'keeps quiet of an unfinished label while it is being typed'],
+    ["flo",         true,  'unfinished', 'says an unfinished label once the field is left'],
     ["flip_",       true,  'unfinished', 'says a trailing underscore once the field is left'],
     ["",            true,  null,         'never says anything of an empty field'],
     ["flip_kromer", true,  null,         'says nothing of a label'],
@@ -139,31 +142,17 @@ describe('User.labelled', () => {
   })
 
   const Refused = [
-    ['flips',                  'a userlabel shorter than six'],
+    ['flo',                    "a userlabel shorter than four"],
     ['x'.repeat(25),           'a userlabel longer than twenty-four'],
     ['Flip_Kromer',            'a userlabel that is not one'],
     ['support',                'a word kept for the app\'s own use'],
+    ['google_fan',             'a word kept for the app\'s own use since it was claimed, as a merge would take it over'],
   ] as const
   for (const [userlabel, describes] of Refused) {
     it(`refuses ${describes}`, () => {
       expect(() => User.labelled(userlabel, 'Flip')).to.throw(Z.ZodError)
     })
   }
-})
-
-describe('User.relabelled', () => {
-  it('takes over a userlabel already held, titled as given or after it', () => {
-    expect([User.relabelled('flip_kromer', 'Flip'), User.relabelled('flip_kromer', '')]).to.deep.eq([{ userlabel: 'flip_kromer', title: 'Flip' }, { userlabel: 'flip_kromer', title: 'Flip Kromer' }])
-  })
-
-  it('takes a userlabel the top-level list has kept since it was claimed, as a claim would not', () => {
-    expect(User.relabelled('google_fan', '').userlabel).to.eq('google_fan')
-    expect(() => User.labelled('google_fan', '')).to.throw(Z.ZodError)
-  })
-
-  it('refuses what no userlabel is', () => {
-    expect(() => User.relabelled('Flip Kromer', '')).to.throw(Z.ZodError)
-  })
 })
 
 describe('User.fromGoogle', () => {
@@ -255,9 +244,9 @@ describe('User.faceOf', () => {
 })
 
 describe('UserValidators.userlabel', () => {
-  it('takes six to twenty-four characters, inclusive', () => {
-    expect(['sixsix', 'x'.repeat(24)].map((label) => UserValidators.userlabel.safeParse(label).success)).to.deep.eq([true, true])
-    expect(['fivee', 'x'.repeat(25)].map((label) => UserValidators.userlabel.safeParse(label).success)).to.deep.eq([false, false])
+  it("takes four to twenty-four characters, inclusive", () => {
+    expect(['flip', 'x'.repeat(24)].map((label) => UserValidators.userlabel.safeParse(label).success)).to.deep.eq([true, true])
+    expect(['flo', 'x'.repeat(25)].map((label) => UserValidators.userlabel.safeParse(label).success)).to.deep.eq([false, false])
   })
 })
 
@@ -267,13 +256,9 @@ describe('UserValidators.row', () => {
     expect([UserValidators.row({}), UserValidators.row(row)]).to.deep.eq([{}, row])
   })
 
-  it("takes a userlabel already held that the top-level list has kept since, as a claim would not", () => {
-    expect(UserValidators.row({ userlabel: 'google_fan', title: 'Fan' }).userlabel).to.eq('google_fan')
-    expect(UserValidators.userlabel.safeParse('google_fan').success).to.be.false
-  })
-
   const Refused: [object, string][] = [
     [{ userlabel: 'Flip K' },    'a userlabel that is not one'],
+    [{ userlabel: 'google_fan' }, "a userlabel the top-level list keeps, though held already"],
     [{ title: '' },              'a title left blank, which no user has'],
     [{ admin: 'yes' },           'an admin flag that is not a yes or no'],
     [{ isAnonymous: 'true' },    'an isAnonymous that is not a yes or no'],

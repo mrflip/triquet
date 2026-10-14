@@ -144,9 +144,9 @@ function RecapTemplate({ draft, owned, issue, revisable }: Readonly<RecapTemplat
       <AccordionDetails id="recap-template-details">
         <p className={styles.microcopy}>
           Markdown with Liquid, filled in, then written in the boards&apos; BBCode. It reads what a templated field
-          reads -- {'questions'}, every question by its label, each with its fields (templated ones filled in) and
+          reads — {'questions'}, every question by its label, each with its fields (templated ones filled in) and
           columns by label ({'{{ question.clueing }}'}, {'{{ question.correct_pct }}'}, {'question.secondary'} for an
-          alternate and {'question.archived'} for one put away), so a column of your own can stand in for any line --
+          alternate and {'question.archived'} for one put away), so a column of your own can stand in for any line —
           and {' {{ recap_head }}'} and {'{{ recap_tail }}'} (filled in). {'{% assign played = questions | in_order %}'} lists
           the questions played in Q# order, each with its {'{{ question.number }}'}; {'questions | values'} lists them all. Three filters shape a field for where
           markdown is fragile: {'| quote'} keeps every line in the quote, {'| oneline'} joins the lines into one,

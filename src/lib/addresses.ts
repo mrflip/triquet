@@ -262,7 +262,7 @@ function quizResourceFrom(inQuiz: InQuizT, keypath: readonly string[]): AddressT
 
 /**
  * The org an address's first segment names: the userlabel after its `~`; null when it names
- * none, as a label too short or too long to be a userlabel does not.
+ * none, as a label too short or too long to be a userlabel, or a reserved word, does not.
  *
  * @example orgFrom('~pat_smith')  // => 'pat_smith'
  * @example orgFrom('pat_smith')  // => null
@@ -272,7 +272,7 @@ function quizResourceFrom(inQuiz: InQuizT, keypath: readonly string[]): AddressT
 export function orgFrom(raw: string | null | undefined): string | null {
   if (! raw?.startsWith('~')) { return null }
   const org = raw.slice(1)
-  return isHeldUserlabel(org) ? org : null
+  return isUserlabel(org) ? org : null
 }
 
 /**
@@ -295,10 +295,9 @@ function isLabel(str: string): boolean {
 }
 
 /**
- * Whether `str` is a userlabel as an org holds one, by the server's own check: a label, of a
- * userlabel's length, and none of the words every label is kept from. A top-level word is an org's
- * all the same, kept since the org was named (`CK.heldUserlabel`).
+ * Whether `str` is a userlabel, as an org is one, by the server's own check (`CK.userlabel`),
+ * reserved words and all, so an org the server would refuse leads nowhere here.
  */
-function isHeldUserlabel(str: string): boolean {
-  return CK.heldUserlabel.safeParse(str).success
+function isUserlabel(str: string): boolean {
+  return CK.userlabel.safeParse(str).success
 }

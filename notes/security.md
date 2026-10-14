@@ -7,6 +7,18 @@ security expert who knows what questions to ask.
 
 ## Of Interest
 
+* 2026-10-13: an e2e role's local backend signs in with a stand-in for Google on the same machine
+  (`scripts/mock-google.ts`, `oauth2-mock-server`), not with Google. `convex/auth.ts` gives the Google
+  provider the stand-in's issuer only where `TRIQUET_MOCK_GOOGLE_ISSUER` is set **and** the
+  deployment has `TRIQUET_CLEARABLE=yes` (which production never has) **and** the address is `http`
+  on a loopback host (`mockGoogleIssuerOf`); in every other case the variable is ignored and
+  Google's own issuer stands. `@auth/core`'s own switch, `AUTH_GOOGLE_ISSUER`, is not honoured for
+  the Google provider (it keeps its `issuer`), so it is no back door either. The stand-in answers as
+  whatever account a request header names (`x-triquet-mock-google`), and its keys
+  (`AUTH_GOOGLE_ID`/`SECRET`) are placeholders, set only by `scripts/convex_dev` on an e2e role's
+  backend. Convex Auth fetches a provider's discovery, token and userinfo addresses over `http` as
+  readily as `https` (it sets oauth4webapi's `allowInsecureRequests` itself), so the guard above is
+  the only thing keeping a provider on `https`.
 * 2026-10-13: `users:holder` answers anyone, with or without a session and with no rate limit,
   whether a userlabel is free, held by a verified account (signed in with Google), held by a standalone
   (anonymous) one, or kept by a ghosting or a hunt's address. The front door watches it as a handle
@@ -82,7 +94,11 @@ security expert who knows what questions to ask.
   deployment without `TRIQUET_CLEARABLE=yes`: `vouchFor` may give the vouched user an email (as
   Google would have sent it, for the user menu's spec), and `testing:mergeInto` marks one user
   merged into another (the mark alone: no sandbox handed on, no session ended), so e2e can reach
-  the name choice. Neither is a provider, and neither signs anyone in.
+  the name choice. Neither is a provider, and neither signs anyone in. *2026-10-13 (auth_todos,
+  thread 3):* both are gone (`testing:mergeInto` entirely, and `vouchFor`'s email), the e2e suite
+  signing in with the stand-in for Google instead; `testing:vouchFor` itself stays, marking a user
+  no longer anonymous and nothing more. In their place `testing:keptOf`, gated the same way, answers
+  a holder of the admin key a user's email and what else it keeps of Google's, by userlabel.
 * 2026-10-12 (oauth sprint, thread 9, the sprint's review; whole review in
   `whiteboard/20261010-oauth/oauth-security-review.md`). Left open, each for a Coach:
   - `hunts:open` names a hunt's smiths (handle and title) to any caller not on it, with no session
@@ -185,13 +201,19 @@ security expert who knows what questions to ask.
   nothing goes to a bot unasked. Code that changes any of these
   changes the policy, and its date, in the same PR.
 * 2026-10-11 (oauth sprint, thread 8): the reserved list keeps a new hunt label or userlabel from
-  passing for the app, its pages, its roles, Google or the bot (`PA.ReservedToplevelGroups`, and
-  the prefixes `google`, `triquet`, `admin`, `support`, `official`, `verif`, `secur`, `login`,
-  `help`). It is matched exactly against labels, which hold only lowercase ASCII letters, digits
-  and underscores, so near spellings (`go0gle`, `triquett`) pass. It governs only a label being
-  made or claimed: a hunt row's label and org are held to their shape and the words every label is
-  kept from (`CK.heldUserlabel`), so a hunt or org named before a word was kept keeps it, and
-  `scripts/check_reserved` names them.
+  passing for the app, its pages, its roles, its trials and the craft's words, Google or the bot
+  (`PA.ReservedToplevelGroups`, and the prefixes `google`, `triquet`, `admin`, `support`,
+  `official`, `verif`, `secur`, `login`, `help`). It is matched exactly against labels, which hold only lowercase ASCII letters, digits
+  and underscores, so near spellings (`go0gle`, `triquett`) pass. It governs a hunt's label only as
+  it is made or relabelled, but a userlabel always: since the auth_todos sprint (2026-10-13, thread
+  2) there is one userlabel check (`CK.userlabel`), for one claimed and one held alike, the held
+  rule (`CK.heldUserlabel`) gone. So a word reserved later locks its holder out: the user can make
+  no hunt and be put on none, and every hunt of an org so named is out of reach at its address and
+  refuses every write to its row. The list is grown only after `scripts/check_reserved`, run
+  against production from the branch growing it (it judges by the checkout's list), names no
+  holder. Once waived: thread 7 of the same sprint added `bots`, `test`, `demo`, `sync` and `meta`
+  with production nearly empty, the Coach waiving the run ("the db is mostly empty right now"); the
+  guard ran against a local backend only.
 * 2026-10-11 (oauth sprint, thread 2): `clear_people:clearBatch` (`convex/clear_people.ts`), an
   internal mutation, deletes every row of Convex Auth's tables (`users`, `authAccounts`,
   `authSessions`, `authRefreshTokens`, `authVerifiers`, `authVerificationCodes`,

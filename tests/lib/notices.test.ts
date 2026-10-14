@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  AppNotices, RefusalNotices, botUnavailableNotice, googleGateNotice, googleSignInUnfinishedNotice, keepHandleNotice, nameChoiceQuestion, userUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, sealedNotOnHuntNotice,
+  AppNotices, RefusalNotices, botUnavailableNotice, googleGateNotice, googleSignInUnfinishedNotice, keepHandleNotice, nameChoiceQuestion, userUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice, quizzesAboutNotice, sealedNotOnHuntNotice,
   signedInAsNotice, widgetingShownNotice,
 } from '../../src/lib/notices'
 
@@ -32,9 +32,19 @@ describe('noSuchHuntNotice', () => {
   })
 })
 
+describe("quizzesAboutNotice", () => {
+  it("says the visitor's role mid-sentence, in lower case", () => {
+    expect(quizzesAboutNotice('Smith')).to.eq('Every quiz this hunt holds. You are a smith on it: open a quiz to work on it as a smith, or to review it as a reviewer.')
+  })
+
+  it("says a reviewer is one", () => {
+    expect(quizzesAboutNotice('Reviewer')).to.match(/^Every quiz this hunt holds\. You are a reviewer on it: /)
+  })
+})
+
 describe('userUnknownNotice', () => {
   it('names the handle nobody goes by, and says what they must do', () => {
-    expect(userUnknownNotice('flip_kromer')).to.eq('Nobody goes by the handle "flip_kromer". They need to visit the app and choose it first.')
+    expect(userUnknownNotice('flip_kromer')).to.eq('Nobody goes by the handle “flip_kromer”. They need to visit the app and choose it first.')
   })
 })
 
@@ -75,6 +85,13 @@ describe("the sealing refusals", () => {
     expect(sealed).to.have.lengthOf(6)
     expect(sealed.filter((notice) => /coming|google/i.test(notice))).to.deep.eq([])
     expect(sealed.filter((notice) => ! notice.startsWith(AppNotices.verifyAccount) && ! notice.includes('verified'))).to.deep.eq([])
+  })
+})
+
+describe("the unfinished-handle notices", () => {
+  it("say the fewest characters a handle holds, as the userlabel's pattern does", () => {
+    const said = 'A handle is at least 4 characters long, ending in a letter or number.'
+    expect([AppNotices.userlabelUnfinished, AppNotices.memberLabelUnfinished]).to.deep.eq([said, said])
   })
 })
 

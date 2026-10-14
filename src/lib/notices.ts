@@ -18,16 +18,17 @@ export const AppNotices = {
   openingHunts:         'Opening your hunts…',
   openingHunt:          'Opening the hunt…',
   noHunts:              'No hunts yet.',
+  ownSandbox:           'This is your sandbox: a hunt of your own, named for your handle, to try things in.',
   memberLabelShape:      'A handle is lowercase letters, numbers and single underscores, starting with a letter.',
-  memberLabelUnfinished: 'A handle is at least 6 characters long, ending in a letter or number.',
+  memberLabelUnfinished: `A handle is at least ${String(PA.Userlabel.min)} characters long, ending in a letter or number.`,
   memberLabelReserved:   "No one goes by that handle: it's kept for the app's own use.",
   memberLabelNeeded:     'Type the handle they go by.',
   userlabelShape:       'A handle is lowercase letters, numbers and single underscores, starting with a letter.',
-  userlabelUnfinished:  'A handle is at least 6 characters long, ending in a letter or number.',
+  userlabelUnfinished:  `A handle is at least ${String(PA.Userlabel.min)} characters long, ending in a letter or number.`,
   userlabelReserved:    'That handle is kept for the app\'s own use. Add to it, as my_name or name_2.',
   userlabelGateTitle:   'Sign in or sign up',
   googleGateTitle:      'Add your name',
-  nameAndHandleAbout:   'Your name is what others see. Your handle is used in web links.',
+  nameAndHandleAbout:   'Your name is what others see. Your handle is used in web addresses.',
   untitledQuiz:         'Untitled quiz',
   smithsNoteBlank:      'The theme, the meta, what is left to do…',
   recapHeadBlank:       'First, a huge thank you to the playtesters: {{quiz.playtesters}}…',
@@ -39,7 +40,7 @@ export const AppNotices = {
   othersReviewsBlurb:   "What the other reviewers have shared about this quiz. They can read yours while it's shared, too.",
   othersReviewsHidden:  "Share your review to see what the other reviewers have shared.",
   answerSeen:           'Seen before',
-  answerLocked:         '(...click to reveal answer...)',
+  answerLocked:         '(…click to reveal answer…)',
   copied:               'Copied',
   copyRefused:          'Selected — press Ctrl/Cmd+C',
   copyFailed:           "Couldn't reach the clipboard — nothing was copied.",
@@ -54,7 +55,7 @@ export const AppNotices = {
   branchShape:          'Enter a branch: letters, digits and single underscores, starting with a letter.',
   labelReserved:        'That word is kept for the tool\'s own use. Add to it, as my_label or label_2.',
   branchHelp:           'A new name starts a branch; an old one goes back to it.',
-  huntRelabelMoves:     "Changing this label updates the URL. Old links won't find this page anymore.",
+  huntRelabelMoves:     "Changing this label changes the web address of every quiz in the hunt: old links won't find them anymore.",
   archivingQuestions:   "An archived question leaves the grid, the playtest and the exports, but stays with the quiz. To un-archive it, open the gear (Manage this quiz) and find it under Archived questions.",
   showingQuestions:     "A secondary question is an alternate: its title is shown in italics with (alt) after it, and it sorts after its peers. An archived one leaves the grid, the playtest and the exports; un-archive it from the gear's Archived questions.",
   noArchivedQuestions:  'No questions are archived.',
@@ -63,7 +64,7 @@ export const AppNotices = {
   ifExistingAccount:    'if you have an existing account',
   signUp:               'Sign up',
   saveName:             'Continue',
-  heldByVerifiedAccount:    'Account exists: click "Sign in with Google" if that\'s you.',
+  heldByVerifiedAccount:    "Account exists: click “Sign in with Google” if that's you.",
   heldOtherwise:        'That handle is taken. Choose a different one.',
   standaloneTitle:      'Standalone account',
   standaloneHave:       'Standalone accounts have',
@@ -124,6 +125,7 @@ export const RefusalNotices = {
   quizzesFull:      `A realm holds at most ${String(PA.QuizzesPerRealm.max)} quizzes.`,
   libraryFull:      `The library holds at most ${String(PA.WidgetsInLibrary.max)} widgets.`,
   huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,
+  noRoomForSandbox: `Your handle wasn't saved: every new handle comes with a hunt of its own, and the app already holds the most hunts it can (${String(PA.HuntsInApp.max)}).`,
   orgFull:          `One handle may make at most ${String(PA.HuntsPerOrg.max)} hunts.`,
   huntshipsFull:    `A hunt holds at most ${String(PA.HuntshipsPerHunt.max)} members.`,
   sealedHunts:      `${AppNotices.verifyAccount} to make more hunts than the one named for your handle.`,
@@ -216,10 +218,22 @@ export function nameChoiceQuestion(merged: string, own: string): string {
  * Why a smith could not add `label` to a hunt: nobody has chosen that handle yet. The refusal
  * `userUnknown` says it of the userlabel refused.
  *
- * @example userUnknownNotice('flip_kromer')  // => 'Nobody goes by the handle "flip_kromer". They need to visit the app and choose it first.'
+ * @example userUnknownNotice('flip_kromer')  // => 'Nobody goes by the handle “flip_kromer”. They need to visit the app and choose it first.'
  */
 export function userUnknownNotice(label: string): string {
-  return `Nobody goes by the handle "${label}". They need to visit the app and choose it first.`
+  return `Nobody goes by the handle “${label}”. They need to visit the app and choose it first.`
+}
+
+/**
+ * What a hunt's list of its quizzes says of itself: the visitor's role on it, said mid-sentence
+ * in lower case, and what each role opens a quiz to do.
+ *
+ * @param roleTitle - The visitor's role on the hunt, as a table names it (`HuntRoleTitles`).
+ *
+ * @example quizzesAboutNotice('Smith')  // => 'Every quiz this hunt holds. You are a smith on it: open a quiz to work on it as a smith, or to review it as a reviewer.'
+ */
+export function quizzesAboutNotice(roleTitle: string): string {
+  return `Every quiz this hunt holds. You are a ${roleTitle.toLowerCase()} on it: open a quiz to work on it as a smith, or to review it as a reviewer.`
 }
 
 /**
