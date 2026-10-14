@@ -1,6 +1,6 @@
 # Sprint `auth_todos`: progress
 
-**Status: threads 1-5 and 7 landed (#247, #248, #250, #251, #252, #253); thread 6 landing (2026-10-14).**
+**Status: thread 8 landing (second review clean; full e2e as the sprint-end run) (added by the Coach, 2026-10-14). Threads 1-7 landed: #247, #248, #250, #251, #252, #253, #254, one stack, all open; sprint-end full run 326/326, no flakes (thread 6's landing proof). See `human/20261014-sprint_auth_todos_done.md`.**
 
 The running handoff, newer than `auth_todos-plan.md` wherever the two disagree. Each thread writes
 its own section to `thread-<N>-<label>.md` beside this file; the orchestrator curates this one.
@@ -12,8 +12,9 @@ its own section to `thread-<N>-<label>.md` beside this file; the orchestrator cu
 | 3 | `mock_google`: a mock Google; signup, signin, verify tested through | landed #250 | `20261013-mock_google` | [#250](https://github.com/mrflip/triquet/pull/250) |
 | 4 | `short_userlabel`: a userlabel may be four letters | landed #251 | `20261013-short_userlabel` | [#251](https://github.com/mrflip/triquet/pull/251) |
 | 5 | `auto_sandbox`: the sandbox and its first quiz, made for you | landed #253 | `20261013-auto_sandbox` | [#253](https://github.com/mrflip/triquet/pull/253) |
-| 6 | `microcontent`: the microcontent, consistent | landing | `20261014-microcontent` | |
+| 6 | `microcontent`: the microcontent, consistent | landed #254 | `20261014-microcontent` | [#254](https://github.com/mrflip/triquet/pull/254) |
 | 7 | `more_reserved`: five more top-level reserved words | landed #252 | `20261013-more_reserved` | [#252](https://github.com/mrflip/triquet/pull/252) |
+| 8 | `reserved_guard`: `bot`, `tests`, `demos`; the guard reads every label | landing | `20261014-reserved_guard` | |
 
 Full e2e runs at landing: none yet (the fourth landing carries one). Thread 1 landed with e2e skipped (doc comments and notes only); thread 2's `--touched` ran the whole suite, 319/319, no flakes; thread 3 ran the full suite, 325/325, no flakes (on the top before thread 2; `google-sign-in` and `routing` rerun after, 75/75). Thread 4, the fourth landing, carried a full run: 325/325, no flakes. Thread 7's `--touched` ran the whole suite, 325/325, no flakes; thread 5's, 326/326, no flakes. Thread 6, last, proves with the full suite so it serves as the sprint-end run.
 
@@ -77,7 +78,7 @@ context once it reset. Thread 4's failure notice came after it had landed; nothi
   not that the handle wasn't taken (thread 5); (c) the sandbox page is every new user's first
   screen now (thread 5).
 * **The app's copy is sentence case**, now written down in `notes/views.md`, *Microcontent*
-  (thread 6, in review); the survey and the Coach's ranked list are `microcontent-survey.md`
+  (thread 6, #254); the survey and the Coach's ranked list are `microcontent-survey.md`
   (on thread 6's branch until it lands). The user menu "closing itself" after Google was measured
   and is not that: a click in the first ~300 ms, before hydration, is lost; no fix.
 
@@ -117,3 +118,8 @@ context once it reset. Thread 4's failure notice came after it had landed; nothi
   sign-up reads the whole `hunts` table for the cap, so bursts may hit write conflicts (a counter
   would fix it; outside the sprint). The first quiz cannot be split off: every hunt is made with
   one, and a realm must hold one.
+* **Thread 6, #254.** *Review: clean.* No missed spec on any changed string; `RefTitles` labels
+  match their old text; `noRoomForSandbox` only through `makeSandboxFor`; `ownSandbox` only on the
+  viewer's own sandbox. The reviewer's wording minor was taken before landing ("This is your
+  sandbox: a hunt of your own, named for your handle, to try things in."). The Coach's ranked list
+  is `microcontent-survey.md`, *For the Coach*. Full suite 326/326, no flakes: the sprint-end run.

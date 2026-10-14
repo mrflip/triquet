@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-13. Mode: **normal**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip), as `/sprint auth_todos` (the threads, verbatim below; the same items
-head `whiteboard/TODO.md`'s *Tiny Tasks*). **Status: threads 1-5 and 7 landed (#247, #248, #250, #251, #252, #253); thread 6 landing.** `auth_todos-progress.md`, beside
+head `whiteboard/TODO.md`'s *Tiny Tasks*). **Status: thread 8 landing (second review clean; full e2e as the sprint-end run) (added by the Coach, 2026-10-14). Threads 1-7 landed: #247, #248, #250-#254 (one stack, all open); see `human/20261014-sprint_auth_todos_done.md`.** `auth_todos-progress.md`, beside
 this file, is newer than this plan wherever the two disagree.
 
 The spine was empty at planning: the oauth sprint and its follow-ups (#226-#246) are merged, and
@@ -51,7 +51,8 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 ## Threads
 
 Wave one, side by side: 1, 2 and 3. Then 4 (after 2); 5 (after 3); 6 last (after 1-5). Thread 7,
-added by the Coach after 4 landed, beside 5.
+added by the Coach after 4 landed, beside 5. Thread 8, added by the Coach after the sprint closed, on
+the top (after 7).
 
 ### 1. The domain is triquet.me (`domain`)
 
@@ -179,6 +180,37 @@ Run `scripts/check_reserved` against the lane's own local backend and fixtures, 
 **Look-ahead:** thread 5 makes a sandbox labelled with the handle, so a handle `test` was the
 likeliest test data; thread 6 (copy) is unaffected.
 
+### 8. Three more reserved forms, and a guard over every label (`reserved_guard`, the Coach, 2026-10-14)
+
+*Coach's text:* "Yes, add the three, and have the checker cover every file" -- answering the
+orchestrator's offer: "add `bot`, `tests` and `demos`, and extend the guard to every labelled
+table."
+
+Gloss, two parts:
+
+* **The three words.** `bot`, `tests` and `demos` join `PA.ReservedToplevelGroups` as whole words
+  beside their siblings (`bot` with `bots` in *voices*; `tests`, `demos` in *trials*), pinned by
+  the reserved-words tests. Not prefixes: e2e's handles are `tester_…`. `metas` stays free. The
+  Coach's waiver of thread 7 ("the db is mostly empty right now") is taken to cover these three;
+  the thread file says so, and runs the guard against its own lane's backend and fixtures, and
+  searches `e2e/`, `tests/` and `fixtures/` for the three.
+* **The guard over every label.** `scripts/check_reserved` and `check_reserved:held` today read
+  userlabels (users, ghostings) and hunts' org and label, so they guard only the top-level list.
+  Make them guard the base list too (`PA.ReservedLabelGroups`, `PA.Unreserved`): read every label
+  the deployment holds -- every field the row validators check with the label check (`CK.label`
+  and kin) in every table (realms, quizzes, widgets, widgetings, columns and any other; find them
+  from the validators, do not guess) -- and judge each against the checkout's list *as that field
+  is judged when written* (a widgeting's own namespace list, `ReservedWidgetingLabels`, included,
+  and any `allowed` words a field lets through). Report each by where it sits (hunt address,
+  quiz, table, field), so a person can find it. Tables with no cap (questions and the like) may
+  outgrow one query's read limit: page through them (one internal query per page, the script
+  looping) rather than `take`-ing a cap that silently truncates. Update the doc blocks,
+  `notes/deploy.md` (*Checking the reserved list against production*) and `PA.ReservedLabelGroups`'
+  own doc block so they say the guard now covers growth of either list.
+
+Depends on: 7 (landed). **Look-ahead:** nothing later; this closes open question 6 and 7 in
+`human/20261014-sprint_auth_todos_done.md`.
+
 ## Decisions taken
 
 1. **`oauth2-mock-server`** is chosen for thread 3 (the Coach's suggestion, confirmed: reasons in the gloss).
@@ -190,6 +222,15 @@ likeliest test data; thread 6 (copy) is unaffected.
    username." So the landing is the sandbox's hunt page, not the quiz.
 4. **Sentence case** is the default convention thread 6 holds the copy to, unless its survey finds
    the app already settled on another.
+
+5. **Thread 8's guard and the deploy order** (*the Coach, 2026-10-14*, on the flagged review):
+   "Waiver + fix docs". The guard reads through `check_reserved:page`, which production gains only
+   when this stack deploys, so it cannot check production first; thread 7's waiver covers this one
+   deploy, and the thread file and `notes/deploy.md` say the guard must be deployed before it can
+   check a deployment.
+6. **Thread 8's guard strips contact fields** (*the Coach, 2026-10-14*): "Strip them". Users'
+   email, phone and Google email leave no deployment through `check_reserved:page`; no verdict is
+   lost, as no validator label-checks them.
 
 ## For the Coach
 
